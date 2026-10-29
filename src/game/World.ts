@@ -18,6 +18,7 @@ export class World {
   readonly size = 110;
   readonly scene: THREE.Scene;
   readonly resources: Resource[] = [];
+  readonly waterSources: { x: number; z: number }[] = [];
   readonly landmarks: LandMark[] = [
     { x: 0, z: 0, biome: 'meadow', label: 'Родная поляна' },
     { x: 34, z: 31, biome: 'garden', label: 'Дачный огород' },
@@ -28,6 +29,7 @@ export class World {
   readonly seed: number;
   private rng: Random;
   private rain?: THREE.Points;
+  private butterflies: {mesh:THREE.Group;x:number;z:number;phase:number}[]=[];
 
   constructor(scene: THREE.Scene, seed: number) {
     this.scene = scene; this.seed = seed; this.rng = new Random(seed);
@@ -98,7 +100,68 @@ export class World {
       }
     }
     this.makeGarden(34, 31, 16); this.makeGarden(-35, 29, 13);
+    this.makePond(9, -7, 4.4); this.makePond(-28, -25, 6); this.makePond(-39, -18, 3.5);
+    this.makeSmallDetails();
+    this.makeButterflies();
     this.makeBoundary();
+  }
+
+  private makePond(x: number, z: number, radius: number): void {
+    const g = new THREE.Group(); g.position.set(x, 0, z);
+    const shore = new THREE.Mesh(new THREE.CircleGeometry(radius + 0.55, 28), mat(0x827f5b));
+    shore.rotation.x = -Math.PI / 2; shore.position.y = 0.014; g.add(shore);
+    const water = new THREE.Mesh(new THREE.CircleGeometry(radius, 28), new THREE.MeshStandardMaterial({ color: 0x75b1ad, roughness: 0.22, metalness: 0.08, transparent: true, opacity: 0.88 }));
+    water.rotation.x = -Math.PI / 2; water.position.y = 0.025; g.add(water);
+    const reedMat = mat(0x829d5c);
+    for (let i = 0; i < 25; i++) {
+      const a = this.rng.range(0, Math.PI * 2), d = this.rng.range(radius + 0.2, radius + 1.1);
+      const reed = new THREE.Mesh(cone, reedMat); reed.position.set(Math.cos(a) * d, 0.33, Math.sin(a) * d);
+      reed.scale.set(0.06, this.rng.range(0.5, 0.85), 0.06); g.add(reed);
+    }
+    this.scene.add(g); this.waterSources.push({ x, z });
+  }
+
+  private makeSmallDetails(): void {
+    const grassGeo = new THREE.ConeGeometry(0.12, 0.6, 3), stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
+    const grass = new THREE.InstancedMesh(grassGeo, mat(0x88b66d), 2200);
+    const stones = new THREE.InstancedMesh(stoneGeo, mat(0x9a9b89), 370);
+    const flowers = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.075, 0), mat(0xf4d7aa), 620);
+    const dummy = new THREE.Object3D(); const color = new THREE.Color();
+    for (let i = 0; i < 2200; i++) {
+      const x = this.rng.range(-102, 102), z = this.rng.range(-102, 102);
+      dummy.position.set(x, 0.25, z); dummy.rotation.y = this.rng.range(0, Math.PI * 2); dummy.scale.setScalar(this.rng.range(0.65, 1.4)); dummy.updateMatrix(); grass.setMatrixAt(i, dummy.matrix);
+      grass.setColorAt(i, color.setHex(this.biomeAt(x,z)==='swamp'?0x76966c:this.biomeAt(x,z)==='garden'?0x94a467:0x8bb467));
+    }
+    for (let i = 0; i < 370; i++) {
+      dummy.position.set(this.rng.range(-101,101), 0.12, this.rng.range(-101,101)); dummy.rotation.y = this.rng.range(0,6.28); dummy.scale.setScalar(this.rng.range(0.6,2.5)); dummy.updateMatrix(); stones.setMatrixAt(i,dummy.matrix);
+    }
+    for (let i = 0; i < 620; i++) {
+      const x = this.rng.range(-102,102), z = this.rng.range(-102,102);
+      dummy.position.set(x, 0.47, z); dummy.rotation.y = 0; dummy.scale.setScalar(this.rng.range(0.8,1.6)); dummy.updateMatrix(); flowers.setMatrixAt(i,dummy.matrix);
+      flowers.setColorAt(i,color.setHex(this.rng.pick([0xf5e6d2,0xeebfc5,0xebdf8b,0xc6b7dd])));
+    }
+    this.scene.add(grass, stones, flowers);
+    const logMat = mat(0x6e5541), moss = mat(0x63875c);
+    for (let i = 0; i < 65; i++) {
+      const x = this.rng.range(-98,98), z = this.rng.range(-98,98);
+      if (this.biomeAt(x,z)==='garden' || Math.hypot(x,z)<12) continue;
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,this.rng.range(1.2,3.1),7),logMat);
+      log.rotation.z = Math.PI/2; log.rotation.y = this.rng.range(0,6.28); log.position.set(x,0.24,z); log.castShadow=true; this.scene.add(log);
+      blob(this.scene,moss,x+0.3,0.35,z,0.22,0.08,0.16);
+    }
+  }
+
+  private makeButterflies():void {
+    const wingGeo=new THREE.SphereGeometry(1,8,6);
+    for(let i=0;i<38;i++){
+      const x=this.rng.range(-95,95),z=this.rng.range(-95,95);
+      if(this.biomeAt(x,z)==='swamp')continue;
+      const root=new THREE.Group(),wingMat=mat(this.rng.pick([0xe9c17d,0xd6b5d5,0xe6e2a0,0xa8d1d1]));
+      for(const side of [-1,1]){
+        const wing=new THREE.Mesh(wingGeo,wingMat);wing.position.set(side*0.12,0,0);wing.scale.set(0.15,0.025,0.1);root.add(wing);
+      }
+      root.position.set(x,0.9,z);this.scene.add(root);this.butterflies.push({mesh:root,x,z,phase:i*2.37});
+    }
   }
 
   private makeGarden(x: number, z: number, r: number): void {
@@ -169,6 +232,10 @@ export class World {
     return best;
   }
 
+  nearWater(x: number, z: number, radius = 5): boolean {
+    return this.waterSources.some(w => Math.hypot(w.x-x,w.z-z) < radius);
+  }
+
   harvest(resource: Resource, clock: number): void {
     resource.available = false; resource.mesh.visible = false; resource.regrowAt = clock + 110 + (resource.id % 60);
   }
@@ -176,7 +243,14 @@ export class World {
   update(clock: number, time: number, weather: Weather): void {
     for (const r of this.resources) if (!r.available && clock >= r.regrowAt) { r.available = true; r.mesh.visible = true; }
     for (const r of this.resources) if (r.available && r.mesh.visible) r.mesh.rotation.y = Math.sin(time * 0.7 + r.id) * 0.04;
-    if (this.rain) this.rain.visible = weather === 'rain';
+    if (this.rain) {
+      this.rain.visible = weather === 'rain'||weather==='snow';
+      const material=this.rain.material as THREE.PointsMaterial;
+      material.color.setHex(weather==='snow'?0xf4f7f3:0xc7d9db);
+      material.size=weather==='snow'?0.2:0.09;
+    }
+    if(this.scene.fog instanceof THREE.FogExp2)this.scene.fog.density=weather==='mist'?0.026:weather==='rain'?0.017:0.012;
+    for(const b of this.butterflies){b.mesh.position.set(b.x+Math.sin(time*0.7+b.phase)*1.5,0.8+Math.sin(time*2+b.phase)*0.2,b.z+Math.cos(time*0.5+b.phase)*1.1);b.mesh.rotation.y=time*0.5+b.phase;b.mesh.children.forEach((wing,i)=>{wing.rotation.z=(i===0?-1:1)*Math.sin(time*19+b.phase)*0.55;});}
   }
 
   setRain(): void {
@@ -187,10 +261,10 @@ export class World {
     this.rain.visible = false; this.scene.add(this.rain);
   }
 
-  updateRain(dt: number, x: number, z: number): void {
+  updateRain(dt: number, x: number, z: number, weather:Weather): void {
     if (!this.rain?.visible) return;
     const attr = this.rain.geometry.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < attr.count; i++) { let y = attr.getY(i) - dt * 15; if (y < 0) y = 20; attr.setY(i, y); }
+    for (let i = 0; i < attr.count; i++) { let y = attr.getY(i) - dt * (weather==='snow'?3.2:15); if (y < 0) y = 20; attr.setY(i, y); }
     attr.needsUpdate = true; this.rain.position.x = x; this.rain.position.z = z;
   }
 }

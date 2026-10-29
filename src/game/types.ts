@@ -1,7 +1,7 @@
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind = 'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries';
 export type PredatorKind = 'fox' | 'wolf' | 'dog';
-export type Weather = 'clear' | 'rain' | 'mist';
+export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {
@@ -34,6 +34,10 @@ export interface KitData {
   father: string;
   burrowId: number;
   alive: boolean;
+  nestId?: number;
+  command?: 'follow' | 'stay' | 'rest';
+  stayX?: number;
+  stayZ?: number;
 }
 
 export interface BurrowData {
@@ -44,6 +48,16 @@ export interface BurrowData {
   stores: number;
   bedding: number;
   isHome: boolean;
+  cells?: string[];
+}
+
+export interface NestData {
+  id: number;
+  burrowId: number | null;
+  x: number;
+  z: number;
+  quality: number;
+  level?: number;
 }
 
 export interface SaveData {
@@ -51,9 +65,12 @@ export interface SaveData {
   seed: number;
   clock: number;
   day: number;
-  player: { x: number; z: number; genes: Genes; hunger: number; energy: number; bladder: number; health: number; age: number; hidden: boolean };
+  player: { x: number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean };
   inventory: Record<FoodKind, number>;
   burrows: BurrowData[];
+  nests: NestData[];
+  materials: { grass: number; twigs: number; fur: number };
+  underground: { burrowId: number; x: number; z: number; level?: number } | null;
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];

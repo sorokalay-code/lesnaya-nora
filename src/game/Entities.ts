@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Random } from './Random';
-import { animateRabbit, createPredator, createRabbit, type RabbitRig } from './Models';
+import { animatePredator, animateRabbit, createPredator, createRabbit, type RabbitRig } from './Models';
 import { type Genes, type PartnerTraits, type PredatorKind } from './types';
 
 const names = ['Листик', 'Тимофей', 'Пушок', 'Рыжик', 'Ветерок', 'Клевер', 'Туман', 'Шорох', 'Орешек', 'Бор'];
@@ -34,20 +34,36 @@ export class RabbitActor {
   readonly rig: RabbitRig;
   private wanderAngle = 0;
   private nextTurn = 0;
+  private activity: 'forage' | 'rest' | 'explore' = 'explore';
+  private targetX: number;
+  private targetZ: number;
   constructor(readonly data: PartnerTraits, private readonly rng: Random) {
     this.rig = createRabbit(data.genes); this.rig.root.position.set(data.x, 0, data.z);
+    this.targetX=data.x;this.targetZ=data.z;
   }
   update(dt: number, time: number, playerX: number, playerZ: number): void {
-    if (time > this.nextTurn) { this.nextTurn = time + this.rng.range(2, 7); this.wanderAngle = this.rng.range(-Math.PI, Math.PI); }
+    if (time > this.nextTurn || Math.hypot(this.targetX-this.data.x,this.targetZ-this.data.z)<0.7) {
+      this.nextTurn = time + this.rng.range(4, 9);
+      this.activity=this.rng.pick(['forage','forage','rest','explore'] as const);
+      this.wanderAngle = this.rng.range(-Math.PI, Math.PI);
+      const distance=this.activity==='explore'?this.rng.range(4,9):this.rng.range(1.5,4);
+      this.targetX=this.data.x+Math.sin(this.wanderAngle)*distance;
+      this.targetZ=this.data.z+Math.cos(this.wanderAngle)*distance;
+    }
     const near = Math.hypot(playerX - this.data.x, playerZ - this.data.z) < 3;
-    if (!near) {
-      const nx = this.data.x + Math.sin(this.wanderAngle) * dt * 0.35;
-      const nz = this.data.z + Math.cos(this.wanderAngle) * dt * 0.35;
+    const moving=!near&&this.activity!=='rest';
+    if (moving) {
+      const direction=Math.atan2(this.targetX-this.data.x,this.targetZ-this.data.z);
+      const nx = this.data.x + Math.sin(direction) * dt * (this.activity==='explore'?1.4:0.75);
+      const nz = this.data.z + Math.cos(direction) * dt * (this.activity==='explore'?1.4:0.75);
       if (Math.hypot(nx, nz) < 95) { this.data.x = nx; this.data.z = nz; }
+      this.wanderAngle=direction;
     }
     this.rig.root.position.x = this.data.x; this.rig.root.position.z = this.data.z;
-    this.rig.root.rotation.y = near ? Math.atan2(-(playerX - this.data.x), -(playerZ - this.data.z)) : this.wanderAngle + Math.PI;
-    animateRabbit(this.rig, time + this.data.id, !near && Math.sin(time * 0.7 + this.data.id) > -0.4);
+    const targetRotation = near ? Math.atan2(-(playerX - this.data.x), -(playerZ - this.data.z)) : this.wanderAngle + Math.PI;
+    const turn=Math.atan2(Math.sin(targetRotation-this.rig.root.rotation.y),Math.cos(targetRotation-this.rig.root.rotation.y));
+    this.rig.root.rotation.y+=THREE.MathUtils.clamp(turn,-2.7*dt,2.7*dt);
+    animateRabbit(this.rig, time + this.data.id, moving, false, dt);
   }
 }
 
@@ -56,12 +72,12 @@ export class FamilyMember {
   constructor(private readonly parent: PartnerTraits, genes: Genes, private readonly index: number, baby: boolean) {
     this.rig = createRabbit(genes, baby);
   }
-  update(time: number): void {
+  update(time: number, dt: number): void {
     const angle = time * (0.12 + this.index * 0.016) + this.index * 2.5;
     const radius = 1.3 + (this.index % 3) * 0.35;
     this.rig.root.position.set(this.parent.x + Math.cos(angle) * radius, 0, this.parent.z + Math.sin(angle) * radius);
     this.rig.root.rotation.y = -angle;
-    animateRabbit(this.rig, time + this.index * 2, true);
+    animateRabbit(this.rig, time + this.index * 2, true, false, dt);
   }
 }
 
@@ -71,8 +87,10 @@ export class Predator {
   private nextTarget = 0;
   attackCooldown = 0;
   readonly range: number;
+  private homeX:number;private homeZ:number;
   constructor(readonly kind: PredatorKind, x: number, z: number, private readonly rng: Random) {
     this.x = this.targetX = x; this.z = this.targetZ = z;
+    this.homeX=x;this.homeZ=z;
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
     this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : 11;
   }
@@ -80,6 +98,7 @@ export class Predator {
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting = !hidden && dist < this.range && (this.kind === 'dog' || !day || dist < 7);
     if (hunting) { this.targetX = px; this.targetZ = pz; }
+    else if(Math.hypot(this.x-this.homeX,this.z-this.homeZ)>20){this.targetX=this.homeX;this.targetZ=this.homeZ;}
     else if (time > this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1) {
       this.nextTarget = time + this.rng.range(4, 10);
       this.targetX = Math.max(-95, Math.min(95, this.x + this.rng.range(-14, 14)));
@@ -90,6 +109,7 @@ export class Predator {
     this.x += Math.sin(angle) * speed * dt; this.z += Math.cos(angle) * speed * dt;
     this.root.position.set(this.x, Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02), this.z);
     this.root.rotation.y = angle + Math.PI;
+    animatePredator(this.root,time,hunting,dt);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (hunting && dist < 1.5 && this.attackCooldown <= 0) { this.attackCooldown = 3; return true; }
     return false;

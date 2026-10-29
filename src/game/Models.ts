@@ -10,7 +10,7 @@ function part(parent: THREE.Object3D, geometry: THREE.BufferGeometry, material: 
   parent.add(m); return m;
 }
 
-export interface RabbitRig { root: THREE.Group; leftEar: THREE.Group; rightEar: THREE.Group; paws: THREE.Group[]; tail: THREE.Mesh; head: THREE.Group; }
+export interface RabbitRig { root: THREE.Group; body: THREE.Mesh; leftEar: THREE.Group; rightEar: THREE.Group; paws: THREE.Group[]; eyes: THREE.Mesh[]; tail: THREE.Mesh; head: THREE.Group; }
 
 export function createRabbit(genes: Genes, baby = false): RabbitRig {
   const root = new THREE.Group();
@@ -21,14 +21,18 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
   const pink = new THREE.MeshStandardMaterial({ color: 0xd88f9b, roughness: 0.9, side: THREE.DoubleSide });
   const eye = new THREE.MeshStandardMaterial({ color: 0x1d211b, roughness: 0.2 });
   const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  part(root, sphere, fur, [0, 0.52, 0], [0.4, 0.34, 0.61]);
+  const body = part(root, sphere, fur, [0, 0.52, 0], [0.4, 0.34, 0.61]);
   part(root, sphere, light, [0, 0.31, 0.27], [0.28, 0.16, 0.27]);
+  part(root, sphere, light, [0, 0.68, -0.28], [0.23, 0.22, 0.22]);
+  for (const side of [-1,1]) part(root, sphere, light, [side*0.29,0.63,0.32],[0.09,0.07,0.16]);
   const head = new THREE.Group(); head.position.set(0, 0.69, -0.44); root.add(head);
   part(head, sphere, fur, [0, 0, 0], [0.32, 0.3, 0.31]);
   part(head, sphere, light, [0, -0.11, -0.24], [0.19, 0.13, 0.16]);
+  const eyes: THREE.Mesh[] = [];
   for (const side of [-1, 1]) {
-    part(head, sphere, eye, [side * 0.235, 0.065, -0.175], [0.05, 0.064, 0.04]);
+    eyes.push(part(head, sphere, eye, [side * 0.235, 0.065, -0.175], [0.05, 0.064, 0.04]));
     part(head, sphere, shine, [side * 0.245 - 0.012, 0.087, -0.207], [0.014, 0.018, 0.008]);
+    part(head, sphere, light, [side*0.12,-0.105,-0.25],[0.125,0.08,0.13]);
     const ear = new THREE.Group(); ear.position.set(side * 0.17, 0.19, 0.065); head.add(ear);
     ear.rotation.z = side * -0.12;
     part(ear, sphere, fur, [0, genes.ear * 0.31, 0], [0.115, genes.ear * 0.42, 0.07]);
@@ -46,20 +50,33 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
   for (const side of [-1, 1]) for (const rear of [false, true]) {
     const paw = new THREE.Group(); paw.position.set(side * 0.3, 0.23, rear ? 0.39 : -0.35); root.add(paw);
     part(paw, sphere, fur, [0, -0.07, rear ? 0.07 : -0.05], [rear ? 0.2 : 0.13, 0.17, rear ? 0.23 : 0.16]);
+    for(let toe=0;toe<3;toe++) part(paw,sphere,light,[(toe-1)*(rear?0.1:0.075),-0.19,rear?-0.11:-0.18],[0.038,0.025,0.06]);
     paws.push(paw);
   }
   const tail = part(root, sphere, light, [0, 0.54, 0.58], [0.17, 0.17, 0.17]);
-  return { root, leftEar: root.userData.leftEar as THREE.Group, rightEar: root.userData.rightEar as THREE.Group, paws, tail, head };
+  return { root, body, leftEar: root.userData.leftEar as THREE.Group, rightEar: root.userData.rightEar as THREE.Group, paws, eyes, tail, head };
 }
 
-export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frightened = false): void {
-  const hop = moving ? Math.abs(Math.sin(time * (frightened ? 18 : 12))) * 0.16 : 0;
-  r.root.position.y = hop;
-  r.leftEar.rotation.z = -0.12 + Math.sin(time * 3.1) * 0.09 + (frightened ? -0.14 : 0);
-  r.rightEar.rotation.z = 0.12 - Math.sin(time * 2.7 + 1) * 0.09 + (frightened ? 0.14 : 0);
-  r.head.rotation.x = Math.sin(time * 2) * 0.022;
-  r.tail.rotation.y = Math.sin(time * 8) * 0.2;
-  r.paws.forEach((paw, i) => { paw.rotation.x = moving ? Math.sin(time * 12 + (i % 2) * Math.PI) * 0.34 : 0; });
+export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frightened = false, dt = 1/60): void {
+  const state = r.root.userData as { motion?: number; phase?: number };
+  state.motion = THREE.MathUtils.damp(state.motion ?? 0, moving ? 1 : 0, 7, dt);
+  state.phase = (state.phase ?? 0) + dt * (frightened ? 17 : 11) * Math.max(0.15, state.motion);
+  const motion = state.motion, phase = state.phase;
+  const lift = Math.pow(Math.max(0, Math.sin(phase)), 1.5) * 0.18 * motion;
+  r.root.position.y = THREE.MathUtils.damp(r.root.position.y, lift, 10, dt);
+  r.body.scale.y = THREE.MathUtils.damp(r.body.scale.y, 0.34 * (1 - Math.max(0,Math.sin(phase)) * 0.07 * motion), 9, dt);
+  r.head.rotation.x = THREE.MathUtils.damp(r.head.rotation.x, Math.sin(time * 1.7) * 0.035 + Math.sin(phase) * 0.04 * motion, 6, dt);
+  r.leftEar.rotation.z = THREE.MathUtils.damp(r.leftEar.rotation.z, -0.12 + Math.sin(time * 2.2) * 0.035 - motion * 0.08 - (frightened ? 0.14 : 0), 5, dt);
+  r.rightEar.rotation.z = THREE.MathUtils.damp(r.rightEar.rotation.z, 0.12 + Math.sin(time * 2.4 + 1) * 0.035 + motion * 0.08 + (frightened ? 0.14 : 0), 5, dt);
+  r.tail.rotation.y = Math.sin(time * 4) * 0.13;
+  r.paws.forEach((paw, i) => {
+    const rear = i % 2 === 1;
+    const target = Math.sin(phase + (i < 2 ? 0 : Math.PI) + (rear ? 0.7 : 0)) * (rear ? 0.42 : 0.55) * motion;
+    paw.rotation.x = THREE.MathUtils.damp(paw.rotation.x, target, 12, dt);
+    paw.position.y = 0.23 + Math.max(0, Math.sin(phase + i * Math.PI * 0.5)) * 0.055 * motion;
+  });
+  const blink = Math.sin(time * 0.63 + r.root.id) > 0.997 ? 0.09 : 1;
+  r.eyes.forEach(e => { e.scale.y = THREE.MathUtils.damp(e.scale.y, 0.064 * blink, 18, dt); });
 }
 
 export function createPredator(kind: PredatorKind): THREE.Group {
@@ -76,14 +93,25 @@ export function createPredator(kind: PredatorKind): THREE.Group {
   part(head, sphere, fur, [0, 0, 0], [0.29, 0.25, 0.35]);
   part(head, sphere, pale, [0, -0.1, -0.33], [0.2, 0.13, 0.29]);
   part(head, sphere, dark, [0, -0.075, -0.58], [0.09, 0.07, 0.07]);
+  const legs: THREE.Group[] = [];
   for (const side of [-1, 1]) {
     const e = part(head, cone, fur, [side * 0.19, 0.27, 0.06], [0.13, 0.35, 0.12]); e.rotation.z = side * 0.17;
     part(head, sphere, dark, [side * 0.22, 0.06, -0.22], [0.04, 0.04, 0.04]);
-    for (const z of [-0.5, 0.5]) part(root, sphere, fur, [side * 0.27, 0.28, z], [0.13, 0.31, 0.13]);
+    for (const z of [-0.5, 0.5]) {
+      const leg = new THREE.Group(); leg.position.set(side*0.27,0.45,z); root.add(leg);
+      part(leg,sphere,fur,[0,-0.18,0],[0.13,0.31,0.13]);
+      part(leg,sphere,dark,[0,-0.4,-0.09],[0.14,0.06,0.18]); legs.push(leg);
+    }
   }
   const tail = part(root, sphere, fur, [0, 0.74, 0.85], [0.2, 0.2, 0.52]); tail.rotation.x = -0.5;
   part(root, sphere, pale, [0, 0.94, 1.17], [0.13, 0.13, 0.19]);
+  root.userData.legs = legs;
   return root;
+}
+
+export function animatePredator(root: THREE.Group, time: number, running: boolean, dt: number): void {
+  const legs = root.userData.legs as THREE.Group[];
+  for(let i=0;i<legs.length;i++) legs[i].rotation.x = THREE.MathUtils.damp(legs[i].rotation.x, Math.sin(time*(running?14:6)+i*Math.PI*0.7)*(running?0.55:0.24), 9, dt);
 }
 
 export function makeBurrow(depth: number): THREE.Group {
@@ -95,6 +123,21 @@ export function makeBurrow(depth: number): THREE.Group {
   for (let i = 0; i < 5; i++) {
     const a = i * 2.4;
     part(root, sphere, soil, [Math.sin(a) * 0.77, 0.18, Math.cos(a) * 0.62], [0.24, 0.17, 0.23]);
+  }
+  return root;
+}
+
+export function makeNest(): THREE.Group {
+  const root = new THREE.Group();
+  const straw = new THREE.MeshStandardMaterial({color:0xbd9a63,roughness:1});
+  const twig = new THREE.MeshStandardMaterial({color:0x71543d,roughness:1});
+  const fur = new THREE.MeshStandardMaterial({color:0xe5dac0,roughness:1});
+  part(root,sphere,straw,[0,0.08,0],[0.86,0.16,0.75]);
+  part(root,sphere,fur,[0,0.16,0],[0.55,0.1,0.47]);
+  for(let i=0;i<14;i++) {
+    const a=i*Math.PI*2/14;
+    const branch=part(root,new THREE.CylinderGeometry(0.025,0.035,0.62,4),twig,[Math.cos(a)*0.65,0.2,Math.sin(a)*0.55],[1,1,1]);
+    branch.rotation.z=Math.PI/2; branch.rotation.y=a;
   }
   return root;
 }
