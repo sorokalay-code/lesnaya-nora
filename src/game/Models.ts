@@ -155,17 +155,17 @@ export function createHawk():THREE.Group{
   return root;
 }
 
-export function makeBurrow(depth: number): THREE.Group {
-  const root = new THREE.Group();
-  const soil = new THREE.MeshStandardMaterial({ color: 0x7c5a3e, roughness: 1 });
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.72+depth*0.04,0.21,8,16),soil);
-  ring.rotation.x=Math.PI/2;ring.position.set(0,0.08,-0.35);ring.castShadow=true;root.add(ring);
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.67,0.72,2.05,14,1,true),new THREE.MeshStandardMaterial({color:0x5b4534,roughness:1,side:THREE.BackSide}));
-  shaft.position.set(0,-0.97,-0.35);root.add(shaft);
-  for (let i = 0; i < 5; i++) {
-    const a = i * 2.4;
-    part(root, sphere, soil, [Math.sin(a) * 0.77, 0.18, Math.cos(a) * 0.62], [0.24, 0.17, 0.23]);
+export function makeStash():THREE.Group{
+  const root=new THREE.Group();
+  const straw=new THREE.MeshStandardMaterial({color:0xa88157,roughness:1});
+  const food=new THREE.MeshStandardMaterial({color:0xc98548,roughness:1});
+  part(root,sphere,straw,[0,0.13,0],[0.55,0.16,0.45]);
+  for(let i=0;i<6;i++){
+    const a=i*Math.PI/3;
+    const stick=part(root,new THREE.CylinderGeometry(0.025,0.035,0.75,5),straw,[Math.cos(a)*0.37,0.18,Math.sin(a)*0.32],[1,1,1]);
+    stick.rotation.x=Math.PI/2;stick.rotation.y=a;
   }
+  for(let i=0;i<4;i++)part(root,sphere,food,[(i-1.5)*0.2,0.26,(i%2)*0.18-0.08],[0.13,0.11,0.11]);
   return root;
 }
 

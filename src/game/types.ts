@@ -32,7 +32,9 @@ export interface KitData {
   hunger: number;
   health: number;
   father: string;
-  burrowId: number;
+  homeX: number;
+  homeY: number;
+  homeZ: number;
   alive: boolean;
   nestId?: number;
   command?: 'follow' | 'stay' | 'rest';
@@ -41,39 +43,28 @@ export interface KitData {
   stayY?: number;
 }
 
-export interface BurrowData {
-  id: number;
-  x: number;
-  z: number;
-  depth: number;
-  stores: number;
-  bedding: number;
-  isHome: boolean;
-  cells?: string[];
-  storedFood?: Partial<Record<FoodKind,number>>;
-}
-
 export interface NestData {
   id: number;
-  burrowId: number | null;
   x: number;
+  y: number;
   z: number;
   quality: number;
-  level?: number;
 }
 
+export interface DigNode {x:number;y:number;z:number}
+export interface StashData {id:number;x:number;y:number;z:number;food:Partial<Record<FoodKind,number>>}
+
 export interface SaveData {
-  version: 1;
+  version: 2;
   seed: number;
   clock: number;
   day: number;
-  player: { x: number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean; dirtiness: number; poison: number; milk: number };
+  player: { x: number; y:number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean; dirtiness: number; poison: number; milk: number };
   inventory: Record<FoodKind, number>;
-  burrows: BurrowData[];
   nests: NestData[];
+  stashes: StashData[];
   materials: { grass: number; twigs: number; fur: number };
-  underground: { burrowId?: number; x: number; z: number; level: number } | null;
-  excavation?: string[];
+  excavation: DigNode[];
   gnawedRoots?: Record<string,number>;
   kits: KitData[];
   partners: PartnerTraits[];

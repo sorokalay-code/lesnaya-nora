@@ -40,8 +40,11 @@ export class World {
   private groundColors?:THREE.BufferAttribute;
   private baseGroundColors?:Float32Array;
   private groundGeometry?:THREE.BufferGeometry;
+  private groundMesh?:THREE.Mesh;
   private groundTiles:{x:number;z:number;indices:number[]}[]=[];
   private holes:{x:number;z:number;radius:number}[]=[];
+  private holePatches:THREE.Mesh[]=[];
+  private readonly exposedSoil=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide});
   private treeRootRegrow=new Map<number,number>();
   private currentClock=0;
   private foliageMaterials:THREE.MeshStandardMaterial[]=[];
@@ -91,7 +94,7 @@ export class World {
   private buildGround(): void {
     const verts: number[] = [], colors: number[] = [], indices: number[] = [];
     const color = new THREE.Color();
-    const n = 110, step = this.size * 2 / n;
+    const n = 220, step = this.size * 2 / n;
     for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) {
       const wx = -this.size + x * step, wz = -this.size + z * step;
       const biome = this.biomeAt(wx + step / 2, wz + step / 2);
@@ -110,7 +113,13 @@ export class World {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geo.setIndex(indices); geo.computeVertexNormals();
     this.groundColors=geo.getAttribute('color') as THREE.BufferAttribute;this.baseGroundColors=new Float32Array(colors);
     const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
-    ground.receiveShadow = true; this.scene.add(ground);
+    ground.receiveShadow = true; this.scene.add(ground);this.groundMesh=ground;
+  }
+
+  surfaceHit(origin:THREE.Vector3,direction:THREE.Vector3,maxDistance:number):THREE.Vector3|undefined{
+    if(!this.groundMesh)return undefined;
+    const ray=new THREE.Raycaster(origin,direction,0,maxDistance);
+    return ray.intersectObject(this.groundMesh,false)[0]?.point;
   }
 
   addGroundHole(x:number,z:number,radius=1.1):void{
@@ -119,10 +128,47 @@ export class World {
     if(!this.groundGeometry)return;
     const indices:number[]=[];
     for(const tile of this.groundTiles){
-      if(this.holes.some(h=>Math.hypot(tile.x-h.x,tile.z-h.z)<h.radius+0.4))continue;
+      if(this.holes.some(h=>Math.hypot(tile.x-h.x,tile.z-h.z)<h.radius))continue;
       indices.push(...tile.indices);
     }
     this.groundGeometry.setIndex(indices);this.groundGeometry.computeVertexNormals();
+    this.rebuildHolePatches();
+  }
+
+  /** Cover the square edges of removed terrain tiles while leaving the dug cavity open. */
+  private rebuildHolePatches():void{
+    for(const mesh of this.holePatches){mesh.removeFromParent();mesh.geometry.dispose();}
+    this.holePatches=[];
+    for(const hole of this.holes){
+      const geometry=new THREE.RingGeometry(1.15,2.25,48,5);
+      const position=geometry.getAttribute('position') as THREE.BufferAttribute;
+      const colors:number[]=[];
+      for(let i=0;i<position.count;i++){
+        const localX=position.getX(i),localZ=position.getY(i);
+        const x=hole.x+localX,z=hole.z+localZ;
+        position.setXYZ(i,x,this.heightAt(x,z)-0.045,z);
+        const biome=this.biomeAt(x,z);
+        const grass=new THREE.Color(biome==='forest'?0x54754f:biome==='meadow'?0x81a769:biome==='swamp'?0x688363:0xa48b60);
+        const color=new THREE.Color(0x795c43).lerp(grass,Math.min(1,Math.max(0,(Math.hypot(localX,localZ)-1.15)/0.65)));
+        colors.push(color.r,color.g,color.b);
+      }
+      geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+      const original=geometry.getIndex();
+      if(original){
+        const kept:number[]=[];
+        for(let i=0;i<original.count;i+=3){
+          const a=original.getX(i),b=original.getX(i+1),c=original.getX(i+2);
+          const x=(position.getX(a)+position.getX(b)+position.getX(c))/3;
+          const z=(position.getZ(a)+position.getZ(b)+position.getZ(c))/3;
+          if(this.holes.some(other=>other!==hole&&Math.hypot(x-other.x,z-other.z)<1.18))continue;
+          kept.push(a,b,c);
+        }
+        geometry.setIndex(kept);
+      }
+      geometry.computeVertexNormals();
+      const mesh=new THREE.Mesh(geometry,this.exposedSoil);
+      mesh.receiveShadow=true;this.scene.add(mesh);this.holePatches.push(mesh);
+    }
   }
 
   private buildDecorations(): void {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Underground } from './Underground';
+import type { Excavation } from './Excavation';
 
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
 
@@ -10,7 +10,8 @@ export class ThirdPersonCamera {
   private distance=7.5;
   private pointer?:{x:number;y:number};
   constructor(readonly camera:THREE.PerspectiveCamera,canvas:HTMLCanvasElement){
-    canvas.addEventListener('pointerdown',e=>{this.pointer={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
+    canvas.addEventListener('contextmenu',e=>e.preventDefault());
+    canvas.addEventListener('pointerdown',e=>{if(e.button!==2)return;this.pointer={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
     canvas.addEventListener('pointerup',()=>{this.pointer=undefined;});
     canvas.addEventListener('pointercancel',()=>{this.pointer=undefined;});
     canvas.addEventListener('pointermove',e=>{
@@ -29,16 +30,17 @@ export class ThirdPersonCamera {
   snap(x:number,y:number,z:number,underground:boolean):void{
     this.camera.position.set(x,y+(underground?1.1:4),z+(underground?0.8:6));
   }
-  update(x:number,z:number,groundY:number,earth?:Underground,level=0):void{
-    const underground=!!earth,distance=underground?Math.min(this.distance,2.35):this.distance;
+  update(x:number,z:number,groundY:number,earth?:Excavation):void{
+    const underground=!!earth,shallow=!!earth&&earth.depthAt(x,groundY,z)<1.15&&earth.nearOpening(x,z,2);
+    const distance=underground?Math.min(this.distance,shallow?3.7:2.35):this.distance;
     const pitch=underground?clamp(this.pitch,-0.18,0.28):this.pitch;
     const target=new THREE.Vector3(x,groundY+(underground?0.7:0.65),z);
     const planar=Math.cos(pitch)*distance;
     let wanted=new THREE.Vector3(x+Math.sin(this.yaw)*planar,groundY+(underground?0.75:1.5)+Math.sin(pitch)*distance,z+Math.cos(this.yaw)*planar);
     if(earth){
-      wanted=earth.cameraPoint(target,wanted,level);
-      if(!earth.canMove(this.camera.position.x,this.camera.position.z,level))this.camera.position.copy(wanted);
-      else this.camera.position.copy(earth.cameraPoint(target,this.camera.position.clone().lerp(wanted,0.35),level));
+      wanted=earth.cameraPoint(target,wanted);
+      if(!earth.contains(this.camera.position))this.camera.position.copy(wanted);
+      else this.camera.position.copy(earth.cameraPoint(target,this.camera.position.clone().lerp(wanted,0.35)));
     }else this.camera.position.lerp(wanted,0.13);
     this.camera.lookAt(target);
   }

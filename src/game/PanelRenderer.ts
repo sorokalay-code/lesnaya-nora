@@ -15,8 +15,8 @@ export class PanelRenderer {
   }
   journal(save:SaveData,season:Season):string{
     const kits=save.kits.filter(k=>k.alive).map(k=>`<div class="kit-row"><b>${k.name}</b><span>${k.age<3?`малыш · сытость ${fmt(k.hunger)}% · здоровье ${fmt(k.health)}%`:'взрослый кролик'} · отец ${k.father}</span></div>`).join('')||'<p>Пока крольчат нет. Знакомься с кролами в лесу.</p>';
-    const entrances=save.burrows.map(b=>`<div class="kit-row"><b>${b.isHome?'Родная нора':`Вход ${b.id}`}</b><span>Глубина ${b.depth*2} м · еды ${Object.values(b.storedFood??{}).reduce((sum,n)=>sum+(n??0),0)}</span></div>`).join('');
-    return `<div class="journal-head"><h2>Лесной дневник</h2><button data-action="journal">×</button></div><div class="journal-stat"><span>День ${save.day}</span><span>${season}</span><span>Родились: ${save.stats.births}</span><span>Выросли: ${save.stats.grown}</span></div><h3>Семья</h3>${kits}<h3>Норы и припасы</h3>${entrances}<p>Выкопано ячеек: ${save.excavation?.length??0}. Максимальная глубина — 50 м. Гнёзд: ${save.nests.length}. Неглубокие входы привлекают лис, если рядом крольчата или отходы.</p><h3>Как выжить</h3><p>Зимой пищи почти нет — осенью складывай её в нору клавишей K и бери O. Копай к растениям и грызи настоящие корни (Q) или уноси овощи (T). Грязная шерсть пахнет сильнее и ухудшает отношения: вылизывайся (C). Опасные растения и грибы могут вызвать отравление.</p>`;
+    const stashes=save.stashes.map(s=>`<div class="kit-row"><b>Тайник ${s.id}</b><span>Еды ${Object.values(s.food).reduce((sum,n)=>sum+(n??0),0)} порций</span></div>`).join('');
+    return `<div class="journal-head"><h2>Лесной дневник</h2><button data-action="journal">×</button></div><div class="journal-stat"><span>День ${save.day}</span><span>${season}</span><span>Родились: ${save.stats.births}</span><span>Выросли: ${save.stats.grown}</span></div><h3>Семья</h3>${kits}<h3>Раскопки и запасы</h3>${stashes}<p>Выкопано участков: ${save.excavation.length}. Максимальная глубина — 50 м. Гнёзд: ${save.nests.length}. Лисы могут проникнуть в неглубокие ходы по запаху.</p><h3>Как выжить</h3><p>Зимой пищи мало — осенью складывай её в тайник клавишей K и бери O. ЛКМ копает землю по прицелу, ПКМ вращает камеру. Под растениями можно грызть корни (Q) и уносить овощи (T). Вылизывай шерсть (C) после загрязнения.</p>`;
   }
   map(canvas:HTMLCanvasElement,world:World,save:SaveData):void{
     const ctx=canvas.getContext('2d');if(!ctx)return;
@@ -30,8 +30,9 @@ export class PanelRenderer {
       ctx.fillStyle='#f8e9cc';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
       ctx.font='11px sans-serif';ctx.fillText(l.label,x+8,y+4);
     }
-    for(const b of save.burrows){
-      ctx.fillStyle='#513d2b';ctx.beginPath();ctx.arc((b.x/220+0.5)*s,(b.z/220+0.5)*s,4,0,Math.PI*2);ctx.fill();
+    for(const node of save.excavation){
+      if(node.y<world.heightAt(node.x,node.z)-0.5)continue;
+      ctx.fillStyle='#513d2b';ctx.beginPath();ctx.arc((node.x/220+0.5)*s,(node.z/220+0.5)*s,3,0,Math.PI*2);ctx.fill();
     }
     ctx.fillStyle='#fff';ctx.strokeStyle='#24382b';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc((save.player.x/220+0.5)*s,(save.player.z/220+0.5)*s,6,0,Math.PI*2);ctx.fill();ctx.stroke();

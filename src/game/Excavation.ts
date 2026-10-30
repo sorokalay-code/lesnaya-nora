@@ -1,0 +1,153 @@
+import * as THREE from 'three';
+import type { DigNode, SaveData } from './types';
+import type { World } from './World';
+import { CaveMesher } from './CaveMesher';
+
+const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
+const distance2=(a:{x:number;z:number},b:{x:number;z:number})=>Math.hypot(a.x-b.x,a.z-b.z);
+
+/** Sparse, world-space cavities. Digging changes geometry, never the current location. */
+export class Excavation {
+  readonly maxDepth=50;
+  readonly group=new THREE.Group();
+  readonly openings:DigNode[]=[];
+  private readonly mesher:CaveMesher;
+  private edges:Array<[DigNode,DigNode]>=[];
+  private roots:Array<{node:DigNode;mesh:THREE.Mesh}>=[];
+  private lastRootRefresh=0;
+  private light=new THREE.PointLight(0xffe3b6,4.5,12);
+  private marker=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8),new THREE.MeshBasicMaterial({color:0xffd78c,transparent:true,opacity:0.8,depthTest:false}));
+
+  constructor(scene:THREE.Scene,private readonly world:World,private readonly save:SaveData){
+    this.mesher=new CaveMesher(scene,(x,z)=>world.heightAt(x,z));
+    scene.add(this.group);this.group.add(this.light,this.marker);this.marker.visible=false;
+    for(const node of save.excavation)this.addGeometry(node);
+  }
+  private snap(v:number):number{return Math.round(v/2)*2;}
+  private depth(node:DigNode):number{return this.world.heightAt(node.x,node.z)-(node.y-0.95);}
+  depthAt(x:number,y:number,z:number):number{return Math.max(0,this.world.heightAt(x,z)-y);}
+  isSheltered(x:number,y:number,z:number):boolean{
+    return this.depthAt(x,y,z)>0.18&&this.distanceToTunnel(x,y,z)<1.15;
+  }
+  contains(point:THREE.Vector3):boolean{
+    const floor=this.floorAt(point.x,point.z,point.y);
+    return this.distanceToTunnel(point.x,point.y,point.z)<1.5&&point.y>=floor+0.15&&point.y<=floor+2.2;
+  }
+  canMoveTo(x:number,z:number,y:number,inside:boolean):boolean{
+    if(!inside||this.distanceToTunnel(x,y,z)<1.35)return true;
+    return this.openings.some(o=>distance2(o,{x,z})<1.5);
+  }
+  nearOpening(x:number,z:number,radius=1.5):boolean{return this.openings.some(o=>distance2(o,{x,z})<radius);}
+
+  /** The closest centerline also defines a continuous, walkable slope. */
+  private centerline(x:number,z:number,feetY:number):{distance:number;y:number}|undefined{
+    let best:{distance:number;y:number;score:number}|undefined;
+    const consider=(cx:number,cy:number,cz:number)=>{
+      const distance=Math.hypot(x-cx,z-cz),score=distance+Math.abs(cy-(feetY+0.95))*0.4;
+      if(!best||score<best.score)best={distance,y:cy,score};
+    };
+    for(const node of this.save.excavation)if(distance2(node,{x,z})<3.2)consider(node.x,node.y,node.z);
+    for(const [a,b] of this.edges){
+      if(Math.min(a.x,b.x)-1.3>x||Math.max(a.x,b.x)+1.3<x||Math.min(a.z,b.z)-1.3>z||Math.max(a.z,b.z)+1.3<z)continue;
+      const dx=b.x-a.x,dz=b.z-a.z,t=clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1),0,1);
+      consider(a.x+dx*t,a.y+(b.y-a.y)*t,a.z+dz*t);
+    }
+    return best;
+  }
+  distanceToTunnel(x:number,y:number,z:number):number{
+    const center=this.centerline(x,z,y-0.95);return center?.distance??Infinity;
+  }
+  floorAt(x:number,z:number,previousY:number):number{
+    const surface=this.world.heightAt(x,z),center=this.centerline(x,z,previousY);
+    if(!center||center.distance>1.5)return surface;
+    const tunnelFloor=center.y-0.95;
+    const opening=this.openings.reduce((best,node)=>Math.min(best,distance2(node,{x,z})),Infinity);
+    if(opening<1.5){
+      const blend=clamp((1.5-opening)/1.1,0,1);
+      return surface+(tunnelFloor-surface)*blend;
+    }
+    return previousY<surface-0.25?tunnelFloor:surface;
+  }
+
+  /** Surface ray starts at the rabbit; the camera provides aim, not teleportation. */
+  target(camera:THREE.Camera,x:number,y:number,z:number):{node:DigNode;point:THREE.Vector3}|undefined{
+    const direction=new THREE.Vector3();camera.getWorldDirection(direction);
+    const sheltered=this.isSheltered(x,y,z);
+    if(!sheltered&&!this.nearOpening(x,z,1.5)){
+      const horizontal=new THREE.Vector2(direction.x,direction.z).normalize();
+      const fallbackX=x+horizontal.x*2.2,fallbackZ=z+horizontal.y*2.2;
+      const fallbackY=this.world.heightAt(fallbackX,fallbackZ);
+      const surfaceHit=this.world.surfaceHit(new THREE.Vector3(x,y+0.8,z),direction,6.5);
+      const hit=(surfaceHit&&distance2(surfaceHit,{x,z})>=1.35?surfaceHit:undefined)??
+        (direction.y< -0.08&&Math.abs(y+0.8+direction.y*2.2-fallbackY)<2?
+          new THREE.Vector3(fallbackX,fallbackY,fallbackZ):undefined);
+      if(!hit)return undefined;
+      const nx=this.snap(hit.x),nz=this.snap(hit.z);
+      return{node:{x:nx,y:this.world.heightAt(nx,nz)+0.45,z:nz},point:hit};
+    }
+    const horizontal=new THREE.Vector2(direction.x,direction.z).normalize();
+    if(horizontal.lengthSq()<0.1)return undefined;
+    const nearest=this.nearestNode(x,y,z);if(!nearest)return undefined;
+    const nx=this.snap(x+horizontal.x*2.1),nz=this.snap(z+horizontal.y*2.1);
+    const slope=clamp(direction.y*1.65,-0.7,0.7);
+    const node={x:nx,y:Math.round((nearest.y+slope)*2)/2,z:nz};
+    return{node,point:new THREE.Vector3(nx,node.y,nz)};
+  }
+  dig(camera:THREE.Camera,x:number,y:number,z:number):{success:boolean;reason:string;node?:DigNode}{
+    const aimed=this.target(camera,x,y,z);
+    if(!aimed)return{success:false,reason:'Направь прицел на землю рядом с крольчихой.'};
+    const node=aimed.node;
+    if(Math.abs(node.x)>103||Math.abs(node.z)>103)return{success:false,reason:'Здесь край исследуемого леса.'};
+    if(this.depth(node)>this.maxDepth)return{success:false,reason:'Глубже 50 м копать нельзя.'};
+    if(this.save.excavation.some(existing=>Math.hypot(existing.x-node.x,existing.y-node.y,existing.z-node.z)<1.1))
+      return{success:false,reason:'Эта земля уже выкопана. Направь прицел дальше.'};
+    const prior=this.nearestNode(x,y,z);
+    if(prior&&this.isSheltered(x,y,z)&&!this.connected(prior,node))return{success:false,reason:'Копай соседний участок, чтобы сохранить проходимый уклон.'};
+    this.save.excavation.push(node);this.addGeometry(node);
+    return{success:true,reason:'Земля выкопана. Иди по образовавшемуся ходу.',node};
+  }
+  private nearestNode(x:number,y:number,z:number):DigNode|undefined{
+    return this.save.excavation.slice().sort((a,b)=>Math.hypot(a.x-x,a.y-(y+0.95),a.z-z)-Math.hypot(b.x-x,b.y-(y+0.95),b.z-z))[0];
+  }
+  private connected(a:DigNode,b:DigNode):boolean{
+    const horizontal=distance2(a,b);
+    return horizontal>0.1&&horizontal<2.9&&Math.abs(a.y-b.y)<=0.85;
+  }
+  private addGeometry(node:DigNode):void{
+    const previous=this.save.excavation.slice(0,this.save.excavation.indexOf(node));
+    const connections=previous.filter(other=>this.connected(other,node));
+    for(const other of connections)this.edges.push([other,node]);
+    this.mesher.addNode(node,connections);
+    if(node.y+1>this.world.heightAt(node.x,node.z)){
+      this.openings.push(node);this.world.addGroundHole(node.x,node.z,1.05);
+    }
+    const root=this.world.rootAt(node.x,node.z,this.depth(node));
+    if(root){
+      const rootMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.1,0.65,7),new THREE.MeshStandardMaterial({color:root.kind==='carrot'?0xd88648:0x98734c}));
+      rootMesh.position.set(node.x+0.2,node.y+0.7,node.z-0.2);this.group.add(rootMesh);this.roots.push({node,mesh:rootMesh});
+    }
+    this.refreshRoots();
+  }
+  cameraPoint(target:THREE.Vector3,desired:THREE.Vector3):THREE.Vector3{
+    if(this.depthAt(target.x,target.y-0.7,target.z)<1.15&&this.nearOpening(target.x,target.z,2))return desired;
+    const direction=desired.clone().sub(target),length=direction.length();if(length<0.01)return target.clone();direction.normalize();
+    const candidates=this.mesher.nearby(target,8);
+    const ray=new THREE.Raycaster(target,direction,0,length),hit=ray.intersectObjects(candidates,false)[0];
+    const point=target.clone().addScaledVector(direction,Math.min(length,hit?Math.max(0.95,hit.distance-0.16):length));
+    if(!this.contains(point))return target.clone().addScaledVector(direction,1.15);
+    return point;
+  }
+  refreshRoots():void{
+    for(const item of this.roots){
+      const root=this.world.rootAt(item.node.x,item.node.z,this.depth(item.node));
+      item.mesh.visible=!!root?.available&&(!('mesh' in root)||root.mesh.visible);
+    }
+  }
+  update(x:number,y:number,z:number,aim?:THREE.Vector3):void{
+    const sheltered=this.isSheltered(x,y,z);
+    this.light.visible=sheltered;this.light.position.set(x,y+1.1,z);
+    this.marker.visible=!!aim;if(aim)this.marker.position.copy(aim);
+    this.mesher.updateVisibility(x,y,z);
+    if(performance.now()-this.lastRootRefresh>900){this.lastRootRefresh=performance.now();this.refreshRoots();}
+  }
+}
