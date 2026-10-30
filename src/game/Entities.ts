@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Random } from './Random';
-import { animatePredator, animateRabbit, createPredator, createRabbit, type RabbitRig } from './Models';
+import { animatePredator, animateRabbit, createHawk, createPredator, createRabbit, type RabbitRig } from './Models';
 import { type Genes, type PartnerTraits, type PredatorKind } from './types';
 
 const names = ['Листик', 'Тимофей', 'Пушок', 'Рыжик', 'Ветерок', 'Клевер', 'Туман', 'Шорох', 'Орешек', 'Бор'];
@@ -94,9 +94,9 @@ export class Predator {
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
     this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : 11;
   }
-  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean): boolean {
+  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean,scent=0,activity=1): boolean {
     const dist = Math.hypot(px - this.x, pz - this.z);
-    const hunting = !hidden && dist < this.range && (this.kind === 'dog' || !day || dist < 7);
+    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog' || !day || dist < 7);
     if (hunting) { this.targetX = px; this.targetZ = pz; }
     else if(Math.hypot(this.x-this.homeX,this.z-this.homeZ)>20){this.targetX=this.homeX;this.targetZ=this.homeZ;}
     else if (time > this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1) {
@@ -112,6 +112,37 @@ export class Predator {
     animatePredator(this.root,time,hunting,dt);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (hunting && dist < 1.5 && this.attackCooldown <= 0) { this.attackCooldown = 3; return true; }
+    return false;
+  }
+}
+
+export class Hawk {
+  readonly root=createHawk();
+  readonly shadow=new THREE.Mesh(new THREE.CircleGeometry(0.8,24),new THREE.MeshBasicMaterial({color:0x222a23,transparent:true,opacity:0.24,depthWrite:false}));
+  private angle:number;
+  private diveUntil=0;
+  private cooldown=0;
+  private homeX:number;private homeZ:number;
+  x:number;z:number;
+  constructor(x:number,z:number,rng:Random){this.homeX=x;this.homeZ=z;this.x=x;this.z=z;this.angle=rng.range(0,Math.PI*2);this.shadow.rotation.x=-Math.PI/2;}
+  update(dt:number,time:number,px:number,pz:number,exposed:boolean):boolean{
+    this.cooldown=Math.max(0,this.cooldown-dt);
+    const distance=Math.hypot(px-this.x,pz-this.z);
+    if(exposed&&distance<24&&this.cooldown<=0&&this.diveUntil<=time){this.diveUntil=time+2.5;this.cooldown=22;}
+    if(this.diveUntil>time){
+      const fraction=1-(this.diveUntil-time)/2.5;
+      const direction=Math.atan2(px-this.x,pz-this.z);
+      this.x+=Math.sin(direction)*dt*9;this.z+=Math.cos(direction)*dt*9;
+      this.root.position.set(this.x,1.2+Math.abs(fraction-0.6)*17,this.z);
+      this.root.rotation.y=direction+Math.PI;
+      if(fraction>0.5&&fraction<0.75&&Math.hypot(px-this.x,pz-this.z)<2&&exposed){this.diveUntil=0;return true;}
+    }else{
+      this.angle+=dt*0.42;this.x=this.homeX+Math.cos(this.angle)*11;this.z=this.homeZ+Math.sin(this.angle)*11;
+      this.root.position.set(this.x,11+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=-this.angle;
+    }
+    const wings=this.root.userData.wings as THREE.Group[];
+    wings.forEach((w,i)=>w.rotation.z=(i===0?-1:1)*(0.12+Math.sin(time*7)*0.22));
+    this.shadow.position.set(this.x,0.05,this.z);this.shadow.scale.setScalar(this.diveUntil>time?1.5:0.85);
     return false;
   }
 }

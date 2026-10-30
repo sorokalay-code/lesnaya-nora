@@ -1,5 +1,5 @@
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
-export type FoodKind = 'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries';
+export type FoodKind = 'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
 export type PredatorKind = 'fox' | 'wolf' | 'dog';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
@@ -38,6 +38,7 @@ export interface KitData {
   command?: 'follow' | 'stay' | 'rest';
   stayX?: number;
   stayZ?: number;
+  stayY?: number;
 }
 
 export interface BurrowData {
@@ -49,6 +50,7 @@ export interface BurrowData {
   bedding: number;
   isHome: boolean;
   cells?: string[];
+  storedFood?: Partial<Record<FoodKind,number>>;
 }
 
 export interface NestData {
@@ -65,7 +67,7 @@ export interface SaveData {
   seed: number;
   clock: number;
   day: number;
-  player: { x: number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean };
+  player: { x: number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean; dirtiness: number; poison: number; milk: number };
   inventory: Record<FoodKind, number>;
   burrows: BurrowData[];
   nests: NestData[];
@@ -78,14 +80,20 @@ export interface SaveData {
   stats: { births: number; grown: number; survived: number; generations: number };
   weather: Weather;
   messages: string[];
+  waste: WasteData[];
 }
 
-export const FOOD: Record<FoodKind, { label: string; nutrition: number; emoji: string }> = {
-  clover: { label: 'Клевер', nutrition: 16, emoji: '☘' },
-  carrot: { label: 'Морковь', nutrition: 28, emoji: '🥕' },
-  cabbage: { label: 'Капуста', nutrition: 26, emoji: '🥬' },
-  mushroom: { label: 'Грибы', nutrition: 10, emoji: '🍄' },
-  berries: { label: 'Ягоды', nutrition: 14, emoji: '🫐' },
+export interface WasteData { id:number; kind:'pellets'|'urine'|'diarrhea'; x:number; y:number; z:number; age:number }
+
+export const FOOD: Record<FoodKind, { label: string; nutrition: number; moisture:number; poisonRisk:number; emoji: string }> = {
+  clover: { label: 'Клевер', nutrition: 16, moisture:7,poisonRisk:0,emoji: '☘' },
+  carrot: { label: 'Морковь', nutrition: 28, moisture:12,poisonRisk:0,emoji: '🥕' },
+  cabbage: { label: 'Капуста', nutrition: 26, moisture:17,poisonRisk:0.04,emoji: '🥬' },
+  mushroom: { label: 'Грибы', nutrition: 10, moisture:3,poisonRisk:0.2,emoji: '🍄' },
+  berries: { label: 'Ягоды', nutrition: 14, moisture:9,poisonRisk:0.08,emoji: '🫐' },
+  toadstool:{label:'Мухомор',nutrition:4,moisture:2,poisonRisk:0.94,emoji:'🍄'},
+  bitterleaf:{label:'Горькая трава',nutrition:5,moisture:4,poisonRisk:0.45,emoji:'🌿'},
+  acorn:{label:'Жёлудь',nutrition:8,moisture:1,poisonRisk:0.3,emoji:'🌰'},
 };
 
 export const COAT_COLORS: Record<Genes['coat'], number> = {

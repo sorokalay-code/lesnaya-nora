@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { Soundscape } from './Audio';
-import { FamilyMember, RabbitActor, RabbitFactory, Predator, partnerScore } from './Entities';
-import { animateRabbit, createRabbit, makeBurrow, makeNest, type RabbitRig } from './Models';
+import { FamilyMember, Hawk, RabbitActor, RabbitFactory, Predator, partnerScore } from './Entities';
+import { animateRabbit, createRabbit, makeBurrow, makeNest, setRabbitAction, type RabbitAction, type RabbitRig } from './Models';
 import { Random } from './Random';
 import { Underground } from './Underground';
 import { World } from './World';
+import { CropSystem, FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './Systems';
+import { BurrowTraffic } from './BurrowTraffic';
 import { FOOD, type BurrowData, type FoodKind, type KitData, type NestData, type PartnerTraits, type SaveData, type Season, type Weather } from './types';
 
 const SAVE_KEY = 'lesnaya-nora-save-v1';
@@ -20,6 +22,11 @@ export class Game {
   private sun = new THREE.DirectionalLight(0xfff3d2, 2);
   private ambient = new THREE.HemisphereLight(0xd3e4ed, 0x56704d, 1.8);
   private sound = new Soundscape();
+  private seasons!:SeasonSystem;
+  private survival!:SurvivalSystem;
+  private waste!:WasteSystem;
+  private crops!:CropSystem;
+  private store!:FoodStore;
   private rng!: Random;
   private factory!: RabbitFactory;
   private world!: World;
@@ -28,10 +35,13 @@ export class Game {
   private rabbits: RabbitActor[] = [];
   private families: FamilyMember[] = [];
   private predators: Predator[] = [];
+  private hawks:Hawk[]=[];
+  private traffic!:BurrowTraffic;
   private burrowMeshes = new Map<number, THREE.Group>();
   private kitMeshes = new Map<number, RabbitRig>();
   private nestMeshes = new Map<number, THREE.Group>();
   private tunnel?: Underground;
+  private tunnels=new Map<string,Underground>();
   private keys = new Set<string>();
   private yaw = 0.3;
   private pitch = 0.27;
@@ -49,6 +59,7 @@ export class Game {
   private footstepAt = 0;
   private running = false;
   private dialogPartner?: PartnerTraits;
+  private mating?:{fatherId:number;until:number};
   private dialogKit?: KitData;
   private overlay!: HTMLElement;
   private hud!: HTMLElement;
@@ -57,6 +68,9 @@ export class Game {
   private mapCanvas!: HTMLCanvasElement;
   private journal!: HTMLElement;
   private dialog!: HTMLElement;
+  private controls!:HTMLElement;
+  private settings!:HTMLElement;
+  private showControls=true;
 
   constructor(private readonly app: HTMLElement) {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
@@ -74,15 +88,18 @@ export class Game {
 
   private buildUi(): void {
     const layer = document.createElement('div'); layer.className = 'ui-layer';
-    layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button></div></div>
+    layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
       <div id="hud" class="hud"></div><div id="prompt" class="prompt"></div><div id="toast" class="toast-box"></div>
-      <div class="controls"><b>Управление</b><span>WASD — движение · Shift — бег · мышь — камера · колесо — масштаб</span><span>E — общаться/собрать · G — еда · V — пить · B — копать · Z/X — глубже/выше · H — войти/выйти · N — гнездо · U — пух · R — сон · F — кормить</span></div>
-      <div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
+      <div id="controls" class="controls"><b>Управление</b><span>WASD — движение от камеры · Shift — бег · мышь — камера</span><span>E — общаться/собрать · G — еда · V — пить · B — копать · Z/X — глубже/выше · H — войти/выйти · Q/T — корни/кража · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — припасы</span></div>
+      <div id="settings" class="settings-panel hidden"></div><div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
     this.app.append(layer);
     this.overlay = layer.querySelector('#overlay')!; this.hud = layer.querySelector('#hud')!;
     this.prompt = layer.querySelector('#prompt')!; this.toastBox = layer.querySelector('#toast')!;
     this.journal = layer.querySelector('#journal')!;
     this.dialog = layer.querySelector('#dialog')!;
+    this.controls=layer.querySelector('#controls')!;this.settings=layer.querySelector('#settings')!;
+    this.showControls=localStorage.getItem('lesnaya-nora-show-controls')!=='false';
+    this.controls.classList.toggle('hidden',!this.showControls);
     this.mapCanvas = document.createElement('canvas'); this.mapCanvas.width = this.mapCanvas.height = 420;
     layer.addEventListener('click', e => {
       const action = (e.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
@@ -99,7 +116,7 @@ export class Game {
       if (e.code === 'KeyM') this.action('map');
       if (e.code === 'KeyJ') this.action('journal');
       if (!this.running || !this.overlay.classList.contains('hidden')) return;
-      const map: Record<string, string> = { KeyE: 'interact', KeyG: 'eat', KeyV: 'drink', KeyB: 'dig', KeyZ:'down', KeyX:'up',KeyH: 'hide', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'relieve', KeyF: 'feed', Space: 'hop' };
+      const map: Record<string, string> = { KeyE: 'interact', KeyG: 'eat', KeyV: 'drink', KeyB: 'dig', KeyZ:'down', KeyX:'up',KeyH: 'hide',KeyQ:'roots',KeyT:'steal',KeyC:'groom',KeyK:'store',KeyO:'retrieve',KeyY:'feed-vegetables', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'relieve', KeyF: 'feed', Space: 'hop' };
       if (map[e.code]) this.action(map[e.code]);
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
@@ -123,18 +140,20 @@ export class Game {
   private showStart(): void {
     const hasSave = !!localStorage.getItem(SAVE_KEY);
     this.overlay.classList.remove('hidden');
-    this.overlay.innerHTML = `<div class="start-card"><div class="eyebrow">✦ ТВОЯ ИСТОРИЯ НАЧИНАЕТСЯ ЗДЕСЬ</div><h1>Лесная<br><em>нора</em></h1><p>Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.</p><div class="start-actions"><button class="primary" data-action="new">Новая история <span>→</span></button>${hasSave ? '<button class="secondary" data-action="load">Продолжить сохранение</button>' : ''}</div><div class="start-foot">Генерируемый мир · наследование генов · смена сезонов · семейная жизнь</div></div>`;
+    this.overlay.innerHTML = `<div class="start-card"><div class="eyebrow">✦ ТВОЯ ИСТОРИЯ НАЧИНАЕТСЯ ЗДЕСЬ</div><h1>Лесная<br><em>нора</em></h1><p>Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.</p><label class="start-season">Начать с сезона <select id="start-season"><option value="0">Весна — много травы</option><option value="1">Лето — тепло и изобилие</option><option value="2">Осень — пора запасать</option><option value="3">Зима — суровое выживание</option></select></label><div class="start-actions"><button class="primary" data-action="new">Новая история <span>→</span></button>${hasSave ? '<button class="secondary" data-action="load">Продолжить сохранение</button>' : ''}</div><div class="start-foot">Генерируемый мир · наследование генов · смена сезонов · семейная жизнь</div></div>`;
   }
 
   private newGame(): void {
     const seed = Math.floor(Math.random() * 2_147_483_647);
+    const seasonIndex=Number(this.overlay.querySelector<HTMLSelectElement>('#start-season')?.value??0);
+    const startDay=1+Math.max(0,Math.min(3,seasonIndex))*6;
     this.rng = new Random(seed + 53); this.factory = new RabbitFactory(this.rng);
-    this.save = { version: 1, seed, clock: 7 * 60, day: 1,
-      player: { x: 0, z: 0, genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 }, hunger: 85, thirst: 85, bodyTemp: 38.5, energy: 90, bladder: 15, health: 100, age: 0, hidden: false },
-      inventory: { clover: 2, carrot: 0, cabbage: 0, mushroom: 0, berries: 0 },
-      burrows: [{ id: 1, x: 2.5, z: 2.5, depth: 1, stores: 0, bedding: 1, isHome: true }], nests: [], materials: {grass:0,twigs:0,fur:0}, underground:null, kits: [],
+    this.save = { version: 1, seed, clock: (startDay-1)*1440+7*60, day: startDay,
+      player: { x: 0, z: 0, genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 }, hunger: 85, thirst: 85, bodyTemp: 38.5, energy: 90, bladder: 15, health: 100, age: 0, hidden: false,dirtiness:0,poison:0,milk:35 },
+      inventory: { clover: 2, carrot: 0, cabbage: 0, mushroom: 0, berries: 0,toadstool:0,bitterleaf:0,acorn:0 },
+      burrows: [{ id: 1, x: 2.5, z: 2.5, depth: 1, stores: 0, bedding: 1, isHome: true,storedFood:{} }], nests: [], materials: {grass:0,twigs:0,fur:0}, underground:null, kits: [],
       partners: this.factory.partners(16), harvested: [], pregnancy: null,
-      stats: { births: 0, grown: 0, survived: 0, generations: 1 }, weather: 'clear', messages: [] };
+      stats: { births: 0, grown: 0, survived: 0, generations: 1 }, weather: 'clear', messages: [],waste:[] };
     this.setupWorld(); this.overlay.classList.add('hidden'); this.running = true; this.sound.unlock();
     this.toast('На поляне ждёт твоя первая нора. Исследуй лес и найди партнёра.');
   }
@@ -145,6 +164,10 @@ export class Game {
       const parsed = JSON.parse(raw) as SaveData;
       if (parsed.version !== 1 || !Number.isFinite(parsed.seed) || !Array.isArray(parsed.burrows) || !Array.isArray(parsed.partners)) throw new Error('Файл сохранения повреждён');
       parsed.player.thirst ??= 85; parsed.player.bodyTemp ??= 38.5;
+      parsed.player.dirtiness??=0;parsed.player.poison??=0;parsed.player.milk??=35;
+      for(const kind of Object.keys(FOOD) as FoodKind[])parsed.inventory[kind]??=0;
+      parsed.waste??=[];
+      parsed.burrows.forEach(b=>{b.storedFood??={};});
       parsed.nests ??= []; parsed.materials ??= {grass:0,twigs:0,fur:0}; parsed.underground ??= null;
       if(parsed.underground)parsed.underground.level??=0;
       parsed.kits.forEach(k=>{k.command??='stay';});
@@ -155,7 +178,7 @@ export class Game {
   }
 
   private setupWorld(): void {
-    this.scene.clear(); this.burrowMeshes.clear(); this.kitMeshes.clear(); this.nestMeshes.clear(); this.tunnel=undefined;
+    this.scene.clear(); this.burrowMeshes.clear(); this.kitMeshes.clear(); this.nestMeshes.clear(); this.tunnel=undefined;this.tunnels.clear();
     this.scene.background = new THREE.Color(0xb9d3ba);
     this.scene.add(this.ambient);
     this.sun.position.set(25, 45, 22); this.sun.castShadow = true; this.sun.shadow.mapSize.set(1024, 1024);
@@ -163,6 +186,12 @@ export class Game {
     this.sun.shadow.camera.right = this.sun.shadow.camera.top = 38;
     this.sun.shadow.bias = -0.0004; this.scene.add(this.sun);
     this.world = new World(this.scene, this.save.seed); this.world.setRain();
+    this.seasons=new SeasonSystem(this.save.seed);
+    this.survival=new SurvivalSystem(this.save,this.rng);
+    this.waste=new WasteSystem(this.scene,this.save);
+    this.crops=new CropSystem(this.rng);
+    this.store=new FoodStore(this.save);
+    this.traffic=new BurrowTraffic(this.rng);
     for (const id of this.save.harvested) {
       const r = this.world.resources[id]; if (r) { r.available = false; r.mesh.visible = false; r.regrowAt = this.save.clock + 60; }
     }
@@ -177,14 +206,20 @@ export class Game {
       }
     }
     this.predators = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 22; i++) {
       const a = this.rng.range(0, Math.PI * 2), d = this.rng.range(27, 82);
       const x=i===0?34:i===1?-35:Math.cos(a)*d;
       const z=i===0?31:i===1?29:Math.sin(a)*d;
       const kind = i<2 ? 'dog' : i % 4 === 0 ? 'wolf' : 'fox';
       const predator = new Predator(kind, x, z, this.rng); this.predators.push(predator); this.scene.add(predator.root);
     }
+    this.hawks=[[12,24],[-24,8],[29,-15]].map(([x,z])=>new Hawk(x,z,this.rng));
+    for(const hawk of this.hawks)this.scene.add(hawk.root,hawk.shadow);
     this.save.burrows.forEach(b => this.addBurrow(b));
+    for(const b of this.save.burrows){
+      this.getTunnel(b,0);
+      for(let level=1;level<=2;level++)if(b.cells?.some(c=>c.startsWith(`${level}:`)))this.getTunnel(b,level);
+    }
     this.save.nests.forEach(n => this.addNest(n));
     this.save.kits.filter(k => k.alive).forEach(k => this.addKit(k));
     if(this.save.underground){const b=this.save.burrows.find(v=>v.id===this.save.underground?.burrowId);if(b)this.enterUnderground(b,true);}
@@ -193,29 +228,31 @@ export class Game {
 
   private addBurrow(b: BurrowData): void {
     const mesh = makeBurrow(b.depth); mesh.position.set(b.x, 0.02, b.z); this.scene.add(mesh); this.burrowMeshes.set(b.id, mesh);
+    this.world.addGroundHole(b.x,b.z);
   }
 
   private addNest(n: NestData): void {
     const mesh=makeNest();mesh.position.set(n.x,0.04,n.z);
     this.nestMeshes.set(n.id,mesh);
     if(n.burrowId===null)this.scene.add(mesh);
-    else if(this.tunnel?.burrow.id===n.burrowId&&this.tunnel.level===(n.level??0))this.tunnel.scene.add(mesh);
+    else {const b=this.save.burrows.find(v=>v.id===n.burrowId);if(b)this.getTunnel(b,n.level??0).group.add(mesh);}
+  }
+
+  private getTunnel(b:BurrowData,level:number):Underground{
+    const key=`${b.id}:${level}`;let tunnel=this.tunnels.get(key);
+    if(!tunnel){tunnel=new Underground(b,level,this.scene,(x,z)=>this.world.biomeAt(x,z)==='garden');this.tunnels.set(key,tunnel);}
+    return tunnel;
   }
 
   private enterUnderground(b: BurrowData, restoring=false): void {
-    this.tunnel=new Underground(b,restoring?this.save.underground?.level??0:0);
-    this.player.root.removeFromParent();this.tunnel.scene.add(this.player.root);
-    for(const nest of this.save.nests)if(nest.burrowId===b.id&&(nest.level??0)===this.tunnel.level){
-      const mesh=this.nestMeshes.get(nest.id);if(mesh)this.tunnel.scene.add(mesh);
-    }
+    this.tunnel=this.getTunnel(b,restoring?this.save.underground?.level??0:0);
     if(!restoring)this.save.underground={burrowId:b.id,x:0,z:0,level:0};
-    this.save.player.hidden=true;this.camera.position.set(0,5,7);
+    this.save.player.hidden=true;this.camera.position.set(b.x,-1,b.z+5);
     this.toast('Ты спустилась в нору. Повернись к стене и нажми B, чтобы копать ход. H — выйти.');
   }
 
   private leaveUnderground(): void {
     if(!this.tunnel)return;
-    this.player.root.removeFromParent();this.scene.add(this.player.root);
     this.save.player.x=this.tunnel.burrow.x;this.save.player.z=this.tunnel.burrow.z;
     this.save.underground=null;this.save.player.hidden=false;this.tunnel=undefined;
     this.camera.position.set(this.save.player.x,5,this.save.player.z+7);
@@ -231,9 +268,7 @@ export class Game {
       if(this.save.player.energy<12){this.toast('Для шахты нужно больше сил.');return;}
       if(!this.tunnel.hasCell(level,u.x,u.z)){this.tunnel.makeShaft(level,u.x,u.z);this.save.player.energy-=12;this.sound.play('dig');}
     }
-    const b=this.tunnel.burrow;this.tunnel=new Underground(b,level);u.level=level;
-    this.tunnel.scene.add(this.player.root);
-    for(const nest of this.save.nests)if(nest.burrowId===b.id&&(nest.level??0)===level){const mesh=this.nestMeshes.get(nest.id);if(mesh)this.tunnel.scene.add(mesh);}
+    const b=this.tunnel.burrow;this.tunnel=this.getTunnel(b,level);this.tunnel.openShaftCell(u.x,u.z);u.level=level;
     this.toast(`Ты ${delta>0?'спустилась глубже':'поднялась выше'}. Уровень ${level+1} из 3.`);
   }
 
@@ -258,17 +293,11 @@ export class Game {
     if (this.save.day > oldDay) this.newDay();
     const night = this.isNight();
     const moving = this.movePlayer(dt);
-    p.hunger = clamp(p.hunger - dt * (moving ? 0.14 : 0.07), 0, 100);
-    p.energy = clamp(p.energy - dt * (moving ? (this.keys.has('ShiftLeft') ? 0.2 : 0.08) : 0.025), 0, 100);
-    p.bladder = clamp(p.bladder + dt * 0.075, 0, 100);
-    p.thirst=clamp(p.thirst-dt*(moving?0.15:0.09),0,100);
     const air=this.airTemperature();
     const nearbyNest=this.nearestNest(2.8);
     const warmed=this.tunnel!==undefined || nearbyNest!==undefined;
-    const targetTemp=warmed?38.6:38.4-Math.max(0,12-air)*0.36-Math.max(0,air-29)*0.07;
-    p.bodyTemp=clamp(p.bodyTemp+(targetTemp-p.bodyTemp)*Math.min(1,dt*(warmed?0.09:0.022)),28,41);
-    if (p.hunger < 10 || p.energy < 5 || p.bladder > 95 || p.thirst < 10 || p.bodyTemp < 34) p.health = clamp(p.health - dt * (p.thirst<2||p.bodyTemp<32?0.4:0.19), 0, 100);
-    else if (p.hunger > 55 && p.energy > 55 && p.thirst>50) p.health = clamp(p.health + dt * 0.025, 0, 100);
+    this.survival.tick(dt,this.elapsed,moving,air,warmed,()=>this.makeWaste('diarrhea'));
+    this.waste.update(dt,this.player.root.position.x,this.player.root.position.y,this.player.root.position.z);
     if (p.health <= 0) { this.gameOver(); return; }
     if (this.save.pregnancy) {
       this.save.pregnancy.progress += dt * 6 / 1440;
@@ -276,18 +305,36 @@ export class Game {
     }
     this.updateKits(dt);
     for (const rabbit of this.rabbits) rabbit.update(dt, this.elapsed, p.x, p.z);
+    if(this.mating){
+      const actor=this.rabbits.find(r=>r.data.id===this.mating!.fatherId);
+      if(actor){actor.rig.root.position.set(p.x+Math.sin(this.player.root.rotation.y)*0.28,0.4,p.z+Math.cos(this.player.root.rotation.y)*0.28);actor.rig.root.rotation.y=this.player.root.rotation.y;}
+      if(this.elapsed>=this.mating.until)this.mating=undefined;
+    }
     for (const member of this.families) member.update(this.elapsed,dt);
+    for(const tunnel of this.tunnels.values())tunnel.group.visible=(this.tunnel===tunnel)||Math.hypot(tunnel.burrow.x-p.x,tunnel.burrow.z-p.z)<42;
     let closestThreat = Infinity;
     for (const predator of this.predators) {
-      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night)) this.predatorAttack(predator.kind);
+      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night,p.dirtiness/100,this.seasons.predatorActivity(this.save.day))) this.predatorAttack(predator.kind);
       this.threatenKits(predator);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
-    this.world.update(this.save.clock, this.elapsed, this.save.weather);
+    for(const event of this.traffic.update(dt,this.elapsed,night,this.predators,this.rabbits,this.save,this.tunnel)){
+      if(event.type==='fox-entered')this.toast('Лиса пробралась в неглубокую нору! Запах крольчат или отходов привлёк её.');
+      if(event.type==='fox-attack')this.predatorAttack('fox');
+      if(event.type==='kit-attack')this.toast(`Лиса добралась до ${event.name}. Укрепи вход и защити гнездо.`);
+    }
+    const exposed=!this.tunnel&&!this.world.hasCover(p.x,p.z);
+    for(const hawk of this.hawks)if(hawk.update(dt,this.elapsed,p.x,p.z,exposed))this.predatorAttack('hawk');
+    for(const rabbit of this.rabbits)rabbit.rig.root.visible=Math.hypot(rabbit.rig.root.position.x-p.x,rabbit.rig.root.position.z-p.z)<76;
+    for(const member of this.families)member.rig.root.visible=Math.hypot(member.rig.root.position.x-p.x,member.rig.root.position.z-p.z)<76;
+    for(const predator of this.predators)predator.root.visible=Math.hypot(predator.root.position.x-p.x,predator.root.position.z-p.z)<76;
+    for(const hawk of this.hawks){const visible=Math.hypot(hawk.x-p.x,hawk.z-p.z)<92;hawk.root.visible=visible;hawk.shadow.visible=visible&&!this.tunnel;}
+    this.world.update(this.save.clock, this.elapsed, this.save.weather,this.save.day,p.x,p.z);
     this.world.updateRain(dt, p.x, p.z,this.save.weather);
     this.sound.update(this.elapsed, night);
     this.sound.setWeather(this.save.weather,night);
-    this.player.root.position.x = this.tunnel?this.save.underground!.x:p.x; this.player.root.position.z = this.tunnel?this.save.underground!.z:p.z;
+    this.player.root.position.x = this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:p.x; this.player.root.position.z = this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:p.z;
+    this.player.root.userData.baseY=this.tunnel?this.tunnel.group.position.y:0;
     this.player.root.visible = true;
     animateRabbit(this.player, this.elapsed, moving, closestThreat < 8 && !this.tunnel,dt);
     if(this.tunnel)this.tunnel.updateMarker(this.save.underground!.x,this.save.underground!.z,this.player.root.rotation.y);
@@ -298,7 +345,7 @@ export class Game {
     this.sun.position.set(Math.cos(sunAngle) * 45, Math.max(8, Math.cos(sunAngle - Math.PI) * 45), 22);
     this.sun.target.position.set(p.x, 0, p.z); this.scene.add(this.sun.target);
     this.sun.position.x += p.x; this.sun.position.z += p.z;
-    const sky = new THREE.Color(this.save.weather === 'snow' ? 0xd4dfdf : this.save.weather === 'rain' ? 0x9eafb0 : night ? 0x3d5667 : 0xb9d3ba);
+    const sky = new THREE.Color(this.tunnel?0x5c4e3e:this.save.weather === 'snow' ? 0xd4dfdf : this.save.weather === 'rain' ? 0x9eafb0 : night ? 0x3d5667 : 0xb9d3ba);
     this.scene.background = sky;
     if (this.scene.fog instanceof THREE.FogExp2) this.scene.fog.color.copy(sky);
     if (this.elapsed - this.lastHud > 0.22) { this.lastHud = this.elapsed; this.updateHud(closestThreat); }
@@ -308,6 +355,7 @@ export class Game {
   private movePlayer(dt: number): boolean {
     const p = this.save.player;
     if (!this.dialog.classList.contains('hidden')) return false;
+    if(((this.player.root.userData.actionUntil as number|undefined)??0)>this.elapsed)return false;
     let forward = 0, right = 0;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) forward++;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) forward--;
@@ -315,8 +363,14 @@ export class Game {
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) right--;
     if (!forward && !right) return false;
     const d = Math.hypot(forward, right); forward /= d; right /= d;
-    const dx = Math.sin(this.yaw) * forward + Math.cos(this.yaw) * right;
-    const dz = -Math.cos(this.yaw) * forward + Math.sin(this.yaw) * right;
+    const px=this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:p.x;
+    const pz=this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:p.z;
+    const viewX=px-this.camera.position.x,viewZ=pz-this.camera.position.z;
+    const viewLength=Math.hypot(viewX,viewZ);
+    const fx=viewLength>0.01?viewX/viewLength:Math.sin(this.yaw);
+    const fz=viewLength>0.01?viewZ/viewLength:-Math.cos(this.yaw);
+    const dx = fx * forward - fz * right;
+    const dz = fz * forward + fx * right;
     const sprint = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && p.energy > 8;
     const speed = (sprint ? 6.2 : 3.3) * (0.82 + p.genes.speed * 0.06) * (p.energy < 15 ? 0.75 : 1);
     const desired=Math.atan2(-dx,-dz);
@@ -335,27 +389,24 @@ export class Game {
   }
 
   private render(): void {
-    const x=this.tunnel?this.save.underground!.x:this.save.player.x;
-    const z=this.tunnel?this.save.underground!.z:this.save.player.z;
+    const x=this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:this.save.player.x;
+    const z=this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:this.save.player.z;
+    const baseY=this.tunnel?this.tunnel.group.position.y:0;
     const distance=this.tunnel?Math.min(this.cameraDistance,5):this.cameraDistance;
     const cameraPitch=this.tunnel?Math.max(this.pitch,0.52):this.pitch;
     const h = 1.5 + Math.sin(cameraPitch) * distance;
     const planar = Math.cos(cameraPitch) * distance;
-    const wanted = new THREE.Vector3(x + Math.sin(this.yaw) * planar, h, z + Math.cos(this.yaw) * planar);
+    const wanted = new THREE.Vector3(x + Math.sin(this.yaw) * planar, baseY+h, z + Math.cos(this.yaw) * planar);
     this.camera.position.lerp(wanted, 0.13);
-    this.camera.lookAt(x, 0.65, z);
-    this.renderer.render(this.tunnel?.scene??this.scene, this.camera);
+    this.camera.lookAt(x, baseY+0.65, z);
+    this.renderer.render(this.scene, this.camera);
   }
 
   private isNight(): boolean { const t = this.save.clock % 1440; return t < 330 || t > 1230; }
-  private season(): Season { return (['Весна', 'Лето', 'Осень', 'Зима'] as const)[Math.floor((this.save.day - 1) / 6) % 4]; }
+  private season(): Season { return this.seasons.name(this.save.day); }
   private timeText(): string { const t = Math.floor(this.save.clock % 1440); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
   private airTemperature(): number {
-    const base={Весна:13,Лето:25,Осень:9,Зима:-3}[this.season()];
-    const hour=this.save.clock%1440/60;
-    const daily=Math.cos((hour-14)/24*Math.PI*2)*5;
-    const weather={clear:0,rain:-4,mist:-2,snow:-6}[this.save.weather];
-    return base+daily+weather;
+    return this.seasons.temperature(this.save.day,this.save.clock,this.save.weather);
   }
 
   private nearestNest(radius=3): NestData | undefined {
@@ -395,16 +446,16 @@ export class Game {
       if (b && rig) {
         const nest=this.save.nests.find(n=>n.id===kit.nestId);
         const undergroundNest=nest?.burrowId!==null&&nest?.burrowId!==undefined;
-        if(undergroundNest && (!this.tunnel || this.tunnel.burrow.id!==nest!.burrowId || this.tunnel.level!==(nest!.level??0))){rig.root.visible=false;continue;}
         rig.root.visible=true;
-        const parent=undergroundNest?this.tunnel!.scene:this.scene;
-        if(rig.root.parent!==parent)parent.add(rig.root);
+        if(rig.root.parent!==this.scene)this.scene.add(rig.root);
         const a = kit.id * 2.4 + this.elapsed * (kit.age >= 3 ? 0.25 : 0.1);
         const radius = kit.command==='rest'?0.7:kit.age >= 3 ? 2.5 : 1.4;
-        let homeX=nest?.x??b.x,homeZ=nest?.z??b.z;
-        if(kit.command==='follow' && (!undergroundNest || this.tunnel)){homeX=this.tunnel?this.save.underground!.x:this.save.player.x;homeZ=this.tunnel?this.save.underground!.z:this.save.player.z;}
+        let homeX=undergroundNest?b.x+nest!.x:nest?.x??b.x,homeZ=undergroundNest?b.z+nest!.z:nest?.z??b.z;
+        if(kit.command==='follow'){homeX=this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:this.save.player.x;homeZ=this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:this.save.player.z;}
         if(kit.command==='stay'&&kit.stayX!==undefined&&kit.stayZ!==undefined){homeX=kit.stayX;homeZ=kit.stayZ;}
-        rig.root.position.set(homeX + Math.cos(a) * radius, 0, homeZ + Math.sin(a) * radius);
+        const kitY=kit.command==='follow'?(this.tunnel?.group.position.y??0):kit.command==='stay'&&kit.stayY!==undefined?kit.stayY:undergroundNest?-6-(nest!.level??0)*3:0;
+        rig.root.position.set(homeX + Math.cos(a) * radius, kitY, homeZ + Math.sin(a) * radius);
+        rig.root.userData.baseY=kitY;
         rig.root.rotation.y = -a;
         rig.root.scale.setScalar(kit.age < 3 ? (0.38 + kit.age * 0.14) * kit.genes.size : kit.genes.size);
         animateRabbit(rig, this.elapsed + kit.id, kit.command!=='rest',false,dt);
@@ -414,23 +465,23 @@ export class Game {
 
   private predatorAttack(kind: string): void {
     const p = this.save.player;
-    p.health = clamp(p.health - (kind === 'wolf' ? 23 : 15), 0, 100);
+    p.health = clamp(p.health - (kind === 'hawk' ? 32:kind === 'wolf' ? 23 : 15), 0, 100);
     p.energy = clamp(p.energy - 13, 0, 100);
-    this.sound.play('danger'); this.toast(`${kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : 'Лиса'} напал! Беги к норе и нажми H.`);
+    this.sound.play('danger'); this.toast(`${kind === 'hawk'?'Сокол':kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : 'Лиса'} напал! Беги под деревья или к норе.`);
   }
 
   private threatenKits(predator: Predator): void {
     if (predator.attackCooldown > 0) return;
     for(const nest of this.save.nests.filter(n=>n.burrowId===null)){
       if(Math.hypot(predator.x-nest.x,predator.z-nest.z)>2)continue;
-      const kit=this.save.kits.find(k=>k.alive&&k.age<3&&k.nestId===nest.id);
+      const kit=this.save.kits.find(k=>k.alive&&k.age<3&&k.command!=='follow'&&k.nestId===nest.id);
       if(!kit)continue;
       kit.health=clamp(kit.health-24,0,100);predator.attackCooldown=9;
       this.sound.play('danger');this.toast(`Хищник нашёл наземное гнездо! ${kit.name} в опасности.`);return;
     }
     for (const burrow of this.save.burrows) {
       if (burrow.depth >= 3 || Math.hypot(predator.x - burrow.x, predator.z - burrow.z) > 1.7) continue;
-      const kit = this.save.kits.find(k => k.alive && k.age < 3 && k.burrowId === burrow.id && k.nestId===undefined);
+      const kit = this.save.kits.find(k => k.alive && k.age < 3 && k.command!=='follow'&&k.burrowId === burrow.id && k.nestId===undefined);
       if (!kit) continue;
       kit.health = clamp(kit.health - (burrow.depth === 1 ? 18 : 7), 0, 100);
       predator.attackCooldown = 9;
@@ -452,11 +503,11 @@ export class Game {
   }
 
   private nearestKit(radius=2.5): KitData | undefined {
-    const x=this.tunnel?this.save.underground!.x:this.save.player.x;
-    const z=this.tunnel?this.save.underground!.z:this.save.player.z;
+    const x=this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:this.save.player.x;
+    const z=this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:this.save.player.z;
     return this.save.kits.filter(k=>k.alive).find(k=>{
       const mesh=this.kitMeshes.get(k.id)?.root;
-      return mesh?.visible && mesh.parent===(this.tunnel?.scene??this.scene) && Math.hypot(mesh.position.x-x,mesh.position.z-z)<radius;
+      return mesh?.visible && Math.abs(mesh.position.y-(this.tunnel?.group.position.y??0))<1.5 && Math.hypot(mesh.position.x-x,mesh.position.z-z)<radius;
     });
   }
 
@@ -467,10 +518,28 @@ export class Game {
     this.sound.unlock();
     if (action === 'save') { this.persist(true); return; }
     if (action === 'sound') { this.sound.muted = !this.sound.muted; this.toast(this.sound.muted ? 'Звук выключен' : 'Звук включён'); return; }
+    if(action==='settings'){
+      this.settings.classList.toggle('hidden');
+      this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;
+      return;
+    }
+    if(action==='toggle-controls'){
+      this.showControls=!this.showControls;localStorage.setItem('lesnaya-nora-show-controls',String(this.showControls));
+      this.controls.classList.toggle('hidden',!this.showControls);this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;return;
+    }
     if (action === 'journal' || action === 'map') { this.toggleJournal(action); return; }
     if (action === 'close') { this.dialog.classList.add('hidden'); this.dialogPartner = undefined;this.dialogKit=undefined; return; }
     if (['talk','gift','court','ask-food','ask-home','ask-danger','compliment'].includes(action)) { this.partnerAction(action); return; }
     if (['child-follow','child-stay','child-rest'].includes(action)) { this.childAction(action);return;}
+    if(action.startsWith('consume:')){
+      const kind=action.slice(8) as FoodKind;
+      if(!(kind in FOOD)||this.save.inventory[kind]<=0)return;
+      this.save.inventory[kind]--;
+      const poisoned=this.survival.eat(kind);
+      this.sound.play('eat');this.playAction('eat',1.5);
+      this.toast(poisoned?`После ${FOOD[kind].label.toLowerCase()} тебе стало плохо. Возможно, еда ядовита.`:`Ты съела: ${FOOD[kind].label.toLowerCase()}.`);
+      this.dialog.classList.add('hidden');return;
+    }
     if (!this.overlay.classList.contains('hidden')) return;
     const p = this.save.player;
     if(action==='down'){this.changeLevel(1);return;}
@@ -484,6 +553,7 @@ export class Game {
       if(this.tunnel){this.toast('Повернись к земляной стене и нажми B, чтобы копать.');return;}
       const r = this.world.nearestResource(p.x, p.z, 2.3);
       if (r) {
+        if(this.store.carried()>=this.store.capacity){this.toast('Запасы в лапах переполнены. Отнеси еду в нору (K).');return;}
         this.world.harvest(r, this.save.clock); this.save.inventory[r.kind]++;
         if(r.kind==='clover')this.save.materials.grass++;
         if(r.kind==='berries'||r.kind==='mushroom')this.save.materials.twigs++;
@@ -492,10 +562,10 @@ export class Game {
       this.toast('Рядом нет кролика или еды.'); return;
     }
     if (action === 'eat') {
-      const kind = (Object.keys(FOOD) as FoodKind[]).filter(k => this.save.inventory[k] > 0).sort((a, b) => FOOD[b].nutrition - FOOD[a].nutrition)[0];
-      if (!kind) { this.toast('Запасы пусты. Найди растения и нажми E.'); return; }
-      this.save.inventory[kind]--; p.hunger = clamp(p.hunger + FOOD[kind].nutrition, 0, 100); p.thirst=clamp(p.thirst+(kind==='cabbage'?14:kind==='carrot'?10:5),0,100);p.bladder = clamp(p.bladder + 5, 0, 100);
-      this.sound.play('eat'); this.toast(`Ты съела: ${FOOD[kind].label.toLowerCase()}.`); return;
+      const items=(Object.keys(FOOD) as FoodKind[]).filter(k=>this.save.inventory[k]>0);
+      if(!items.length){this.toast('Запасы пусты. Найди растения и нажми E.');return;}
+      this.dialogPartner=undefined;this.dialogKit=undefined;this.dialog.classList.remove('hidden');
+      this.dialog.innerHTML=`<div class="dialog-top"><div><div class="eyebrow">МОИ ЗАПАСЫ</div><h2>Что съесть?</h2></div><button data-action="close">×</button></div><p class="dialog-meta">Некоторые лесные продукты могут быть опасными. Выбирай внимательно.</p><div class="dialog-choices">${items.map(k=>`<button data-action="consume:${k}">${FOOD[k].emoji} ${FOOD[k].label} · ${this.save.inventory[k]} шт.</button>`).join('')}</div>`;return;
     }
     if(action==='drink'){
       if(this.tunnel||!this.world.nearWater(p.x,p.z)){this.toast('Подойди к пруду или воде в болоте, чтобы попить.');return;}
@@ -503,7 +573,7 @@ export class Game {
     }
     if(action==='fur'){
       if(this.furCooldown>0){this.toast('Нужно немного подождать, пока снова появится пух.');return;}
-      this.furCooldown=25;p.energy=clamp(p.energy-5,0,100);this.save.materials.fur++;this.sound.play('pickup');this.toast('Ты собрала немного собственного пуха для гнезда.');return;
+      this.furCooldown=25;p.energy=clamp(p.energy-5,0,100);this.save.materials.fur++;this.sound.play('pickup');this.playAction('pluck',1.7);this.toast('Ты собрала немного собственного пуха для гнезда.');return;
     }
     if(action==='nest'){
       const m=this.save.materials;
@@ -533,6 +603,23 @@ export class Game {
       const burrow: BurrowData = { id, x: p.x, z: p.z, depth: 1, stores: 0, bedding: 1, isHome: false };
       this.save.burrows.push(burrow); this.addBurrow(burrow); p.energy -= 25; this.sound.play('dig'); this.toast('Новая нора готова. Теперь можно прятаться и спать.'); return;
     }
+    if(action==='roots'||action==='steal'){
+      if(!this.tunnel||!this.save.underground){this.toast('Подкопайся под огород с помощью норы.');return;}
+      const x=this.tunnel.burrow.x+this.save.underground.x,z=this.tunnel.burrow.z+this.save.underground.z;
+      if(!this.crops.canForage(this.world.biomeAt(x,z)==='garden',this.tunnel.level)){this.toast('Корни культур растут только под огородом на верхнем уровне норы.');return;}
+      if(action==='steal'&&this.store.carried()>=this.store.capacity){this.toast('Запасы переполнены. Сначала отнеси их в нору.');return;}
+      const crop=this.crops.take(x,z,this.save.clock,this.season());
+      if(!crop){this.toast('Здесь корни уже обгрызены. Попробуй соседнюю клетку позже.');return;}
+      if(action==='roots'){p.hunger=clamp(p.hunger+12,0,100);p.thirst=clamp(p.thirst+4,0,100);this.playAction('eat',1.3);this.toast(`Ты погрызла корни ${FOOD[crop].label.toLowerCase()} под землёй.`);}
+      else{if(this.store.carried()>=this.store.capacity){this.toast('Запасы переполнены. Сначала отнеси их в нору.');return;}this.save.inventory[crop]++;this.sound.play('pickup');this.toast(`Ты утащила ${FOOD[crop].label.toLowerCase()} через подкоп. Можно отнести детям.`);}
+      return;
+    }
+    if(action==='store'||action==='retrieve'){
+      const burrow=this.tunnel?.burrow??this.nearestBurrow(4);
+      if(!burrow){this.toast('Припасы можно хранить только у норы.');return;}
+      const amount=action==='store'?this.store.deposit(burrow):this.store.withdraw(burrow);
+      this.toast(amount?`${action==='store'?'Отложено':'Взято'} ${amount} порций еды ${action==='store'?'на зиму':'из запасов'}.`:'Сейчас нечего перекладывать.');return;
+    }
     if (action === 'hide') {
       if(this.tunnel){this.leaveUnderground();return;}
       const b = this.nearestBurrow();
@@ -546,17 +633,19 @@ export class Game {
       if (this.save.pregnancy) { this.save.pregnancy.progress += 330 / 1440; if (this.save.pregnancy.progress >= 1.2) this.giveBirth(); }
       for (const kit of this.save.kits) if (kit.alive) kit.age += 330 / 1440;
       p.energy = clamp(p.energy + 65, 0, 100); p.hunger = clamp(p.hunger - 17, 0, 100);p.thirst=clamp(p.thirst-20,0,100); p.bladder = clamp(p.bladder + 15, 0, 100);p.bodyTemp=clamp(p.bodyTemp+1.5,28,39);
-      p.health = clamp(p.health + 8, 0, 100); this.toast('Ты выспалась в уютной норе. Прошло несколько часов.'); return;
+      p.health = clamp(p.health + 8, 0, 100); this.playAction('lie',2.8);this.toast('Ты выспалась в уютной норе. Прошло несколько часов.'); return;
     }
-    if (action === 'relieve') { p.bladder = 0; this.toast('Потребность удовлетворена. Можно вернуться к делам.'); return; }
+    if (action === 'relieve') { this.makeWaste(p.poison>40?'diarrhea':p.bladder>50?'urine':'pellets');p.bladder = 0;this.playAction('defecate',1.8); this.toast('Потребность удовлетворена. Не забудь привести шерсть в порядок.'); return; }
+    if(action==='groom'){this.survival.groom();this.playAction('groom',2.5);this.toast('Ты вылизала шерсть. Стало чище и спокойнее.');return;}
     if (action === 'feed') { this.feedKits(); return; }
+    if(action==='feed-vegetables'){this.feedKits(true);return;}
   }
 
   private openPartner(p: PartnerTraits, line?: string): void {
     this.dialogPartner = p;
     this.dialogKit=undefined;
     this.journal.classList.add('hidden');
-    const score = partnerScore(p, this.save.player.genes);
+    const score = this.compatibility(p);
     const preference = { speed: 'быстроту', vitality: 'здоровье', 'rare-coat': 'редкий окрас', bond: 'близость и доверие' }[p.preference];
     this.dialog.classList.remove('hidden');
     this.dialog.innerHTML = `<div class="dialog-top"><div><div class="eyebrow">ЛЕСНОЙ РАЗГОВОР</div><h2>${p.name}</h2></div><button data-action="close" aria-label="Закрыть">×</button></div><p class="speech">«${line??(p.temperament==='осторожный'?'Сначала давай узнаем друг друга получше.':'Рад тебя видеть! Что хочешь узнать?')}»</p><p class="dialog-meta">${p.temperament} крол · семья: ${p.familySize} · ценит ${preference}</p><div class="gene-list"><span>Окрас: ${this.coatName(p.genes.coat)}</span><span>Скорость: ${'◆'.repeat(p.genes.speed)}</span><span>Здоровье: ${'◆'.repeat(p.genes.vitality)}</span><span>Доверие: ${fmt(p.trust)}/100</span><span>Совместимость: ${fmt(score)}/100</span></div><div class="dialog-choices"><button data-action="ask-home">Как живёт твоя семья?</button><button data-action="ask-food">Где искать еду и воду?</button><button data-action="ask-danger">Чего ты опасаешься?</button><button data-action="compliment">Ты мне нравишься</button><button data-action="gift">Подарить еду</button><button class="primary" data-action="court">Предложить создать семью</button></div>`;
@@ -577,9 +666,11 @@ export class Game {
     }
     if (action === 'court') {
       if (this.save.pregnancy) { this.openPartner(p,'Ты уже ждёшь крольчат. Сейчас надо позаботиться о них.'); return; }
-      const score = partnerScore(p, this.save.player.genes);
+      const score = this.compatibility(p);
       if (score < 55) { p.trust = clamp(p.trust + 3, 0, 100); this.openPartner(p,'Я пока не готов. Давай ещё поговорим и лучше узнаем друг друга.'); return; }
       this.save.pregnancy = { fatherId: p.id, progress: 0 };
+      this.playAction('mate',3.1);this.mating={fatherId:p.id,until:this.elapsed+3.1};
+      const actor=this.rabbits.find(r=>r.data.id===p.id);if(actor)setRabbitAction(actor.rig,'mate',this.elapsed+p.id,3.1);
       this.sound.play('baby'); this.dialog.classList.add('hidden'); this.dialogPartner = undefined;
       this.toast(`Ты и ${p.name} стали парой. Скоро в семье появятся крольчата!`); return;
     }
@@ -595,9 +686,11 @@ export class Game {
   private childAction(action:string):void {
     const kit=this.dialogKit;if(!kit)return;
     kit.command=action==='child-follow'?'follow':action==='child-stay'?'stay':'rest';
+    const rig=this.kitMeshes.get(kit.id);
+    if(rig){if(kit.command==='follow')rig.root.userData.actionUntil=0;else setRabbitAction(rig,kit.command==='rest'?'lie':'sit',this.elapsed+kit.id,3600);}
     if(kit.command==='stay'){
       const pos=this.kitMeshes.get(kit.id)?.root.position;
-      kit.stayX=pos?.x;kit.stayZ=pos?.z;
+      kit.stayX=pos?.x;kit.stayZ=pos?.z;kit.stayY=pos?.y;
     }
     this.sound.play('baby');this.openKit(kit,action==='child-follow'?'Хорошо, пойду за тобой!':action==='child-stay'?'Я подожду здесь.':'Свернусь клубочком и отдохну.');
   }
@@ -620,34 +713,54 @@ export class Game {
     this.persist(false);
   }
 
-  private feedKits(): void {
+  private feedKits(vegetables=false): void {
     const b = this.tunnel?.burrow??this.nearestBurrow(4);
     const nest=this.nearestNest(4);
     if (!b&&!nest) { this.toast('Подойди к норе или гнезду с крольчатами.'); return; }
     const young = this.save.kits.filter(k => k.alive && k.age < 3 && (nest?k.nestId===nest.id:k.burrowId===b?.id));
     if (!young.length) { this.toast('Здесь пока нет маленьких крольчат.'); return; }
-    const kind = (Object.keys(FOOD) as FoodKind[]).find(k => this.save.inventory[k] > 0);
-    if (!kind) { this.toast('Сначала собери еду для семьи.'); return; }
-    this.save.inventory[kind]--;
-    for (const kit of young) { kit.hunger = clamp(kit.hunger + FOOD[kind].nutrition + 12, 0, 100); kit.health = clamp(kit.health + 6, 0, 100); }
-    this.sound.play('baby'); this.toast(`Ты покормила ${young.length} крольчат. Их здоровье укрепилось.`);
+    if(vegetables){
+      const ready=young.filter(k=>k.age>=0.8);
+      if(!ready.length){this.toast('Крольчата ещё слишком малы для овощей. Пока корми их молоком.');return;}
+      const kind=(['carrot','cabbage'] as const).find(k=>this.save.inventory[k]>0);
+      if(!kind){this.toast('Для крольчат нужны морковь или капуста из запасов.');return;}
+      this.save.inventory[kind]--;
+      for(const kit of ready){kit.hunger=clamp(kit.hunger+FOOD[kind].nutrition,0,100);kit.health=clamp(kit.health+3,0,100);}
+      this.playAction('eat',1.5);this.sound.play('baby');this.toast(`Ты принесла ${FOOD[kind].label.toLowerCase()} ${ready.length} подросшим крольчатам.`);return;
+    }
+    if(this.save.player.milk<12){this.toast('Молока мало. Поешь и попей, чтобы оно накопилось.');return;}
+    this.save.player.milk=clamp(this.save.player.milk-12,0,100);
+    for (const kit of young) { kit.hunger = clamp(kit.hunger + 35, 0, 100); kit.health = clamp(kit.health + 6, 0, 100); }
+    this.playAction('nurse',2.8);this.sound.play('baby'); this.toast(`Ты покормила молоком ${young.length} крольчат. Их здоровье укрепилось.`);
+  }
+
+  private playAction(action:RabbitAction,duration:number):void{setRabbitAction(this.player,action,this.elapsed,duration);}
+
+  private makeWaste(kind:'pellets'|'urine'|'diarrhea'):void{
+    const x=this.tunnel?this.tunnel.burrow.x+this.save.underground!.x:this.save.player.x;
+    const z=this.tunnel?this.tunnel.burrow.z+this.save.underground!.z:this.save.player.z;
+    const y=this.tunnel?.group.position.y??0;
+    this.waste.spawn(kind,x,y,z);
+    this.save.player.dirtiness=clamp(this.save.player.dirtiness+(kind==='diarrhea'?18:kind==='urine'?8:3),0,100);
   }
 
   private coatName(coat: string): string { return ({ cream: 'кремовый', brown: 'бурый', gray: 'серый', black: 'чёрный', white: 'белый' } as Record<string, string>)[coat] || coat; }
+  private compatibility(p:PartnerTraits):number{return clamp(partnerScore(p,this.save.player.genes)-this.save.player.dirtiness*0.22-this.save.player.poison*0.08,0,100);}
 
   private updateHud(threat = Infinity): void {
     const p = this.save.player;
     const weather = { clear: '☀ Ясно', rain: '☂ Дождь', mist: '☁ Туман', snow:'❄ Снег' }[this.save.weather];
     const biome = this.tunnel?`Нора · уровень ${this.tunnel.level+1}`:{ forest: 'Лес', meadow: 'Луг', swamp: 'Болото', garden: 'Огород' }[this.world.biomeAt(p.x, p.z)];
     const bar = (label: string, value: number, color: string, icon: string) => `<div class="stat"><span>${icon} ${label}</span><div class="meter"><i style="width:${fmt(value)}%;background:${color}"></i></div><b>${fmt(value)}</b></div>`;
-    const foods = (Object.keys(FOOD) as FoodKind[]).map(k => `<span title="${FOOD[k].label}">${FOOD[k].emoji} ${this.save.inventory[k]}</span>`).join('');
+    const foods = (Object.keys(FOOD) as FoodKind[]).filter(k=>this.save.inventory[k]>0).map(k => `<span title="${FOOD[k].label}">${FOOD[k].emoji} ${this.save.inventory[k]}</span>`).join('')||'<span>Пусто</span>';
     const young = this.save.kits.filter(k => k.alive && k.age < 3);
-    this.hud.innerHTML = `<div class="status-card"><div class="card-heading">СОСТОЯНИЕ <span>${this.tunnel ? '● ПОД ЗЕМЛЁЙ' : threat < 8 ? '● ОПАСНОСТЬ' : '● В ЛЕСУ'}</span></div>${bar('Сытость', p.hunger, '#bdcf79', '✿')}${bar('Жажда', p.thirst, '#93bcca', '◈')}${bar('Силы', p.energy, '#93c5ab', '◆')}${bar('Здоровье', p.health, '#dc9f9a', '♥')}${bar('Нужда', p.bladder, '#c7a8cc', '◌')}<div class="temperature">Температура тела: <b>${p.bodyTemp.toFixed(1)}°</b> ${p.bodyTemp<34?'⚠ Переохлаждение':''}</div><div class="inventory"><b>ЗАПАСЫ</b><div>${foods}</div><small>Трава ${this.save.materials.grass} · ветки ${this.save.materials.twigs} · пух ${this.save.materials.fur}</small></div></div><div class="family-card"><div class="card-heading">МОЯ СЕМЬЯ</div><strong>${this.save.kits.filter(k => k.alive).length} <small>крольчат</small></strong><span>${young.length ? `${young.length} малышей нуждаются в заботе` : this.save.pregnancy ? `Беременность: ${fmt(this.save.pregnancy.progress / 1.2 * 100)}%` : 'Найди партнёра и создай семью'}</span><div class="family-line"><span>Выросли: ${this.save.stats.grown}</span><span>Гнёзда: ${this.save.nests.length}</span></div></div>`;
+    this.hud.innerHTML = `<div class="status-card"><div class="card-heading">СОСТОЯНИЕ <span>${this.tunnel ? '● ПОД ЗЕМЛЁЙ' : threat < 8 ? '● ОПАСНОСТЬ' : '● В ЛЕСУ'}</span></div>${bar('Сытость', p.hunger, '#bdcf79', '✿')}${bar('Жажда', p.thirst, '#93bcca', '◈')}${bar('Силы', p.energy, '#93c5ab', '◆')}${bar('Здоровье', p.health, '#dc9f9a', '♥')}${bar('Нужда', p.bladder, '#c7a8cc', '◌')}${bar('Чистота',100-p.dirtiness,'#e4c894','✧')}${p.poison>1?bar('Отравление',p.poison,'#b47b9c','☠'):''}<div class="temperature">Температура тела: <b>${p.bodyTemp.toFixed(1)}°</b> ${p.bodyTemp<34?'⚠ Переохлаждение':''}</div><div class="inventory"><b>ЕДА ${this.store.carried()}/${this.store.capacity} · МОЛОКО ${fmt(p.milk)}%</b><div>${foods}</div><small>Трава ${this.save.materials.grass} · ветки ${this.save.materials.twigs} · пух ${this.save.materials.fur}</small></div></div><div class="family-card"><div class="card-heading">МОЯ СЕМЬЯ</div><strong>${this.save.kits.filter(k => k.alive).length} <small>крольчат</small></strong><span>${young.length ? `${young.length} малышей нуждаются в заботе` : this.save.pregnancy ? `Беременность: ${fmt(this.save.pregnancy.progress / 1.2 * 100)}%` : 'Найди партнёра и создай семью'}</span><div class="family-line"><span>Выросли: ${this.save.stats.grown}</span><span>Гнёзда: ${this.save.nests.length}</span></div></div>`;
     const info = this.app.querySelector('#world-info');
     if (info) info.innerHTML = `<span>◷ День ${this.save.day} · ${this.timeText()}</span><span>✿ ${this.season()}</span><span>${weather} · ${fmt(this.airTemperature())}°C</span><span>⌁ ${biome}</span>`;
     const partner = this.nearestPartner(); const resource = this.world.nearestResource(p.x, p.z, 2.3); const burrow = this.nearestBurrow();
     const child=this.nearestKit();
-    this.prompt.innerHTML = this.tunnel?`<kbd>B</kbd> Копать &nbsp; <kbd>Z</kbd> Глубже &nbsp; <kbd>X</kbd> Выше &nbsp; <kbd>H</kbd> Выйти &nbsp; <kbd>N</kbd> Гнездо`:child?`<kbd>E</kbd> Поговорить: ${child.name}`:partner ? `<kbd>E</kbd> Поговорить: ${partner.name}` : resource ? `<kbd>E</kbd> Собрать: ${FOOD[resource.kind].label}` : burrow ? `<kbd>H</kbd> Войти в нору &nbsp; <kbd>R</kbd> Спать &nbsp; <kbd>B</kbd> Расширить` : this.world.nearWater(p.x,p.z)?`<kbd>V</kbd> Пить воду`:'';
+    const underGarden=this.tunnel&&this.save.underground&&this.world.biomeAt(this.tunnel.burrow.x+this.save.underground.x,this.tunnel.burrow.z+this.save.underground.z)==='garden';
+    this.prompt.innerHTML = this.tunnel?`<kbd>B</kbd> Копать &nbsp; <kbd>Z/X</kbd> Глубина &nbsp; <kbd>H</kbd> Выйти ${underGarden?'&nbsp; <kbd>Q</kbd> Корни &nbsp; <kbd>T</kbd> Украсть культуру':''}`:child?`<kbd>E</kbd> Поговорить: ${child.name}`:partner ? `<kbd>E</kbd> Поговорить: ${partner.name}` : resource ? `<kbd>E</kbd> Собрать: ${FOOD[resource.kind].label}` : burrow ? `<kbd>H</kbd> Войти в нору &nbsp; <kbd>R</kbd> Спать &nbsp; <kbd>K/O</kbd> Припасы` : this.world.nearWater(p.x,p.z)?`<kbd>V</kbd> Пить воду`:'';
   }
 
   private toggleJournal(mode: string): void {
@@ -659,7 +772,7 @@ export class Game {
       this.journal.append(this.mapCanvas); this.drawMap();
     } else {
       const kits = this.save.kits.filter(k => k.alive).map(k => `<div class="kit-row"><b>${k.name}</b><span>${k.age < 3 ? `малыш · сытость ${fmt(k.hunger)}% · здоровье ${fmt(k.health)}%` : 'взрослый кролик'} · отец ${k.father}</span></div>`).join('') || '<p>Пока крольчат нет. Знакомься с кролами в лесу.</p>';
-      this.journal.innerHTML = `<div class="journal-head"><h2>Лесной дневник</h2><button data-action="journal">×</button></div><div class="journal-stat"><span>День ${this.save.day}</span><span>${this.season()}</span><span>Родились: ${this.save.stats.births}</span><span>Выросли: ${this.save.stats.grown}</span></div><h3>Семья</h3>${kits}<h3>Норы и гнёзда</h3>${this.save.burrows.map(b => `<div class="kit-row"><b>${b.isHome ? 'Родная нора' : `Нора ${b.id}`}</b><span>Уровень входа ${b.depth} · проложено ходов ${b.cells?.length??5}</span></div>`).join('')}<p>Гнёзд: ${this.save.nests.length}. Подземные теплее и безопаснее, наземные доступны в любом месте.</p><h3>Как выжить</h3><p>Пей у водоёмов (V), собирай еду (E), получай траву и ветки вместе с растениями. Собирай пух (U). Для гнезда нужно 3 травы, 2 ветки и 2 пуха. В норе копай стены перед собой (B).</p>`;
+      this.journal.innerHTML = `<div class="journal-head"><h2>Лесной дневник</h2><button data-action="journal">×</button></div><div class="journal-stat"><span>День ${this.save.day}</span><span>${this.season()}</span><span>Родились: ${this.save.stats.births}</span><span>Выросли: ${this.save.stats.grown}</span></div><h3>Семья</h3>${kits}<h3>Норы и припасы</h3>${this.save.burrows.map(b => `<div class="kit-row"><b>${b.isHome ? 'Родная нора' : `Нора ${b.id}`}</b><span>Вход ${b.depth} · ходов ${b.cells?.length??5} · еды ${Object.values(b.storedFood??{}).reduce((sum,n)=>sum+(n??0),0)}</span></div>`).join('')}<p>Гнёзд: ${this.save.nests.length}. Подземные теплее; неглубокие входы привлекают лис, если рядом крольчата или отходы.</p><h3>Как выжить</h3><p>Зимой пищи почти нет — осенью складывай её в нору клавишей K и бери O. Под огородом можно грызть корни (Q) и красть овощи (T). Грязная шерсть пахнет сильнее и ухудшает отношения: вылизывайся (C). Опасные растения и грибы могут вызвать отравление.</p>`;
     }
   }
 

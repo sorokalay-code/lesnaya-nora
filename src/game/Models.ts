@@ -11,6 +11,10 @@ function part(parent: THREE.Object3D, geometry: THREE.BufferGeometry, material: 
 }
 
 export interface RabbitRig { root: THREE.Group; body: THREE.Mesh; leftEar: THREE.Group; rightEar: THREE.Group; paws: THREE.Group[]; eyes: THREE.Mesh[]; tail: THREE.Mesh; head: THREE.Group; }
+export type RabbitAction='eat'|'defecate'|'lie'|'sit'|'mate'|'groom'|'pluck'|'nurse';
+export function setRabbitAction(r:RabbitRig,action:RabbitAction,time:number,duration:number):void{
+  r.root.userData.action=action;r.root.userData.actionUntil=time+duration;
+}
 
 export function createRabbit(genes: Genes, baby = false): RabbitRig {
   const root = new THREE.Group();
@@ -58,20 +62,33 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
 }
 
 export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frightened = false, dt = 1/60): void {
-  const state = r.root.userData as { motion?: number; phase?: number };
+  const state = r.root.userData as { motion?: number; phase?: number;action?:RabbitAction;actionUntil?:number };
+  const action=state.actionUntil!==undefined&&time<state.actionUntil?state.action:undefined;
+  if(!action)state.action=undefined;
+  if(action)moving=false;
   state.motion = THREE.MathUtils.damp(state.motion ?? 0, moving ? 1 : 0, 7, dt);
   state.phase = (state.phase ?? 0) + dt * (frightened ? 17 : 11) * Math.max(0.15, state.motion);
   const motion = state.motion, phase = state.phase;
   const lift = Math.pow(Math.max(0, Math.sin(phase)), 1.5) * 0.18 * motion;
-  r.root.position.y = THREE.MathUtils.damp(r.root.position.y, lift, 10, dt);
-  r.body.scale.y = THREE.MathUtils.damp(r.body.scale.y, 0.34 * (1 - Math.max(0,Math.sin(phase)) * 0.07 * motion), 9, dt);
-  r.head.rotation.x = THREE.MathUtils.damp(r.head.rotation.x, Math.sin(time * 1.7) * 0.035 + Math.sin(phase) * 0.04 * motion, 6, dt);
+  const poseY=action==='lie'||action==='nurse'?-0.17:action==='sit'||action==='defecate'?-0.08:action==='mate'?0.23:0;
+  const baseY=(r.root.userData.baseY as number|undefined)??0;
+  r.root.position.y = THREE.MathUtils.damp(r.root.position.y, baseY+lift+poseY, 10, dt);
+  r.root.rotation.x=THREE.MathUtils.damp(r.root.rotation.x,action==='mate'?-0.18:action==='defecate'?0.08:0,8,dt);
+  r.body.scale.y = THREE.MathUtils.damp(r.body.scale.y, (action==='lie'||action==='nurse'?0.27:0.34) * (1 - Math.max(0,Math.sin(phase)) * 0.07 * motion), 9, dt);
+  const headTarget=action==='eat'?0.4+Math.sin(time*10)*0.07:action==='groom'?0.26+Math.sin(time*7)*0.12:action==='pluck'?-0.25:action==='sit'?-0.14:Math.sin(time * 1.7) * 0.035 + Math.sin(phase) * 0.04 * motion;
+  r.head.rotation.x = THREE.MathUtils.damp(r.head.rotation.x,headTarget,6,dt);
+  r.head.rotation.y=THREE.MathUtils.damp(r.head.rotation.y,action==='groom'?Math.sin(time*4)*0.35:action==='pluck'?0.5:0,6,dt);
   r.leftEar.rotation.z = THREE.MathUtils.damp(r.leftEar.rotation.z, -0.12 + Math.sin(time * 2.2) * 0.035 - motion * 0.08 - (frightened ? 0.14 : 0), 5, dt);
   r.rightEar.rotation.z = THREE.MathUtils.damp(r.rightEar.rotation.z, 0.12 + Math.sin(time * 2.4 + 1) * 0.035 + motion * 0.08 + (frightened ? 0.14 : 0), 5, dt);
   r.tail.rotation.y = Math.sin(time * 4) * 0.13;
   r.paws.forEach((paw, i) => {
     const rear = i % 2 === 1;
-    const target = Math.sin(phase + (i < 2 ? 0 : Math.PI) + (rear ? 0.7 : 0)) * (rear ? 0.42 : 0.55) * motion;
+    let target = Math.sin(phase + (i < 2 ? 0 : Math.PI) + (rear ? 0.7 : 0)) * (rear ? 0.42 : 0.55) * motion;
+    if(action==='groom'&&i<2)target=-0.75+Math.sin(time*9+i)*0.25;
+    if(action==='pluck'&&i<2)target=-0.45+Math.sin(time*8+i)*0.15;
+    if(action==='eat'&&i<2)target=-0.32+Math.sin(time*8+i)*0.05;
+    if(action==='defecate'&&i>=2)target=0.35;
+    if(action==='mate')target=Math.sin(time*11+i)*0.22;
     paw.rotation.x = THREE.MathUtils.damp(paw.rotation.x, target, 12, dt);
     paw.position.y = 0.23 + Math.max(0, Math.sin(phase + i * Math.PI * 0.5)) * 0.055 * motion;
   });
@@ -114,12 +131,36 @@ export function animatePredator(root: THREE.Group, time: number, running: boolea
   for(let i=0;i<legs.length;i++) legs[i].rotation.x = THREE.MathUtils.damp(legs[i].rotation.x, Math.sin(time*(running?14:6)+i*Math.PI*0.7)*(running?0.55:0.24), 9, dt);
 }
 
+export function createHawk():THREE.Group{
+  const root=new THREE.Group();
+  root.scale.setScalar(1.7);
+  const brown=new THREE.MeshStandardMaterial({color:0x735443,roughness:0.9});
+  const pale=new THREE.MeshStandardMaterial({color:0xd9c29c,roughness:0.9});
+  const gold=new THREE.MeshStandardMaterial({color:0xd7a649,roughness:0.7});
+  part(root,sphere,brown,[0,0,0],[0.42,0.26,0.78]);
+  part(root,sphere,pale,[0,-0.13,-0.25],[0.3,0.16,0.45]);
+  part(root,sphere,brown,[0,0.15,-0.55],[0.29,0.25,0.3]);
+  const beak=part(root,cone,gold,[0,0.04,-0.9],[0.12,0.28,0.12]);beak.rotation.x=-Math.PI/2;
+  const dark=new THREE.MeshStandardMaterial({color:0x1b1a19});
+  for(const side of [-1,1])part(root,sphere,dark,[side*0.2,0.2,-0.73],[0.045,0.045,0.04]);
+  const wings:THREE.Group[]=[];
+  for(const side of [-1,1]){
+    const wing=new THREE.Group();wing.position.set(side*0.29,0,0);root.add(wing);
+    const panel=part(wing,sphere,brown,[side*0.95,0,0.1],[1.1,0.09,0.33]);panel.rotation.y=side*0.15;
+    for(let i=0;i<4;i++)part(wing,sphere,pale,[side*(1.1+i*0.16),0,0.32],[0.3,0.035,0.18]);
+    wings.push(wing);
+  }
+  root.userData.wings=wings;
+  return root;
+}
+
 export function makeBurrow(depth: number): THREE.Group {
   const root = new THREE.Group();
   const soil = new THREE.MeshStandardMaterial({ color: 0x7c5a3e, roughness: 1 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x2b211a, roughness: 1 });
-  part(root, sphere, soil, [0, 0.09, 0], [1.1 + depth * 0.13, 0.2, 0.95 + depth * 0.1]);
-  part(root, sphere, dark, [0, 0.115, -0.35], [0.49, 0.08, 0.39]);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.72+depth*0.04,0.21,8,16),soil);
+  ring.rotation.x=Math.PI/2;ring.position.set(0,0.08,-0.35);ring.castShadow=true;root.add(ring);
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.67,0.72,6.1,14,1,true),new THREE.MeshStandardMaterial({color:0x5b4534,roughness:1,side:THREE.BackSide}));
+  shaft.position.set(0,-2.95,-0.35);root.add(shaft);
   for (let i = 0; i < 5; i++) {
     const a = i * 2.4;
     part(root, sphere, soil, [Math.sin(a) * 0.77, 0.18, Math.cos(a) * 0.62], [0.24, 0.17, 0.23]);
