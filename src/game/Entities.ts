@@ -5,6 +5,7 @@ import { type Genes, type PartnerTraits, type PredatorKind } from './types';
 
 const names = ['Листик', 'Тимофей', 'Пушок', 'Рыжик', 'Ветерок', 'Клевер', 'Туман', 'Шорох', 'Орешек', 'Бор'];
 const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
+export type GroundHeight=(x:number,z:number)=>number;
 
 export class RabbitFactory {
   constructor(private readonly rng: Random) {}
@@ -37,11 +38,22 @@ export class RabbitActor {
   private activity: 'forage' | 'rest' | 'explore' = 'explore';
   private targetX: number;
   private targetZ: number;
+  private tunnelPosition?:{x:number;y:number;z:number};
   constructor(readonly data: PartnerTraits, private readonly rng: Random) {
     this.rig = createRabbit(data.genes); this.rig.root.position.set(data.x, 0, data.z);
     this.targetX=data.x;this.targetZ=data.z;
   }
-  update(dt: number, time: number, playerX: number, playerZ: number): void {
+  enterTunnel(x:number,y:number,z:number):void{
+    this.tunnelPosition={x,y,z};this.data.x=x;this.data.z=z;
+    this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;
+  }
+  leaveTunnel():void{this.tunnelPosition=undefined;}
+  update(dt: number, time: number, playerX: number, playerZ: number,groundAt:GroundHeight): void {
+    if(this.tunnelPosition){
+      this.rig.root.position.set(this.tunnelPosition.x,this.tunnelPosition.y,this.tunnelPosition.z);
+      this.rig.root.userData.baseY=this.tunnelPosition.y;
+      animateRabbit(this.rig,time+this.data.id,false,false,dt);return;
+    }
     if (time > this.nextTurn || Math.hypot(this.targetX-this.data.x,this.targetZ-this.data.z)<0.7) {
       this.nextTurn = time + this.rng.range(4, 9);
       this.activity=this.rng.pick(['forage','forage','rest','explore'] as const);
@@ -60,6 +72,7 @@ export class RabbitActor {
       this.wanderAngle=direction;
     }
     this.rig.root.position.x = this.data.x; this.rig.root.position.z = this.data.z;
+    this.rig.root.userData.baseY=groundAt(this.data.x,this.data.z);
     const targetRotation = near ? Math.atan2(-(playerX - this.data.x), -(playerZ - this.data.z)) : this.wanderAngle + Math.PI;
     const turn=Math.atan2(Math.sin(targetRotation-this.rig.root.rotation.y),Math.cos(targetRotation-this.rig.root.rotation.y));
     this.rig.root.rotation.y+=THREE.MathUtils.clamp(turn,-2.7*dt,2.7*dt);
@@ -72,10 +85,12 @@ export class FamilyMember {
   constructor(private readonly parent: PartnerTraits, genes: Genes, private readonly index: number, baby: boolean) {
     this.rig = createRabbit(genes, baby);
   }
-  update(time: number, dt: number): void {
+  update(time: number, dt: number,groundAt:GroundHeight): void {
     const angle = time * (0.12 + this.index * 0.016) + this.index * 2.5;
     const radius = 1.3 + (this.index % 3) * 0.35;
-    this.rig.root.position.set(this.parent.x + Math.cos(angle) * radius, 0, this.parent.z + Math.sin(angle) * radius);
+    const x=this.parent.x+Math.cos(angle)*radius,z=this.parent.z+Math.sin(angle)*radius;
+    this.rig.root.position.x=x;this.rig.root.position.z=z;
+    this.rig.root.userData.baseY=groundAt(x,z);
     this.rig.root.rotation.y = -angle;
     animateRabbit(this.rig, time + this.index * 2, true, false, dt);
   }
@@ -88,13 +103,24 @@ export class Predator {
   attackCooldown = 0;
   readonly range: number;
   private homeX:number;private homeZ:number;
+  private tunnelPosition?:{x:number;y:number;z:number};
   constructor(readonly kind: PredatorKind, x: number, z: number, private readonly rng: Random) {
     this.x = this.targetX = x; this.z = this.targetZ = z;
     this.homeX=x;this.homeZ=z;
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
     this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : 11;
   }
-  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean,scent=0,activity=1): boolean {
+  enterTunnel(x:number,y:number,z:number):void{
+    this.tunnelPosition={x,y,z};this.x=x;this.z=z;this.root.position.set(x,y,z);
+  }
+  leaveTunnel():void{this.tunnelPosition=undefined;}
+  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean,groundAt:GroundHeight,scent=0,activity=1): boolean {
+    this.attackCooldown=Math.max(0,this.attackCooldown-dt);
+    if(this.tunnelPosition){
+      this.x=this.tunnelPosition.x;this.z=this.tunnelPosition.z;
+      this.root.position.set(this.x,this.tunnelPosition.y,this.z);
+      animatePredator(this.root,time,false,dt);return false;
+    }
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog' || !day || dist < 7);
     if (hunting) { this.targetX = px; this.targetZ = pz; }
@@ -107,10 +133,9 @@ export class Predator {
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
     const speed = hunting ? (this.kind === 'wolf' ? 3.7 : 3.3) : 0.75;
     this.x += Math.sin(angle) * speed * dt; this.z += Math.cos(angle) * speed * dt;
-    this.root.position.set(this.x, Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02), this.z);
+    this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;
     animatePredator(this.root,time,hunting,dt);
-    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (hunting && dist < 1.5 && this.attackCooldown <= 0) { this.attackCooldown = 3; return true; }
     return false;
   }
@@ -125,7 +150,7 @@ export class Hawk {
   private homeX:number;private homeZ:number;
   x:number;z:number;
   constructor(x:number,z:number,rng:Random){this.homeX=x;this.homeZ=z;this.x=x;this.z=z;this.angle=rng.range(0,Math.PI*2);this.shadow.rotation.x=-Math.PI/2;}
-  update(dt:number,time:number,px:number,pz:number,exposed:boolean):boolean{
+  update(dt:number,time:number,px:number,pz:number,exposed:boolean,groundAt:GroundHeight):boolean{
     this.cooldown=Math.max(0,this.cooldown-dt);
     const distance=Math.hypot(px-this.x,pz-this.z);
     if(exposed&&distance<24&&this.cooldown<=0&&this.diveUntil<=time){this.diveUntil=time+2.5;this.cooldown=22;}
@@ -133,16 +158,16 @@ export class Hawk {
       const fraction=1-(this.diveUntil-time)/2.5;
       const direction=Math.atan2(px-this.x,pz-this.z);
       this.x+=Math.sin(direction)*dt*9;this.z+=Math.cos(direction)*dt*9;
-      this.root.position.set(this.x,1.2+Math.abs(fraction-0.6)*17,this.z);
+      this.root.position.set(this.x,groundAt(this.x,this.z)+1.2+Math.abs(fraction-0.6)*17,this.z);
       this.root.rotation.y=direction+Math.PI;
       if(fraction>0.5&&fraction<0.75&&Math.hypot(px-this.x,pz-this.z)<2&&exposed){this.diveUntil=0;return true;}
     }else{
       this.angle+=dt*0.42;this.x=this.homeX+Math.cos(this.angle)*11;this.z=this.homeZ+Math.sin(this.angle)*11;
-      this.root.position.set(this.x,11+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=-this.angle;
+      this.root.position.set(this.x,groundAt(this.x,this.z)+11+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=-this.angle;
     }
     const wings=this.root.userData.wings as THREE.Group[];
     wings.forEach((w,i)=>w.rotation.z=(i===0?-1:1)*(0.12+Math.sin(time*7)*0.22));
-    this.shadow.position.set(this.x,0.05,this.z);this.shadow.scale.setScalar(this.diveUntil>time?1.5:0.85);
+    this.shadow.position.set(this.x,groundAt(this.x,this.z)+0.05,this.z);this.shadow.scale.setScalar(this.diveUntil>time?1.5:0.85);
     return false;
   }
 }

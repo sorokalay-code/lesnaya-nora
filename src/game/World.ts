@@ -54,6 +54,7 @@ export class World {
   private rng: Random;
   private rain?: THREE.Points;
   private butterflies: {mesh:THREE.Group;x:number;z:number;phase:number}[]=[];
+  private heightCache=new Map<string,number>();
 
   constructor(scene: THREE.Scene, seed: number,private readonly save?:SaveData) {
     this.scene = scene; this.seed = seed; this.rng = new Random(seed);this.seasons=new SeasonSystem(seed);this.chunks=new WorldChunks(scene);this.terrain=new Terrain(seed);
@@ -61,7 +62,22 @@ export class World {
     this.buildGround(); this.buildDecorations(); this.buildResources();
   }
 
-  heightAt(x:number,z:number):number{return this.terrain.heightAt(x,z);}
+  /** The rendered terrain consists of two triangles per 1 m tile. Gameplay samples those same planes. */
+  heightAt(x:number,z:number):number{
+    const ix=Math.floor(x),iz=Math.floor(z),u=x-ix,v=z-iz;
+    const sample=(gx:number,gz:number)=>{
+      const key=`${gx},${gz}`;
+      let value=this.heightCache.get(key);
+      if(value===undefined){value=this.terrain.heightAt(gx,gz);this.heightCache.set(key,value);}
+      return value;
+    };
+    const h00=sample(ix,iz);
+    if(u===0&&v===0)return h00;
+    const h11=sample(ix+1,iz+1);
+    if(u>=v){const h10=sample(ix+1,iz);return h00+(h10-h00)*u+(h11-h10)*v;}
+    const h01=sample(ix,iz+1);
+    return h00+(h11-h01)*u+(h01-h00)*v;
+  }
   temperatureOffset(x:number,z:number):number{return this.terrain.temperatureOffset(x,z);}
   rootAt(x:number,z:number,depth:number):Resource|TreeRoot|undefined{
     if(depth<=4){
@@ -181,8 +197,8 @@ export class World {
       if (Math.hypot(x, z) < 6) continue;
       if (biome === 'garden') continue;
       if (biome === 'swamp' && this.rng.chance(0.28)) {
-        const puddle = new THREE.Mesh(new THREE.CircleGeometry(this.rng.range(1.5, 4), 12), water);
-        puddle.rotation.x = -Math.PI / 2; puddle.position.set(x, this.heightAt(x,z)+0.012, z); this.chunks.add(puddle,x,z);
+        const puddle=this.terrainDisc(x,z,this.rng.range(1.5,4),0.025,water);
+        puddle.name='swamp-water';this.chunks.add(puddle,x,z);
       }
       if (biome === 'forest' && this.rng.chance(0.58)) {
         const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z); const h = this.rng.range(5.5, 12.5);
@@ -241,23 +257,43 @@ export class World {
     this.makeBoundary();
   }
 
+  private terrainDisc(x:number,z:number,radius:number,offset:number,material:THREE.Material):THREE.Mesh{
+    const segments=48,rings=Math.max(3,Math.ceil(radius/0.34));
+    const vertices:number[]=[x,this.heightAt(x,z)+offset,z],indices:number[]=[];
+    for(let ring=1;ring<=rings;ring++)for(let segment=0;segment<segments;segment++){
+      const angle=segment*Math.PI*2/segments,distance=radius*ring/rings;
+      const vx=x+Math.cos(angle)*distance,vz=z+Math.sin(angle)*distance;
+      vertices.push(vx,this.heightAt(vx,vz)+offset,vz);
+    }
+    for(let segment=0;segment<segments;segment++)indices.push(0,1+(segment+1)%segments,1+segment);
+    for(let ring=1;ring<rings;ring++)for(let segment=0;segment<segments;segment++){
+      const a=1+(ring-1)*segments+segment,b=1+(ring-1)*segments+(segment+1)%segments;
+      const c=a+segments,d=b+segments;
+      indices.push(a,b,c,b,d,c);
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setIndex(indices);geometry.computeVertexNormals();
+    const mesh=new THREE.Mesh(geometry,material);mesh.receiveShadow=true;return mesh;
+  }
+
   private makePond(x: number, z: number, radius: number): void {
-    const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z);
-    const shore = new THREE.Mesh(new THREE.CircleGeometry(radius + 0.55, 28), mat(0x827f5b));
-    shore.rotation.x = -Math.PI / 2; shore.position.y = 0.014; g.add(shore);
-    const water = new THREE.Mesh(new THREE.CircleGeometry(radius, 28), new THREE.MeshStandardMaterial({ color: 0x75b1ad, roughness: 0.22, metalness: 0.08, transparent: true, opacity: 0.88 }));
-    water.rotation.x = -Math.PI / 2; water.position.y = 0.025; g.add(water);
+    const g = new THREE.Group();
+    const shore=this.terrainDisc(x,z,radius+0.55,0.015,mat(0x827f5b));g.add(shore);
+    const water=this.terrainDisc(x,z,radius,0.035,new THREE.MeshStandardMaterial({color:0x75b1ad,roughness:0.22,metalness:0.08,transparent:true,opacity:0.88}));
+    water.name='pond-water';g.add(water);
     const reedMat = mat(0x829d5c);
     for (let i = 0; i < 25; i++) {
       const a = this.rng.range(0, Math.PI * 2), d = this.rng.range(radius + 0.2, radius + 1.1);
-      const reed = new THREE.Mesh(cone, reedMat); reed.position.set(Math.cos(a) * d, 0.33, Math.sin(a) * d);
+      const rx=x+Math.cos(a)*d,rz=z+Math.sin(a)*d;
+      const reed = new THREE.Mesh(cone, reedMat); reed.position.set(rx,this.heightAt(rx,rz)+0.33,rz);
       reed.scale.set(0.06, this.rng.range(0.5, 0.85), 0.06); g.add(reed);
     }
     for(let i=0;i<7;i++){
       const a=this.rng.range(0,Math.PI*2),d=this.rng.range(0,radius*0.78);
-      const pad=new THREE.Mesh(new THREE.CircleGeometry(this.rng.range(0.25,0.48),10),mat(0x5c965e));
-      pad.rotation.x=-Math.PI/2;pad.position.set(Math.cos(a)*d,0.033,Math.sin(a)*d);g.add(pad);
-      if(i%3===0)blob(g,mat(0xf2d5df),pad.position.x,0.08,pad.position.z,0.09,0.06,0.09);
+      const px=x+Math.cos(a)*d,pz=z+Math.sin(a)*d;
+      const pad=this.terrainDisc(px,pz,this.rng.range(0.25,0.48),0.055,mat(0x5c965e));g.add(pad);
+      if(i%3===0)blob(g,mat(0xf2d5df),px,this.heightAt(px,pz)+0.11,pz,0.09,0.06,0.09);
     }
     this.chunks.add(g,x,z); this.waterSources.push({ x, z });
   }
@@ -288,8 +324,12 @@ export class World {
     for (let i = 0; i < 65; i++) {
       const x = this.rng.range(-98,98), z = this.rng.range(-98,98);
       if (this.biomeAt(x,z)==='garden' || Math.hypot(x,z)<12) continue;
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,this.rng.range(1.2,3.1),7),logMat);
-      log.rotation.z = Math.PI/2; log.rotation.y = this.rng.range(0,6.28); log.position.set(x,this.heightAt(x,z)+0.24,z); log.castShadow=true; this.chunks.add(log,x,z);
+      const length=this.rng.range(1.2,3.1),angle=this.rng.range(0,Math.PI*2);
+      const dx=Math.cos(angle),dz=Math.sin(angle);
+      const start=this.heightAt(x-dx*length/2,z-dz*length/2),end=this.heightAt(x+dx*length/2,z+dz*length/2);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,length,7),logMat);
+      log.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(dx,(end-start)/length,dz).normalize());
+      log.position.set(x,(start+end)/2+0.19,z);log.castShadow=true;this.chunks.add(log,x,z);
       const mossy=new THREE.Group();mossy.position.set(x+0.3,this.heightAt(x+0.3,z),z);blob(mossy,moss,0,0.35,0,0.22,0.08,0.16);this.chunks.add(mossy,x,z);
     }
   }
@@ -316,13 +356,31 @@ export class World {
         post.position.set(px, this.heightAt(px,pz)+0.55, pz); post.castShadow = true; this.chunks.add(post,px,pz);
       }
     }
-    const hut = new THREE.Group(); hut.position.set(x + r * 0.58, this.heightAt(x+r*0.58,z+r*0.58), z + r * 0.58);
+    const hx=x+r*0.58,hz=z+r*0.58;
+    const hutY=Math.min(...[-1.5,1.5].flatMap(dx=>[-1.35,1.35].map(dz=>this.heightAt(hx+dx,hz+dz))));
+    const hut = new THREE.Group(); hut.position.set(hx,hutY,hz);
     const wall = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, 2.7), mat(0xd5c19a)); wall.position.y = 1.1; wall.castShadow = true; hut.add(wall);
     const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.5, 4), mat(0x915b47)); roof.position.y = 2.8; roof.rotation.y = Math.PI / 4; hut.add(roof); this.chunks.add(hut,hut.position.x,hut.position.z);
     for (let row = -r + 3; row < r - 3; row += 3) {
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, r * 1.3), mat(0x6e583d));
-      strip.position.set(x + row, this.heightAt(x+row,z)+0.05, z); this.chunks.add(strip,x+row,z);
+      const strip=this.terrainStrip(x+row,z,1.4,r*1.3);
+      this.chunks.add(strip,x+row,z);
     }
+  }
+
+  private terrainStrip(x:number,z:number,width:number,length:number):THREE.Mesh{
+    const columns=4,rows=Math.ceil(length/0.5),vertices:number[]=[],indices:number[]=[];
+    for(let row=0;row<=rows;row++)for(let column=0;column<=columns;column++){
+      const vx=x-width/2+width*column/columns,vz=z-length/2+length*row/rows;
+      vertices.push(vx,this.heightAt(vx,vz)+0.045,vz);
+    }
+    for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
+      const a=row*(columns+1)+column,b=a+1,c=a+columns+1,d=c+1;
+      indices.push(a,c,b,b,c,d);
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+    const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0x6e583d,roughness:1,side:THREE.DoubleSide}));
+    mesh.name='garden-soil';return mesh;
   }
 
   private makeBoundary(): void {

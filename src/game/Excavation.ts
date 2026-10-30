@@ -5,6 +5,7 @@ import { CaveMesher } from './CaveMesher';
 
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const distance2=(a:{x:number;z:number},b:{x:number;z:number})=>Math.hypot(a.x-b.x,a.z-b.z);
+export type DigPreview={node:DigNode;point:THREE.Vector3;valid:boolean;reason:string};
 
 /** Sparse, world-space cavities. Digging changes geometry, never the current location. */
 export class Excavation {
@@ -16,7 +17,7 @@ export class Excavation {
   private roots:Array<{node:DigNode;mesh:THREE.Mesh}>=[];
   private lastRootRefresh=0;
   private light=new THREE.PointLight(0xffe3b6,4.5,12);
-  private marker=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8),new THREE.MeshBasicMaterial({color:0xffd78c,transparent:true,opacity:0.8,depthTest:false}));
+  private marker=new THREE.Mesh(new THREE.SphereGeometry(0.075,10,8),new THREE.MeshBasicMaterial({color:0xffd78c,transparent:true,opacity:0.72,depthTest:false}));
 
   constructor(scene:THREE.Scene,private readonly world:World,private readonly save:SaveData){
     this.mesher=new CaveMesher(scene,(x,z)=>world.heightAt(x,z));
@@ -94,17 +95,24 @@ export class Excavation {
     return{node,point:new THREE.Vector3(nx,node.y,nz)};
   }
   dig(camera:THREE.Camera,x:number,y:number,z:number):{success:boolean;reason:string;node?:DigNode}{
-    const aimed=this.target(camera,x,y,z);
-    if(!aimed)return{success:false,reason:'Направь прицел на землю рядом с крольчихой.'};
-    const node=aimed.node;
-    if(Math.abs(node.x)>103||Math.abs(node.z)>103)return{success:false,reason:'Здесь край исследуемого леса.'};
-    if(this.depth(node)>this.maxDepth)return{success:false,reason:'Глубже 50 м копать нельзя.'};
-    if(this.save.excavation.some(existing=>Math.hypot(existing.x-node.x,existing.y-node.y,existing.z-node.z)<1.1))
-      return{success:false,reason:'Эта земля уже выкопана. Направь прицел дальше.'};
-    const prior=this.nearestNode(x,y,z);
-    if(prior&&this.isSheltered(x,y,z)&&!this.connected(prior,node))return{success:false,reason:'Копай соседний участок, чтобы сохранить проходимый уклон.'};
+    const preview=this.preview(camera,x,y,z);
+    if(!preview)return{success:false,reason:'Направь прицел на землю рядом с крольчихой.'};
+    if(!preview.valid)return{success:false,reason:preview.reason};
+    const node=preview.node;
     this.save.excavation.push(node);this.addGeometry(node);
     return{success:true,reason:'Земля выкопана. Иди по образовавшемуся ходу.',node};
+  }
+  preview(camera:THREE.Camera,x:number,y:number,z:number):DigPreview|undefined{
+    const aimed=this.target(camera,x,y,z);if(!aimed)return undefined;
+    const node=aimed.node;
+    let reason='';
+    if(Math.abs(node.x)>103||Math.abs(node.z)>103)reason='Здесь край исследуемого леса.';
+    else if(this.depth(node)>this.maxDepth)reason='Глубже 50 м копать нельзя.';
+    else if(this.save.excavation.some(existing=>Math.hypot(existing.x-node.x,existing.y-node.y,existing.z-node.z)<1.1))
+      reason='Эта земля уже выкопана. Направь прицел дальше.';
+    const prior=this.nearestNode(x,y,z);
+    if(!reason&&prior&&this.isSheltered(x,y,z)&&!this.connected(prior,node))reason='Копай соседний участок, чтобы сохранить проходимый уклон.';
+    return{...aimed,valid:!reason,reason};
   }
   private nearestNode(x:number,y:number,z:number):DigNode|undefined{
     return this.save.excavation.slice().sort((a,b)=>Math.hypot(a.x-x,a.y-(y+0.95),a.z-z)-Math.hypot(b.x-x,b.y-(y+0.95),b.z-z))[0];
@@ -143,10 +151,14 @@ export class Excavation {
       item.mesh.visible=!!root?.available&&(!('mesh' in root)||root.mesh.visible);
     }
   }
-  update(x:number,y:number,z:number,aim?:THREE.Vector3):void{
+  update(x:number,y:number,z:number,preview?:DigPreview):void{
     const sheltered=this.isSheltered(x,y,z);
     this.light.visible=sheltered;this.light.position.set(x,y+1.1,z);
-    this.marker.visible=!!aim;if(aim)this.marker.position.copy(aim);
+    this.marker.visible=!!preview;
+    if(preview){
+      this.marker.position.copy(preview.point);
+      (this.marker.material as THREE.MeshBasicMaterial).color.setHex(preview.valid?0xc7e59b:0xe49b88);
+    }
     this.mesher.updateVisibility(x,y,z);
     if(performance.now()-this.lastRootRefresh>900){this.lastRootRefresh=performance.now();this.refreshRoots();}
   }

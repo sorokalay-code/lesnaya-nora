@@ -50,14 +50,15 @@ export class SurvivalSystem {
 
 export class WasteSystem {
   private meshes=new Map<number,THREE.Group>();
-  constructor(private readonly scene:THREE.Scene,private readonly save:SaveData){
+  constructor(private readonly scene:THREE.Scene,private readonly save:SaveData,private readonly groundY:(w:WasteData)=>number=w=>w.y){
     for(const waste of save.waste)this.addModel(waste);
   }
   spawn(kind:WasteData['kind'],x:number,y:number,z:number):WasteData{
     const id=Math.max(0,...this.save.waste.map(w=>w.id))+1;
-    const waste:WasteData={id,kind,x,y,z,age:this.save.clock};this.save.waste.push(waste);this.addModel(waste);return waste;
+    const waste:WasteData={id,kind,x,y,z,age:this.save.clock};waste.y=this.groundY(waste);this.save.waste.push(waste);this.addModel(waste);return waste;
   }
   private addModel(w:WasteData):void{
+    w.y=this.groundY(w);
     const root=new THREE.Group();root.position.set(w.x,w.y,w.z);
     const material=new THREE.MeshStandardMaterial({color:w.kind==='urine'?0xd6c680:w.kind==='diarrhea'?0x795f3d:0x594330,roughness:1,transparent:w.kind!=='pellets',opacity:w.kind==='pellets'?1:0.75});
     if(w.kind==='pellets')for(let i=0;i<5;i++){

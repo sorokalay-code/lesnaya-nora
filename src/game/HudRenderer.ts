@@ -9,7 +9,7 @@ const fmt=(value:number)=>Math.round(value);
 export class HudRenderer {
   constructor(private readonly hud:HTMLElement,private readonly prompt:HTMLElement,private readonly info:HTMLElement){}
 
-  render(save:SaveData,world:World,earth:Excavation,store:FoodStore,seasons:SeasonSystem,
+  render(save:SaveData,world:World,earth:Excavation,firstPerson:boolean,store:FoodStore,seasons:SeasonSystem,
     airTemperature:number,threat:number,partner?:PartnerTraits,resource?:Resource,stash?:StashData,child?:KitData):void{
     const p=save.player,underground=earth.isSheltered(p.x,p.y,p.z);
     const weather={clear:'☀ Ясно',rain:'☂ Дождь',mist:'☁ Туман',snow:'❄ Снег'}[save.weather];
@@ -23,9 +23,10 @@ export class HudRenderer {
     const minutes=Math.floor(save.clock%1440),clock=`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
     this.info.innerHTML=`<span>◷ День ${save.day} · ${clock}</span><span>✿ ${seasons.name(save.day)}</span><span>${weather} · ${fmt(airTemperature)}°C</span><span>⌁ ${biome}</span>`;
     const root=underground?world.rootAt(p.x,p.z,earth.depthAt(p.x,p.y,p.z)):undefined;
-    this.prompt.innerHTML=underground?`<span>ЛКМ — копать по прицелу · иди по склону</span> ${root?.available&&(!('mesh' in root)||root.mesh.visible)?`&nbsp; <kbd>Q</kbd> Грызть корень ${'tree' in root?'':'&nbsp; <kbd>T</kbd> Унести растение'}`:''} ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''}`:
+    const digHint=firstPerson?'ЛКМ — копать по прицелу · удерживай для продолжения':'<kbd>B</kbd> Переключись на вид от первого лица для копания';
+    this.prompt.innerHTML=underground?`<span>${digHint} · иди по склону</span> ${root?.available&&(!('mesh' in root)||root.mesh.visible)?`&nbsp; <kbd>Q</kbd> Грызть корень ${'tree' in root?'':'&nbsp; <kbd>T</kbd> Унести растение'}`:''} ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''}`:
       child?`<kbd>E</kbd> Поговорить: ${child.name}`:partner?`<kbd>E</kbd> Поговорить: ${partner.name}`:
       resource?`<kbd>E</kbd> Собрать: ${FOOD[resource.kind].label}`:
-      `ЛКМ — копать землю ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''} ${world.nearWater(p.x,p.z)?'&nbsp; <kbd>V</kbd> Пить воду':''}`;
+      `${digHint} ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''} ${world.nearWater(p.x,p.z)?'&nbsp; <kbd>V</kbd> Пить воду':''}`;
   }
 }

@@ -27,6 +27,9 @@ test('digging alters one world and creates a walkable slope without entry mode',
   const save=fixture(),earth=new Excavation(new THREE.Scene(),fakeWorld(),save),view=camera();
   assert.equal(earth.dig(view,0,0,0).success,true);
   assert.equal(save.excavation.length,1);
+  const duplicate=earth.preview(view,0,0,0);
+  assert.equal(duplicate?.valid,false);
+  assert.match(duplicate?.reason??'',/уже выкопана/);
   const first=save.excavation[0];
   assert.ok(earth.nearOpening(first.x,first.z));
   assert.ok(earth.floorAt(first.x,first.z,0)<0);

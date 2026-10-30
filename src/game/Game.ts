@@ -7,7 +7,7 @@ import { Excavation } from './Excavation';
 import { World } from './World';
 import { FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './Systems';
 import { ExcavationTraffic } from './ExcavationTraffic';
-import { ThirdPersonCamera } from './ThirdPersonCamera';
+import { ViewCamera } from './ViewCamera';
 import { HudRenderer } from './HudRenderer';
 import { SaveRepository } from './SaveRepository';
 import { PanelRenderer } from './PanelRenderer';
@@ -21,7 +21,7 @@ export class Game {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(60, 1, 0.1, 350);
   private renderer = new THREE.WebGLRenderer({ antialias: true });
-  private view:ThirdPersonCamera;
+  private view:ViewCamera;
   private hudRenderer!:HudRenderer;
   private sun = new THREE.DirectionalLight(0xfff3d2, 2);
   private ambient = new THREE.HemisphereLight(0xd3e4ed, 0x56704d, 1.8);
@@ -69,9 +69,14 @@ export class Game {
   private controls!:HTMLElement;
   private settings!:HTMLElement;
   private showControls=true;
+  private reticle!:HTMLElement;
+  private cameraButton!:HTMLButtonElement;
+  private digHeld=false;
+  private nextDigAt=0;
+  private readonly groundAt=(x:number,z:number)=>this.world.heightAt(x,z);
 
   constructor(private readonly app: HTMLElement) {
-    this.view=new ThirdPersonCamera(this.camera,this.renderer.domElement);
+    this.view=new ViewCamera(this.camera,this.renderer.domElement);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -87,9 +92,9 @@ export class Game {
 
   private buildUi(): void {
     const layer = document.createElement('div'); layer.className = 'ui-layer';
-    layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
+    layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button id="camera-button" data-action="camera" title="Переключить вид (B)">◉ 3-е лицо</button><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
       <div id="hud" class="hud"></div><div id="prompt" class="prompt"></div><div id="toast" class="toast-box"></div><div class="dig-reticle" aria-hidden="true">✦</div>
-      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · ПКМ — вращать камеру · ЛКМ — копать по прицелу</span><span>E — общаться/собрать · G — еда · V — пить · Q/T — корни/унести растение · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
+      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · ПКМ — осмотреться · ЛКМ (вид от первого лица) — копать, удерживать для продолжения</span><span>E — общаться/собрать · G — еда · V — пить · Q/T — корни/унести растение · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
       <div id="settings" class="settings-panel hidden"></div><div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
     this.app.append(layer);
     this.overlay = layer.querySelector('#overlay')!; this.hud = layer.querySelector('#hud')!;
@@ -98,6 +103,8 @@ export class Game {
     this.journal = layer.querySelector('#journal')!;
     this.dialog = layer.querySelector('#dialog')!;
     this.controls=layer.querySelector('#controls')!;this.settings=layer.querySelector('#settings')!;
+    this.reticle=layer.querySelector('.dig-reticle')!;this.cameraButton=layer.querySelector('#camera-button')!;
+    this.syncCameraUi();
     this.showControls=localStorage.getItem('lesnaya-nora-show-controls')!=='false';
     this.controls.classList.toggle('hidden',!this.showControls);
     this.mapCanvas = document.createElement('canvas'); this.mapCanvas.width = this.mapCanvas.height = 420;
@@ -116,12 +123,22 @@ export class Game {
       if (e.code === 'KeyM') this.action('map');
       if (e.code === 'KeyJ') this.action('journal');
       if (!this.running || !this.overlay.classList.contains('hidden')) return;
-      const map: Record<string, string> = { KeyE: 'interact', KeyG: 'eat', KeyV: 'drink',KeyQ:'roots',KeyT:'steal',KeyC:'groom',KeyK:'store',KeyO:'retrieve',KeyY:'feed-vegetables', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'relieve', KeyF: 'feed', Space: 'hop' };
+      const map: Record<string, string> = { KeyB:'camera',KeyE: 'interact', KeyG: 'eat', KeyV: 'drink',KeyQ:'roots',KeyT:'steal',KeyC:'groom',KeyK:'store',KeyO:'retrieve',KeyY:'feed-vegetables', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'relieve', KeyF: 'feed', Space: 'hop' };
       if (map[e.code]) this.action(map[e.code]);
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
-    this.renderer.domElement.addEventListener('pointerdown',e=>{if(e.button===0&&this.running&&this.overlay.classList.contains('hidden'))this.action('dig');});
+    window.addEventListener('blur', () => {this.keys.clear();this.digHeld=false;});
+    this.renderer.domElement.addEventListener('pointerdown',e=>{
+      if(e.button!==0||!this.running||!this.overlay.classList.contains('hidden'))return;
+      this.digHeld=this.view.isFirstPerson;this.action('dig');
+    });
+    window.addEventListener('pointerup',e=>{if(e.button===0)this.digHeld=false;});
+    this.renderer.domElement.addEventListener('pointercancel',()=>{this.digHeld=false;});
+  }
+
+  private syncCameraUi():void{
+    this.cameraButton.textContent=this.view.isFirstPerson?'◉ 1-е лицо':'◉ 3-е лицо';
+    this.reticle.classList.toggle('hidden',!this.view.isFirstPerson);
   }
 
   private resize(): void {
@@ -162,6 +179,7 @@ export class Game {
   private setupWorld(): void {
     this.scene.clear(); this.kitMeshes.clear(); this.nestMeshes.clear();this.stashMeshes.clear();
     this.scene.background = new THREE.Color(0xb9d3ba);
+    this.scene.add(this.camera);
     this.scene.add(this.ambient);
     this.sun.position.set(25, 45, 22); this.sun.castShadow = true; this.sun.shadow.mapSize.set(1024, 1024);
     this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -38;
@@ -170,20 +188,21 @@ export class Game {
     this.world = new World(this.scene, this.save.seed,this.save); this.world.setRain();
     this.seasons=new SeasonSystem(this.save.seed);
     this.survival=new SurvivalSystem(this.save,this.rng);
-    this.waste=new WasteSystem(this.scene,this.save);
     this.store=new FoodStore(this.save);
     this.traffic=new ExcavationTraffic(this.rng);
     for (const id of this.save.harvested) {
       const r = this.world.resources[id]; if (r) { r.available = false; r.mesh.visible = false; r.regrowAt = this.save.clock + 60; }
     }
     this.earth=new Excavation(this.scene,this.world,this.save);
+    this.waste=new WasteSystem(this.scene,this.save,w=>this.earth.isSheltered(w.x,w.y,w.z)?w.y:this.world.heightAt(w.x,w.z));
     this.player = createRabbit(this.save.player.genes); this.scene.add(this.player.root);
-    this.rabbits = this.save.partners.map(p => { const actor = new RabbitActor(p, this.rng); this.scene.add(actor.rig.root); return actor; });
+    this.rabbits = this.save.partners.map(p => { const actor = new RabbitActor(p, this.rng); actor.rig.root.position.y=this.world.heightAt(p.x,p.z);this.scene.add(actor.rig.root); return actor; });
     this.families = [];
     for (const partner of this.save.partners) {
       const familyFactory = new RabbitFactory(new Random(this.save.seed + 900 + partner.id * 71));
       for (let i = 0; i < partner.familySize; i++) {
         const member = new FamilyMember(partner, familyFactory.genes(), i, i < Math.floor(partner.familySize / 2));
+        member.rig.root.position.set(partner.x,this.world.heightAt(partner.x,partner.z),partner.z);
         this.families.push(member); this.scene.add(member.rig.root);
       }
     }
@@ -193,7 +212,7 @@ export class Game {
       const x=i===0?34:i===1?-35:Math.cos(a)*d;
       const z=i===0?31:i===1?29:Math.sin(a)*d;
       const kind = i<2 ? 'dog' : i % 4 === 0 ? 'wolf' : 'fox';
-      const predator = new Predator(kind, x, z, this.rng); this.predators.push(predator); this.scene.add(predator.root);
+      const predator = new Predator(kind, x, z, this.rng);predator.root.position.y=this.world.heightAt(x,z);this.predators.push(predator); this.scene.add(predator.root);
     }
     this.hawks=[[12,24],[-24,8],[29,-15]].map(([x,z])=>new Hawk(x,z,this.rng));
     for(const hawk of this.hawks)this.scene.add(hawk.root,hawk.shadow);
@@ -205,12 +224,12 @@ export class Game {
   }
 
   private addNest(n: NestData): void {
-    const mesh=makeNest();mesh.position.set(n.x,n.y+0.04,n.z);
+    const mesh=makeNest();mesh.position.set(n.x,(this.earth.isSheltered(n.x,n.y,n.z)?n.y:this.world.heightAt(n.x,n.z))+0.04,n.z);
     this.nestMeshes.set(n.id,mesh);
     this.scene.add(mesh);
   }
   private addStash(s:StashData):void{
-    const mesh=makeStash();mesh.position.set(s.x,s.y+0.02,s.z);this.stashMeshes.set(s.id,mesh);this.scene.add(mesh);
+    const mesh=makeStash();mesh.position.set(s.x,(this.earth.isSheltered(s.x,s.y,s.z)?s.y:this.world.heightAt(s.x,s.z))+0.02,s.z);this.stashMeshes.set(s.id,mesh);this.scene.add(mesh);
   }
   private get sheltered():boolean{return !!this.earth&&this.earth.isSheltered(this.save.player.x,this.save.player.y,this.save.player.z);}
 
@@ -227,6 +246,7 @@ export class Game {
 
   private update(dt: number): void {
     this.elapsed += dt; this.eventCooldown = Math.max(0, this.eventCooldown - dt); this.hopCooldown = Math.max(0, this.hopCooldown - dt);this.furCooldown=Math.max(0,this.furCooldown-dt);
+    if(this.digHeld&&this.view.isFirstPerson&&this.elapsed>=this.nextDigAt)this.action('dig');
     const p = this.save.player;
     const oldDay = this.save.day;
     this.save.clock += dt * 6;
@@ -248,17 +268,16 @@ export class Game {
       if (this.save.pregnancy.progress >= 1.2) this.giveBirth();
     }
     this.updateKits(dt);
-    for (const rabbit of this.rabbits){rabbit.update(dt, this.elapsed, p.x, p.z);rabbit.rig.root.userData.baseY=this.world.heightAt(rabbit.rig.root.position.x,rabbit.rig.root.position.z);}
+    for (const rabbit of this.rabbits)rabbit.update(dt,this.elapsed,p.x,p.z,this.groundAt);
     if(this.mating){
       const actor=this.rabbits.find(r=>r.data.id===this.mating!.fatherId);
       if(actor){actor.rig.root.position.set(p.x+Math.sin(this.player.root.rotation.y)*0.28,p.y+0.4,p.z+Math.cos(this.player.root.rotation.y)*0.28);actor.rig.root.rotation.y=this.player.root.rotation.y;}
       if(this.elapsed>=this.mating.until)this.mating=undefined;
     }
-    for (const member of this.families){member.update(this.elapsed,dt);member.rig.root.userData.baseY=this.world.heightAt(member.rig.root.position.x,member.rig.root.position.z);}
+    for (const member of this.families)member.update(this.elapsed,dt,this.groundAt);
     let closestThreat = Infinity;
     for (const predator of this.predators) {
-      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night,p.dirtiness/100,this.seasons.predatorActivity(this.save.day))) this.predatorAttack(predator.kind);
-      predator.root.position.y=this.world.heightAt(predator.x,predator.z);
+      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night,this.groundAt,p.dirtiness/100,this.seasons.predatorActivity(this.save.day))) this.predatorAttack(predator.kind);
       this.threatenKits(predator);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
@@ -268,20 +287,20 @@ export class Game {
       if(event.type==='kit-attack')this.toast(`Лиса добралась до ${event.name}. Уведи малыша глубже и защити гнездо.`);
     }
     const exposed=!this.sheltered&&!this.world.hasCover(p.x,p.z);
-    for(const hawk of this.hawks)if(hawk.update(dt,this.elapsed,p.x,p.z,exposed))this.predatorAttack('hawk');
+    for(const hawk of this.hawks)if(hawk.update(dt,this.elapsed,p.x,p.z,exposed,this.groundAt))this.predatorAttack('hawk');
     for(const rabbit of this.rabbits)rabbit.rig.root.visible=Math.hypot(rabbit.rig.root.position.x-p.x,rabbit.rig.root.position.z-p.z)<76;
     for(const member of this.families)member.rig.root.visible=Math.hypot(member.rig.root.position.x-p.x,member.rig.root.position.z-p.z)<76;
     for(const predator of this.predators)predator.root.visible=Math.hypot(predator.root.position.x-p.x,predator.root.position.z-p.z)<76;
-    for(const hawk of this.hawks){const visible=Math.hypot(hawk.x-p.x,hawk.z-p.z)<92;hawk.root.visible=visible;hawk.shadow.visible=visible&&!this.sheltered;hawk.shadow.position.y=this.world.heightAt(hawk.x,hawk.z)+0.03;}
+    for(const hawk of this.hawks){const visible=Math.hypot(hawk.x-p.x,hawk.z-p.z)<92;hawk.root.visible=visible;hawk.shadow.visible=visible&&!this.sheltered;}
     this.world.update(this.save.clock, this.elapsed, this.save.weather,this.save.day,p.x,p.z);
     this.world.updateRain(dt, p.x, p.z,this.save.weather);
     this.sound.update(this.elapsed, night);
     this.sound.setWeather(this.save.weather,night);
     this.player.root.position.x = p.x; this.player.root.position.z = p.z;
     this.player.root.userData.baseY=p.y;
-    this.player.root.visible = true;
+    this.player.root.visible = !this.view.isFirstPerson;
     animateRabbit(this.player, this.elapsed, moving, closestThreat < 8 && !this.sheltered,dt);
-    this.earth.update(p.x,p.y,p.z,this.earth.target(this.camera,p.x,p.y,p.z)?.point);
+    this.earth.update(p.x,p.y,p.z,this.view.isFirstPerson?this.earth.preview(this.camera,p.x,p.y,p.z):undefined);
     const sunAngle = ((this.save.clock % 1440) / 1440) * Math.PI * 2;
     const daylight = clamp(0.5 + 0.5 * Math.cos(sunAngle - Math.PI), 0.25, 1);
     this.sun.intensity = 0.45 + daylight * 1.55;
@@ -307,8 +326,7 @@ export class Game {
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) right--;
     if (!forward && !right) return false;
     const d = Math.hypot(forward, right); forward /= d; right /= d;
-    const px=p.x,pz=p.z;
-    const direction=this.view.forwardAt(px,pz),fx=direction.x,fz=direction.z;
+    const direction=this.view.forwardAt(),fx=direction.x,fz=direction.z;
     const dx = fx * forward - fz * right;
     const dz = fz * forward + fx * right;
     const sprint = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && p.energy > 8;
@@ -332,7 +350,10 @@ export class Game {
 
   private render(): void {
     const p=this.save.player;
-    this.view.update(p.x,p.z,p.y,this.sheltered?this.earth:undefined);
+    const digging=this.player.root.userData.action==='dig'&&((this.player.root.userData.actionUntil as number|undefined)??0)>this.elapsed;
+    const walking=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].some(code=>this.keys.has(code));
+    this.view.update(p.x,p.z,p.y,this.sheltered?this.earth:undefined,this.elapsed,digging,walking);
+    this.player.root.visible=!this.view.isFirstPerson;
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -390,8 +411,10 @@ export class Game {
         if(kit.command==='follow'){homeX=this.save.player.x;homeZ=this.save.player.z;}
         if(kit.command==='stay'&&kit.stayX!==undefined&&kit.stayZ!==undefined){homeX=kit.stayX;homeZ=kit.stayZ;}
         const kitY=kit.command==='follow'?this.save.player.y:kit.command==='stay'&&kit.stayY!==undefined?kit.stayY:home.y;
-        rig.root.position.set(homeX + Math.cos(a) * radius, kitY, homeZ + Math.sin(a) * radius);
-        rig.root.userData.baseY=kitY;
+        const kitX=homeX+Math.cos(a)*radius,kitZ=homeZ+Math.sin(a)*radius;
+        const surfaceKit=!this.earth.isSheltered(homeX,kitY,homeZ);
+        rig.root.position.x=kitX;rig.root.position.z=kitZ;
+        rig.root.userData.baseY=surfaceKit?this.world.heightAt(kitX,kitZ):kitY;
         rig.root.rotation.y = -a;
         rig.root.scale.setScalar(kit.age < 3 ? (0.38 + kit.age * 0.14) * kit.genes.size : kit.genes.size);
         animateRabbit(rig, this.elapsed + kit.id, kit.command!=='rest',false,dt);
@@ -438,6 +461,11 @@ export class Game {
     this.sound.unlock();
     if (action === 'save') { this.persist(true); return; }
     if (action === 'sound') { this.sound.muted = !this.sound.muted; this.toast(this.sound.muted ? 'Звук выключен' : 'Звук включён'); return; }
+    if(action==='camera'){
+      const mode=this.view.toggleMode();this.digHeld=false;this.syncCameraUi();
+      this.toast(mode==='first'?'Вид от первого лица: теперь можно копать ЛКМ.':'Вид от третьего лица. Для копания нажми B.');
+      return;
+    }
     if(action==='settings'){
       this.settings.classList.toggle('hidden');
       this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;
@@ -503,10 +531,13 @@ export class Game {
       this.save.nests.push(n);this.addNest(n);this.sound.play('nest');this.toast(this.sheltered?'Тёплое гнездо готово под землёй.':'Гнездо готово. На поверхности крольчатам опаснее.');return;
     }
     if(action==='dig'){
-      if(p.energy<8){this.toast('Слишком мало сил для копания.');return;}
+      if(!this.view.isFirstPerson){this.toast('Копать можно только от первого лица. Нажми B.');return;}
+      if(this.elapsed<this.nextDigAt)return;
+      if(p.energy<8){this.nextDigAt=this.elapsed+1;this.toast('Слишком мало сил для копания.');return;}
       if(((this.player.root.userData.actionUntil as number|undefined)??0)>this.elapsed)return;
       const result=this.earth.dig(this.camera,p.x,p.y,p.z);
-      if(!result.success){this.toast(result.reason);return;}
+      if(!result.success){this.nextDigAt=this.elapsed+0.55;this.toast(result.reason);return;}
+      this.nextDigAt=this.elapsed+1.15;
       p.energy-=8;this.playAction('dig',1.15);this.sound.play('dig');this.toast(result.reason);return;
     }
     if(action==='roots'||action==='steal'){
@@ -641,7 +672,7 @@ export class Game {
   private playAction(action:RabbitAction,duration:number):void{setRabbitAction(this.player,action,this.elapsed,duration);}
 
   private makeWaste(kind:'pellets'|'urine'|'diarrhea'):void{
-    const x=this.save.player.x,z=this.save.player.z,y=this.save.player.y;
+    const x=this.save.player.x,z=this.save.player.z,y=this.sheltered?this.save.player.y:this.world.heightAt(x,z);
     this.waste.spawn(kind,x,y,z);
     this.save.player.dirtiness=clamp(this.save.player.dirtiness+(kind==='diarrhea'?18:kind==='urine'?8:3),0,100);
   }
@@ -650,7 +681,7 @@ export class Game {
 
   private updateHud(threat = Infinity): void {
     const p=this.save.player;
-    this.hudRenderer.render(this.save,this.world,this.earth,this.store,this.seasons,this.airTemperature(),threat,
+    this.hudRenderer.render(this.save,this.world,this.earth,this.view.isFirstPerson,this.store,this.seasons,this.airTemperature(),threat,
       this.nearestPartner(),this.sheltered?undefined:this.world.nearestResource(p.x,p.z,2.3),this.nearestStash(),this.nearestKit());
   }
 

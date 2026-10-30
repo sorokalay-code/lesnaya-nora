@@ -72,7 +72,7 @@ export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frigh
   const lift = Math.pow(Math.max(0, Math.sin(phase)), 1.5) * 0.18 * motion;
   const poseY=action==='lie'||action==='nurse'?-0.17:action==='sit'||action==='defecate'?-0.08:action==='mate'?0.23:action==='dig'?-0.11+Math.sin(time*14)*0.035:0;
   const baseY=(r.root.userData.baseY as number|undefined)??0;
-  r.root.position.y = THREE.MathUtils.damp(r.root.position.y, baseY+lift+poseY, 10, dt);
+  r.root.position.y = baseY+lift+poseY;
   r.root.rotation.x=THREE.MathUtils.damp(r.root.rotation.x,action==='mate'?-0.18:action==='defecate'?0.08:action==='dig'?0.16:0,8,dt);
   r.body.scale.y = THREE.MathUtils.damp(r.body.scale.y, (action==='lie'||action==='nurse'?0.27:0.34) * (1 - Math.max(0,Math.sin(phase)) * 0.07 * motion), 9, dt);
   const headTarget=action==='eat'?0.4+Math.sin(time*10)*0.07:action==='groom'?0.26+Math.sin(time*7)*0.12:action==='pluck'?-0.25:action==='sit'?-0.14:action==='dig'?0.26+Math.sin(time*14)*0.08:Math.sin(time * 1.7) * 0.035 + Math.sin(phase) * 0.04 * motion;

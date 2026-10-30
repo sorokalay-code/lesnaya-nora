@@ -12,20 +12,19 @@ export class ExcavationTraffic {
   update(dt:number,time:number,night:boolean,predators:Predator[],rabbits:RabbitActor[],save:SaveData,earth:Excavation):TunnelEvent[]{
     const events:TunnelEvent[]=[];
     for(const actor of rabbits){
-      if(actor.data.trust<55||!earth.isSheltered(save.player.x,save.player.y,save.player.z))continue;
+      if(actor.data.trust<55||!earth.isSheltered(save.player.x,save.player.y,save.player.z)){actor.leaveTunnel();continue;}
       const opening=earth.openings.find(o=>Math.hypot(actor.data.x-o.x,actor.data.z-o.z)<2);
-      if(!opening)continue;
-      actor.rig.root.position.set(opening.x+0.25,opening.y-0.95,opening.z+0.25);
-      actor.rig.root.userData.baseY=opening.y-0.95;
+      if(!opening){actor.leaveTunnel();continue;}
+      actor.enterTunnel(opening.x+0.25,opening.y-0.95,opening.z+0.25);
     }
     for(const predator of predators){
       if(predator.kind!=='fox')continue;
       const visit=this.visits.get(predator);
       if(visit){
-        if(time>visit.until){this.visits.delete(predator);continue;}
+        if(time>visit.until){this.visits.delete(predator);predator.leaveTunnel();continue;}
         const opening=earth.openings.find(o=>Math.hypot(o.x-visit.x,o.z-visit.z)<0.3);
         if(!opening)continue;
-        predator.root.position.set(opening.x+Math.sin(time)*0.25,opening.y-0.95,opening.z+Math.cos(time)*0.25);
+        predator.enterTunnel(opening.x+Math.sin(time)*0.25,opening.y-0.95,opening.z+Math.cos(time)*0.25);
         if(earth.isSheltered(save.player.x,save.player.y,save.player.z)&&earth.depthAt(save.player.x,save.player.y,save.player.z)<5&&
           Math.hypot(save.player.x-opening.x,save.player.z-opening.z)<2.3&&time-visit.lastHit>4){
           visit.lastHit=time;events.push({type:'fox-attack'});
