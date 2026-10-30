@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { Random, smoothNoise } from './Random';
 import { SeasonSystem } from './Systems';
 import { WorldChunks } from './WorldChunks';
-import { type Biome, type FoodKind, type Weather } from './types';
+import { Terrain } from './Terrain';
+import { type Biome, type FoodKind, type SaveData, type Weather } from './types';
 
 export interface Resource { id: number; x: number; z: number; kind: FoodKind; mesh: THREE.Group; available: boolean; regrowAt: number; }
+export interface TreeRoot {kind:'acorn';available:boolean;tree:true;id:number}
 export interface LandMark { x: number; z: number; label: string; biome: Biome; }
 
 const mat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
@@ -31,6 +33,7 @@ export class World {
   ];
   readonly seed: number;
   readonly chunks:WorldChunks;
+  readonly terrain:Terrain;
   private seasons:SeasonSystem;
   private currentDay=1;
   private displayedSeason='';
@@ -39,15 +42,42 @@ export class World {
   private groundGeometry?:THREE.BufferGeometry;
   private groundTiles:{x:number;z:number;indices:number[]}[]=[];
   private holes:{x:number;z:number;radius:number}[]=[];
+  private treeRootRegrow=new Map<number,number>();
+  private currentClock=0;
   private foliageMaterials:THREE.MeshStandardMaterial[]=[];
+  private deciduousCrowns:THREE.Group[]=[];
+  private fallenLeaves:THREE.Group[]=[];
   private grassMaterial?:THREE.MeshStandardMaterial;
   private rng: Random;
   private rain?: THREE.Points;
   private butterflies: {mesh:THREE.Group;x:number;z:number;phase:number}[]=[];
 
-  constructor(scene: THREE.Scene, seed: number) {
-    this.scene = scene; this.seed = seed; this.rng = new Random(seed);this.seasons=new SeasonSystem(seed);this.chunks=new WorldChunks(scene);
+  constructor(scene: THREE.Scene, seed: number,private readonly save?:SaveData) {
+    this.scene = scene; this.seed = seed; this.rng = new Random(seed);this.seasons=new SeasonSystem(seed);this.chunks=new WorldChunks(scene);this.terrain=new Terrain(seed);
+    for(const [id,time] of Object.entries(save?.gnawedRoots??{}))this.treeRootRegrow.set(Number(id),time);
     this.buildGround(); this.buildDecorations(); this.buildResources();
+  }
+
+  heightAt(x:number,z:number):number{return this.terrain.heightAt(x,z);}
+  temperatureOffset(x:number,z:number):number{return this.terrain.temperatureOffset(x,z);}
+  rootAt(x:number,z:number,depth:number):Resource|TreeRoot|undefined{
+    if(depth<=4){
+      let best:Resource|undefined,dist=1.45;
+      for(const resource of this.resources){
+        if(!['carrot','cabbage','clover','bitterleaf','berries'].includes(resource.kind))continue;
+        const d=Math.hypot(resource.x-x,resource.z-z);
+        if(d<dist){best=resource;dist=d;}
+      }
+      if(best)return best;
+    }
+    if(depth>8)return undefined;
+    let index=-1,dist=2.4;
+    this.treeLocations.forEach((tree,i)=>{const d=Math.hypot(tree.x-x,tree.z-z);if(d<dist){index=i;dist=d;}});
+    return index<0?undefined:{kind:'acorn',available:this.currentClock>=(this.treeRootRegrow.get(index)??0),tree:true,id:index};
+  }
+  gnawTreeRoot(id:number,clock:number):void{
+    this.treeRootRegrow.set(id,clock+260);
+    if(this.save){this.save.gnawedRoots??={};this.save.gnawedRoots[id]=clock+260;}
   }
 
   biomeAt(x: number, z: number): Biome {
@@ -68,7 +98,8 @@ export class World {
       const palette = biome === 'forest' ? [0x496d4b, 0x54754f, 0x5a7952] : biome === 'meadow' ? [0x789d62, 0x81a769, 0x8caf70] : biome === 'swamp' ? [0x5b795f, 0x688363, 0x7e8d6a] : [0x997e55, 0xa48b60, 0x8e7651];
       color.setHex(palette[this.rng.int(0, 2)]);
       const j = verts.length / 3;
-      verts.push(wx, 0, wz, wx + step, 0, wz, wx + step, 0, wz + step, wx, 0, wz + step);
+      verts.push(wx, this.heightAt(wx,wz), wz, wx + step, this.heightAt(wx+step,wz), wz,
+        wx + step, this.heightAt(wx+step,wz+step), wz + step, wx, this.heightAt(wx,wz+step), wz + step);
       for (let k = 0; k < 4; k++) colors.push(color.r, color.g, color.b);
       const tileIndices=[j,j+2,j+1,j,j+3,j+2];indices.push(...tileIndices);
       this.groundTiles.push({x:wx+step/2,z:wz+step/2,indices:tileIndices});
@@ -105,10 +136,10 @@ export class World {
       if (biome === 'garden') continue;
       if (biome === 'swamp' && this.rng.chance(0.28)) {
         const puddle = new THREE.Mesh(new THREE.CircleGeometry(this.rng.range(1.5, 4), 12), water);
-        puddle.rotation.x = -Math.PI / 2; puddle.position.set(x, 0.012, z); this.chunks.add(puddle,x,z);
+        puddle.rotation.x = -Math.PI / 2; puddle.position.set(x, this.heightAt(x,z)+0.012, z); this.chunks.add(puddle,x,z);
       }
       if (biome === 'forest' && this.rng.chance(0.58)) {
-        const g = new THREE.Group(); g.position.set(x, 0, z); const h = this.rng.range(5.5, 12.5);
+        const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z); const h = this.rng.range(5.5, 12.5);
         this.treeLocations.push({x,z});
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.43, h * 0.66, 9), bark);
         trunk.position.y = h * 0.33; trunk.castShadow = true; g.add(trunk);
@@ -118,15 +149,26 @@ export class World {
             crown.position.y = h * 0.5 + l * 1.1; crown.castShadow = true; g.add(crown);
           }
         } else {
-          blob(g, this.rng.pick(leaves), 0, h * 0.78, 0, 2.1, 1.85, 2.1);
+          const crownGroup=new THREE.Group();g.add(crownGroup);this.deciduousCrowns.push(crownGroup);
+          blob(crownGroup, this.rng.pick(leaves), 0, h * 0.78, 0, 2.1, 1.85, 2.1);
           for(let branch=0;branch<4;branch++){
             const a=branch*Math.PI/2+this.rng.range(-0.2,0.2);
-            blob(g,this.rng.pick(leaves),Math.cos(a)*1.4,h*0.68,Math.sin(a)*1.4,1.3,1.1,1.25);
+            const branchMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.13,2.1,6),bark);
+            branchMesh.position.set(Math.cos(a)*0.65,h*0.67,Math.sin(a)*0.65);
+            branchMesh.rotation.z=Math.cos(a)*0.72;branchMesh.rotation.x=-Math.sin(a)*0.72;g.add(branchMesh);
+            blob(crownGroup,this.rng.pick(leaves),Math.cos(a)*1.4,h*0.68,Math.sin(a)*1.4,1.3,1.1,1.25);
           }
+          const litter=new THREE.Group();g.add(litter);this.fallenLeaves.push(litter);
+          for(let leaf=0;leaf<12;leaf++){
+            const a=leaf*2.4,d=0.6+(leaf%4)*0.42;
+            const fall=new THREE.Mesh(new THREE.PlaneGeometry(0.22,0.12),mat(leaf%3===0?0xb57b45:0xc29b58));
+            fall.rotation.x=-Math.PI/2;fall.rotation.z=a;fall.position.set(Math.cos(a)*d,0.025,Math.sin(a)*d);litter.add(fall);
+          }
+          litter.visible=false;
         }
         this.chunks.add(g,x,z);
       } else if (this.rng.chance(0.65)) {
-        const g = new THREE.Group(); g.position.set(x, 0, z);
+        const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z);
         if(this.rng.chance(0.34)){
           for(let leaf=0;leaf<7;leaf++){
             const a=leaf*Math.PI*2/7;
@@ -154,7 +196,7 @@ export class World {
   }
 
   private makePond(x: number, z: number, radius: number): void {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
+    const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z);
     const shore = new THREE.Mesh(new THREE.CircleGeometry(radius + 0.55, 28), mat(0x827f5b));
     shore.rotation.x = -Math.PI / 2; shore.position.y = 0.014; g.add(shore);
     const water = new THREE.Mesh(new THREE.CircleGeometry(radius, 28), new THREE.MeshStandardMaterial({ color: 0x75b1ad, roughness: 0.22, metalness: 0.08, transparent: true, opacity: 0.88 }));
@@ -183,15 +225,16 @@ export class World {
     const dummy = new THREE.Object3D(); const color = new THREE.Color();
     for (let i = 0; i < 2200; i++) {
       const x = this.rng.range(-102, 102), z = this.rng.range(-102, 102);
-      dummy.position.set(x, 0.25, z); dummy.rotation.y = this.rng.range(0, Math.PI * 2); dummy.scale.setScalar(this.rng.range(0.65, 1.4)); dummy.updateMatrix(); grass.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(x, this.heightAt(x,z)+0.25, z); dummy.rotation.y = this.rng.range(0, Math.PI * 2); dummy.scale.setScalar(this.rng.range(0.65, 1.4)); dummy.updateMatrix(); grass.setMatrixAt(i, dummy.matrix);
       grass.setColorAt(i, color.setHex(this.biomeAt(x,z)==='swamp'?0x76966c:this.biomeAt(x,z)==='garden'?0x94a467:0x8bb467));
     }
     for (let i = 0; i < 370; i++) {
-      dummy.position.set(this.rng.range(-101,101), 0.12, this.rng.range(-101,101)); dummy.rotation.y = this.rng.range(0,6.28); dummy.scale.setScalar(this.rng.range(0.6,2.5)); dummy.updateMatrix(); stones.setMatrixAt(i,dummy.matrix);
+      const sx=this.rng.range(-101,101),sz=this.rng.range(-101,101);
+      dummy.position.set(sx, this.heightAt(sx,sz)+0.12, sz); dummy.rotation.y = this.rng.range(0,6.28); dummy.scale.setScalar(this.rng.range(0.6,2.5)); dummy.updateMatrix(); stones.setMatrixAt(i,dummy.matrix);
     }
     for (let i = 0; i < 620; i++) {
       const x = this.rng.range(-102,102), z = this.rng.range(-102,102);
-      dummy.position.set(x, 0.47, z); dummy.rotation.y = 0; dummy.scale.setScalar(this.rng.range(0.8,1.6)); dummy.updateMatrix(); flowers.setMatrixAt(i,dummy.matrix);
+      dummy.position.set(x, this.heightAt(x,z)+0.47, z); dummy.rotation.y = 0; dummy.scale.setScalar(this.rng.range(0.8,1.6)); dummy.updateMatrix(); flowers.setMatrixAt(i,dummy.matrix);
       flowers.setColorAt(i,color.setHex(this.rng.pick([0xf5e6d2,0xeebfc5,0xebdf8b,0xc6b7dd])));
     }
     this.scene.add(grass, stones, flowers);
@@ -200,8 +243,8 @@ export class World {
       const x = this.rng.range(-98,98), z = this.rng.range(-98,98);
       if (this.biomeAt(x,z)==='garden' || Math.hypot(x,z)<12) continue;
       const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,this.rng.range(1.2,3.1),7),logMat);
-      log.rotation.z = Math.PI/2; log.rotation.y = this.rng.range(0,6.28); log.position.set(x,0.24,z); log.castShadow=true; this.chunks.add(log,x,z);
-      const mossy=new THREE.Group();mossy.position.set(x+0.3,0,z);blob(mossy,moss,0,0.35,0,0.22,0.08,0.16);this.chunks.add(mossy,x,z);
+      log.rotation.z = Math.PI/2; log.rotation.y = this.rng.range(0,6.28); log.position.set(x,this.heightAt(x,z)+0.24,z); log.castShadow=true; this.chunks.add(log,x,z);
+      const mossy=new THREE.Group();mossy.position.set(x+0.3,this.heightAt(x+0.3,z),z);blob(mossy,moss,0,0.35,0,0.22,0.08,0.16);this.chunks.add(mossy,x,z);
     }
   }
 
@@ -214,7 +257,7 @@ export class World {
       for(const side of [-1,1]){
         const wing=new THREE.Mesh(wingGeo,wingMat);wing.position.set(side*0.12,0,0);wing.scale.set(0.15,0.025,0.1);root.add(wing);
       }
-      root.position.set(x,0.9,z);this.chunks.add(root,x,z);this.butterflies.push({mesh:root,x,z,phase:i*2.37});
+      root.position.set(x,this.heightAt(x,z)+0.9,z);this.chunks.add(root,x,z);this.butterflies.push({mesh:root,x,z,phase:i*2.37});
     }
   }
 
@@ -224,15 +267,15 @@ export class World {
       if (Math.abs(i) < 3 && side === -1) continue;
       for (const [px, pz] of [[x + i, z + side * r], [x + side * r, z + i]]) {
         const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 0.18), fence);
-        post.position.set(px, 0.55, pz); post.castShadow = true; this.chunks.add(post,px,pz);
+        post.position.set(px, this.heightAt(px,pz)+0.55, pz); post.castShadow = true; this.chunks.add(post,px,pz);
       }
     }
-    const hut = new THREE.Group(); hut.position.set(x + r * 0.58, 0, z + r * 0.58);
+    const hut = new THREE.Group(); hut.position.set(x + r * 0.58, this.heightAt(x+r*0.58,z+r*0.58), z + r * 0.58);
     const wall = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, 2.7), mat(0xd5c19a)); wall.position.y = 1.1; wall.castShadow = true; hut.add(wall);
     const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.5, 4), mat(0x915b47)); roof.position.y = 2.8; roof.rotation.y = Math.PI / 4; hut.add(roof); this.chunks.add(hut,hut.position.x,hut.position.z);
     for (let row = -r + 3; row < r - 3; row += 3) {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, r * 1.3), mat(0x6e583d));
-      strip.position.set(x + row, 0.05, z); this.chunks.add(strip,x+row,z);
+      strip.position.set(x + row, this.heightAt(x+row,z)+0.05, z); this.chunks.add(strip,x+row,z);
     }
   }
 
@@ -246,7 +289,7 @@ export class World {
       const x = this.rng.range(-100, 100), z = this.rng.range(-100, 100);
       const biome = this.biomeAt(x, z);
       const kind: FoodKind = biome === 'garden' ? this.rng.pick(['carrot', 'carrot', 'cabbage','bitterleaf']) : biome === 'swamp' ? this.rng.pick(['mushroom', 'berries', 'clover','toadstool','bitterleaf']) : biome === 'forest' ? this.rng.pick(['berries', 'mushroom', 'clover','acorn','toadstool']) : this.rng.pick(['clover','clover','bitterleaf','berries']);
-      const mesh = this.resourceModel(kind); mesh.position.set(x, 0, z); this.chunks.add(mesh,x,z);
+      const mesh = this.resourceModel(kind); mesh.position.set(x, this.heightAt(x,z), z); this.chunks.add(mesh,x,z);
       this.resources.push({ id: id++, x, z, kind, mesh, available: true, regrowAt: 0 });
     }
   }
@@ -303,7 +346,7 @@ export class World {
   }
 
   update(clock: number, time: number, weather: Weather,day:number,px:number,pz:number): void {
-    this.currentDay=day;this.chunks.update(px,pz);
+    this.currentDay=day;this.currentClock=clock;this.chunks.update(px,pz);
     this.updateSeason(day);
     for (const r of this.resources) {
       if (!r.available && clock >= r.regrowAt)r.available=true;
@@ -317,7 +360,7 @@ export class World {
       material.size=weather==='snow'?0.2:0.09;
     }
     if(this.scene.fog instanceof THREE.FogExp2)this.scene.fog.density=weather==='mist'?0.026:weather==='rain'?0.017:0.012;
-    for(const b of this.butterflies){b.mesh.position.set(b.x+Math.sin(time*0.7+b.phase)*1.5,0.8+Math.sin(time*2+b.phase)*0.2,b.z+Math.cos(time*0.5+b.phase)*1.1);b.mesh.rotation.y=time*0.5+b.phase;b.mesh.children.forEach((wing,i)=>{wing.rotation.z=(i===0?-1:1)*Math.sin(time*19+b.phase)*0.55;});}
+    for(const b of this.butterflies){const bx=b.x+Math.sin(time*0.7+b.phase)*1.5,bz=b.z+Math.cos(time*0.5+b.phase)*1.1;b.mesh.position.set(bx,this.heightAt(bx,bz)+0.8+Math.sin(time*2+b.phase)*0.2,bz);b.mesh.rotation.y=time*0.5+b.phase;b.mesh.children.forEach((wing,i)=>{wing.rotation.z=(i===0?-1:1)*Math.sin(time*19+b.phase)*0.55;});}
   }
 
   private updateSeason(day:number):void{
@@ -335,6 +378,8 @@ export class World {
     }
     const foliageColors=[0x447349,0x54844e,0x3e6948,0x355f46];
     this.foliageMaterials.forEach((material,i)=>{material.color.setHex(foliageColors[i]);if(season==='Осень'&&i<3)material.color.lerp(new THREE.Color(0xb88146),0.6);if(season==='Зима'&&i<3)material.color.lerp(new THREE.Color(0x8f9b88),0.55);});
+    this.deciduousCrowns.forEach((c,i)=>{c.visible=season!=='Зима'||i%7===0;});
+    this.fallenLeaves.forEach(c=>{c.visible=season==='Осень'||season==='Зима';});
     this.grassMaterial?.color.setHex(season==='Зима'?0xb8c2ae:season==='Осень'?0xc49d66:0x88b66d);
   }
 

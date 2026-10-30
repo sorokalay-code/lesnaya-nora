@@ -1,90 +1,135 @@
 import * as THREE from 'three';
-import type { BurrowData } from './types';
+import type { FoodKind, SaveData } from './types';
 
-const key = (x: number, z: number) => `${x},${z}`;
+type Cell={x:number;z:number;level:number;group:THREE.Group;walls:THREE.Mesh[];root?:THREE.Group};
+type RootInfo={kind:FoodKind;available:boolean;mesh?:THREE.Object3D}|undefined;
+const cellKey=(x:number,z:number,level:number)=>`${level}:${x},${z}`;
 
+/** Excavated voxels share the forest scene and global coordinates. */
 export class Underground {
-  readonly scene:THREE.Scene;
+  readonly step=2;
+  readonly maxDepth=50;
+  readonly maxLevel=24;
   readonly group=new THREE.Group();
-  private walls = new Map<string, THREE.Mesh>();
-  private open = new Set<string>();
-  private allCells = new Set<string>();
-  private marker: THREE.Mesh;
-  readonly limit = 10;
-  readonly step = 2;
+  private open=new Set<string>();
+  private cells=new Map<string,Cell>();
+  private soil=new THREE.MeshStandardMaterial({color:0x705a43,roughness:1,side:THREE.DoubleSide});
+  private floorMat=new THREE.MeshStandardMaterial({color:0x8a7052,roughness:1,side:THREE.DoubleSide});
+  private rootMat=new THREE.MeshStandardMaterial({color:0xa4774a,roughness:1});
+  private vegetableMat=new THREE.MeshStandardMaterial({color:0xd68142,roughness:1});
+  private marker=new THREE.Mesh(new THREE.BoxGeometry(1.9,1.85,0.08),new THREE.MeshBasicMaterial({color:0xf5d196,transparent:true,opacity:0.17,depthWrite:false}));
+  private light=new THREE.PointLight(0xffe8bd,4,12);
+  private lastCull='';
+  private lastRootCheck=0;
 
-  constructor(readonly burrow: BurrowData, readonly level=0,scene?:THREE.Scene,private readonly gardenAt?:(x:number,z:number)=>boolean) {
-    this.scene=scene??new THREE.Scene();
-    this.group.position.set(burrow.x,-6-level*3,burrow.z);
-    this.scene.add(this.group);
-    const caveColor=[0x655748,0x5e5144,0x51463b][level];
-    const amb = new THREE.HemisphereLight(0xffe6bd, caveColor, 2.8); this.group.add(amb);
-    const lamp = new THREE.PointLight(0xffdfaa, 70, 26); lamp.position.set(0, 4, 0); this.group.add(lamp);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(44, 44), new THREE.MeshStandardMaterial({ color: 0x806d56, roughness: 1 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.03; floor.receiveShadow = true; this.group.add(floor);
-    const geo = new THREE.BoxGeometry(1.96, 1.85, 1.96);
-    const colors = [0x79634c, 0x8b7358, 0x6f5d4d, 0x92785c];
-    for (let z = -this.limit; z <= this.limit; z++) for (let x = -this.limit; x <= this.limit; x++) {
-      const material = new THREE.MeshStandardMaterial({ color: colors[Math.abs(x * 17 + z * 31) % colors.length], roughness: 1 });
-      const block = new THREE.Mesh(geo, material); block.position.set(x * this.step, 0.91, z * this.step);
-      block.castShadow = true; block.receiveShadow = true; this.walls.set(key(x, z), block); this.group.add(block);
+  constructor(scene:THREE.Scene,private readonly save:SaveData,
+    private readonly heightAt:(x:number,z:number)=>number,
+    private readonly rootAt:(x:number,z:number,depth:number)=>RootInfo) {
+    scene.add(this.group);this.marker.visible=false;this.group.add(this.marker,this.light);
+    for(const id of save.excavation??[])if(/^(\d+):(-?\d+),(-?\d+)$/.test(id)&&Number(id.split(':')[0])<=this.maxLevel)this.open.add(id);
+    this.rebuild();
+  }
+
+  snap(v:number):number{return Math.round(v/this.step);}
+  cellX(x:number):number{return this.snap(x)*this.step;}
+  floorY(x:number,z:number,level:number):number{return this.heightAt(x,z)-(level+1)*2;}
+  depth(level:number):number{return (level+1)*2;}
+  isOpen(x:number,z:number,level:number):boolean{return this.open.has(cellKey(this.snap(x),this.snap(z),level));}
+  hasShaft(x:number,z:number,level:number):boolean{return this.isOpen(x,z,level);}
+  canMove(x:number,z:number,level:number):boolean {
+    const gx=this.snap(x),gz=this.snap(z),cx=gx*this.step,cz=gz*this.step;
+    if(!this.open.has(cellKey(gx,gz,level)))return false;
+    const ox=Math.abs(x-cx),oz=Math.abs(z-cz);
+    if(ox<0.81&&oz<0.81)return true;
+    const nx=gx+Math.sign(x-cx),nz=gz+Math.sign(z-cz);
+    return (ox<0.81||this.open.has(cellKey(nx,gz,level)))&&
+      (oz<0.81||this.open.has(cellKey(gx,nz,level)));
+  }
+
+  excavate(x:number,z:number,level:number):boolean {
+    if(level<0||level>this.maxLevel||Math.abs(x)>103||Math.abs(z)>103)return false;
+    const gx=this.snap(x),gz=this.snap(z),id=cellKey(gx,gz,level);
+    if(this.open.has(id))return false;
+    this.open.add(id);this.save.excavation=[...this.open];this.rebuildAround(gx,gz,level);return true;
+  }
+  refreshCell(x:number,z:number,level:number):void{
+    const gx=this.snap(x),gz=this.snap(z);
+    if(this.open.has(cellKey(gx,gz,level)))this.buildCell(gx,gz,level);
+  }
+
+  digAhead(x:number,z:number,level:number,facing:number):{success:boolean;reason?:string;x:number;z:number}{
+    const tx=this.cellX(x-Math.sin(facing)*1.65),tz=this.cellX(z-Math.cos(facing)*1.65);
+    if(Math.abs(tx)>103||Math.abs(tz)>103)return{success:false,reason:'Здесь край исследуемого леса.',x:tx,z:tz};
+    if(this.isOpen(tx,tz,level))return{success:false,reason:'Ход уже выкопан. Повернись к земляной стене.',x:tx,z:tz};
+    if(!this.isOpen(x,z,level))return{success:false,reason:'Начни копать от существующего хода.',x:tx,z:tz};
+    this.excavate(tx,tz,level);return{success:true,x:tx,z:tz};
+  }
+
+  setPlayerLight(x:number,y:number,z:number):void{this.light.position.set(x,y+1.2,z);this.light.visible=true;}
+  hidePlayerLight():void{this.light.visible=false;this.marker.visible=false;}
+  updateVisibility(x:number,z:number,level:number):void{
+    const key=`${this.snap(x)},${this.snap(z)},${level}`;
+    if(key!==this.lastCull){
+      this.lastCull=key;
+      for(const cell of this.cells.values())cell.group.visible=Math.abs(cell.level-level)<=1&&Math.hypot(cell.x*2-x,cell.z*2-z)<20;
     }
-    const cells = burrow.cells?.length ? burrow.cells : ['0:0,0', '0:0,1', '0:1,0', '0:-1,0', '0:0,-1'];
-    this.allCells=new Set(cells.map(cell=>cell.includes(':')?cell:`0:${cell}`));
-    for (const cell of this.allCells) {
-      const [floor,position] = cell.split(':');if(Number(floor)!==this.level)continue;
-      const [x, z] = position.split(',').map(Number); this.openCell(x, z);
-    }
-    this.burrow.cells = [...this.allCells];
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.12, 8, 20), new THREE.MeshStandardMaterial({ color: 0xd6ae75 }));
-    ring.rotation.x = Math.PI / 2; ring.position.y = 0.07;ring.visible=this.open.has(key(0,0)); this.group.add(ring);
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.51, 0.51, 0.07, 16), new THREE.MeshBasicMaterial({ color: 0x3d332b }));
-    shaft.position.y = 0.045;shaft.visible=ring.visible; this.group.add(shaft);
-    this.marker = new THREE.Mesh(new THREE.BoxGeometry(1.98, 1.88, 1.98), new THREE.MeshBasicMaterial({ color: 0xffd177, transparent: true, opacity: 0.15, depthWrite: false }));
-    this.marker.visible = false; this.group.add(this.marker);
-  }
-
-  private openCell(x: number, z: number): void {
-    if (Math.abs(x) > this.limit || Math.abs(z) > this.limit) return;
-    const id = key(x, z); this.open.add(id);this.allCells.add(`${this.level}:${id}`);
-    const wall = this.walls.get(id); if (wall) { wall.removeFromParent(); this.walls.delete(id); }
-    if(this.level===0&&this.gardenAt?.(this.burrow.x+x*this.step,this.burrow.z+z*this.step)){
-      const root=new THREE.Mesh(new THREE.ConeGeometry(0.14,0.85,7),new THREE.MeshStandardMaterial({color:0xc8753d}));
-      root.rotation.x=Math.PI;root.position.set(x*this.step,1.38,z*this.step);this.group.add(root);
+    if(performance.now()-this.lastRootCheck>800){
+      this.lastRootCheck=performance.now();
+      for(const cell of this.cells.values())if(cell.group.visible&&cell.root){
+        const root=this.rootAt(cell.x*2,cell.z*2,this.depth(cell.level));
+        cell.root.visible=!!root?.available&&(!root.mesh||root.mesh.visible);
+      }
     }
   }
-
-  private syncCells():void{for(const cell of this.burrow.cells??[])this.allCells.add(cell.includes(':')?cell:`0:${cell}`);}
-  openShaftCell(x:number,z:number):void{this.syncCells();this.openCell(Math.round(x/this.step),Math.round(z/this.step));this.burrow.cells=[...this.allCells];}
-
-  canMove(x: number, z: number): boolean {
-    const gx = Math.round(x / this.step), gz = Math.round(z / this.step);
-    return this.open.has(key(gx, gz)) && Math.abs(x - gx * this.step) < 0.83 && Math.abs(z - gz * this.step) < 0.83 ||
-      this.open.has(key(gx, gz)) && (this.open.has(key(gx + Math.sign(x - gx * this.step), gz)) || Math.abs(x - gx * this.step) < 0.83) &&
-      (this.open.has(key(gx, gz + Math.sign(z - gz * this.step))) || Math.abs(z - gz * this.step) < 0.83);
+  updateMarker(x:number,z:number,level:number,facing:number):void{
+    const tx=this.cellX(x-Math.sin(facing)*1.65),tz=this.cellX(z-Math.cos(facing)*1.65);
+    this.marker.visible=!this.isOpen(tx,tz,level)&&Math.abs(tx)<=103&&Math.abs(tz)<=103;
+    this.marker.position.set((x+tx)/2,this.floorY(tx,tz,level)+0.95,(z+tz)/2);this.marker.rotation.y=facing;
   }
 
-  digAhead(x: number, z: number, facing: number): { x: number; z: number; success: boolean; reason?: string } {
-    this.syncCells();
-    const tx = Math.round((x - Math.sin(facing) * 1.65) / this.step);
-    const tz = Math.round((z - Math.cos(facing) * 1.65) / this.step);
-    if (Math.abs(tx) > this.limit || Math.abs(tz) > this.limit) return { x: tx, z: tz, success: false, reason: 'Дальше слишком плотная порода.' };
-    if (this.open.has(key(tx, tz))) return { x: tx, z: tz, success: false, reason: 'Здесь уже проложен ход. Повернись к земляной стене.' };
-    const neighbor = [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz]) => this.open.has(key(tx+dx,tz+dz)));
-    if (!neighbor) return { x: tx, z: tz, success: false, reason: 'Копай стену рядом с существующим ходом.' };
-    this.openCell(tx, tz); this.burrow.cells = [...this.allCells];
-    return { x: tx, z: tz, success: true };
+  /** Walls shorten the camera boom so the viewpoint stays inside dug air. */
+  cameraPoint(target:THREE.Vector3,desired:THREE.Vector3,level:number):THREE.Vector3 {
+    const direction=desired.clone().sub(target),length=direction.length();if(length<0.01)return target.clone();direction.normalize();
+    const ray=new THREE.Raycaster(target,direction,0,length),objects:THREE.Object3D[]=[];
+    for(const cell of this.cells.values())if(cell.level===level&&Math.hypot(cell.x*2-target.x,cell.z*2-target.z)<8)objects.push(...cell.walls);
+    const hit=ray.intersectObjects(objects,false)[0],limit=hit?Math.max(0.5,hit.distance-0.22):length;
+    const point=target.clone().addScaledVector(direction,Math.min(length,limit));
+    const floor=this.floorY(point.x,point.z,level);point.y=Math.max(floor+0.55,Math.min(floor+1.68,point.y));
+    if(!this.canMove(point.x,point.z,level))return target.clone().addScaledVector(direction,0.55);
+    return point;
   }
 
-  updateMarker(x: number, z: number, facing: number): void {
-    const tx = Math.round((x - Math.sin(facing) * 1.65) / this.step);
-    const tz = Math.round((z - Math.cos(facing) * 1.65) / this.step);
-    this.marker.visible = this.walls.has(key(tx, tz));
-    this.marker.position.set(tx * this.step, 0.91, tz * this.step);
+  private rebuild():void{for(const id of this.open){const [level,coords]=id.split(':');const [x,z]=coords.split(',').map(Number);this.buildCell(x,z,Number(level));}}
+  private rebuildAround(x:number,z:number,level:number):void{
+    for(const [cx,cz] of [[x,z],[x+1,z],[x-1,z],[x,z+1],[x,z-1]])if(this.open.has(cellKey(cx,cz,level)))this.buildCell(cx,cz,level);
+    for(const vertical of [level-1,level+1])if(this.open.has(cellKey(x,z,vertical)))this.buildCell(x,z,vertical);
   }
-
-  isEntrance(x: number, z: number): boolean { return Math.hypot(x, z) < 1.3; }
-  isOpen(x: number, z: number): boolean { return this.open.has(key(Math.round(x / this.step), Math.round(z / this.step))); }
-  hasCell(level:number,x:number,z:number):boolean {this.syncCells();return this.allCells.has(`${level}:${key(Math.round(x/this.step),Math.round(z/this.step))}`);}
-  makeShaft(level:number,x:number,z:number):void {this.syncCells();this.allCells.add(`${level}:${key(Math.round(x/this.step),Math.round(z/this.step))}`);this.burrow.cells=[...this.allCells];}
+  private buildCell(gx:number,gz:number,level:number):void{
+    const id=cellKey(gx,gz,level),old=this.cells.get(id);
+    if(old){old.group.removeFromParent();old.group.traverse(obj=>{if(obj instanceof THREE.Mesh)obj.geometry.dispose();});}
+    const x=gx*this.step,z=gz*this.step,y=this.floorY(x,z,level),group=new THREE.Group();group.position.set(x,y,z);this.group.add(group);
+    const walls:THREE.Mesh[]=[];
+    const slab=(w:number,h:number,d:number,px:number,py:number,pz:number,material:THREE.Material)=>{
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(px,py,pz);mesh.receiveShadow=true;group.add(mesh);return mesh;
+    };
+    const floorOpening=this.open.has(cellKey(gx,gz,level+1));
+    const roofOpening=this.open.has(cellKey(gx,gz,level-1))||level===0&&this.save.burrows.some(b=>Math.hypot(b.x-x,b.z-z)<1.1);
+    const panel=(py:number,thickness:number,material:THREE.Material,opening:boolean)=>{
+      if(!opening){slab(2,thickness,2,0,py,0,material);return;}
+      slab(0.63,thickness,2,-0.685,py,0,material);slab(0.63,thickness,2,0.685,py,0,material);
+      slab(0.74,thickness,0.63,0,py,-0.685,material);slab(0.74,thickness,0.63,0,py,0.685,material);
+    };
+    panel(-0.08,0.12,this.floorMat,floorOpening);panel(1.93,0.18,this.soil,roofOpening);
+    for(const [dx,dz,px,pz,w,d] of [[1,0,1,0,0.12,2],[-1,0,-1,0,0.12,2],[0,1,0,1,2,0.12],[0,-1,0,-1,2,0.12]] as const)
+      if(!this.open.has(cellKey(gx+dx,gz+dz,level)))walls.push(slab(w,1.94,d,px,0.91,pz,this.soil));
+    let rootGroup:THREE.Group|undefined;
+    if(level<4){const root=this.rootAt(x,z,this.depth(level));if(root){
+      rootGroup=new THREE.Group();rootGroup.visible=root.available&&(!root.mesh||root.mesh.visible);group.add(rootGroup);
+      const shape=new THREE.Mesh(new THREE.CylinderGeometry(0.07,root.kind==='carrot'?0.16:0.1,0.8,7),root.kind==='carrot'?this.vegetableMat:this.rootMat);
+      shape.position.set(0.22,1.55,-0.18);rootGroup.add(shape);
+      for(const side of [-1,1]){const branch=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.05,0.6,5),this.rootMat);
+        branch.position.set(side*0.22,1.48,0);branch.rotation.z=side*0.6;rootGroup.add(branch);}
+    }}
+    this.cells.set(id,{x:gx,z:gz,level,group,walls,root:rootGroup});
+  }
 }

@@ -72,7 +72,9 @@ export interface SaveData {
   burrows: BurrowData[];
   nests: NestData[];
   materials: { grass: number; twigs: number; fur: number };
-  underground: { burrowId: number; x: number; z: number; level?: number } | null;
+  underground: { burrowId?: number; x: number; z: number; level: number } | null;
+  excavation?: string[];
+  gnawedRoots?: Record<string,number>;
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];

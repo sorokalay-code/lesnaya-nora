@@ -1,7 +1,7 @@
 import { Random } from './Random';
 import { Predator, RabbitActor } from './Entities';
 import type { SaveData } from './types';
-import type { Underground } from './Underground';
+import type { BurrowSystem } from './BurrowSystem';
 
 export type BurrowEvent={type:'fox-entered'|'fox-attack'|'kit-attack';name?:string};
 
@@ -9,14 +9,14 @@ export type BurrowEvent={type:'fox-entered'|'fox-attack'|'kit-attack';name?:stri
 export class BurrowTraffic {
   private visits=new Map<Predator,{burrowId:number;until:number;lastHit:number}>();
   constructor(private readonly rng:Random){}
-  update(dt:number,time:number,night:boolean,predators:Predator[],rabbits:RabbitActor[],save:SaveData,current?:Underground):BurrowEvent[]{
+  update(dt:number,time:number,night:boolean,predators:Predator[],rabbits:RabbitActor[],save:SaveData,burrows:BurrowSystem):BurrowEvent[]{
     const events:BurrowEvent[]=[];
     for(const actor of rabbits){
-      const b=current?.burrow;
-      if(b&&current.level===0&&actor.data.trust>=55&&Math.hypot(actor.data.x-b.x,actor.data.z-b.z)<12){
-        actor.rig.root.position.set(b.x+1.25,-6,b.z+1.1);
-        actor.rig.root.userData.baseY=-6;
-      }else actor.rig.root.userData.baseY=0;
+      const b=burrows.currentBurrow;
+      if(b&&burrows.underground&&burrows.level===0&&actor.data.trust>=55&&Math.hypot(actor.data.x-b.x,actor.data.z-b.z)<12){
+        actor.rig.root.position.set(b.x+0.3,burrows.earth.floorY(b.x,b.z,0),b.z+0.3);
+        actor.rig.root.userData.baseY=burrows.earth.floorY(b.x,b.z,0);
+      }
     }
     for(const predator of predators){
       if(predator.kind!=='fox')continue;
@@ -24,8 +24,8 @@ export class BurrowTraffic {
       if(visit){
         const burrow=save.burrows.find(b=>b.id===visit.burrowId);
         if(!burrow||time>visit.until){this.visits.delete(predator);continue;}
-        predator.root.position.set(burrow.x+Math.sin(time*0.8)*0.85,-6,burrow.z+Math.cos(time*0.8)*0.85);
-        if(current?.burrow.id===burrow.id&&current.level===0&&save.underground&&Math.hypot(save.underground.x,save.underground.z)<2.5&&time-visit.lastHit>4){
+        predator.root.position.set(burrow.x+Math.sin(time*0.8)*0.25,burrows.earth.floorY(burrow.x,burrow.z,0),burrow.z+Math.cos(time*0.8)*0.25);
+        if(burrows.underground&&burrows.level===0&&Math.hypot(burrows.x-burrow.x,burrows.z-burrow.z)<2.5&&time-visit.lastHit>4){
           visit.lastHit=time;events.push({type:'fox-attack'});
         }
         const kit=save.kits.find(k=>k.alive&&k.age<3&&k.command!=='follow'&&k.burrowId===burrow.id&&k.nestId!==undefined&&save.nests.find(n=>n.id===k.nestId)?.level===0);

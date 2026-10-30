@@ -76,19 +76,6 @@ export class WasteSystem {
   }
 }
 
-export class CropSystem {
-  private harvested=new Map<string,number>();
-  constructor(private readonly rng:Random){}
-  canForage(underGarden:boolean,level:number):boolean{return underGarden&&level===0;}
-  take(x:number,z:number,clock:number,season:Season):FoodKind|null{
-    const id=`${Math.round(x/2)},${Math.round(z/2)}`;
-    if(clock<(this.harvested.get(id)??0))return null;
-    this.harvested.set(id,clock+130);
-    if(season==='Зима'&&this.rng.chance(0.7))return null;
-    return this.rng.chance(0.7)?'carrot':'cabbage';
-  }
-}
-
 export class FoodStore {
   readonly capacity=18;
   constructor(private readonly save:SaveData){}
