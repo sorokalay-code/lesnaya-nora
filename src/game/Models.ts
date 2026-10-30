@@ -99,12 +99,12 @@ export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frigh
 
 export function createPredator(kind: PredatorKind): THREE.Group {
   const root = new THREE.Group();
-  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : 0x9a7859;
+  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : kind==='lynx'?0xb98e60:kind==='weasel'?0x8e6245:0x9a7859;
   const fur = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
   const pale = new THREE.MeshStandardMaterial({ color: kind === 'wolf' ? 0xc5c5bd : 0xf4debd, roughness: 1 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x292b26, roughness: 0.7 });
-  const s = kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : 1;
-  root.scale.setScalar(s);
+  const s = kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : kind==='lynx'?1.07:1;
+  root.scale.set(kind==='weasel'?0.67:s,kind==='weasel'?0.58:s,kind==='weasel'?1.15:s);
   part(root, sphere, fur, [0, 0.65, 0], [0.38, 0.39, 0.82]);
   part(root, sphere, pale, [0, 0.48, -0.43], [0.3, 0.25, 0.32]);
   const head = new THREE.Group(); head.position.set(0, 0.82, -0.64); root.add(head);
@@ -113,7 +113,8 @@ export function createPredator(kind: PredatorKind): THREE.Group {
   part(head, sphere, dark, [0, -0.075, -0.58], [0.09, 0.07, 0.07]);
   const legs: THREE.Group[] = [];
   for (const side of [-1, 1]) {
-    const e = part(head, cone, fur, [side * 0.19, 0.27, 0.06], [0.13, 0.35, 0.12]); e.rotation.z = side * 0.17;
+    const e = part(head, cone, fur, [side * 0.19, 0.27, 0.06], [0.13, kind==='lynx'?0.44:0.35, 0.12]); e.rotation.z = side * 0.17;
+    if(kind==='lynx')part(head,cone,dark,[side*0.19,0.53,0.06],[0.045,0.16,0.05]);
     part(head, sphere, dark, [side * 0.22, 0.06, -0.22], [0.04, 0.04, 0.04]);
     for (const z of [-0.5, 0.5]) {
       const leg = new THREE.Group(); leg.position.set(side*0.27,0.45,z); root.add(leg);
@@ -121,8 +122,8 @@ export function createPredator(kind: PredatorKind): THREE.Group {
       part(leg,sphere,dark,[0,-0.4,-0.09],[0.14,0.06,0.18]); legs.push(leg);
     }
   }
-  const tail = part(root, sphere, fur, [0, 0.74, 0.85], [0.2, 0.2, 0.52]); tail.rotation.x = -0.5;
-  part(root, sphere, pale, [0, 0.94, 1.17], [0.13, 0.13, 0.19]);
+  const tail = part(root, sphere, kind==='lynx'?dark:fur, [0, 0.74, 0.85], kind==='lynx'?[0.14,0.15,0.21]:[0.2,0.2,kind==='weasel'?0.7:0.52]); tail.rotation.x = -0.5;
+  if(kind!=='lynx')part(root, sphere, pale, [0, 0.94, kind==='weasel'?1.33:1.17], [0.13, 0.13, 0.19]);
   root.userData.legs = legs;
   return root;
 }

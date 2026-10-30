@@ -5,6 +5,7 @@ import {World} from '../src/game/World';
 import {FamilyMember, Hawk, Predator, RabbitActor, RabbitFactory} from '../src/game/Entities';
 import {Random} from '../src/game/Random';
 import {ViewCamera} from '../src/game/ViewCamera';
+import {createForestAnimal, type WildlifeKind} from '../src/game/Wildlife';
 
 const scene=new THREE.Scene();
 const world=new World(scene,31415);
@@ -61,6 +62,18 @@ test('rabbits and predators stay grounded while moving across a hill',()=>{
   hawk.update(0.016,5,-80,-80,false,groundAt);
   assert.ok(hawk.root.position.y-groundAt(hawk.x,hawk.z)>10);
   assert.ok(Math.abs(hawk.shadow.position.y-groundAt(hawk.x,hawk.z)-0.05)<0.0001);
+});
+
+test('new forest animals wander on terrain and react to nearby predators',()=>{
+  const kinds:WildlifeKind[]=['deer','squirrel','hedgehog','beaver'];
+  for(const [index,kind] of kinds.entries()){
+    const animal=createForestAnimal(kind,25+index*2,12,new Random(index+500));
+    const startX=animal.x,startZ=animal.z;
+    for(let frame=0;frame<180;frame++)animal.update(1/60,frame/60,groundAt,[{x:startX+1,z:startZ}]);
+    assert.ok(Math.hypot(animal.x-startX,animal.z-startZ)>0.1);
+    assert.ok(Math.abs(animal.root.position.y-groundAt(animal.x,animal.z))<0.001);
+    assert.equal((animal as unknown as {legs:THREE.Group[]}).legs.length,4);
+  }
 });
 
 test('view switches between eye height and the orbit camera',()=>{

@@ -11,6 +11,7 @@ import { ViewCamera } from './ViewCamera';
 import { HudRenderer } from './HudRenderer';
 import { SaveRepository } from './SaveRepository';
 import { PanelRenderer } from './PanelRenderer';
+import { createForestAnimal, type ForestAnimal, type WildlifeKind } from './Wildlife';
 import { FOOD, type FoodKind, type KitData, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -40,6 +41,7 @@ export class Game {
   private rabbits: RabbitActor[] = [];
   private families: FamilyMember[] = [];
   private predators: Predator[] = [];
+  private wildlife:ForestAnimal[]=[];
   private hawks:Hawk[]=[];
   private traffic!:ExcavationTraffic;
   private earth!:Excavation;
@@ -94,7 +96,7 @@ export class Game {
     const layer = document.createElement('div'); layer.className = 'ui-layer';
     layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button id="camera-button" data-action="camera" title="Переключить вид (B)">◉ 3-е лицо</button><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
       <div id="hud" class="hud"></div><div id="prompt" class="prompt"></div><div id="toast" class="toast-box"></div><div class="dig-reticle" aria-hidden="true">✦</div>
-      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · ПКМ — осмотреться · ЛКМ (вид от первого лица) — копать, удерживать для продолжения</span><span>E — общаться/собрать · G — еда · V — пить · Q/T — корни/унести растение · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
+      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · ПКМ — осмотреться · ЛКМ (вид от первого лица) — копать, удерживать для продолжения</span><span>E — общаться/собрать · G — еда · V — пить · P — помёт · L — моча · Q/T — корни/унести растение · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
       <div id="settings" class="settings-panel hidden"></div><div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
     this.app.append(layer);
     this.overlay = layer.querySelector('#overlay')!; this.hud = layer.querySelector('#hud')!;
@@ -123,7 +125,7 @@ export class Game {
       if (e.code === 'KeyM') this.action('map');
       if (e.code === 'KeyJ') this.action('journal');
       if (!this.running || !this.overlay.classList.contains('hidden')) return;
-      const map: Record<string, string> = { KeyB:'camera',KeyE: 'interact', KeyG: 'eat', KeyV: 'drink',KeyQ:'roots',KeyT:'steal',KeyC:'groom',KeyK:'store',KeyO:'retrieve',KeyY:'feed-vegetables', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'relieve', KeyF: 'feed', Space: 'hop' };
+      const map: Record<string, string> = { KeyB:'camera',KeyE: 'interact', KeyG: 'eat', KeyV: 'drink',KeyQ:'roots',KeyT:'steal',KeyC:'groom',KeyK:'store',KeyO:'retrieve',KeyY:'feed-vegetables', KeyN:'nest', KeyU:'fur', KeyR: 'sleep', KeyP: 'poop', KeyL:'pee', KeyF: 'feed', Space: 'hop' };
       if (map[e.code]) this.action(map[e.code]);
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
@@ -158,7 +160,7 @@ export class Game {
     const startDay=1+Math.max(0,Math.min(3,seasonIndex))*6;
     this.rng = new Random(seed + 53); this.factory = new RabbitFactory(this.rng);
     this.save = { version: 2, seed, clock: (startDay-1)*1440+7*60, day: startDay,
-      player: { x: 0, y:0, z: 0, genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 }, hunger: 85, thirst: 85, bodyTemp: 38.5, energy: 90, bladder: 15, health: 100, age: 0, hidden: false,dirtiness:0,poison:0,milk:35 },
+      player: { x: 0, y:0, z: 0, genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 }, hunger: 85, thirst: 85, bodyTemp: 38.5, energy: 90, bladder: 15, bowel:15, health: 100, age: 0, hidden: false,dirtiness:0,poison:0,milk:35 },
       inventory: { clover: 2, carrot: 0, cabbage: 0, mushroom: 0, berries: 0,toadstool:0,bitterleaf:0,acorn:0 },
       nests: [], stashes:[], materials: {grass:0,twigs:0,fur:0}, excavation:[], gnawedRoots:{}, kits: [],
       partners: this.factory.partners(16), harvested: [], pregnancy: null,
@@ -207,12 +209,30 @@ export class Game {
       }
     }
     this.predators = [];
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 26; i++) {
       const a = this.rng.range(0, Math.PI * 2), d = this.rng.range(27, 82);
       const x=i===0?34:i===1?-35:Math.cos(a)*d;
       const z=i===0?31:i===1?29:Math.sin(a)*d;
-      const kind = i<2 ? 'dog' : i % 4 === 0 ? 'wolf' : 'fox';
+      const kind = i<2 ? 'dog' : i%7===0?'lynx':i%5===0?'weasel':i % 4 === 0 ? 'wolf' : 'fox';
       const predator = new Predator(kind, x, z, this.rng);predator.root.position.y=this.world.heightAt(x,z);this.predators.push(predator); this.scene.add(predator.root);
+    }
+    this.wildlife=[];
+    for(const [kind,count] of [['deer',6],['squirrel',9],['hedgehog',8],['beaver',5]] as [WildlifeKind,number][]){
+      for(let i=0;i<count;i++){
+        let x=0,z=0;
+        if(kind==='beaver'){
+          const pond=this.rng.pick(this.world.waterSources);
+          const angle=this.rng.range(0,Math.PI*2),distance=this.rng.range(4,7);
+          x=pond.x+Math.sin(angle)*distance;z=pond.z+Math.cos(angle)*distance;
+        }else for(let attempt=0;attempt<24;attempt++){
+          x=this.rng.range(-90,90);z=this.rng.range(-90,90);
+          const biome=this.world.biomeAt(x,z);
+          if(Math.hypot(x,z)>9&&biome!=='garden'&&(kind==='deer'||biome==='forest'))break;
+        }
+        const animal=createForestAnimal(kind,x,z,this.rng);
+        animal.root.position.set(x,this.world.heightAt(x,z),z);
+        this.wildlife.push(animal);this.scene.add(animal.root);
+      }
     }
     this.hawks=[[12,24],[-24,8],[29,-15]].map(([x,z])=>new Hawk(x,z,this.rng));
     for(const hawk of this.hawks)this.scene.add(hawk.root,hawk.shadow);
@@ -282,15 +302,18 @@ export class Game {
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     for(const event of this.traffic.update(dt,this.elapsed,night,this.predators,this.rabbits,this.save,this.earth)){
-      if(event.type==='fox-entered')this.toast('Лиса учуяла крольчат или отходы и пролезла в неглубокий ход!');
-      if(event.type==='fox-attack')this.predatorAttack('fox');
-      if(event.type==='kit-attack')this.toast(`Лиса добралась до ${event.name}. Уведи малыша глубже и защити гнездо.`);
+      const animal=event.kind==='weasel'?'Ласка':'Лиса';
+      if(event.type==='predator-entered')this.toast(`${animal} учуяла крольчат или отходы и пролезла в неглубокий ход!`);
+      if(event.type==='predator-attack')this.predatorAttack(event.kind);
+      if(event.type==='kit-attack')this.toast(`${animal} добралась до ${event.name}. Уведи малыша глубже и защити гнездо.`);
     }
+    for(const animal of this.wildlife)animal.update(dt,this.elapsed,this.groundAt,this.predators);
     const exposed=!this.sheltered&&!this.world.hasCover(p.x,p.z);
     for(const hawk of this.hawks)if(hawk.update(dt,this.elapsed,p.x,p.z,exposed,this.groundAt))this.predatorAttack('hawk');
     for(const rabbit of this.rabbits)rabbit.rig.root.visible=Math.hypot(rabbit.rig.root.position.x-p.x,rabbit.rig.root.position.z-p.z)<76;
     for(const member of this.families)member.rig.root.visible=Math.hypot(member.rig.root.position.x-p.x,member.rig.root.position.z-p.z)<76;
     for(const predator of this.predators)predator.root.visible=Math.hypot(predator.root.position.x-p.x,predator.root.position.z-p.z)<76;
+    for(const animal of this.wildlife)animal.root.visible=Math.hypot(animal.x-p.x,animal.z-p.z)<76;
     for(const hawk of this.hawks){const visible=Math.hypot(hawk.x-p.x,hawk.z-p.z)<92;hawk.root.visible=visible;hawk.shadow.visible=visible&&!this.sheltered;}
     this.world.update(this.save.clock, this.elapsed, this.save.weather,this.save.day,p.x,p.z);
     this.world.updateRain(dt, p.x, p.z,this.save.weather);
@@ -424,9 +447,9 @@ export class Game {
 
   private predatorAttack(kind: string): void {
     const p = this.save.player;
-    p.health = clamp(p.health - (kind === 'hawk' ? 32:kind === 'wolf' ? 23 : 15), 0, 100);
+    p.health = clamp(p.health - (kind === 'hawk' ? 32:kind === 'wolf' ? 23:kind==='lynx'?21:kind==='weasel'?11:15), 0, 100);
     p.energy = clamp(p.energy - 13, 0, 100);
-    this.sound.play('danger'); this.toast(`${kind === 'hawk'?'Сокол':kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`);
+    this.sound.play('danger'); this.toast(`${kind === 'hawk'?'Сокол':kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' :kind==='lynx'?'Рысь':kind==='weasel'?'Ласка':'Лиса'} напал! Беги под деревья или в выкопанный ход.`);
   }
 
   private threatenKits(predator: Predator): void {
@@ -576,7 +599,16 @@ export class Game {
       p.energy = clamp(p.energy + 65, 0, 100); p.hunger = clamp(p.hunger - 17, 0, 100);p.thirst=clamp(p.thirst-20,0,100); p.bladder = clamp(p.bladder + 15, 0, 100);p.bodyTemp=clamp(p.bodyTemp+1.5,28,39);
       p.health = clamp(p.health + 8, 0, 100); this.playAction('lie',2.8);this.toast('Ты выспалась в укромном месте. Прошло несколько часов.'); return;
     }
-    if (action === 'relieve') { this.makeWaste(p.poison>40?'diarrhea':p.bladder>50?'urine':'pellets');p.bladder = 0;this.playAction('defecate',1.8); this.toast('Потребность удовлетворена. Не забудь привести шерсть в порядок.'); return; }
+    if (action === 'poop') {
+      if(p.bowel<12){this.toast('Пока нет потребности оставлять помёт.');return;}
+      this.makeWaste(p.poison>40?'diarrhea':'pellets');p.bowel=0;
+      this.playAction('defecate',1.8);this.toast('Готово. Оставленные шарики могут привлечь хищника.');return;
+    }
+    if (action === 'pee') {
+      if(p.bladder<12){this.toast('Пока нет потребности помочиться.');return;}
+      this.makeWaste('urine');p.bladder=0;
+      this.playAction('defecate',1.5);this.toast('Готово. В норе лучше поддерживать чистоту.');return;
+    }
     if(action==='groom'){this.survival.groom();this.playAction('groom',2.5);this.toast('Ты вылизала шерсть. Стало чище и спокойнее.');return;}
     if (action === 'feed') { this.feedKits(); return; }
     if(action==='feed-vegetables'){this.feedKits(true);return;}

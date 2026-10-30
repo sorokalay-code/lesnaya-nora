@@ -1,6 +1,6 @@
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind = 'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
-export type PredatorKind = 'fox' | 'wolf' | 'dog';
+export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
@@ -59,7 +59,7 @@ export interface SaveData {
   seed: number;
   clock: number;
   day: number;
-  player: { x: number; y:number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; health: number; age: number; hidden: boolean; dirtiness: number; poison: number; milk: number };
+  player: { x: number; y:number; z: number; genes: Genes; hunger: number; thirst: number; bodyTemp: number; energy: number; bladder: number; bowel: number; health: number; age: number; hidden: boolean; dirtiness: number; poison: number; milk: number };
   inventory: Record<FoodKind, number>;
   nests: NestData[];
   stashes: StashData[];

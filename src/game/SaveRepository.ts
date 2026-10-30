@@ -10,6 +10,7 @@ export class SaveRepository {
     const data=JSON.parse(raw) as SaveData;
     if(data.version!==2||!Number.isFinite(data.seed)||!Array.isArray(data.excavation)||!Array.isArray(data.nests)||!Array.isArray(data.stashes)||!Number.isFinite(data.player?.y))
       throw new Error('Сохранение новой версии повреждено');
+    if(!Number.isFinite(data.player.bowel))data.player.bowel=15;
     return data;
   }
 }

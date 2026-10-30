@@ -108,7 +108,7 @@ export class Predator {
     this.x = this.targetX = x; this.z = this.targetZ = z;
     this.homeX=x;this.homeZ=z;
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
-    this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : 11;
+    this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : kind==='lynx'?14:kind==='weasel'?9:11;
   }
   enterTunnel(x:number,y:number,z:number):void{
     this.tunnelPosition={x,y,z};this.x=x;this.z=z;this.root.position.set(x,y,z);
@@ -122,7 +122,7 @@ export class Predator {
       animatePredator(this.root,time,false,dt);return false;
     }
     const dist = Math.hypot(px - this.x, pz - this.z);
-    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog' || !day || dist < 7);
+    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||!day||dist < (this.kind==='lynx'?10:7));
     if (hunting) { this.targetX = px; this.targetZ = pz; }
     else if(Math.hypot(this.x-this.homeX,this.z-this.homeZ)>20){this.targetX=this.homeX;this.targetZ=this.homeZ;}
     else if (time > this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1) {
@@ -131,7 +131,7 @@ export class Predator {
       this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
     }
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-    const speed = hunting ? (this.kind === 'wolf' ? 3.7 : 3.3) : 0.75;
+    const speed = hunting ? (this.kind === 'wolf' ? 3.7 : this.kind==='lynx'?4.15:this.kind==='weasel'?4.4:3.3) : this.kind==='weasel'?1.15:0.75;
     this.x += Math.sin(angle) * speed * dt; this.z += Math.cos(angle) * speed * dt;
     this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;

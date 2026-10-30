@@ -28,46 +28,48 @@ export class Excavation {
   private depth(node:DigNode):number{return this.world.heightAt(node.x,node.z)-(node.y-0.95);}
   depthAt(x:number,y:number,z:number):number{return Math.max(0,this.world.heightAt(x,z)-y);}
   isSheltered(x:number,y:number,z:number):boolean{
-    return this.depthAt(x,y,z)>0.18&&this.distanceToTunnel(x,y,z)<1.15;
+    return this.depthAt(x,y,z)>0.18&&this.distanceToTunnel(x,y,z)<1.7;
   }
   contains(point:THREE.Vector3):boolean{
     const floor=this.floorAt(point.x,point.z,point.y);
     return this.distanceToTunnel(point.x,point.y,point.z)<1.5&&point.y>=floor+0.15&&point.y<=floor+2.2;
   }
   canMoveTo(x:number,z:number,y:number,inside:boolean):boolean{
-    if(!inside||this.distanceToTunnel(x,y,z)<1.35)return true;
-    return this.openings.some(o=>distance2(o,{x,z})<1.5);
+    if(!inside||this.distanceToTunnel(x,y,z)<1.7)return true;
+    return this.openings.some(o=>distance2(o,{x,z})<1.7);
   }
   nearOpening(x:number,z:number,radius=1.5):boolean{return this.openings.some(o=>distance2(o,{x,z})<radius);}
 
   /** The closest centerline also defines a continuous, walkable slope. */
-  private centerline(x:number,z:number,feetY:number):{distance:number;y:number}|undefined{
-    let best:{distance:number;y:number;score:number}|undefined;
-    const consider=(cx:number,cy:number,cz:number)=>{
+  private centerline(x:number,z:number,feetY:number):{distance:number;y:number;edge:boolean}|undefined{
+    let best:{distance:number;y:number;score:number;edge:boolean}|undefined;
+    const consider=(cx:number,cy:number,cz:number,edge:boolean)=>{
       const distance=Math.hypot(x-cx,z-cz),score=distance+Math.abs(cy-(feetY+0.95))*0.4;
-      if(!best||score<best.score)best={distance,y:cy,score};
+      if(!best||score<best.score)best={distance,y:cy,score,edge};
     };
-    for(const node of this.save.excavation)if(distance2(node,{x,z})<3.2)consider(node.x,node.y,node.z);
+    for(const node of this.save.excavation)if(distance2(node,{x,z})<3.2)consider(node.x,node.y,node.z,false);
     for(const [a,b] of this.edges){
       if(Math.min(a.x,b.x)-1.3>x||Math.max(a.x,b.x)+1.3<x||Math.min(a.z,b.z)-1.3>z||Math.max(a.z,b.z)+1.3<z)continue;
       const dx=b.x-a.x,dz=b.z-a.z,t=clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1),0,1);
-      consider(a.x+dx*t,a.y+(b.y-a.y)*t,a.z+dz*t);
+      if(t>0.01&&t<0.99)consider(a.x+dx*t,a.y+(b.y-a.y)*t,a.z+dz*t,true);
     }
     return best;
   }
   distanceToTunnel(x:number,y:number,z:number):number{
-    const center=this.centerline(x,z,y-0.95);return center?.distance??Infinity;
+    const center=this.centerline(x,z,y);return center?.distance??Infinity;
   }
   floorAt(x:number,z:number,previousY:number):number{
     const surface=this.world.heightAt(x,z),center=this.centerline(x,z,previousY);
-    if(!center||center.distance>1.5)return surface;
+    if(!center||center.distance>1.7)return surface;
     const tunnelFloor=center.y-0.95;
     const opening=this.openings.reduce((best,node)=>Math.min(best,distance2(node,{x,z})),Infinity);
-    if(opening<1.5){
-      const blend=clamp((1.5-opening)/1.1,0,1);
+    // The ramp belongs only to the exposed lip. On a connected passage its
+    // old radial ramp would rise again between two chambers and eject the rabbit.
+    if(opening<1.7&&!center.edge){
+      const blend=clamp((1.7-opening)/1.3,0,1);
       return surface+(tunnelFloor-surface)*blend;
     }
-    return previousY<surface-0.25?tunnelFloor:surface;
+    return previousY<surface-0.13||opening<1.7?tunnelFloor:surface;
   }
 
   /** Surface ray starts at the rabbit; the camera provides aim, not teleportation. */
@@ -127,7 +129,7 @@ export class Excavation {
     for(const other of connections)this.edges.push([other,node]);
     this.mesher.addNode(node,connections);
     if(node.y+1>this.world.heightAt(node.x,node.z)){
-      this.openings.push(node);this.world.addGroundHole(node.x,node.z,1.05);
+      this.openings.push(node);this.world.addGroundHole(node.x,node.z,1.7);
     }
     const root=this.world.rootAt(node.x,node.z,this.depth(node));
     if(root){

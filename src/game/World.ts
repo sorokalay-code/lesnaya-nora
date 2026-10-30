@@ -138,13 +138,17 @@ export class World {
     return ray.intersectObject(this.groundMesh,false)[0]?.point;
   }
 
-  addGroundHole(x:number,z:number,radius=1.1):void{
+  isSurfaceCarved(x:number,z:number):boolean{
+    return this.holes.some(h=>Math.hypot(x-h.x,z-h.z)<h.radius);
+  }
+
+  addGroundHole(x:number,z:number,radius=1.7):void{
     if(this.holes.some(h=>Math.hypot(h.x-x,h.z-z)<0.1))return;
     this.holes.push({x,z,radius});
     if(!this.groundGeometry)return;
     const indices:number[]=[];
     for(const tile of this.groundTiles){
-      if(this.holes.some(h=>Math.hypot(tile.x-h.x,tile.z-h.z)<h.radius))continue;
+      if(this.isSurfaceCarved(tile.x,tile.z))continue;
       indices.push(...tile.indices);
     }
     this.groundGeometry.setIndex(indices);this.groundGeometry.computeVertexNormals();
@@ -156,7 +160,7 @@ export class World {
     for(const mesh of this.holePatches){mesh.removeFromParent();mesh.geometry.dispose();}
     this.holePatches=[];
     for(const hole of this.holes){
-      const geometry=new THREE.RingGeometry(1.15,2.25,48,5);
+      const geometry=new THREE.RingGeometry(1.5,2.55,48,6);
       const position=geometry.getAttribute('position') as THREE.BufferAttribute;
       const colors:number[]=[];
       for(let i=0;i<position.count;i++){
@@ -165,7 +169,7 @@ export class World {
         position.setXYZ(i,x,this.heightAt(x,z)-0.045,z);
         const biome=this.biomeAt(x,z);
         const grass=new THREE.Color(biome==='forest'?0x54754f:biome==='meadow'?0x81a769:biome==='swamp'?0x688363:0xa48b60);
-        const color=new THREE.Color(0x795c43).lerp(grass,Math.min(1,Math.max(0,(Math.hypot(localX,localZ)-1.15)/0.65)));
+        const color=new THREE.Color(0x795c43).lerp(grass,Math.min(1,Math.max(0,(Math.hypot(localX,localZ)-1.5)/0.75)));
         colors.push(color.r,color.g,color.b);
       }
       geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
@@ -176,7 +180,7 @@ export class World {
           const a=original.getX(i),b=original.getX(i+1),c=original.getX(i+2);
           const x=(position.getX(a)+position.getX(b)+position.getX(c))/3;
           const z=(position.getZ(a)+position.getZ(b)+position.getZ(c))/3;
-          if(this.holes.some(other=>other!==hole&&Math.hypot(x-other.x,z-other.z)<1.18))continue;
+          if(this.isSurfaceCarved(x,z))continue;
           kept.push(a,b,c);
         }
         geometry.setIndex(kept);

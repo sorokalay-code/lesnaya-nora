@@ -4,14 +4,15 @@ import * as THREE from 'three';
 import { Excavation } from '../src/game/Excavation';
 import { Terrain } from '../src/game/Terrain';
 import { SaveRepository } from '../src/game/SaveRepository';
-import { FoodStore } from '../src/game/Systems';
+import { FoodStore, SurvivalSystem, WasteSystem } from '../src/game/Systems';
+import { Random } from '../src/game/Random';
 import type { SaveData } from '../src/game/types';
 import { World } from '../src/game/World';
 import { CaveMesher } from '../src/game/CaveMesher';
 
 function fixture():SaveData{
   return {version:2,seed:9,clock:420,day:1,weather:'clear',messages:[],waste:[],
-    player:{x:0,y:0,z:0,genes:{coat:'cream',ear:1,speed:3,vitality:3,size:1},hunger:90,thirst:90,bodyTemp:38,energy:90,bladder:0,health:100,age:0,hidden:false,dirtiness:0,poison:0,milk:10},
+    player:{x:0,y:0,z:0,genes:{coat:'cream',ear:1,speed:3,vitality:3,size:1},hunger:90,thirst:90,bodyTemp:38,energy:90,bladder:0,bowel:0,health:100,age:0,hidden:false,dirtiness:0,poison:0,milk:10},
     inventory:{clover:2,carrot:0,cabbage:0,mushroom:0,berries:0,toadstool:0,bitterleaf:0,acorn:0},
     nests:[],stashes:[],materials:{grass:0,twigs:0,fur:0},excavation:[],kits:[],partners:[],harvested:[],pregnancy:null,
     stats:{births:0,grown:0,survived:0,generations:1}};
@@ -82,6 +83,27 @@ test('adjacent dug sections share a finite smooth tunnel mesh',()=>{
   assert.ok(positions.every(Number.isFinite));
 });
 
+test('the passage between adjacent openings stays below the surface',()=>{
+  const save=fixture();save.excavation=[{x:0,y:0.45,z:0},{x:2,y:0.45,z:0}];
+  const earth=new Excavation(new THREE.Scene(),fakeWorld(),save);
+  assert.ok(earth.floorAt(0,0,0)<-0.4);
+  assert.ok(earth.floorAt(1,0,-0.18)<-0.4);
+  assert.ok(earth.floorAt(1.6,0,-0.38)<-0.4);
+  assert.equal(earth.isSheltered(1,-0.45,0),true);
+  assert.equal(earth.canMoveTo(1,0,-0.45,true),true);
+});
+
+test('four neighboring surface openings remove the ground between them',()=>{
+  const scene=new THREE.Scene(),world=new World(scene,197,fixture());
+  for(const [x,z] of [[0,0],[2,0],[0,2],[2,2]])world.addGroundHole(x,z,1.7);
+  assert.equal(world.isSurfaceCarved(1,1),true);
+  const hit=world.surfaceHit(new THREE.Vector3(1,20,1),new THREE.Vector3(0,-1,0),30);
+  assert.equal(hit,undefined);
+  const patchHit=new THREE.Raycaster(new THREE.Vector3(1,20,1),new THREE.Vector3(0,-1,0),0,30)
+    .intersectObjects(scene.children,true).find(i=>i.object.material===world['exposedSoil']);
+  assert.equal(patchHit,undefined);
+});
+
 test('nests and food stashes are placed objects with independent coordinates',()=>{
   const save=fixture();save.nests.push({id:1,x:2,y:-1,z:4,quality:1});
   save.stashes.push({id:1,x:2,y:-1,z:4,food:{}});
@@ -100,6 +122,21 @@ test('new saves never load the previous save key',()=>{
     const repository=new SaveRepository();assert.equal(repository.exists(),false);
     repository.store(fixture());assert.equal(repository.exists(),true);assert.equal(repository.load().version,2);
   }finally{(globalThis as unknown as {localStorage?:unknown}).localStorage=previous;}
+});
+
+test('urine and pellet waste are separate objects and holding either need harms health',()=>{
+  const save=fixture(),scene=new THREE.Scene(),waste=new WasteSystem(scene,save);
+  waste.spawn('pellets',1,0,2);waste.spawn('urine',2,0,3);
+  assert.deepEqual(save.waste.map(w=>w.kind),['pellets','urine']);
+  assert.equal(scene.children.length,2);
+  const survival=new SurvivalSystem(save,new Random(17));
+  save.player.bladder=99;save.player.bowel=0;
+  survival.tick(4,4,false,18,false,()=>{});
+  const afterBladder=save.player.health;
+  assert.ok(afterBladder<100);
+  save.player.bladder=0;save.player.bowel=99;
+  survival.tick(4,8,false,18,false,()=>{});
+  assert.ok(save.player.health<afterBladder);
 });
 
 test('relief and plant roots stay aligned with the surface',()=>{

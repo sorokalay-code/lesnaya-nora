@@ -22,9 +22,9 @@ export class CaveMesher {
     const fresh=connections.map(other=>[node,other] as Edge);
     this.edges.push(...fresh);
     const touched=new Set<string>();
-    this.keysForBounds(node.x-1.8,node.y-1.3,node.z-1.8,node.x+1.8,node.y+1.3,node.z+1.8,touched);
-    for(const [a,b] of fresh)this.keysForBounds(Math.min(a.x,b.x)-1.8,Math.min(a.y,b.y)-1.3,Math.min(a.z,b.z)-1.8,
-      Math.max(a.x,b.x)+1.8,Math.max(a.y,b.y)+1.3,Math.max(a.z,b.z)+1.8,touched);
+    this.keysForBounds(node.x-2.1,node.y-1.3,node.z-2.1,node.x+2.1,node.y+1.3,node.z+2.1,touched);
+    for(const [a,b] of fresh)this.keysForBounds(Math.min(a.x,b.x)-2.1,Math.min(a.y,b.y)-1.3,Math.min(a.z,b.z)-2.1,
+      Math.max(a.x,b.x)+2.1,Math.max(a.y,b.y)+1.3,Math.max(a.z,b.z)+2.1,touched);
     for(const key of touched)this.rebuildChunk(key);
   }
   private keysForBounds(minX:number,minY:number,minZ:number,maxX:number,maxY:number,maxZ:number,keys:Set<string>):void{
@@ -35,18 +35,18 @@ export class CaveMesher {
   private rebuildChunk(key:string):void{
     const [cx,cy,cz]=key.split(',').map(Number),s=this.chunkSize;
     const min=new THREE.Vector3(cx*s,cy*s,cz*s),max=min.clone().addScalar(s);
-    const nearbyNodes=this.nodes.filter(n=>n.x>min.x-1.8&&n.x<max.x+1.8&&n.y>min.y-1.3&&n.y<max.y+1.3&&n.z>min.z-1.8&&n.z<max.z+1.8);
-    const nearbyEdges=this.edges.filter(([a,b])=>Math.max(a.x,b.x)>min.x-1.8&&Math.min(a.x,b.x)<max.x+1.8&&
-      Math.max(a.y,b.y)>min.y-1.3&&Math.min(a.y,b.y)<max.y+1.3&&Math.max(a.z,b.z)>min.z-1.8&&Math.min(a.z,b.z)<max.z+1.8);
+    const nearbyNodes=this.nodes.filter(n=>n.x>min.x-2.1&&n.x<max.x+2.1&&n.y>min.y-1.3&&n.y<max.y+1.3&&n.z>min.z-2.1&&n.z<max.z+2.1);
+    const nearbyEdges=this.edges.filter(([a,b])=>Math.max(a.x,b.x)>min.x-2.1&&Math.min(a.x,b.x)<max.x+2.1&&
+      Math.max(a.y,b.y)>min.y-1.3&&Math.min(a.y,b.y)<max.y+1.3&&Math.max(a.z,b.z)>min.z-2.1&&Math.min(a.z,b.z)<max.z+2.1);
     const old=this.chunks.get(key);if(old){old.mesh.removeFromParent();old.mesh.geometry.dispose();this.chunks.delete(key);}
     if(!nearbyNodes.length&&!nearbyEdges.length)return;
     const sdf=(x:number,y:number,z:number):number=>{
       let distance=Infinity;
-      for(const n of nearbyNodes){const d=Math.hypot((x-n.x)/1.65,(y-n.y)/1.1,(z-n.z)/1.65)-1;if(d<distance)distance=d;}
+      for(const n of nearbyNodes){const d=Math.hypot((x-n.x)/1.9,(y-n.y)/1.1,(z-n.z)/1.9)-1;if(d<distance)distance=d;}
       for(const [a,b] of nearbyEdges){
         const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
         const t=Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy+(z-a.z)*dz)/(dx*dx+dy*dy+dz*dz)));
-        const d=Math.hypot((x-a.x-dx*t)/1.65,(y-a.y-dy*t)/1.1,(z-a.z-dz*t)/1.65)-1;
+        const d=Math.hypot((x-a.x-dx*t)/1.9,(y-a.y-dy*t)/1.1,(z-a.z-dz*t)/1.9)-1;
         const h=Math.max(0,0.25-Math.abs(distance-d))/0.25;
         distance=Math.min(distance,d)-h*h*0.0625;
       }
