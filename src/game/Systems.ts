@@ -95,6 +95,10 @@ export class FoodStore {
       const amount=Math.min(space,stash.food[kind]??0);
       stash.food[kind]=(stash.food[kind]??0)-amount;this.save.inventory[kind]+=amount;total+=amount;
     }
+    if(stash.materials)for(const kind of ['grass','twigs','fur'] as const){
+      const amount=stash.materials[kind]??0;
+      this.save.materials[kind]+=amount;stash.materials[kind]=0;total+=amount;
+    }
     return total;
   }
 }

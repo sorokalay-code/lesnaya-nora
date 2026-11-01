@@ -11,6 +11,13 @@ export class SaveRepository {
     if(data.version!==2||!Number.isFinite(data.seed)||!Array.isArray(data.excavation)||!Array.isArray(data.nests)||!Array.isArray(data.stashes)||!Number.isFinite(data.player?.y))
       throw new Error('Сохранение новой версии повреждено');
     if(!Number.isFinite(data.player.bowel))data.player.bowel=15;
+    data.stats.stillborn??=0;
+    data.mateCommand??='forage';
+    data.mateMessages??=[];
+    data.partnerCargo??={grass:0,twigs:0,fur:0};
+    data.branchPicked??={};
+    data.drops??=[];
+    for(const stash of data.stashes)stash.materials??={grass:0,twigs:0,fur:0};
     if(data.mateId===undefined&&data.pregnancy)data.mateId=data.pregnancy.fatherId;
     if(data.calendarVersion!==2){
       const oldDay=Math.max(1,data.day),oldCycle=Math.floor((oldDay-1)/24);

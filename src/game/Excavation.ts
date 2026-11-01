@@ -50,7 +50,9 @@ export class Excavation {
       distance2(a,from)+distance2(a,to)-distance2(b,from)-distance2(b,to))[0];
     if(!opening)return undefined;
     if(!fromInside&&toInside)return{x:opening.x,y:opening.y-0.95,z:opening.z};
-    if(fromInside&&!toInside&&distance2(opening,from)<0.65){
+    // Keep the exit waypoint until the actor has crossed the whole sloped lip.
+    // Switching back to the opening at 0.65 m traps companions in a short loop.
+    if(fromInside&&!toInside&&distance2(opening,from)<1.65){
       const dx=to.x-opening.x,dz=to.z-opening.z,length=Math.hypot(dx,dz)||1;
       const x=opening.x+dx/length*2.2,z=opening.z+dz/length*2.2;
       return{x,y:this.world.heightAt(x,z),z};

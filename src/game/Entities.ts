@@ -51,6 +51,25 @@ export class RabbitActor {
     this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;
   }
   leaveTunnel():void{this.tunnelPosition=undefined;}
+  navigateMate(dt:number,time:number,target:{x:number;y:number;z:number},earth:Excavation,groundAt:GroundHeight,speed=2.3):void{
+    this.tunnelPosition=undefined;
+    const from={x:this.data.x,y:this.rig.root.userData.baseY as number??this.rig.root.position.y,z:this.data.z};
+    const waypoint=earth.nextStep(from,target)??target;
+    const dx=waypoint.x-this.data.x,dz=waypoint.z-this.data.z,distance=Math.hypot(dx,dz);
+    const moving=distance>0.2;
+    if(moving){
+      const step=Math.min(distance,speed*dt);
+      this.data.x=THREE.MathUtils.clamp(this.data.x+dx/distance*step,-97,97);
+      this.data.z=THREE.MathUtils.clamp(this.data.z+dz/distance*step,-97,97);
+      const desired=Math.atan2(-dx,-dz);
+      const turn=Math.atan2(Math.sin(desired-this.rig.root.rotation.y),Math.cos(desired-this.rig.root.rotation.y));
+      this.rig.root.rotation.y+=THREE.MathUtils.clamp(turn,-dt*4,dt*4);
+    }
+    const y=earth.floorAt(this.data.x,this.data.z,from.y);
+    this.rig.root.position.x=this.data.x;this.rig.root.position.z=this.data.z;
+    this.rig.root.userData.baseY=earth.isSheltered(this.data.x,y,this.data.z)?y:groundAt(this.data.x,this.data.z);
+    animateRabbit(this.rig,time+this.data.id,moving,false,dt);
+  }
   updateMate(dt:number,time:number,home:{x:number;y:number;z:number},food:{x:number;z:number}[],earth:Excavation,groundAt:GroundHeight):void{
     this.tunnelPosition=undefined;
     if(time>this.mateForageUntil){
@@ -113,17 +132,28 @@ export class RabbitActor {
 
 export class FamilyMember {
   readonly rig: RabbitRig;
-  constructor(private readonly parent: PartnerTraits, genes: Genes, private readonly index: number, baby: boolean) {
+  private readonly homeX:number;private readonly homeZ:number;
+  private x:number;private z:number;private targetX:number;private targetZ:number;
+  private nextTarget=0;private resting=false;
+  constructor(parent: PartnerTraits, genes: Genes, private readonly index: number, baby: boolean,private readonly rng=new Random(parent.id*97+index*31+1)) {
     this.rig = createRabbit(genes, baby);
+    const angle=parent.id*1.7+index*2.4,radius=4+index*2.1;
+    this.homeX=this.x=this.targetX=THREE.MathUtils.clamp(parent.x+Math.cos(angle)*radius,-90,90);
+    this.homeZ=this.z=this.targetZ=THREE.MathUtils.clamp(parent.z+Math.sin(angle)*radius,-90,90);
   }
   update(time: number, dt: number,groundAt:GroundHeight): void {
-    const angle = time * (0.12 + this.index * 0.016) + this.index * 2.5;
-    const radius = 1.3 + (this.index % 3) * 0.35;
-    const x=this.parent.x+Math.cos(angle)*radius,z=this.parent.z+Math.sin(angle)*radius;
-    this.rig.root.position.x=x;this.rig.root.position.z=z;
-    this.rig.root.userData.baseY=groundAt(x,z);
-    this.rig.root.rotation.y = -angle;
-    animateRabbit(this.rig, time + this.index * 2, true, false, dt);
+    if(time>=this.nextTarget||Math.hypot(this.targetX-this.x,this.targetZ-this.z)<0.4){
+      this.nextTarget=time+this.rng.range(5,13);
+      this.resting=this.rng.chance(0.18);
+      const angle=this.rng.range(0,Math.PI*2),distance=this.rng.range(2,8);
+      this.targetX=THREE.MathUtils.clamp(this.homeX+Math.cos(angle)*distance,-94,94);
+      this.targetZ=THREE.MathUtils.clamp(this.homeZ+Math.sin(angle)*distance,-94,94);
+    }
+    const dx=this.targetX-this.x,dz=this.targetZ-this.z,distance=Math.hypot(dx,dz),moving=!this.resting&&distance>0.3;
+    if(moving){const step=Math.min(distance,dt*(this.index%2?1.1:1.45));this.x+=dx/distance*step;this.z+=dz/distance*step;this.rig.root.rotation.y=Math.atan2(-dx,-dz);}
+    this.rig.root.position.x=this.x;this.rig.root.position.z=this.z;
+    this.rig.root.userData.baseY=groundAt(this.x,this.z);
+    animateRabbit(this.rig,time+this.index*2,moving,false,dt);
   }
 }
 

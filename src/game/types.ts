@@ -53,7 +53,11 @@ export interface NestData {
 }
 
 export interface DigNode {x:number;y:number;z:number}
-export interface StashData {id:number;x:number;y:number;z:number;food:Partial<Record<FoodKind,number>>}
+export interface StashData {id:number;x:number;y:number;z:number;food:Partial<Record<FoodKind,number>>;materials?:{grass:number;twigs:number;fur:number}}
+export type MaterialKind='grass'|'twigs'|'fur';
+export interface DropData {id:number;x:number;y:number;z:number;kind:FoodKind|MaterialKind}
+export type MateCommand='forage'|'follow'|'stay'|'home';
+export interface MateMessage {from:'player'|'partner';text:string;clock:number}
 
 export interface SaveData {
   version: 2;
@@ -70,11 +74,17 @@ export interface SaveData {
   gnawedRoots?: Record<string,number>;
   gnawedBark?:Record<string,number>;
   mateId?:number;
+  mateCommand?:MateCommand;
+  mateStay?:{x:number;y:number;z:number};
+  mateMessages?:MateMessage[];
+  partnerCargo?:{food?:FoodKind;grass:number;twigs:number;fur:number};
+  branchPicked?:Record<string,number>;
+  drops?:DropData[];
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];
-  pregnancy: { fatherId: number; progress: number } | null;
-  stats: { births: number; grown: number; survived: number; generations: number };
+  pregnancy: { fatherId: number; progress: number; warned?:boolean } | null;
+  stats: { births: number; grown: number; survived: number; generations: number; stillborn?:number };
   weather: Weather;
   messages: string[];
   waste: WasteData[];
