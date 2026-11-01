@@ -12,25 +12,51 @@ export class ViewCamera {
   private distance=7.5;
   private currentMode:CameraMode='third';
   private modeChanged=false;
-  private pointer?:{x:number;y:number};
+  private readonly canvas:HTMLCanvasElement;
+  private fallbackPointer?:{x:number;y:number};
+  private edgeX=0;private edgeY=0;
+  private lastLookTime=0;
+  private lookEnabled=true;
+  private fallbackPaused=false;
   private paws=new THREE.Group();
   private pawGroups:THREE.Group[]=[];
   constructor(readonly camera:THREE.PerspectiveCamera,canvas:HTMLCanvasElement){
+    this.canvas=canvas;
     this.buildPaws();this.camera.add(this.paws);this.paws.visible=false;
     canvas.addEventListener('contextmenu',e=>e.preventDefault());
-    canvas.addEventListener('pointerenter',e=>{this.pointer={x:e.clientX,y:e.clientY};});
-    canvas.addEventListener('pointerleave',()=>{this.pointer=undefined;});
-    canvas.addEventListener('pointermove',e=>{
-      if(!this.pointer)return;
-      this.yaw-=(e.clientX-this.pointer.x)*0.006;
-      this.pitch=clamp(this.pitch+(e.clientY-this.pointer.y)*0.004,-0.3,1.1);
-      this.pointer={x:e.clientX,y:e.clientY};
+    canvas.addEventListener('pointerleave',()=>{this.fallbackPointer=undefined;this.edgeX=this.edgeY=0;});
+    canvas.addEventListener('mousemove',e=>{
+      if(!this.lookEnabled)return;
+      const dx=this.isLocked?e.movementX:this.fallbackPointer?e.clientX-this.fallbackPointer.x:0;
+      const dy=this.isLocked?e.movementY:this.fallbackPointer?e.clientY-this.fallbackPointer.y:0;
+      this.yaw-=dx*0.006;
+      this.pitch=clamp(this.pitch+dy*0.004,-0.3,1.1);
+      if(!this.isLocked&&Number.isFinite(e.clientX)&&Number.isFinite(e.clientY)){
+        this.fallbackPointer={x:e.clientX,y:e.clientY};
+        const rect=canvas.getBoundingClientRect();
+        this.edgeX=e.clientX<rect.left+12?-1:e.clientX>rect.right-12?1:0;
+        this.edgeY=e.clientY<rect.top+12?-1:e.clientY>rect.bottom-12?1:0;
+      }else this.edgeX=this.edgeY=0;
     });
     canvas.addEventListener('wheel',e=>{e.preventDefault();this.distance=clamp(this.distance+e.deltaY*0.01,2.5,13);},{passive:false});
   }
   resize(width:number,height:number):void{this.camera.aspect=width/height;this.camera.updateProjectionMatrix();}
   get mode():CameraMode{return this.currentMode;}
   get isFirstPerson():boolean{return this.currentMode==='first';}
+  get isLocked():boolean{return typeof document!=='undefined'&&document.pointerLockElement===this.canvas;}
+  lock():void{
+    this.fallbackPaused=false;this.lookEnabled=true;this.canvas.classList?.remove('look-paused');
+    if(!this.isLocked)void this.canvas.requestPointerLock?.().catch(()=>{});
+  }
+  unlock():void{
+    this.fallbackPaused=true;this.lookEnabled=false;this.edgeX=this.edgeY=0;this.fallbackPointer=undefined;
+    this.canvas.classList?.add('look-paused');
+    if(this.isLocked)document.exitPointerLock?.();
+  }
+  setLookEnabled(enabled:boolean):void{
+    this.lookEnabled=enabled&&!this.fallbackPaused;
+    if(!this.lookEnabled){this.edgeX=this.edgeY=0;this.fallbackPointer=undefined;}
+  }
   setMode(mode:CameraMode):void{
     if(this.currentMode===mode)return;
     this.currentMode=mode;this.modeChanged=true;
@@ -64,6 +90,12 @@ export class ViewCamera {
     });
   }
   update(x:number,z:number,groundY:number,earth?:Excavation,time=0,digging=false,moving=false):void{
+    if(this.lookEnabled&&!this.isLocked){
+      const step=clamp(time-this.lastLookTime,0,0.05);
+      this.yaw-=this.edgeX*step*1.4;
+      this.pitch=clamp(this.pitch+this.edgeY*step*0.65,-0.3,1.1);
+    }
+    this.lastLookTime=time;
     this.animatePaws(time,digging,moving);
     if(this.isFirstPerson){
       const eye=earth?0.7:0.82,cos=Math.cos(this.pitch);

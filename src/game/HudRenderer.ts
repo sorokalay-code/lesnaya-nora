@@ -2,6 +2,8 @@ import type { Excavation } from './Excavation';
 import type { FoodStore, SeasonSystem } from './Systems';
 import { FOOD, type FoodKind, type KitData, type PartnerTraits, type SaveData, type StashData } from './types';
 import type { Resource, World } from './World';
+import type { ForestAnimal } from './Wildlife';
+import { animalNames } from './PanelRenderer';
 
 const fmt=(value:number)=>Math.round(value);
 
@@ -10,7 +12,7 @@ export class HudRenderer {
   constructor(private readonly hud:HTMLElement,private readonly prompt:HTMLElement,private readonly info:HTMLElement){}
 
   render(save:SaveData,world:World,earth:Excavation,firstPerson:boolean,store:FoodStore,seasons:SeasonSystem,
-    airTemperature:number,threat:number,partner?:PartnerTraits,resource?:Resource,stash?:StashData,child?:KitData):void{
+    airTemperature:number,threat:number,partner?:PartnerTraits,resource?:Resource,stash?:StashData,child?:KitData,animal?:ForestAnimal):void{
     const p=save.player,underground=earth.isSheltered(p.x,p.y,p.z);
     const weather={clear:'☀ Ясно',rain:'☂ Дождь',mist:'☁ Туман',snow:'❄ Снег'}[save.weather];
     const biome=underground?`Под землёй · ${fmt(earth.depthAt(p.x,p.y,p.z))} м`:
@@ -27,6 +29,7 @@ export class HudRenderer {
     const digHint=firstPerson?'ЛКМ — копать по прицелу · удерживай для продолжения':'<kbd>B</kbd> Переключись на вид от первого лица для копания';
     this.prompt.innerHTML=underground?`<span>${digHint} · иди по склону</span> ${root?.available&&(!('mesh' in root)||root.mesh.visible)?`&nbsp; <kbd>Q</kbd> Грызть корень ${'tree' in root?'':'&nbsp; <kbd>T</kbd> Унести растение'}`:''} ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''}`:
       child?`<kbd>E</kbd> Поговорить: ${child.name}`:partner?`<kbd>E</kbd> Поговорить: ${partner.name}`:
+      animal?`<kbd>E</kbd> Пообщаться: ${animalNames[animal.kind]}`:
       resource?`<kbd>E</kbd> Собрать: ${FOOD[resource.kind].label}`:
       `${digHint} ${stash?'&nbsp; <kbd>K/O</kbd> Тайник':''} ${world.nearWater(p.x,p.z)?'&nbsp; <kbd>V</kbd> Пить воду':''}`;
   }

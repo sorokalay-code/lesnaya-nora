@@ -11,7 +11,8 @@ import { ViewCamera } from './ViewCamera';
 import { HudRenderer } from './HudRenderer';
 import { SaveRepository } from './SaveRepository';
 import { PanelRenderer } from './PanelRenderer';
-import { createForestAnimal, type ForestAnimal, type WildlifeKind } from './Wildlife';
+import type { ForestAnimal } from './Wildlife';
+import { WildlifeEcology } from './WildlifeEcology';
 import { FOOD, type FoodKind, type KitData, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -42,6 +43,7 @@ export class Game {
   private families: FamilyMember[] = [];
   private predators: Predator[] = [];
   private wildlife:ForestAnimal[]=[];
+  private ecology!:WildlifeEcology;
   private hawks:Hawk[]=[];
   private traffic!:ExcavationTraffic;
   private earth!:Excavation;
@@ -61,6 +63,7 @@ export class Game {
   private dialogPartner?: PartnerTraits;
   private mating?:{fatherId:number;until:number};
   private dialogKit?: KitData;
+  private dialogAnimal?:ForestAnimal;
   private overlay!: HTMLElement;
   private hud!: HTMLElement;
   private prompt!: HTMLElement;
@@ -96,7 +99,7 @@ export class Game {
     const layer = document.createElement('div'); layer.className = 'ui-layer';
     layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button id="camera-button" data-action="camera" title="Переключить вид (B)">◉ 3-е лицо</button><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
       <div id="hud" class="hud"></div><div id="prompt" class="prompt"></div><div id="toast" class="toast-box"></div><div class="dig-reticle" aria-hidden="true">✦</div>
-      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · ЛКМ (вид от первого лица) — копать, удерживать для продолжения · Z — копать вниз</span><span>E — общаться/собрать · G — еда · V — пить · P — помёт · L — моча · Q/T — корни/унести растение · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
+      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — освободить курсор · щелчок по миру — вернуться · ЛКМ (1-е лицо) — копать · Z — копать вниз</span><span>E — общаться/собрать · G — еда · V — пить · P — помёт · L — моча · Q/T — корни/унести растение · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F — молоко · Y — овощи детям · K/O — запас как предмет</span></div>
       <div id="settings" class="settings-panel hidden"></div><div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
     this.app.append(layer);
     this.overlay = layer.querySelector('#overlay')!; this.hud = layer.querySelector('#hud')!;
@@ -120,6 +123,7 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', e => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5'].includes(e.code)) e.preventDefault();
+      if(e.code==='Escape'){this.view.unlock();this.digHeld=false;return;}
       this.keys.add(e.code); if (e.repeat) return;
       if (e.code === 'F5') this.action('save');
       if (e.code === 'KeyM') this.action('map');
@@ -131,7 +135,9 @@ export class Game {
     window.addEventListener('keyup', e => this.keys.delete(e.code));
     window.addEventListener('blur', () => {this.keys.clear();this.digHeld=false;});
     this.renderer.domElement.addEventListener('pointerdown',e=>{
-      if(e.button!==0||!this.running||!this.overlay.classList.contains('hidden'))return;
+      if(!this.running||!this.overlay.classList.contains('hidden'))return;
+      this.view.lock();
+      if(e.button!==0)return;
       this.digHeld=this.view.isFirstPerson;this.action('dig');
     });
     window.addEventListener('pointerup',e=>{if(e.button===0)this.digHeld=false;});
@@ -166,6 +172,7 @@ export class Game {
       partners: this.factory.partners(16), harvested: [], pregnancy: null,
       stats: { births: 0, grown: 0, survived: 0, generations: 1 }, weather: 'clear', messages: [],waste:[] };
     this.setupWorld(); this.overlay.classList.add('hidden'); this.running = true; this.sound.unlock();
+    this.view.lock();
     this.toast('Исследуй лес, копай землю лапами и найди партнёра.');
   }
 
@@ -174,6 +181,7 @@ export class Game {
       this.save=this.saves.load();
       this.rng=new Random(this.save.seed+53);this.factory=new RabbitFactory(this.rng);
       this.setupWorld();this.overlay.classList.add('hidden');this.running=true;this.sound.unlock();
+      this.view.lock();
       this.toast('История продолжена. Добро пожаловать домой!');
     } catch(err){this.toast(err instanceof Error?err.message:'Не удалось загрузить игру');}
   }
@@ -216,24 +224,8 @@ export class Game {
       const kind = i<2 ? 'dog' : i===2||i===6?'bear':i>=3&&i<=5?'snake':i%7===0?'lynx':i%5===0?'weasel':i % 4 === 0 ? 'wolf' : 'fox';
       const predator = new Predator(kind, x, z, this.rng);predator.root.position.y=this.world.heightAt(x,z);this.predators.push(predator); this.scene.add(predator.root);
     }
-    this.wildlife=[];
-    for(const [kind,count] of [['deer',6],['squirrel',9],['hedgehog',8],['beaver',5],['moose',3]] as [WildlifeKind,number][]){
-      for(let i=0;i<count;i++){
-        let x=0,z=0;
-        if(kind==='beaver'){
-          const pond=this.rng.pick(this.world.waterSources);
-          const angle=this.rng.range(0,Math.PI*2),distance=this.rng.range(4,7);
-          x=pond.x+Math.sin(angle)*distance;z=pond.z+Math.cos(angle)*distance;
-        }else for(let attempt=0;attempt<24;attempt++){
-          x=this.rng.range(-90,90);z=this.rng.range(-90,90);
-          const biome=this.world.biomeAt(x,z);
-          if(Math.hypot(x,z)>9&&biome!=='garden'&&(kind==='deer'||biome==='forest'))break;
-        }
-        const animal=createForestAnimal(kind,x,z,this.rng);
-        animal.root.position.set(x,this.world.heightAt(x,z),z);
-        this.wildlife.push(animal);this.scene.add(animal.root);
-      }
-    }
+    this.ecology=new WildlifeEcology(this.scene,this.world,this.rng);
+    this.ecology.populate();this.wildlife=this.ecology.animals;
     this.hawks=[[32,-30]].map(([x,z])=>new Hawk(x,z,this.rng));
     for(const hawk of this.hawks)this.scene.add(hawk.root,hawk.shadow);
     this.save.nests.forEach(n => this.addNest(n));
@@ -255,6 +247,14 @@ export class Game {
 
   private addKit(k: KitData): void {
     const rig = createRabbit(k.genes, k.age < 3);
+    if(k.age<3){
+      const marker=new THREE.Group();marker.name='family-mark';
+      const gold=new THREE.MeshStandardMaterial({color:0xf4d57b,emissive:0x725010,emissiveIntensity:0.25});
+      const star=new THREE.Mesh(new THREE.OctahedronGeometry(0.14),gold);star.position.y=1.67;marker.add(star);
+      const ribbon=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.035,5,12),gold);
+      ribbon.position.set(0,0.65,-0.05);ribbon.rotation.x=Math.PI/2;marker.add(ribbon);
+      rig.root.add(marker);
+    }
     k.x??=k.homeX+Math.cos(k.id*2.4)*0.7;k.z??=k.homeZ+Math.sin(k.id*2.4)*0.7;k.y??=k.homeY;
     rig.root.position.set(k.x,k.y,k.z);this.scene.add(rig.root); this.kitMeshes.set(k.id, rig);
   }
@@ -305,7 +305,8 @@ export class Game {
     for (const member of this.families)member.update(this.elapsed,dt,this.groundAt);
     let closestThreat = Infinity;
     for (const predator of this.predators) {
-      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night,this.groundAt,p.dirtiness/100,this.seasons.predatorActivity(this.save.day))) this.predatorAttack(predator.kind);
+      const prey=this.ecology.targetFor(predator,this.predators,this.elapsed);
+      if (predator.update(dt, this.elapsed, p.x, p.z, p.hidden, !night,this.groundAt,p.dirtiness/100,this.seasons.predatorActivity(this.save.day),prey)) this.predatorAttack(predator.kind);
       this.threatenKits(predator);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
@@ -315,12 +316,11 @@ export class Game {
       if(event.type==='predator-attack')this.predatorAttack(event.kind);
       if(event.type==='kit-attack')this.toast(`${animal} добралась до ${event.name}. Уведи малыша глубже и защити гнездо.`);
     }
-    for(const animal of this.wildlife){
-      animal.update(dt,this.elapsed,this.groundAt,this.predators);
-      if(this.rng.chance(dt*0.055)){
-        const food=this.world.nearestResource(animal.x,animal.z,1.6);
-        if(food&&food.kind!=='toadstool'&&food.kind!=='bitterleaf')this.world.harvest(food,this.save.clock);
-      }
+    for(const event of this.ecology.update(dt,this.elapsed,this.save.clock,p.x,p.z,this.groundAt,this.predators)){
+      if(Math.hypot(event.x-p.x,event.z-p.z)>19||event.kind==='arrival')continue;
+      if(event.kind==='hunt')this.toast(`Хищник поймал ${event.subject}. Лес живёт по своим законам.`);
+      else if(event.kind==='defend')this.toast(`${event.subject[0].toUpperCase()+event.subject.slice(1)} дал отпор хищнику!`);
+      else this.toast('Хищники столкнулись из-за охотничьей территории.');
     }
     for(const rabbit of this.rabbits)if(this.rng.chance(dt*0.025)){
       const food=this.world.nearestResource(rabbit.data.x,rabbit.data.z,1.2);
@@ -396,6 +396,7 @@ export class Game {
 
   private render(): void {
     const p=this.save.player;
+    this.view.setLookEnabled(this.overlay.classList.contains('hidden')&&this.dialog.classList.contains('hidden')&&this.journal.classList.contains('hidden')&&this.settings.classList.contains('hidden'));
     const digging=this.player.root.userData.action==='dig'&&((this.player.root.userData.actionUntil as number|undefined)??0)>this.elapsed;
     const walking=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].some(code=>this.keys.has(code));
     this.view.update(p.x,p.z,p.y,this.sheltered?this.earth:undefined,this.elapsed,digging,walking);
@@ -481,6 +482,8 @@ export class Game {
         rig.root.position.x=kit.x??home.x;rig.root.position.z=kit.z??home.z;
         rig.root.userData.baseY=kit.y;
         rig.root.scale.setScalar(kit.age < 3 ? (0.28 + kit.age * 0.095) * kit.genes.size : kit.genes.size);
+        const mark=rig.root.getObjectByName('family-mark');
+        if(mark){mark.rotation.y=this.elapsed*0.9;mark.position.y=Math.sin(this.elapsed*2+kit.id)*0.07;}
         if(distance>0.16)rig.root.userData.actionUntil=0;
         else if(kit.command==='rest')setRabbitAction(rig,'lie',this.elapsed+kit.id,0.35);
         else if(kit.command==='stay')setRabbitAction(rig,'sit',this.elapsed+kit.id,0.35);
@@ -524,6 +527,13 @@ export class Game {
     });
   }
 
+  private nearestAnimal(radius=3):ForestAnimal|undefined{
+    const p=this.save.player;
+    if(this.sheltered)return;
+    return this.wildlife.filter(a=>a.alive&&Math.hypot(a.x-p.x,a.z-p.z)<radius&&Math.abs(a.root.position.y-p.y)<1.5)
+      .sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
+  }
+
   private action(action: string): void {
     if (action === 'new') { this.newGame(); return; }
     if (action === 'load') { this.loadGame(); return; }
@@ -537,6 +547,7 @@ export class Game {
       return;
     }
     if(action==='settings'){
+      this.view.unlock();
       this.settings.classList.toggle('hidden');
       this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;
       return;
@@ -546,9 +557,10 @@ export class Game {
       this.controls.classList.toggle('hidden',!this.showControls);this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;return;
     }
     if (action === 'journal' || action === 'map') { this.toggleJournal(action); return; }
-    if (action === 'close') { this.dialog.classList.add('hidden'); this.dialogPartner = undefined;this.dialogKit=undefined; return; }
+    if (action === 'close') { this.dialog.classList.add('hidden'); this.dialogPartner = undefined;this.dialogKit=undefined;this.dialogAnimal=undefined; return; }
     if (['talk','gift','court','divorce','ask-food','ask-home','ask-danger','compliment'].includes(action)) { this.partnerAction(action); return; }
     if (['child-follow','child-stay','child-rest'].includes(action)) { this.childAction(action);return;}
+    if(['animal-observe','animal-food','animal-path'].includes(action)){this.animalAction(action);return;}
     if(action.startsWith('consume:')||action.startsWith('consume-stash:')){
       const fromStash=action.startsWith('consume-stash:');
       const kind=action.slice(fromStash?14:8) as FoodKind;
@@ -565,10 +577,11 @@ export class Game {
     const p = this.save.player;
     if (action === 'hop') { if (this.hopCooldown <= 0) { this.hopCooldown = 0.4; this.sound.play('hop'); p.y+=0.25; } return; }
     if (action === 'interact') {
-      if(!this.dialog.classList.contains('hidden')){this.dialog.classList.add('hidden');this.dialogPartner=undefined;this.dialogKit=undefined;return;}
+      if(!this.dialog.classList.contains('hidden')){this.dialog.classList.add('hidden');this.dialogPartner=undefined;this.dialogKit=undefined;this.dialogAnimal=undefined;return;}
       const child=this.nearestKit();if(child){this.openKit(child);return;}
       const partner = this.nearestPartner();
       if (partner) { this.openPartner(partner); return; }
+      const animal=this.nearestAnimal();if(animal){this.openAnimal(animal);return;}
       if(this.sheltered){this.toast('Наведи прицел на земляную стену и нажми ЛКМ, чтобы копать.');return;}
       const r = this.world.nearestResource(p.x, p.z, 2.3);
       if (r) {
@@ -578,14 +591,14 @@ export class Game {
         if(r.kind==='berries'||r.kind==='mushroom')this.save.materials.twigs++;
         this.sound.play('pickup'); this.toast(`Собрано: ${FOOD[r.kind].label.toLowerCase()} ${FOOD[r.kind].emoji}${r.kind==='clover'?' и трава':r.kind==='berries'||r.kind==='mushroom'?' и ветки':''}`); return;
       }
-      this.toast('Рядом нет кролика или еды.'); return;
+      this.toast('Рядом нет животного или еды.'); return;
     }
     if (action === 'eat') {
       const items=(Object.keys(FOOD) as FoodKind[]).filter(k=>this.save.inventory[k]>0);
       const stash=this.nearestStash();
       const stored=(Object.keys(FOOD) as FoodKind[]).filter(k=>(stash?.food[k]??0)>0);
       if(!items.length&&!stored.length){this.toast('Запасы пусты. Найди растения и нажми E.');return;}
-      this.dialogPartner=undefined;this.dialogKit=undefined;this.dialog.classList.remove('hidden');
+      this.dialogPartner=undefined;this.dialogKit=undefined;this.dialogAnimal=undefined;this.view.unlock();this.dialog.classList.remove('hidden');
       this.dialog.innerHTML=`<div class="dialog-top"><div><div class="eyebrow">МОИ ЗАПАСЫ</div><h2>Что съесть?</h2></div><button data-action="close">×</button></div><p class="dialog-meta">Некоторые лесные продукты могут быть опасными. Выбирай внимательно.</p><div class="dialog-choices">${items.map(k=>`<button data-action="consume:${k}">${FOOD[k].emoji} ${FOOD[k].label} · в лапах ${this.save.inventory[k]}</button>`).join('')}${stored.map(k=>`<button data-action="consume-stash:${k}">${FOOD[k].emoji} ${FOOD[k].label} · из тайника ${stash?.food[k]}</button>`).join('')}</div>`;return;
     }
     if(action==='drink'){
@@ -672,7 +685,7 @@ export class Game {
   }
 
   private openPartner(p:PartnerTraits,line?:string):void {
-    this.dialogPartner=p;this.dialogKit=undefined;this.journal.classList.add('hidden');
+    this.dialogPartner=p;this.dialogKit=undefined;this.dialogAnimal=undefined;this.view.unlock();this.journal.classList.add('hidden');
     this.dialog.classList.remove('hidden');
     this.dialog.innerHTML=this.panels.partner(p,this.compatibility(p),line,this.save.mateId===p.id);
   }
@@ -710,7 +723,7 @@ export class Game {
   }
 
   private openKit(kit:KitData,line?:string):void {
-    this.dialogKit=kit;this.dialogPartner=undefined;this.dialog.classList.remove('hidden');
+    this.dialogKit=kit;this.dialogPartner=undefined;this.dialogAnimal=undefined;this.view.unlock();this.dialog.classList.remove('hidden');
     this.journal.classList.add('hidden');this.dialog.innerHTML=this.panels.kit(kit,line);
   }
 
@@ -725,6 +738,29 @@ export class Game {
       kit.stayX=kit.x??pos?.x;kit.stayZ=kit.z??pos?.z;kit.stayY=kit.y??pos?.y;
     }
     this.sound.play('baby');this.openKit(kit,action==='child-follow'?'Хорошо, пойду за тобой!':action==='child-stay'?'Я подожду здесь.':'Свернусь клубочком и отдохну.');
+  }
+
+  private openAnimal(animal:ForestAnimal,line?:string):void{
+    this.dialogAnimal=animal;this.dialogPartner=undefined;this.dialogKit=undefined;
+    this.view.unlock();this.journal.classList.add('hidden');this.dialog.classList.remove('hidden');
+    this.dialog.innerHTML=this.panels.animal(animal,line);
+  }
+
+  private animalAction(action:string):void{
+    const animal=this.dialogAnimal;if(!animal||!animal.alive){this.dialog.classList.add('hidden');return;}
+    if(action==='animal-food'){
+      const kind=(['clover','carrot','cabbage','berries'] as FoodKind[]).find(k=>this.save.inventory[k]>0);
+      if(!kind){this.openAnimal(animal,'У тебя пока нет подходящего угощения.');return;}
+      this.save.inventory[kind]--;animal.befriend(22);this.sound.play('eat');
+      this.openAnimal(animal,`Животное осторожно взяло ${FOOD[kind].label.toLowerCase()} и стало спокойнее.`);return;
+    }
+    if(action==='animal-path'){
+      const line=animal.kind==='moose'||animal.kind==='deer'?'По моим следам можно выйти к лугу. Но в открытом поле опасно: смотри в небо.':
+        animal.kind==='beaver'?'У воды много сочных растений. Прислушивайся к плеску и не задерживайся на берегу.':
+        'Под густыми деревьями легче укрыться и найти съедобную траву.';
+      animal.befriend(4);this.openAnimal(animal,line);return;
+    }
+    animal.befriend(3);this.openAnimal(animal,animal.mood==='раненое'?'Оно бережёт раненую лапу и прислушивается к лесу.':'Оно отвечает тихим звуком и внимательно наблюдает за тобой.');
   }
 
   private giveBirth(): void {
@@ -778,12 +814,12 @@ export class Game {
   private updateHud(threat = Infinity): void {
     const p=this.save.player;
     this.hudRenderer.render(this.save,this.world,this.earth,this.view.isFirstPerson,this.store,this.seasons,this.airTemperature(),threat,
-      this.nearestPartner(),this.sheltered?undefined:this.world.nearestResource(p.x,p.z,2.3),this.nearestStash(),this.nearestKit());
+      this.nearestPartner(),this.sheltered?undefined:this.world.nearestResource(p.x,p.z,2.3),this.nearestStash(),this.nearestKit(),this.nearestAnimal());
   }
 
   private toggleJournal(mode:string):void {
     if(!this.journal.classList.contains('hidden')&&this.journal.dataset.mode===mode){this.journal.classList.add('hidden');return;}
-    this.dialog.classList.add('hidden');this.dialogPartner=undefined;this.dialogKit=undefined;
+    this.view.unlock();this.dialog.classList.add('hidden');this.dialogPartner=undefined;this.dialogKit=undefined;this.dialogAnimal=undefined;
     this.journal.dataset.mode=mode;this.journal.classList.remove('hidden');
     if(mode==='map'){
       this.journal.innerHTML='<div class="journal-head"><h2>Карта леса</h2><button data-action="map">×</button></div><p>Точка в центре — ты. Круги показывают знакомые места.</p>';
@@ -805,6 +841,7 @@ export class Game {
 
   private gameOver(): void {
     this.running = false;
+    this.view.unlock();
     this.overlay.classList.remove('hidden');
     this.overlay.innerHTML = `<div class="dialog-card"><div class="eyebrow">ЛЕС ПОМНИТ КАЖДУЮ ИСТОРИЮ</div><h2>История завершилась</h2><p>Ты прожила ${this.save.day} дней, дала жизнь ${this.save.stats.births} крольчатам и вырастила ${this.save.stats.grown} из них.</p><div class="dialog-actions"><button class="primary" data-action="new">Начать новую историю</button><button data-action="load">Вернуться к сохранению</button></div></div>`;
   }

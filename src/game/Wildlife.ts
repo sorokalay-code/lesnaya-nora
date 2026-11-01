@@ -12,6 +12,10 @@ const cream=mat(0xe6d6b3);
 /** Shared wandering and flight behavior; species supply their own body and gait. */
 export abstract class ForestAnimal {
   readonly root=new THREE.Group();
+  readonly maxHealth:number;
+  health:number;
+  readonly defense:number;
+  trust=0;
   protected legs:THREE.Group[]=[];
   protected speed=1;
   protected range=8;
@@ -19,10 +23,30 @@ export abstract class ForestAnimal {
   private targetZ:number;
   private nextTarget=0;
   private fleeingUntil=0;
+  private fightingUntil=0;
+  private eatingUntil=0;
+  private nextGraze=0;
   x:number;
   z:number;
   protected constructor(readonly kind:WildlifeKind,x:number,z:number,protected readonly rng:Random){
     this.x=this.targetX=x;this.z=this.targetZ=z;
+    this.maxHealth=kind==='moose'?130:kind==='deer'?65:kind==='beaver'?48:kind==='hedgehog'?30:23;
+    this.health=this.maxHealth;
+    this.defense=kind==='moose'?25:kind==='beaver'?7:kind==='deer'?5:kind==='hedgehog'?4:0;
+  }
+  get alive():boolean{return this.health>0;}
+  get mood():string{return this.health<this.maxHealth*0.45?'раненое':this.fleeingUntil>this.root.userData.tailPhase?'напуганное':this.trust>25?'доверчивое':'осторожное';}
+  befriend(amount:number):void{this.trust=THREE.MathUtils.clamp(this.trust+amount,0,100);this.fleeingUntil=0;}
+  receiveAttack(damage:number,time:number,attacker:{x:number;z:number}):number{
+    this.health=Math.max(0,this.health-damage);
+    if(!this.alive)return 0;
+    this.targetX=this.x+(this.x-attacker.x)*3;this.targetZ=this.z+(this.z-attacker.z)*3;
+    this.fleeingUntil=time+4;
+    if(this.defense>0&&this.health>this.maxHealth*0.3){
+      this.fightingUntil=time+2;this.fleeingUntil=0;
+      return this.defense;
+    }
+    return 0;
   }
   protected body(parent:THREE.Object3D,geometry:THREE.BufferGeometry,material:THREE.Material,
     x:number,y:number,z:number,sx:number,sy:number,sz:number):THREE.Mesh{
@@ -35,20 +59,27 @@ export abstract class ForestAnimal {
     this.body(pivot,sphere,material,0,-length*0.5,0,0.10,length*0.55,0.11);
     this.body(pivot,sphere,dark,0,-length, -0.055,0.12,0.06,0.16);this.legs.push(pivot);
   }
-  update(dt:number,time:number,groundAt:GroundHeight,threats:readonly {x:number;z:number}[]):void{
+  update(dt:number,time:number,groundAt:GroundHeight,threats:readonly {x:number;z:number}[],food?:{x:number;z:number}):boolean{
     const danger=threats.find(p=>Math.hypot(p.x-this.x,p.z-this.z)<6);
     if(danger){
-      const away=Math.atan2(this.x-danger.x,this.z-danger.z);
-      this.targetX=this.x+Math.sin(away)*this.range;
-      this.targetZ=this.z+Math.cos(away)*this.range;
-      this.fleeingUntil=time+2.2;
+      if(time<this.fightingUntil){this.targetX=danger.x;this.targetZ=danger.z;}
+      else{
+        const away=Math.atan2(this.x-danger.x,this.z-danger.z);
+        this.targetX=this.x+Math.sin(away)*this.range;
+        this.targetZ=this.z+Math.cos(away)*this.range;
+        this.fleeingUntil=time+2.2;
+      }
+    }else if(food&&time>this.fleeingUntil){
+      this.targetX=food.x;this.targetZ=food.z;
     }else if(time>this.nextTarget||Math.hypot(this.targetX-this.x,this.targetZ-this.z)<0.5){
       this.nextTarget=time+this.rng.range(3,8);
       const angle=this.rng.range(-Math.PI,Math.PI),distance=this.rng.range(2,this.range);
       this.targetX=this.x+Math.sin(angle)*distance;this.targetZ=this.z+Math.cos(angle)*distance;
     }
     const fleeing=time<this.fleeingUntil;
-    const moving=fleeing||Math.sin(time*0.47+this.root.id)>-0.3;
+    const grazing=!!food&&!danger&&Math.hypot(food.x-this.x,food.z-this.z)<1.3;
+    if(grazing&&time>=this.nextGraze){this.nextGraze=time+this.rng.range(6,11);this.eatingUntil=time+1.6;}
+    const moving=!grazing&&time>this.eatingUntil&&(fleeing||!!food||Math.sin(time*0.47+this.root.id)>-0.55);
     if(moving){
       const angle=Math.atan2(this.targetX-this.x,this.targetZ-this.z);
       const step=dt*this.speed*(fleeing?2:1);
@@ -64,7 +95,9 @@ export abstract class ForestAnimal {
       const stride=moving?Math.sin(time*(fleeing?13:7)+i*Math.PI*0.7)*(fleeing?0.55:0.27):0;
       leg.rotation.x=THREE.MathUtils.damp(leg.rotation.x,stride,9,dt);
     });
+    this.root.rotation.x=THREE.MathUtils.damp(this.root.rotation.x,time<this.eatingUntil?0.09:0,5,dt);
     this.root.userData.tailPhase=time;
+    return grazing&&time<this.eatingUntil;
   }
 }
 

@@ -129,32 +129,52 @@ export class FamilyMember {
 
 export class Predator {
   readonly root: THREE.Group;
+  readonly maxHealth:number;
+  health:number;
   x: number; z: number; targetX: number; targetZ: number;
   private nextTarget = 0;
   attackCooldown = 0;
+  huntingPlayer=false;
   readonly range: number;
   private homeX:number;private homeZ:number;
   private tunnelPosition?:{x:number;y:number;z:number};
+  private retreatUntil=0;
+  private retreatX=0;private retreatZ=0;
   constructor(readonly kind: PredatorKind, x: number, z: number, private readonly rng: Random) {
     this.x = this.targetX = x; this.z = this.targetZ = z;
     this.homeX=x;this.homeZ=z;
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
+    this.maxHealth=kind==='bear'?160:kind==='wolf'?75:kind==='dog'?70:kind==='lynx'?60:kind==='fox'?45:kind==='weasel'?28:20;
+    this.health=this.maxHealth;
     this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : kind==='lynx'?14:kind==='weasel'?9:kind==='bear'?12:kind==='snake'?5:11;
   }
   enterTunnel(x:number,y:number,z:number):void{
     this.tunnelPosition={x,y,z};this.x=x;this.z=z;this.root.position.set(x,y,z);
   }
   leaveTunnel():void{this.tunnelPosition=undefined;}
-  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean,groundAt:GroundHeight,scent=0,activity=1): boolean {
+  get alive():boolean{return this.health>0;}
+  get underground():boolean{return this.tunnelPosition!==undefined;}
+  receiveAttack(damage:number,time:number,attacker:{x:number;z:number}):void{
+    this.health=Math.max(0,this.health-damage);
+    this.retreatUntil=time+2.5;
+    const angle=Math.atan2(this.x-attacker.x,this.z-attacker.z);
+    this.retreatX=this.x+Math.sin(angle)*9;this.retreatZ=this.z+Math.cos(angle)*9;
+  }
+  update(dt: number, time: number, px: number, pz: number, hidden: boolean, day: boolean,groundAt:GroundHeight,scent=0,activity=1,prey?:{x:number;z:number}): boolean {
     this.attackCooldown=Math.max(0,this.attackCooldown-dt);
+    this.huntingPlayer=false;
     if(this.tunnelPosition){
       this.x=this.tunnelPosition.x;this.z=this.tunnelPosition.z;
       this.root.position.set(this.x,this.tunnelPosition.y,this.z);
       animatePredator(this.root,time,false,dt);return false;
     }
     const dist = Math.hypot(px - this.x, pz - this.z);
-    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||this.kind==='snake'||!day||dist < (this.kind==='lynx'?10:7));
-    if (hunting) { this.targetX = px; this.targetZ = pz; }
+    const hunting = time>=this.retreatUntil&&!hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||this.kind==='snake'||!day||dist < (this.kind==='lynx'?10:7));
+    this.huntingPlayer=hunting;
+    const chasingPrey=!hunting&&time>=this.retreatUntil&&prey!==undefined;
+    if(time<this.retreatUntil){this.targetX=this.retreatX;this.targetZ=this.retreatZ;}
+    else if (hunting) { this.targetX = px; this.targetZ = pz; }
+    else if(chasingPrey){this.targetX=prey.x;this.targetZ=prey.z;}
     else if(Math.hypot(this.x-this.homeX,this.z-this.homeZ)>20){this.targetX=this.homeX;this.targetZ=this.homeZ;}
     else if (time > this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1) {
       this.nextTarget = time + this.rng.range(4, 10);
@@ -162,11 +182,13 @@ export class Predator {
       this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
     }
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-    const speed = hunting ? (this.kind === 'wolf' ? 3.7 : this.kind==='lynx'?4.15:this.kind==='weasel'?4.4:this.kind==='bear'?2.8:this.kind==='snake'?2.1:3.3) : this.kind==='weasel'?1.15:this.kind==='snake'?0.45:0.75;
-    this.x += Math.sin(angle) * speed * dt; this.z += Math.cos(angle) * speed * dt;
-    this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02),this.z);
+    const speed = hunting||chasingPrey||time<this.retreatUntil ? (this.kind === 'wolf' ? 3.7 : this.kind==='lynx'?4.15:this.kind==='weasel'?4.4:this.kind==='bear'?2.8:this.kind==='snake'?2.1:3.3) : this.kind==='weasel'?1.15:this.kind==='snake'?0.45:0.75;
+    const step=Math.min(speed*dt,Math.hypot(this.targetX-this.x,this.targetZ-this.z));
+    this.x=THREE.MathUtils.clamp(this.x+Math.sin(angle)*step,-97,97);
+    this.z=THREE.MathUtils.clamp(this.z+Math.cos(angle)*step,-97,97);
+    this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting||chasingPrey ? 13 : 5))) * (hunting||chasingPrey ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;
-    animatePredator(this.root,time,hunting,dt);
+    animatePredator(this.root,time,hunting||chasingPrey,dt);
     if (hunting && dist < (this.kind==='bear'?2.3:1.5) && this.attackCooldown <= 0) { this.attackCooldown = this.kind==='snake'?6:3; return true; }
     return false;
   }

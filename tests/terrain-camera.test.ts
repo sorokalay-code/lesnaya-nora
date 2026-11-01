@@ -96,14 +96,43 @@ test('each season lasts thirty game days',()=>{
   assert.equal(season.name(91),'Зима');assert.equal(season.name(121),'Весна');
 });
 
-test('moving the mouse rotates the camera without holding a button',()=>{
-  const listeners=new Map<string,(event:{clientX:number;clientY:number})=>void>();
-  const canvas={addEventListener:(name:string,callback:(event:{clientX:number;clientY:number})=>void)=>listeners.set(name,callback)} as unknown as HTMLCanvasElement;
+test('pointer lock keeps camera turning after the cursor would reach the screen edge',()=>{
+  const listeners=new Map<string,(event:{movementX:number;movementY:number})=>void>();
+  const fakeDocument={pointerLockElement:null as HTMLCanvasElement|null,exitPointerLock:()=>{fakeDocument.pointerLockElement=null;}};
+  const canvas={addEventListener:(name:string,callback:(event:{movementX:number;movementY:number})=>void)=>listeners.set(name,callback),requestPointerLock:async()=>{fakeDocument.pointerLockElement=canvas;}} as unknown as HTMLCanvasElement;
+  const previous=(globalThis as {document?:unknown}).document;
+  (globalThis as {document?:unknown}).document=fakeDocument;
   const view=new ViewCamera(new THREE.PerspectiveCamera(),canvas);
   const before=view.forwardAt();
-  listeners.get('pointerenter')?.({clientX:100,clientY:100});
-  listeners.get('pointermove')?.({clientX:145,clientY:100});
+  view.lock();
+  listeners.get('mousemove')?.({movementX:145,movementY:0});
   assert.notEqual(view.forwardAt().x,before.x);
+  view.unlock();
+  assert.equal(view.isLocked,false);
+  (globalThis as {document?:unknown}).document=previous;
+});
+
+test('without pointer lock the camera keeps turning while the mouse rests at the edge',()=>{
+  const listeners=new Map<string,(event:{clientX:number;clientY:number;movementX:number;movementY:number})=>void>();
+  const canvas={addEventListener:(name:string,callback:(event:{clientX:number;clientY:number;movementX:number;movementY:number})=>void)=>listeners.set(name,callback),getBoundingClientRect:()=>({left:0,right:500,top:0,bottom:500})} as unknown as HTMLCanvasElement;
+  const previous=(globalThis as {document?:unknown}).document;
+  (globalThis as {document?:unknown}).document={pointerLockElement:null};
+  const view=new ViewCamera(new THREE.PerspectiveCamera(),canvas);
+  listeners.get('mousemove')?.({clientX:250,clientY:250,movementX:0,movementY:0});
+  listeners.get('mousemove')?.({clientX:498,clientY:250,movementX:248,movementY:0});
+  view.update(0,0,0,undefined,1);
+  const before=view.forwardAt();
+  view.update(0,0,0,undefined,1.05);
+  assert.notEqual(view.forwardAt().x,before.x);
+  view.unlock();
+  const paused=view.forwardAt();
+  view.update(0,0,0,undefined,1.1);
+  assert.equal(view.forwardAt().x,paused.x);
+  view.lock();view.setLookEnabled(true);
+  listeners.get('mousemove')?.({clientX:498,clientY:250,movementX:0,movementY:0});
+  view.update(0,0,0,undefined,1.15);
+  assert.notEqual(view.forwardAt().x,paused.x);
+  (globalThis as {document?:unknown}).document=previous;
 });
 
 test('view switches between eye height and the orbit camera',()=>{

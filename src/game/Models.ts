@@ -108,11 +108,37 @@ export function createPredator(kind: PredatorKind): THREE.Group {
     for(const side of [-1,1])part(root,sphere,new THREE.MeshBasicMaterial({color:0x1c2118}),[side*0.17,0.28,-1.17],[0.035,0.035,0.035]);
     root.userData.legs=[];return root;
   }
-  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : kind==='lynx'?0xb98e60:kind==='weasel'?0x8e6245:kind==='bear'?0x654c3c:0x9a7859;
+    if(kind==='bear'){
+      const fur=new THREE.MeshStandardMaterial({color:0x624532,roughness:1});
+      const light=new THREE.MeshStandardMaterial({color:0x9a7050,roughness:1});
+      const muzzle=new THREE.MeshStandardMaterial({color:0xb49170,roughness:1});
+      const black=new THREE.MeshStandardMaterial({color:0x211b19,roughness:0.7});
+      root.scale.setScalar(1.55);
+      part(root,sphere,fur,[0,0.77,0.14],[0.68,0.67,0.86]);
+      part(root,sphere,light,[0,1.12,-0.28],[0.65,0.53,0.53]);
+      part(root,sphere,fur,[0,1.04,-0.71],[0.53,0.46,0.44]);
+      part(root,sphere,muzzle,[0,0.82,-1.08],[0.34,0.22,0.32]);
+      part(root,sphere,black,[0,0.85,-1.35],[0.16,0.1,0.1]);
+      const legs:THREE.Group[]=[];
+      for(const side of [-1,1]){
+        part(root,sphere,fur,[side*0.43,1.36,-0.65],[0.18,0.19,0.1]);
+        part(root,sphere,light,[side*0.43,1.37,-0.72],[0.09,0.1,0.04]);
+        part(root,sphere,black,[side*0.35,1.09,-1.02],[0.045,0.05,0.045]);
+        for(const z of [-0.4,0.64]){
+          const leg=new THREE.Group();leg.position.set(side*0.48,0.62,z);root.add(leg);
+          part(leg,sphere,fur,[0,-0.28,0],[0.23,0.38,0.23]);
+          part(leg,sphere,black,[0,-0.52,-0.13],[0.24,0.09,0.31]);
+          legs.push(leg);
+        }
+      }
+      part(root,sphere,fur,[0,0.72,1.01],[0.14,0.13,0.14]);
+      root.userData.legs=legs;return root;
+    }
+  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : kind==='lynx'?0xb98e60:kind==='weasel'?0x8e6245:0x9a7859;
   const fur = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
   const pale = new THREE.MeshStandardMaterial({ color: kind === 'wolf' ? 0xc5c5bd : 0xf4debd, roughness: 1 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x292b26, roughness: 0.7 });
-  const s = kind === 'bear' ? 2.2:kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : kind==='lynx'?1.07:1;
+  const s = kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : kind==='lynx'?1.07:1;
   root.scale.set(kind==='weasel'?0.67:s,kind==='weasel'?0.58:s,kind==='weasel'?1.15:s);
   part(root, sphere, fur, [0, 0.65, 0], [0.38, 0.39, 0.82]);
   part(root, sphere, pale, [0, 0.48, -0.43], [0.3, 0.25, 0.32]);

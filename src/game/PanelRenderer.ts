@@ -1,11 +1,17 @@
 import type { World } from './World';
 import type { KitData, PartnerTraits, SaveData, Season } from './types';
+import type { ForestAnimal, WildlifeKind } from './Wildlife';
 
 const fmt=(value:number)=>Math.round(value);
 const coatName=(coat:string)=>({cream:'кремовый',brown:'бурый',gray:'серый',black:'чёрный',white:'белый'} as Record<string,string>)[coat]||coat;
+export const animalNames:Record<WildlifeKind,string>={deer:'Олень',squirrel:'Белка',hedgehog:'Ёж',beaver:'Бобр',moose:'Лось'};
 
 /** Dialog and journal views are kept apart from rules and interaction state. */
 export class PanelRenderer {
+  animal(animal:ForestAnimal,line?:string):string{
+    const greeting={deer:'Олень остановился и прислушался к шорохам.',squirrel:'Белка зацокала и спрыгнула на нижнюю ветку.',hedgehog:'Ёж осторожно выглянул из травы.',beaver:'Бобр приветственно шлёпнул хвостом.',moose:'Лось спокойно склонил голову.'}[animal.kind];
+    return `<div class="dialog-top"><div><div class="eyebrow">ВСТРЕЧА В ЛЕСУ</div><h2>${animalNames[animal.kind]}</h2></div><button data-action="close" aria-label="Закрыть">×</button></div><p class="speech">«${line??greeting}»</p><p class="dialog-meta">${animal.mood} · здоровье ${fmt(animal.health)}/${fmt(animal.maxHealth)} · доверие ${fmt(animal.trust)}/100</p><div class="dialog-choices"><button data-action="animal-observe">Как ты себя чувствуешь?</button><button data-action="animal-path">Где искать еду и укрытие?</button><button data-action="animal-food">Угостить едой</button></div>`;
+  }
   partner(p:PartnerTraits,score:number,line?:string,paired=false):string{
     const preference={speed:'быстроту',vitality:'здоровье','rare-coat':'редкий окрас',bond:'близость и доверие'}[p.preference];
     return `<div class="dialog-top"><div><div class="eyebrow">ЛЕСНОЙ РАЗГОВОР</div><h2>${p.name}</h2></div><button data-action="close" aria-label="Закрыть">×</button></div><p class="speech">«${line??(paired?'Я вернулся домой. Рад тебя видеть!':p.temperament==='осторожный'?'Сначала давай узнаем друг друга получше.':'Рад тебя видеть! Что хочешь узнать?')}»</p><p class="dialog-meta">${paired?'Твой партнёр · ':''}${p.temperament} крол · семья: ${p.familySize} · ценит ${preference}</p><div class="gene-list"><span>Окрас: ${coatName(p.genes.coat)}</span><span>Скорость: ${'◆'.repeat(p.genes.speed)}</span><span>Здоровье: ${'◆'.repeat(p.genes.vitality)}</span><span>Доверие: ${fmt(p.trust)}/100</span><span>Совместимость: ${fmt(score)}/100</span></div><div class="dialog-choices"><button data-action="ask-home">Как живёт твоя семья?</button><button data-action="ask-food">Где искать еду и воду?</button><button data-action="ask-danger">Чего ты опасаешься?</button><button data-action="compliment">Ты мне нравишься</button><button data-action="gift">Подарить еду</button><button class="primary" data-action="court">${paired?'Планировать новых крольчат':'Предложить создать семью'}</button>${paired?'<button data-action="divorce">Разойтись</button>':''}</div>`;
