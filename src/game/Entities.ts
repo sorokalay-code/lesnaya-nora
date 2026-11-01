@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Random } from './Random';
-import { animatePredator, animateRabbit, createHawk, createPredator, createRabbit, type RabbitRig } from './Models';
+import { animateHawk, animatePredator, animateRabbit, createHawk, createPredator, createRabbit, type RabbitRig } from './Models';
 import { type Genes, type PartnerTraits, type PredatorKind } from './types';
 import type { Excavation } from './Excavation';
 
@@ -169,6 +169,7 @@ export class Predator {
   private homeX:number;private homeZ:number;
   private tunnelPosition?:{x:number;y:number;z:number};
   private retreatUntil=0;
+  private attackAnimUntil=0;
   private retreatX=0;private retreatZ=0;
   constructor(readonly kind: PredatorKind, x: number, z: number, private readonly rng: Random) {
     this.x = this.targetX = x; this.z = this.targetZ = z;
@@ -196,7 +197,7 @@ export class Predator {
     if(this.tunnelPosition){
       this.x=this.tunnelPosition.x;this.z=this.tunnelPosition.z;
       this.root.position.set(this.x,this.tunnelPosition.y,this.z);
-      animatePredator(this.root,time,false,dt);return false;
+      animatePredator(this.root,time,false,dt,false);return false;
     }
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting = time>=this.retreatUntil&&!hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||this.kind==='snake'||!day||dist < (this.kind==='lynx'?10:7));
@@ -218,8 +219,10 @@ export class Predator {
     this.z=THREE.MathUtils.clamp(this.z+Math.cos(angle)*step,-97,97);
     this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting||chasingPrey ? 13 : 5))) * (hunting||chasingPrey ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;
-    animatePredator(this.root,time,hunting||chasingPrey,dt);
-    if (hunting && dist < (this.kind==='bear'?2.3:1.5) && this.attackCooldown <= 0) { this.attackCooldown = this.kind==='snake'?6:3; return true; }
+    const strike=hunting&&dist<(this.kind==='bear'?2.3:1.5)&&this.attackCooldown<=0;
+    if(strike){this.attackCooldown=this.kind==='snake'?6:3;this.attackAnimUntil=time+.6;}
+    animatePredator(this.root,time,hunting||chasingPrey,dt,step>.005,time<this.attackAnimUntil);
+    if(strike)return true;
     return false;
   }
 }
@@ -253,8 +256,7 @@ export class Hawk {
       this.x+=Math.sin(heading)*dt*5.5;this.z+=Math.cos(heading)*dt*5.5;
       this.root.position.set(this.x,groundAt(this.x,this.z)+13+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=heading+Math.PI;
     }
-    const wings=this.root.userData.wings as THREE.Group[];
-    wings.forEach((w,i)=>w.rotation.z=(i===0?-1:1)*(0.12+Math.sin(time*7)*0.22));
+    animateHawk(this.root,this.diveUntil>time||Math.sin(time*2)>0.3,dt);
     this.shadow.position.set(this.x,groundAt(this.x,this.z)+0.05,this.z);this.shadow.scale.setScalar(this.diveUntil>time?1.5:0.85);
     return false;
   }

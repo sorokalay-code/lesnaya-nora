@@ -13,10 +13,13 @@ import { FoodStore } from '../src/game/Systems';
 import { Excavation } from '../src/game/Excavation';
 import type { SaveData, PartnerTraits } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
+import { loadModels } from './model-fixture';
+
+await loadModels('rabbit');
 
 const genes={coat:'cream' as const,ear:1,speed:3,vitality:3,size:1};
 const partner:PartnerTraits={id:1,name:'Пушок',x:0,z:0,genes,preference:'bond',temperament:'заботливый',trust:80,familySize:2};
-function save():SaveData{return{version:2,seed:14,clock:420,day:1,weather:'clear',messages:[],waste:[],
+function save():SaveData{return{version:3,seed:14,clock:420,day:1,weather:'clear',messages:[],waste:[],drops:[],
   player:{x:0,y:-1,z:0,genes,hunger:90,thirst:90,bodyTemp:38,energy:90,bladder:0,bowel:0,health:30,age:0,hidden:true,dirtiness:0,poison:0,milk:30},
   inventory:{clover:0,carrot:0,cabbage:0,mushroom:0,berries:0,toadstool:0,bitterleaf:0,acorn:0},
   nests:[{id:1,x:0,y:-1,z:0,quality:1}],stashes:[{id:1,x:0,y:0,z:0,food:{},materials:{grass:0,twigs:0,fur:0}}],
@@ -62,15 +65,11 @@ test('fallen branches can be gathered, return later, and discarded food remains 
   assert.equal(items.collect(twig,data.clock),true);
 });
 
-test('existing version-two saves gain defaults for family commands and ground items',()=>{
-  const data=save();data.calendarVersion=2;delete data.mateCommand;delete data.mateMessages;
-  delete data.partnerCargo;delete data.branchPicked;delete data.drops;delete data.stashes[0].materials;
+test('damaged current saves do not silently fill missing family data',()=>{
+  const data=save();delete data.drops;
   const previous=(globalThis as {localStorage?:unknown}).localStorage;
   (globalThis as {localStorage?:unknown}).localStorage={getItem:()=>JSON.stringify(data)};
-  const restored=new SaveRepository('test').load();
-  assert.equal(restored.mateCommand,'forage');
-  assert.deepEqual(restored.drops,[]);
-  assert.deepEqual(restored.stashes[0].materials,{grass:0,twigs:0,fur:0});
+  assert.throws(()=>new SaveRepository('test').load(),/повреждено/);
   (globalThis as {localStorage?:unknown}).localStorage=previous;
 });
 

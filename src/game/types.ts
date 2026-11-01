@@ -60,8 +60,7 @@ export type MateCommand='forage'|'follow'|'stay'|'home';
 export interface MateMessage {from:'player'|'partner';text:string;clock:number}
 
 export interface SaveData {
-  version: 2;
-  calendarVersion?:2;
+  version: 3;
   seed: number;
   clock: number;
   day: number;

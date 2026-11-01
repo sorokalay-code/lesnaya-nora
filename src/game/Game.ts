@@ -17,6 +17,7 @@ import { FamilyCare } from './FamilyCare';
 import { KitWander } from './KitWander';
 import { GroundItems } from './GroundItems';
 import { PartnerSupport } from './PartnerSupport';
+import { ModelAssets } from './ModelAssets';
 import { FOOD, type FoodKind, type KitData, type MateCommand, type MaterialKind, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -94,7 +95,7 @@ export class Game {
     this.view=new ViewCamera(this.camera,this.renderer.domElement);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
@@ -172,12 +173,14 @@ export class Game {
     this.overlay.innerHTML = `<div class="start-card"><div class="eyebrow">✦ ТВОЯ ИСТОРИЯ НАЧИНАЕТСЯ ЗДЕСЬ</div><h1>Лесная<br><em>нора</em></h1><p>Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.</p><label class="start-season">Начать с сезона <select id="start-season"><option value="0">Весна — много травы</option><option value="1">Лето — тепло и изобилие</option><option value="2">Осень — пора запасать</option><option value="3">Зима — суровое выживание</option></select></label><div class="start-actions"><button class="primary" data-action="new">Новая история <span>→</span></button>${hasSave ? '<button class="secondary" data-action="load">Продолжить сохранение</button>' : ''}</div><div class="start-foot">Генерируемый мир · наследование генов · смена сезонов · семейная жизнь</div></div>`;
   }
 
-  private newGame(): void {
+  private async newGame(): Promise<void> {
     const seed = Math.floor(Math.random() * 2_147_483_647);
     const seasonIndex=Number(this.overlay.querySelector<HTMLSelectElement>('#start-season')?.value??0);
     const startDay=1+Math.max(0,Math.min(3,seasonIndex))*30;
     this.rng = new Random(seed + 53); this.factory = new RabbitFactory(this.rng);
-    this.save = { version: 2, calendarVersion:2, seed, clock: (startDay-1)*1440+7*60, day: startDay,
+    this.overlay.innerHTML='<div class="start-card"><h1>Готовим лес…</h1><p>Загружаем животных и их движения.</p></div>';
+    try{await ModelAssets.shared.preload();}catch{this.showStart();this.toast('Не удалось загрузить 3D-модели. Обнови страницу и попробуй снова.');return;}
+    this.save = { version: 3, seed, clock: (startDay-1)*1440+7*60, day: startDay,
       player: { x: 0, y:0, z: 0, genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 }, hunger: 85, thirst: 85, bodyTemp: 38.5, energy: 90, bladder: 15, bowel:15, health: 100, age: 0, hidden: false,dirtiness:0,poison:0,milk:35 },
       inventory: { clover: 2, carrot: 0, cabbage: 0, mushroom: 0, berries: 0,toadstool:0,bitterleaf:0,acorn:0 },
       nests: [], stashes:[], materials: {grass:0,twigs:0,fur:0}, excavation:[], gnawedRoots:{}, kits: [],
@@ -188,14 +191,16 @@ export class Game {
     this.toast('Исследуй лес, копай землю лапами и найди партнёра.');
   }
 
-  private loadGame(): void {
+  private async loadGame(): Promise<void> {
     try {
       this.save=this.saves.load();
+      this.overlay.innerHTML='<div class="start-card"><h1>Возвращаемся домой…</h1><p>Загружаем животных и их движения.</p></div>';
+      await ModelAssets.shared.preload();
       this.rng=new Random(this.save.seed+53);this.factory=new RabbitFactory(this.rng);
       this.setupWorld();this.overlay.classList.add('hidden');this.running=true;this.sound.unlock();
       this.view.lock();
       this.toast('История продолжена. Добро пожаловать домой!');
-    } catch(err){this.toast(err instanceof Error?err.message:'Не удалось загрузить игру');}
+    } catch(err){this.showStart();this.toast(err instanceof Error?err.message:'Не удалось загрузить игру');}
   }
 
   private setupWorld(): void {

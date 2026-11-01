@@ -3,6 +3,7 @@ import { Random, smoothNoise } from './Random';
 import { SeasonSystem } from './Systems';
 import { WorldChunks } from './WorldChunks';
 import { Terrain } from './Terrain';
+import { ModelAssets } from './ModelAssets';
 import { type Biome, type FoodKind, type SaveData, type Weather } from './types';
 
 export interface Resource { id: number; x: number; z: number; kind: FoodKind; mesh: THREE.Group; available: boolean; regrowAt: number; }
@@ -47,9 +48,9 @@ export class World {
   private readonly exposedSoil=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide});
   private treeRootRegrow=new Map<number,number>();
   private currentClock=0;
-  private foliageMaterials:THREE.MeshStandardMaterial[]=[];
-  private deciduousCrowns:THREE.Group[]=[];
-  private fallenLeaves:THREE.Group[]=[];
+  private foliageMaterials=new Map<THREE.MeshStandardMaterial,THREE.Color>();
+  private deciduousCrowns:THREE.Object3D[]=[];
+  private fallenLeaves:THREE.Object3D[]=[];
   private grassMaterial?:THREE.MeshStandardMaterial;
   private rng: Random;
   private rain?: THREE.Points;
@@ -200,10 +201,7 @@ export class World {
   }
 
   private buildDecorations(): void {
-    const bark = mat(0x735b43), leaves = [mat(0x447349), mat(0x54844e), mat(0x3e6948)], pine = mat(0x355f46);
-    this.foliageMaterials=[...leaves,pine];
     const water = new THREE.MeshStandardMaterial({ color: 0x6c9c94, transparent: true, opacity: 0.74, roughness: 0.3 });
-    const flower = [mat(0xf5d277), mat(0xf5e6db), mat(0xe9b3bb), mat(0xcabfe8)];
     for (let i = 0; i < 580; i++) {
       const x = this.rng.range(-105, 105), z = this.rng.range(-105, 105), biome = this.biomeAt(x, z);
       if (Math.hypot(x, z) < 6) continue;
@@ -213,52 +211,24 @@ export class World {
         puddle.name='swamp-water';this.chunks.add(puddle,x,z);
       }
       if (biome === 'forest' && this.rng.chance(0.58)) {
-        const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z); const h = this.rng.range(5.5, 12.5);
+        const deciduous=this.rng.chance(0.55);
+        const g=ModelAssets.shared.create(deciduous?'oak':'pine').root;
+        g.position.set(x,this.heightAt(x,z),z);
+        g.scale.setScalar(this.rng.range(.7,1.38));g.rotation.y=this.rng.range(0,Math.PI*2);
         this.treeLocations.push({x,z});
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.43, h * 0.66, 9), bark);
-        trunk.position.y = h * 0.33; trunk.castShadow = true; g.add(trunk);
-        if (this.rng.chance(0.45)) {
-          for (let l = 0; l < 3; l++) {
-            const crown = new THREE.Mesh(new THREE.ConeGeometry(2.1 - l * 0.25, 3.1, 8), pine);
-            crown.position.y = h * 0.5 + l * 1.1; crown.castShadow = true; g.add(crown);
-          }
-        } else {
-          const crownGroup=new THREE.Group();g.add(crownGroup);this.deciduousCrowns.push(crownGroup);
-          blob(crownGroup, this.rng.pick(leaves), 0, h * 0.78, 0, 2.1, 1.85, 2.1);
-          for(let branch=0;branch<4;branch++){
-            const a=branch*Math.PI/2+this.rng.range(-0.2,0.2);
-            const branchMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.13,2.1,6),bark);
-            branchMesh.position.set(Math.cos(a)*0.65,h*0.67,Math.sin(a)*0.65);
-            branchMesh.rotation.z=Math.cos(a)*0.72;branchMesh.rotation.x=-Math.sin(a)*0.72;g.add(branchMesh);
-            blob(crownGroup,this.rng.pick(leaves),Math.cos(a)*1.4,h*0.68,Math.sin(a)*1.4,1.3,1.1,1.25);
-          }
-          const litter=new THREE.Group();g.add(litter);this.fallenLeaves.push(litter);
-          for(let leaf=0;leaf<12;leaf++){
-            const a=leaf*2.4,d=0.6+(leaf%4)*0.42;
-            const fall=new THREE.Mesh(new THREE.PlaneGeometry(0.22,0.12),mat(leaf%3===0?0xb57b45:0xc29b58));
-            fall.rotation.x=-Math.PI/2;fall.rotation.z=a;fall.position.set(Math.cos(a)*d,0.025,Math.sin(a)*d);litter.add(fall);
-          }
-          litter.visible=false;
+        if(deciduous){
+          const crown=g.getObjectByName('Foliage'),litter=g.getObjectByName('Litter');
+          if(crown)this.deciduousCrowns.push(crown);
+          if(litter){litter.visible=false;this.fallenLeaves.push(litter);}
         }
+        this.trackFoliage(g);
         this.chunks.add(g,x,z);
       } else if (this.rng.chance(0.65)) {
-        const g = new THREE.Group(); g.position.set(x, this.heightAt(x,z), z);
-        if(this.rng.chance(0.34)){
-          for(let leaf=0;leaf<7;leaf++){
-            const a=leaf*Math.PI*2/7;
-            const frond=blob(g,this.rng.pick(leaves),Math.cos(a)*0.32,0.36,Math.sin(a)*0.32,0.12,0.38,0.08);
-            frond.rotation.z=Math.cos(a)*0.55;frond.rotation.x=-Math.sin(a)*0.55;
-          }
-        }else if(biome==='swamp'&&this.rng.chance(0.5)){
-          for(let reed=0;reed<8;reed++){
-            const stalk=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.04,this.rng.range(0.7,1.4),4),leaves[0]);
-            stalk.position.set(this.rng.range(-0.35,0.35),0.55,this.rng.range(-0.35,0.35));g.add(stalk);
-          }
-        }else{
-          const bushMat = biome === 'swamp' ? leaves[0] : leaves[1];
-          blob(g, bushMat, 0, 0.27, 0, 0.62, 0.38, 0.56);
-          if (this.rng.chance(0.4)) for (let k = 0; k < 4; k++) blob(g, this.rng.pick(flower), this.rng.range(-0.4, 0.4), 0.56, this.rng.range(-0.3, 0.3), 0.07, 0.07, 0.07);
-        }
+        const kind=this.rng.chance(.34)?'fern':biome==='swamp'&&this.rng.chance(.5)?'reed':'bush';
+        const g=ModelAssets.shared.create(kind).root;
+        g.position.set(x,this.heightAt(x,z),z);
+        g.scale.setScalar(this.rng.range(.75,1.25));g.rotation.y=this.rng.range(0,Math.PI*2);
+        this.trackFoliage(g);
         this.chunks.add(g,x,z);
       }
     }
@@ -267,6 +237,17 @@ export class World {
     this.makeSmallDetails();
     this.makeButterflies();
     this.makeBoundary();
+  }
+
+  private trackFoliage(root:THREE.Object3D):void{
+    root.traverse(object=>{
+      if(!(object instanceof THREE.Mesh)||!(object.material instanceof THREE.MeshStandardMaterial))return;
+      const material=object.material;
+      if(material.name.startsWith('leaf_')&&!this.foliageMaterials.has(material)){
+        const base=new THREE.Color(material.userData.baseColor as number??material.color.getHex());
+        material.color.copy(base);this.foliageMaterials.set(material,base);
+      }
+    });
   }
 
   private terrainDisc(x:number,z:number,radius:number,offset:number,material:THREE.Material):THREE.Mesh{
@@ -411,33 +392,9 @@ export class World {
   }
 
   private resourceModel(kind: FoodKind): THREE.Group {
-    const g = new THREE.Group();
-    const green = mat(0x4a8c48), darkGreen = mat(0x3f7040);
-    if (kind === 'carrot') {
-      const root = new THREE.Mesh(cone, mat(0xe58b44)); root.rotation.x = Math.PI; root.position.y = 0.18; root.scale.set(0.14, 0.48, 0.14); g.add(root);
-      for (let i = 0; i < 3; i++) { const leaf = new THREE.Mesh(cone, green); leaf.position.set((i - 1) * 0.12, 0.5, 0); leaf.scale.set(0.08, 0.4, 0.07); g.add(leaf); }
-    } else if (kind === 'cabbage') {
-      blob(g, green, 0, 0.22, 0, 0.35, 0.28, 0.35);
-      for (let i = 0; i < 4; i++) blob(g, darkGreen, Math.cos(i * Math.PI / 2) * 0.23, 0.13, Math.sin(i * Math.PI / 2) * 0.23, 0.22, 0.1, 0.15);
-    } else if (kind === 'mushroom'||kind==='toadstool') {
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.35, 7), mat(0xf2e9cb)); stem.position.y = 0.19; g.add(stem);
-      blob(g, mat(kind==='toadstool'?0xb94e45:0xa26d5b), 0, 0.38, 0, 0.27, 0.11, 0.27);
-      if(kind==='toadstool')for(let i=0;i<4;i++)blob(g,mat(0xf5e6d3),Math.cos(i*1.57)*0.12,0.46,Math.sin(i*1.57)*0.12,0.035,0.02,0.035);
-    } else if (kind === 'berries') {
-      blob(g, darkGreen, 0, 0.24, 0, 0.33, 0.26, 0.33);
-      const berry = mat(0x6d4e8a);
-      for (let i = 0; i < 5; i++) blob(g, berry, Math.cos(i * 2.5) * 0.2, 0.37, Math.sin(i * 2.5) * 0.2, 0.07, 0.07, 0.07);
-    } else if(kind==='acorn'){
-      blob(g,mat(0x8f603c),0,0.14,0,0.16,0.2,0.15);
-      blob(g,mat(0x604834),0,0.29,0,0.18,0.07,0.17);
-    } else {
-      for (let i = 0; i < 4; i++) {
-        const a = i * Math.PI / 2;
-        blob(g, green, Math.cos(a) * 0.17, 0.12, Math.sin(a) * 0.17, 0.16, 0.06, 0.11);
-      }
-      blob(g, mat(kind==='bitterleaf'?0x8d7390:0xeed9d8), 0, 0.18, 0, 0.07, 0.08, 0.07);
-    }
-    return g;
+    const model=ModelAssets.shared.create(kind).root;
+    this.trackFoliage(model);
+    return model;
   }
 
   nearestResource(x: number, z: number, radius = 2): Resource | undefined {
@@ -493,8 +450,11 @@ export class World {
       }
       this.groundColors.needsUpdate=true;
     }
-    const foliageColors=[0x447349,0x54844e,0x3e6948,0x355f46];
-    this.foliageMaterials.forEach((material,i)=>{material.color.setHex(foliageColors[i]);if(season==='Осень'&&i<3)material.color.lerp(new THREE.Color(0xb88146),0.6);if(season==='Зима'&&i<3)material.color.lerp(new THREE.Color(0x8f9b88),0.55);});
+    this.foliageMaterials.forEach((base,material)=>{
+      material.color.copy(base);
+      if(!material.name.includes('pine')&&season==='Осень')material.color.lerp(new THREE.Color(0xb88146),.6);
+      if(!material.name.includes('pine')&&season==='Зима')material.color.lerp(new THREE.Color(0x8f9b88),.55);
+    });
     this.deciduousCrowns.forEach((c,i)=>{c.visible=season!=='Зима'||i%7===0;});
     this.fallenLeaves.forEach(c=>{c.visible=season==='Осень'||season==='Зима';});
     this.grassMaterial?.color.setHex(season==='Зима'?0xb8c2ae:season==='Осень'?0xc49d66:0x88b66d);

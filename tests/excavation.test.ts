@@ -9,9 +9,13 @@ import { Random } from '../src/game/Random';
 import type { SaveData } from '../src/game/types';
 import { World } from '../src/game/World';
 import { CaveMesher } from '../src/game/CaveMesher';
+import { MODEL_NAMES } from '../src/game/ModelAssets';
+import { loadModels } from './model-fixture';
+
+await loadModels(...MODEL_NAMES);
 
 function fixture():SaveData{
-  return {version:2,seed:9,clock:420,day:1,weather:'clear',messages:[],waste:[],
+  return {version:3,seed:9,clock:420,day:1,weather:'clear',messages:[],waste:[],drops:[],
     player:{x:0,y:0,z:0,genes:{coat:'cream',ear:1,speed:3,vitality:3,size:1},hunger:90,thirst:90,bodyTemp:38,energy:90,bladder:0,bowel:0,health:100,age:0,hidden:false,dirtiness:0,poison:0,milk:10},
     inventory:{clover:2,carrot:0,cabbage:0,mushroom:0,berries:0,toadstool:0,bitterleaf:0,acorn:0},
     nests:[],stashes:[],materials:{grass:0,twigs:0,fur:0},excavation:[],kits:[],partners:[],harvested:[],pregnancy:null,
@@ -134,24 +138,22 @@ test('nests and food stashes are placed objects with independent coordinates',()
 });
 
 test('new saves never load the previous save key',()=>{
-  const values=new Map([['lesnaya-nora-save-v1',JSON.stringify({version:1})]]);
+  const values=new Map([['lesnaya-nora-save-v2',JSON.stringify({version:2})]]);
   const previous=(globalThis as unknown as {localStorage?:unknown}).localStorage;
   (globalThis as unknown as {localStorage:unknown}).localStorage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)};
   try{
     const repository=new SaveRepository();assert.equal(repository.exists(),false);
-    repository.store(fixture());assert.equal(repository.exists(),true);assert.equal(repository.load().version,2);
+    repository.store(fixture());assert.equal(repository.exists(),true);assert.equal(repository.load().version,3);
   }finally{(globalThis as unknown as {localStorage?:unknown}).localStorage=previous;}
 });
 
-test('old six-day calendar keeps the selected season when loaded',()=>{
-  const old=fixture();old.day=19;old.clock=18*1440+420;
-  const values=new Map([['lesnaya-nora-save-v2',JSON.stringify(old)]]);
+test('version-two saves are rejected without migration',()=>{
+  const old={...fixture(),version:2};
+  const values=new Map([['lesnaya-nora-save-v3',JSON.stringify(old)]]);
   const previous=(globalThis as unknown as {localStorage?:unknown}).localStorage;
   (globalThis as unknown as {localStorage:unknown}).localStorage={getItem:(key:string)=>values.get(key)??null,setItem:()=>{}};
   try{
-    const loaded=new SaveRepository().load();
-    assert.equal(loaded.day,91);assert.equal(loaded.clock%1440,420);
-    assert.equal(loaded.calendarVersion,2);
+    assert.throws(()=>new SaveRepository().load(),/старой версии/);
   }finally{(globalThis as unknown as {localStorage?:unknown}).localStorage=previous;}
 });
 

@@ -1,0 +1,400 @@
+// Offline art pipeline. The game only loads the exported GLB files.
+import * as THREE from 'three';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { deflateSync } from 'node:zlib';
+import { mkdirSync, writeFileSync } from 'node:fs';
+
+class NodeFileReader {
+  result; onloadend;
+  readAsArrayBuffer(blob) { blob.arrayBuffer().then(data => { this.result = data; this.onloadend?.(); }); }
+  readAsDataURL(blob) { blob.arrayBuffer().then(data => { this.result = `data:${blob.type};base64,${Buffer.from(data).toString('base64')}`; this.onloadend?.(); }); }
+}
+globalThis.FileReader = NodeFileReader;
+
+const sphere = new THREE.SphereGeometry(1, 16, 12);
+const smallSphere = new THREE.SphereGeometry(1, 10, 8);
+const cone = new THREE.ConeGeometry(1, 1, 9);
+const cylinder = new THREE.CylinderGeometry(1, 1, 1, 9);
+const materials = new Map();
+const mat = (name, color, roughness = .92) => {
+  const key = `${name}:${color}`;
+  if (!materials.has(key)) materials.set(key, new THREE.MeshStandardMaterial({ name, color, roughness, metalness: 0 }));
+  return materials.get(key);
+};
+const fur = (color = 0xc9aa83) => mat('fur_base', color);
+const pale = (color = 0xf1dec3) => mat('fur_light', color);
+const pink = mat('pink', 0xd68f9d);
+const eye = mat('eye', 0x171d1d, .24);
+const shine = mat('eye_shine', 0xffffff, .12);
+const dark = mat('dark', 0x332b29);
+const dirt = mat('twig', 0x6e513a);
+function group(parent, name, x = 0, y = 0, z = 0) {
+  const item = new THREE.Group(); item.name = name; item.position.set(x, y, z); parent.add(item); return item;
+}
+function mesh(parent, geometry, material, name, position, scale, rotation) {
+  const item = new THREE.Mesh(geometry, material); item.name = name;
+  item.position.set(...position); item.scale.set(...scale);
+  if (rotation) item.rotation.set(...rotation);
+  item.castShadow = true; item.receiveShadow = true; parent.add(item); return item;
+}
+const ell = (p, m, n, xyz, s, r) => mesh(p, sphere, m, n, xyz, s, r);
+const mini = (p, m, n, xyz, s, r) => mesh(p, smallSphere, m, n, xyz, s, r);
+const tip = (p, m, n, xyz, s, r) => mesh(p, cone, m, n, xyz, s, r);
+const stick = (p, m, n, a, b, radius) => {
+  const midpoint = new THREE.Vector3().addVectors(new THREE.Vector3(...a), new THREE.Vector3(...b)).multiplyScalar(.5);
+  const direction = new THREE.Vector3(...b).sub(new THREE.Vector3(...a));
+  const item = mesh(p, cylinder, m, n, midpoint.toArray(), [radius, direction.length(), radius]);
+  item.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); return item;
+};
+const curve = (p, m, n, points, radius) => {
+  const path = new THREE.CatmullRomCurve3(points.map(v => new THREE.Vector3(...v)));
+  return mesh(p, new THREE.TubeGeometry(path, 9, radius, 4, false), m, n, [0,0,0], [1,1,1]);
+};
+function whiskers(parent, x, y, z) {
+  for (const side of [-1, 1]) for (let i = 0; i < 3; i++)
+    curve(parent, pale(0xe5ded3), `Whisker${side}_${i}`,
+      [[side * x, y + i * .027, z], [side * (x + .17), y + (i - 1) * .045, z - .06], [side * (x + .37), y + (i - 1) * .07, z - .01]], .004);
+}
+function face(parent, width, y, z, muzzle, earY, ears = 'point') {
+  for (const side of [-1, 1]) {
+    const e = mini(parent, eye, `Eye${side < 0 ? 'L' : 'R'}`, [side * width, y, z], [.053,.062,.04]);
+    mini(parent, shine, `Glint${side}`, [side * width - .014, y + .023, z - .036], [.016,.018,.01]);
+    if (ears === 'point') tip(parent, fur(), `Ear${side}`, [side * (width + .02), earY, z + .2], [.12,.31,.12], [0,0,side * -.12]);
+    if (ears === 'round') mini(parent, fur(), `Ear${side}`, [side * (width + .08), earY, z + .12], [.16,.17,.09]);
+  }
+  mini(parent, dark, 'Nose', [0, y - .12, muzzle], [.085,.055,.065]);
+}
+function rabbit() {
+  const root = group(new THREE.Group(), 'Rabbit');
+  const visual = group(root, 'Visual');
+  ell(visual, fur(), 'Body', [0,.52,.08], [.41,.35,.59]);
+  ell(visual, pale(), 'Belly', [0,.31,-.08], [.29,.14,.4]);
+  ell(visual, fur(), 'Shoulders', [0,.59,-.33], [.32,.29,.28]);
+  for (const side of [-1,1]) ell(visual, pale(), `Haunch${side}`, [side*.31,.51,.38], [.2,.24,.25]);
+  const head = group(visual, 'Head', 0,.72,-.45);
+  ell(head, fur(), 'Skull', [0,0,0], [.32,.3,.31]);
+  ell(head, pale(), 'Muzzle', [0,-.1,-.27], [.2,.13,.18]);
+  for (const side of [-1,1]) {
+    ell(head, pale(), `Cheek${side}`, [side*.16,-.12,-.22], [.14,.1,.13]);
+    ell(head, eye, `Eye${side<0?'L':'R'}`, [side*.255,.065,-.17], [.05,.063,.037]);
+    mini(head, shine, `Glint${side}`, [side*.264-.015,.084,-.202], [.015,.018,.009]);
+    const ear = group(head, side<0?'EarL':'EarR', side*.18,.18,.07);
+    ell(ear, fur(), `EarOuter${side}`, [0,.34,0], [.112,.41,.067], [0,0,side*-.08]);
+    ell(ear, pink, `EarInner${side}`, [0,.34,-.058], [.067,.31,.018], [0,0,side*-.08]);
+    mini(ear, pale(), `EarTip${side}`, [0,.72,.008], [.07,.06,.045]);
+  }
+  mini(head, pink, 'Nose', [0,-.075,-.382], [.064,.047,.04]);
+  curve(head, dark, 'Mouth', [[0,-.13,-.39],[0,-.175,-.39],[-.055,-.185,-.38]], .006);
+  whiskers(head,.11,-.12,-.36);
+  for (const side of [-1,1]) for (const back of [false,true]) {
+    const name = `Paw${back?'B':'F'}${side<0?'L':'R'}`;
+    const limb = group(visual,name,side*(back?.31:.28),.26,back?.38:-.35);
+    ell(limb, fur(), `${name}Limb`, [0,-.07,back?.02:-.025], [back?.19:.13,.18,back?.22:.15]);
+    ell(limb, pale(), `${name}Foot`, [0,-.19,-.09], [back?.17:.13,.07,back?.2:.17]);
+    for(let t=0;t<3;t++)mini(limb,pale(),`${name}Toe${t}`,[(t-1)*(back?.095:.075),-.21,-.22],[.036,.028,.06]);
+  }
+  const tail = group(visual,'Tail',0,.58,.62);
+  mini(tail,pale(),'TailPuff',[0,0,0],[.18,.18,.18]);
+  for(let i=0;i<5;i++)mini(tail,pale(),`TailTuft${i}`,[Math.sin(i*2.5)*.11,Math.cos(i*2.5)*.1,.06],[.07,.085,.08]);
+  return root;
+}
+function quadruped(kind) {
+  const settings = {
+    fox:{color:0xbb6b3b,light:0xf5e5c9,scale:1,body:[.4,.4,.78],head:[.3,.27,.35],ear:'point'},
+    wolf:{color:0x777b7c,light:0xd4d1c4,scale:1.4,body:[.43,.46,.84],head:[.33,.3,.39],ear:'point'},
+    dog:{color:0x9d7955,light:0xe9d4b2,scale:1.18,body:[.43,.42,.78],head:[.32,.28,.35],ear:'round'},
+    lynx:{color:0xb49068,light:0xead9b9,scale:1.1,body:[.4,.4,.69],head:[.31,.29,.34],ear:'point'},
+    weasel:{color:0x8d6246,light:0xe8d7bc,scale:.68,body:[.35,.3,.91],head:[.27,.25,.32],ear:'round'},
+    bear:{color:0x654635,light:0xa57a58,scale:1.55,body:[.69,.66,.87],head:[.49,.42,.44],ear:'round'}
+  }[kind];
+  const root = group(new THREE.Group(),kind); root.scale.setScalar(settings.scale);
+  const visual = group(root,'Visual'); const base=fur(settings.color),light=pale(settings.light);
+  const bear=kind==='bear'; const bodyY=bear?.82:.68;
+  ell(visual,base,'Body',[0,bodyY,.1],settings.body);
+  ell(visual,light,'Chest',[0,bear?.67:.51,-.5],[bear?.42:.29,bear?.4:.29,.3]);
+  if(bear)ell(visual,base,'ShoulderHump',[0,1.17,-.35],[.65,.51,.52]);
+  if(kind==='wolf'||kind==='lynx')for(let i=0;i<6;i++)tip(visual,base,`Ruff${i}`,[(i-2.5)*.14,.95,-.36],[.14,.3,.15],[.6,0,(i-2.5)*.15]);
+  const head=group(visual,'Head',0,bear?1.1:.91,bear?-.67:-.67);
+  ell(head,base,'Skull',[0,0,0],settings.head);
+  ell(head,light,'Snout',[0,-.14,bear?-.39:-.39],[bear?.32:.19,bear?.2:.14,bear?.37:.3]);
+  if(bear)ell(head,base,'Brow',[0,.19,-.23],[.43,.17,.28]);
+  face(head,bear?.33:.23,bear?.09:.06,bear?-.32:-.25,bear?-.74:-.67,bear?.43:.33,settings.ear);
+  if(kind==='lynx')for(const side of [-1,1])tip(head,dark,`EarTuft${side}`,[side*.25,.62,.02],[.045,.18,.055],[0,0,side*-.15]);
+  if(kind==='fox'||kind==='wolf')for(const side of [-1,1])ell(head,light,`FaceMark${side}`,[side*.19,-.13,-.35],[.12,.12,.17]);
+  if(kind==='dog')ell(visual,mat('collar',0x558d80),'Collar',[0,.79,-.52],[.32,.07,.31]);
+  for(const side of [-1,1])for(const back of [false,true]){
+    const name=`Leg${back?'B':'F'}${side<0?'L':'R'}`;
+    const pivot=group(visual,name,side*(bear?.48:.28),bear?.58:.46,back?.56:-.47);
+    ell(pivot,base,`${name}Upper`,[0,-.17,0],[bear?.24:.14,bear?.34:.29,bear?.25:.15]);
+    ell(pivot,base,`${name}Foot`,[0,bear?-.47:-.4,-.11],[bear?.25:.16,.09,bear?.27:.2]);
+    for(let t=0;t<3;t++)mini(pivot,bear?dark:light,`${name}Claw${t}`,[(t-1)*(bear?.13:.08),bear?-.49:-.42,-(bear?.35:.28)],[.035,.027,.07]);
+  }
+  const tail=group(visual,'Tail',0,bear?.81:.75,bear?.96:.82);
+  if(bear)ell(tail,base,'TailFur',[0,0,.05],[.15,.13,.16]);
+  else if(kind==='lynx')ell(tail,dark,'TailFur',[0,0,.15],[.14,.14,.25]);
+  else {ell(tail,base,'TailFur',[0,0,.25],[.19,.19,kind==='weasel'?.62:.48],[.4,0,0]);ell(tail,light,'TailTip',[0,.13,kind==='weasel'?.67:.64],[.13,.12,.18]);}
+  if(bear)for(const side of [-1,1])ell(visual,light,`CheekFur${side}`,[side*.42,.93,-.72],[.18,.2,.15]);
+  return root;
+}
+function snake() {
+  const root=group(new THREE.Group(),'snake'),visual=group(root,'Visual');
+  const skin=fur(0x60774b),belly=pale(0xc8bc82);
+  for(let i=0;i<9;i++){
+    const seg=group(visual,`Segment${i}`,0,.15,.88-i*.25);
+    ell(seg,skin,`Scale${i}`,[0,0,0],[.19-i*.009,.13,.23]);
+    ell(seg,belly,`Belly${i}`,[0,-.08,-.02],[.14,.055,.2]);
+    if(i<6)for(const side of [-1,1])mini(seg,dark,`Spot${i}_${side}`,[side*.13,.085,0],[.045,.025,.075]);
+  }
+  const head=group(visual,'Head',0,.21,-1.14);
+  ell(head,skin,'Skull',[0,0,0],[.25,.15,.28]);ell(head,belly,'Jaw',[0,-.08,-.19],[.18,.07,.19]);
+  for(const side of [-1,1]){mini(head,eye,`Eye${side}`,[side*.18,.07,-.15],[.05,.055,.04]);mini(head,shine,`Glint${side}`,[side*.18,.09,-.185],[.012,.014,.008]);}
+  const tongue=group(head,'Tongue',0,-.08,-.35);stick(tongue,pink,'TongueStem',[0,0,0],[0,0,-.21],.014);
+  for(const side of [-1,1])stick(tongue,pink,`Fork${side}`,[0,0,-.2],[side*.07,0,-.29],.009);
+  return root;
+}
+function hawk() {
+  const root=group(new THREE.Group(),'hawk');root.scale.setScalar(1.55);const visual=group(root,'Visual');
+  const brown=fur(0x77503a),cream=pale(0xe2cc9d),gold=mat('beak',0xd7a748);
+  ell(visual,brown,'Body',[0,0,0],[.4,.28,.72]);ell(visual,cream,'Breast',[0,-.16,-.18],[.31,.16,.48]);
+  const head=group(visual,'Head',0,.17,-.6);ell(head,brown,'Skull',[0,0,0],[.27,.25,.28]);
+  tip(head,gold,'Beak',[0,-.08,-.33],[.12,.26,.12],[-Math.PI/2,0,0]);
+  for(const side of [-1,1]){mini(head,eye,`Eye${side}`,[side*.2,.09,-.19],[.05,.05,.04]);mini(head,shine,`Glint${side}`,[side*.21,.11,-.22],[.015,.016,.008]);}
+  for(const side of [-1,1]){
+    const wing=group(visual,side<0?'WingL':'WingR',side*.3,.05,.02);
+    ell(wing,brown,`WingBone${side}`,[side*.67,0,.08],[.82,.075,.3],[0,side*.15,0]);
+    for(let i=0;i<6;i++)ell(wing,i%2?cream:brown,`Feather${side}_${i}`,[side*(.46+i*.21),-.018,.31+i*.015],[.23,.035,.3],[0,side*.2,0]);
+    for(let t=0;t<3;t++)stick(visual,gold,`Talon${side}_${t}`,[side*.2,-.23,-.04],[side*(.2+(t-1)*.06),-.43,-.17],.024);
+  }
+  for(let i=-2;i<=2;i++)ell(visual,brown,`TailFeather${i}`,[i*.1,-.02,.78],[.1,.035,.47],[0,i*.13,0]);
+  return root;
+}
+function peaceful(kind) {
+  const root=group(new THREE.Group(),kind),visual=group(root,'Visual');
+  const data={deer:[0xa9784f,1.13,.53,.87],moose:[0x70523e,1.65,.72,1.08],squirrel:[0xb66f3e,.43,.28,.39],hedgehog:[0x765b44,.34,.43,.55],beaver:[0x79523b,.5,.47,.67]}[kind];
+  const [color,by,bw,bl]=data,base=fur(color),light=pale(kind==='squirrel'?0xeccf9c:0xe7d7bb);
+  ell(visual,base,'Body',[0,by,.06],[bw,kind==='moose'?.67:kind==='deer'?.54:by*.78,bl]);
+  const head=group(visual,'Head',0,kind==='moose'?2.38:kind==='deer'?1.93:kind==='squirrel'?.78:kind==='beaver'?.66:.36,kind==='moose'?-1.1:kind==='deer'?-.81:-.5);
+  ell(head,base,'Skull',[0,0,0],kind==='moose'?[.48,.39,.48]:kind==='deer'?[.38,.35,.37]:[.3,.25,.31]);
+  ell(head,light,'Muzzle',[0,-.13,kind==='moose'?-.53:-.31],kind==='moose'?[.34,.23,.4]:[.2,.14,.21]);
+  for(const side of [-1,1]){
+    const w=kind==='moose'?.36:kind==='deer'?.29:.23;
+    mini(head,eye,`Eye${side}`,[side*w,.07,-.25],[.048,.054,.04]);
+    mini(head,shine,`Glint${side}`,[side*w-.012,.09,-.286],[.014,.015,.009]);
+    if(kind==='moose'||kind==='deer'){
+      ell(head,base,`Ear${side}`,[side*.4,.32,.05],[.21,.12,.13],[0,0,side*.3]);
+      const antler=group(head,`Antler${side}`,side*.24,.35,.04);
+      const horn=mat('antler',kind==='moose'?0xb9a078:0xc7ad82);
+      if(kind==='moose'){
+        ell(antler,horn,`Palm${side}`,[side*.5,.43,0],[.44,.16,.25],[0,0,side*.3]);
+        for(let i=0;i<4;i++)tip(antler,horn,`Tine${side}_${i}`,[side*(.2+i*.22),.66+(i%2)*.09,0],[.065,.31,.07]);
+      } else {
+        stick(antler,horn,`Beam${side}`,[0,0,0],[side*.3,.78,0],.045);
+        for(let i=0;i<3;i++)stick(antler,horn,`Tine${side}_${i}`,[side*(.1+i*.09),.28+i*.2,0],[side*(.3+i*.1),.48+i*.2,-.1],.027);
+      }
+    }else mini(head,base,`Ear${side}`,[side*.22,.24,.08],[.11,.13,.09]);
+  }
+  mini(head,dark,'Nose',[0,-.12,kind==='moose'?-.91:-.51],[.065,.045,.055]);
+  if(kind==='beaver')for(const side of [-1,1])ell(head,pale(0xfff7df),`Tooth${side}`,[side*.075,-.25,-.48],[.07,.12,.06]);
+  if(kind==='hedgehog')for(let i=0;i<42;i++){
+    const angle=i*2.399,forward=(i%7)/7,x=Math.sin(angle)*.34,z=-.33+forward*.8;
+    tip(visual,dark,`Spine${i}`,[x,.61,z],[.07,.37,.07],[z*.5,0,-x*.8]);
+  }
+  if(kind==='squirrel'){
+    const tail=group(visual,'Tail',0,.54,.38);
+    ell(tail,base,'TailFur',[0,.47,.35],[.25,.62,.32],[.4,0,0]);
+    ell(tail,light,'TailTip',[0,1.0,.48],[.2,.2,.21]);
+  }else if(kind==='beaver')ell(visual,dark,'Paddle',[0,.2,.97],[.3,.07,.63]);
+  else mini(visual,light,'Tail',[0,by+.08,bl+.04],[.16,.15,.18]);
+  const legY=kind==='moose'?1.2:kind==='deer'?.91:kind==='squirrel'?.3:kind==='beaver'?.31:.23;
+  const legLen=kind==='moose'?1.1:kind==='deer'?.82:kind==='squirrel'?.26:kind==='beaver'?.26:.17;
+  for(const side of [-1,1])for(const back of [false,true]){
+    const name=`Leg${back?'B':'F'}${side<0?'L':'R'}`;
+    const leg=group(visual,name,side*bw*.72,legY,back?bl*.58:-bl*.58);
+    ell(leg,base,`${name}Limb`,[0,-legLen*.48,0],[kind==='moose'?.16:.11,legLen*.55,kind==='moose'?.17:.12]);
+    ell(leg,kind==='deer'||kind==='moose'?dark:base,`${name}Foot`,[0,-legLen,-.07],[.14,.07,.18]);
+  }
+  return root;
+}
+function nest() {
+  const root=group(new THREE.Group(),'nest'),straw=mat('straw',0xc1a174),twigs=mat('twig',0x74553b),fluff=pale(0xe6dcc7);
+  ell(root,straw,'Bowl',[0,.08,0],[.85,.16,.72]);ell(root,fluff,'Lining',[0,.16,0],[.56,.09,.48]);
+  for(let i=0;i<22;i++){const a=i*Math.PI*2/22,r=.64+(i%3)*.05;
+    stick(root,i%4?straw:twigs,`Strand${i}`,[Math.cos(a)*r,.2,Math.sin(a)*r*.82],[Math.cos(a+.5)*r,.23,Math.sin(a+.5)*r*.82],.023);
+  }
+  for(let i=0;i<9;i++)mini(root,fluff,`Fluff${i}`,[Math.sin(i*2.4)*.4,.23,Math.cos(i*2.4)*.33],[.08,.04,.08]);
+  return root;
+}
+function stash() {
+  const root=group(new THREE.Group(),'stash'),twigs=mat('twig',0x75553b),straw=mat('straw',0xba955f),food=mat('carrot',0xd28e4c);
+  ell(root,straw,'Pile',[0,.11,0],[.55,.15,.45]);
+  for(let i=0;i<11;i++){const a=i*2.4;stick(root,twigs,`Twig${i}`,[Math.sin(a)*.4,.14,Math.cos(a)*.3],[Math.sin(a+.7)*.47,.28,Math.cos(a+.7)*.4],.03);}
+  for(let i=0;i<4;i++)ell(root,food,`Food${i}`,[Math.sin(i*2)*.24,.26,Math.cos(i*2)*.18],[.12,.1,.15]);
+  return root;
+}
+function oak(){
+  const root=group(new THREE.Group(),'oak'),bark=mat('bark',0x735940),branch=mat('bark_dark',0x624934);
+  const leaf1=mat('leaf_oak',0x518553),leaf2=mat('leaf_oak_dark',0x426e46);
+  stick(root,bark,'Trunk',[0,0,0],[0,5.9,0],.44);
+  for(let i=0;i<7;i++)stick(root,branch,`BarkRidge${i}`,[Math.cos(i)*.34,.4,Math.sin(i)*.34],[Math.cos(i)*.22,5.7,Math.sin(i)*.22],.035);
+  const crown=group(root,'Foliage');
+  ell(crown,leaf1,'Canopy',[0,7.2,0],[2.12,1.55,2.04]);
+  for(let i=0;i<9;i++){
+    const a=i*2.4,x=Math.cos(a)*1.38,z=Math.sin(a)*1.34;
+    stick(root,bark,`Branch${i}`,[0,4.8,0],[x,6.45,z],.115);
+    ell(crown,i%3?leaf1:leaf2,`LeafCloud${i}`,[x,6.72+(i%3)*.23,z],[1.02,.89,1.0]);
+  }
+  for(let i=0;i<24;i++){
+    const a=i*2.399,r=1.1+(i%4)*.31;
+    mini(crown,i%3?leaf1:leaf2,`LeafCluster${i}`,[Math.cos(a)*r,7.1+Math.sin(i*3)*.52,Math.sin(a)*r],[.27,.13,.18]);
+  }
+  const litter=group(root,'Litter');
+  for(let i=0;i<18;i++){
+    const a=i*2.399,r=.6+(i%5)*.39;
+    ell(litter,mat('fallen_leaf',i%3?0xc5a061:0xb77846),`Leaf${i}`,[Math.cos(a)*r,.035,Math.sin(a)*r],[.14,.018,.07],[0,a,0]);
+  }
+  return root;
+}
+function pineTree(){
+  const root=group(new THREE.Group(),'pine'),bark=mat('bark',0x6a5540),needles=mat('leaf_pine',0x3a664b);
+  stick(root,bark,'Trunk',[0,0,0],[0,8.7,0],.36);
+  for(let ring=0;ring<5;ring++){
+    const y=4.5+ring*.91,r=2.2-ring*.29;
+    tip(root,needles,`NeedleTier${ring}`,[0,y,0],[r,2.8,r]);
+    for(let b=0;b<5;b++){
+      const a=b*Math.PI*2/5+ring*.23;
+      stick(root,bark,`Branch${ring}_${b}`,[0,y-.3,0],[Math.cos(a)*r*.72,y-.75,Math.sin(a)*r*.72],.065);
+    }
+  }
+  tip(root,needles,'Crown',[0,8.85,0],[.65,1.6,.65]);return root;
+}
+function fern(){
+  const root=group(new THREE.Group(),'fern'),green=mat('leaf_fern',0x4e8054);
+  for(let i=0;i<9;i++){
+    const a=i*Math.PI*2/9;const pivot=group(root,`Frond${i}`);
+    stick(pivot,green,`Stem${i}`,[0,.04,0],[Math.cos(a)*.57,.66,Math.sin(a)*.57],.018);
+    for(let j=0;j<6;j++){
+      const t=(j+1)/7,x=Math.cos(a)*.57*t,z=Math.sin(a)*.57*t,y=.04+.62*t;
+      for(const side of [-1,1])ell(pivot,green,`Leaflet${i}_${j}_${side}`,[x+Math.sin(a)*side*.13*(1-t),y,z-Math.cos(a)*side*.13*(1-t)],[.13*(1-t*.5),.025,.06],[0,a,0]);
+    }
+  }
+  return root;
+}
+function reed(){
+  const root=group(new THREE.Group(),'reed'),green=mat('leaf_reed',0x78975d),seed=mat('reed_seed',0x8e7453);
+  for(let i=0;i<7;i++){
+    const a=i*2.4,r=.08+(i%3)*.13,x=Math.cos(a)*r,z=Math.sin(a)*r,h=.76+(i%4)*.17;
+    stick(root,green,`Stalk${i}`,[x,0,z],[x+.1,h,z],.021);
+    ell(root,seed,`Seed${i}`,[x+.1,h+.12,z],[.045,.17,.045]);
+  }
+  return root;
+}
+function bush(){
+  const root=group(new THREE.Group(),'bush'),green=mat('leaf_bush',0x568653),darkGreen=mat('leaf_bush_dark',0x3f7148);
+  for(let i=0;i<7;i++){
+    const a=i*2.4,x=Math.cos(a)*.38,z=Math.sin(a)*.35;
+    ell(root,i%2?green:darkGreen,`Clump${i}`,[x,.32+(i%3)*.08,z],[.38,.32,.35]);
+  }
+  for(let i=0;i<5;i++)mini(root,mat('flower',0xe9c9d4),`Blossom${i}`,[Math.cos(i*2.4)*.4,.61,Math.sin(i*2.4)*.37],[.055,.045,.055]);
+  return root;
+}
+function foodPlant(kind){
+  const root=group(new THREE.Group(),kind),green=mat('leaf_food',0x54904d),darkGreen=mat('leaf_food_dark',0x407349);
+  if(kind==='carrot'){
+    tip(root,mat('root_carrot',0xe2924d),'Root',[0,.04,0],[.16,.49,.16],[Math.PI,0,0]);
+    for(let i=-2;i<=2;i++){
+      const leaf=ell(root,green,`Leaf${i}`,[i*.085,.53,0],[.08,.34,.045],[0,0,-i*.23]);
+      leaf.rotation.y=i*.2;
+    }
+  }else if(kind==='cabbage'){
+    ell(root,green,'Heart',[0,.23,0],[.31,.28,.31]);
+    for(let i=0;i<8;i++){const a=i*Math.PI/4;
+      ell(root,i%2?green:darkGreen,`Leaf${i}`,[Math.cos(a)*.22,.22,Math.sin(a)*.22],[.23,.16,.19],[.17*Math.sin(a),a,.17*Math.cos(a)]);
+    }
+  }else if(kind==='mushroom'||kind==='toadstool'){
+    stick(root,pale(0xe8dbc4),'Stem',[0,0,0],[0,.39,0],.075);
+    ell(root,mat('cap',kind==='toadstool'?0xb94f4a:0x98735c),'Cap',[0,.39,0],[.28,.13,.28]);
+    if(kind==='toadstool')for(let i=0;i<7;i++){const a=i*2.4;
+      mini(root,pale(0xf9eadb),`Spot${i}`,[Math.cos(a)*.17,.485,Math.sin(a)*.17],[.04,.015,.04]);
+    }
+  }else if(kind==='berries'){
+    ell(root,darkGreen,'Bush',[0,.25,0],[.35,.28,.32]);
+    for(let i=0;i<9;i++){const a=i*2.4;
+      mini(root,mat('berry',0x73508d),`Berry${i}`,[Math.cos(a)*.24,.36+(i%3)*.05,Math.sin(a)*.2],[.065,.065,.065]);
+    }
+  }else if(kind==='acorn'){
+    ell(root,mat('acorn',0x93623f),'Nut',[0,.15,0],[.17,.2,.16]);
+    ell(root,mat('acorn_cap',0x654936),'Cap',[0,.28,0],[.18,.07,.17]);
+  }else{
+    for(let i=0;i<6;i++){const a=i*Math.PI/3;
+      ell(root,kind==='bitterleaf'?mat('leaf_bitter',0x74816a):green,`Leaf${i}`,[Math.cos(a)*.17,.14,Math.sin(a)*.17],[.18,.045,.11],[0,a,0]);
+    }
+    mini(root,mat('flower',kind==='bitterleaf'?0x947b9e:0xece2d5),'Flower',[0,.2,0],[.075,.075,.075]);
+  }
+  return root;
+}
+
+const q = (x=0,y=0,z=0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x,y,z)).toArray();
+function rotation(name, frames) { return new THREE.QuaternionKeyframeTrack(`${name}.quaternion`,[0,.25,.5,.75,1],frames.flatMap(v=>q(...v))); }
+function position(name, frames, base=[0,0,0]) {return new THREE.VectorKeyframeTrack(`${name}.position`,[0,.25,.5,.75,1],frames.flatMap(v=>[base[0]+v[0],base[1]+v[1],base[2]+v[2]]));}
+function sequence(a,b=0){return [[a,b,0],[0,b,0],[-a,b,0],[0,b,0],[a,b,0]];}
+const pose = (x,y=0,z=0) => [[x,y,z],[x,y,z],[x,y,z],[x,y,z],[x,y,z]];
+function rabbitClips() {
+  const clips=[];
+  const make=(name,tracks,duration=1)=>clips.push(new THREE.AnimationClip(name,duration,tracks));
+  const paw=(amplitude,phase=1)=>['PawFL','PawFR','PawBL','PawBR'].map((n,i)=>rotation(n,sequence(amplitude*(i%2?1:-1)*(i<2?1:phase))));
+  const head=(v)=>rotation('Head',sequence(v));
+  make('idle',[head(.035),rotation('EarL',sequence(.03)),rotation('EarR',sequence(-.04)),position('Visual',[[0,0,0],[0,.012,0],[0,.025,0],[0,.012,0],[0,0,0]])]);
+  make('hop',[...paw(.52,-.8),head(.08),position('Visual',[[0,0,0],[0,.13,0],[0,.26,0],[0,.13,0],[0,0,0]])]);
+  make('run',[...paw(.75,-.9),head(.1),position('Visual',[[0,0,0],[0,.2,0],[0,.34,0],[0,.2,0],[0,0,0]])],.65);
+  make('dig',[rotation('Head',pose(.24)),rotation('PawFL',[[.8,0,0],[-.6,0,0],[.8,0,0],[-.6,0,0],[.8,0,0]]),rotation('PawFR',[[-.6,0,0],[.8,0,0],[-.6,0,0],[.8,0,0],[-.6,0,0]]),position('Visual',[[0,-.08,0],[0,-.11,0],[0,-.08,0],[0,-.11,0],[0,-.08,0]])],.65);
+  make('eat',[rotation('Head',[[.34,0,0],[.42,0,0],[.36,0,0],[.43,0,0],[.34,0,0]]),rotation('PawFL',pose(-.32)),rotation('PawFR',pose(-.32))]);
+  make('groom',[rotation('Head',[[.2,-.35,0],[.37,.25,0],[.2,-.35,0],[.37,.25,0],[.2,-.35,0]]),rotation('PawFL',sequence(-.65)),rotation('PawFR',sequence(.65))]);
+  make('lie',[position('Visual',[[0,-.17,0],[0,-.17,0],[0,-.16,0],[0,-.17,0],[0,-.17,0]]),rotation('Head',pose(.1))]);
+  make('sit',[position('Visual',[[0,-.08,0],[0,-.08,0],[0,-.07,0],[0,-.08,0],[0,-.08,0]]),rotation('Head',pose(-.12))]);
+  make('mate',[position('Visual',[[0,.18,0],[0,.22,0],[0,.18,0],[0,.22,0],[0,.18,0]]),...paw(.24)]);
+  make('defecate',[position('Visual',[[0,-.06,0],[0,-.08,0],[0,-.06,0],[0,-.08,0],[0,-.06,0]]),rotation('PawBL',pose(.3)),rotation('PawBR',pose(.3))]);
+  make('pluck',[rotation('Head',pose(-.27,.48)),rotation('PawFL',sequence(-.48)),rotation('PawFR',sequence(.48))]);
+  make('nurse',[position('Visual',[[0,-.15,0],[0,-.16,0],[0,-.15,0],[0,-.16,0],[0,-.15,0]]),rotation('Head',pose(.08))]);
+  return clips;
+}
+function quadrupedClips(kind) {
+  const clips=[];
+  const legs=['LegFL','LegFR','LegBL','LegBR'];
+  const gait=(name,a,duration)=>new THREE.AnimationClip(name,duration,[...legs.map((n,i)=>rotation(n,sequence(a*(i===0||i===3?1:-1)))),position('Visual',[[0,0,0],[0,.04,0],[0,.09,0],[0,.04,0],[0,0,0]])]);
+  clips.push(new THREE.AnimationClip('idle',1,[rotation('Head',sequence(.03)),rotation('Tail',sequence(.08))]));
+  clips.push(gait('walk',.32,1.1),gait('run',.62,.62));
+  clips.push(new THREE.AnimationClip('attack',.6,[rotation('Head',[[0,0,0],[.25,0,0],[-.25,0,0],[.2,0,0],[0,0,0]])]));
+  return clips;
+}
+function snakeClips(){return ['idle','walk','run'].map((name,index)=>new THREE.AnimationClip(name,index===2?.65:1.2,
+  [...Array.from({length:9},(_,i)=>rotation(`Segment${i}`,sequence((index===0?.04:.15)*(i%2?1:-1),Math.sin(i)*.08))),rotation('Head',sequence(index===0?.03:.11))]));}
+function hawkClips(){return ['glide','flap'].map((name,index)=>new THREE.AnimationClip(name,index?.72:1.6,
+  [rotation('WingL',sequence(index?.47:.06)),rotation('WingR',sequence(index?-.47:-.06)),rotation('Head',sequence(.025))]));}
+function peacefulClips(kind){const legs=['LegFL','LegFR','LegBL','LegBR'];const tail=kind==='squirrel'?'Tail':undefined;
+  return ['idle','walk','run','graze'].map((name,index)=>new THREE.AnimationClip(name,[1.2,1,.65,1.1][index],
+  [rotation('Head',index===3?[[.18,0,0],[.28,0,0],[.2,0,0],[.3,0,0],[.18,0,0]]:sequence(.035)),
+   ...legs.map((n,i)=>rotation(n,sequence(index===0||index===3?0:(index===2?.55:.27)*(i===0||i===3?1:-1)))),
+   ...(tail?[rotation(tail,sequence(.08))]:[])]));}
+
+function crc(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return(c^0xffffffff)>>>0;}
+function chunk(type,data){const out=Buffer.alloc(12+data.length);out.writeUInt32BE(data.length,0);out.write(type,4);data.copy(out,8);out.writeUInt32BE(crc(out.subarray(4,8+data.length)),8+data.length);return out;}
+function texture(name,base){const width=64,height=64,raw=Buffer.alloc(height*(width*4+1));let seed=31857+base;
+  const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const i=y*(width*4+1)+1+x*4,v=Math.round(base+rand()*22+Math.sin(x*.65+y*.18)*5);
+    raw[i]=Math.min(255,v);raw[i+1]=Math.min(255,v-2);raw[i+2]=Math.min(255,v-5);raw[i+3]=255;
+  }
+  const header=Buffer.alloc(13);header.writeUInt32BE(width,0);header.writeUInt32BE(height,4);header[8]=8;header[9]=6;
+  writeFileSync(`public/textures/${name}.png`,Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]));
+}
+mkdirSync('public/models',{recursive:true});mkdirSync('public/textures',{recursive:true});texture('fur',222);texture('leaf',210);
+const models={rabbit,fox:()=>quadruped('fox'),wolf:()=>quadruped('wolf'),dog:()=>quadruped('dog'),lynx:()=>quadruped('lynx'),weasel:()=>quadruped('weasel'),bear:()=>quadruped('bear'),snake,hawk,
+  deer:()=>peaceful('deer'),squirrel:()=>peaceful('squirrel'),hedgehog:()=>peaceful('hedgehog'),beaver:()=>peaceful('beaver'),moose:()=>peaceful('moose'),nest,stash,
+  oak,pine:pineTree,fern,reed,bush,carrot:()=>foodPlant('carrot'),cabbage:()=>foodPlant('cabbage'),mushroom:()=>foodPlant('mushroom'),toadstool:()=>foodPlant('toadstool'),berries:()=>foodPlant('berries'),acorn:()=>foodPlant('acorn'),clover:()=>foodPlant('clover'),bitterleaf:()=>foodPlant('bitterleaf')};
+for(const [name,build] of Object.entries(models)){
+  const model=build();
+  const animations=name==='rabbit'?rabbitClips():['fox','wolf','dog','lynx','weasel','bear'].includes(name)?quadrupedClips(name):name==='snake'?snakeClips():name==='hawk'?hawkClips():['deer','squirrel','hedgehog','beaver','moose'].includes(name)?peacefulClips(name):[];
+  const buffer=await new GLTFExporter().parseAsync(model,{binary:true,animations});
+  writeFileSync(`public/models/${name}.glb`,Buffer.from(buffer));
+  console.log(name,Math.round(buffer.byteLength/1024)+' KiB',animations.map(a=>a.name).join(','));
+}

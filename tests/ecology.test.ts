@@ -6,6 +6,9 @@ import { Random } from '../src/game/Random';
 import { createForestAnimal } from '../src/game/Wildlife';
 import { WildlifeEcology } from '../src/game/WildlifeEcology';
 import type { Resource, World } from '../src/game/World';
+import { loadModels } from './model-fixture';
+
+await loadModels('deer','moose','squirrel','bear','wolf','fox');
 
 class SocialRandom extends Random { override chance():boolean{return true;} }
 const world=(resources:Resource[]=[],biome='garden')=>({

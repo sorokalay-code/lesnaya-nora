@@ -8,6 +8,10 @@ import {ViewCamera} from '../src/game/ViewCamera';
 import {createForestAnimal, type WildlifeKind} from '../src/game/Wildlife';
 import {SeasonSystem} from '../src/game/Systems';
 import type {Excavation} from '../src/game/Excavation';
+import {loadModels} from './model-fixture';
+import {MODEL_NAMES} from '../src/game/ModelAssets';
+
+await loadModels(...MODEL_NAMES);
 
 const scene=new THREE.Scene();
 const world=new World(scene,31415);
