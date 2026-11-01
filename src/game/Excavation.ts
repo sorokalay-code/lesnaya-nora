@@ -14,6 +14,7 @@ export class Excavation {
   readonly openings:DigNode[]=[];
   private readonly mesher:CaveMesher;
   private edges:Array<[DigNode,DigNode]>=[];
+  private neighbors=new Map<DigNode,DigNode[]>();
   private roots:Array<{node:DigNode;mesh:THREE.Mesh}>=[];
   private lastRootRefresh=0;
   private light=new THREE.PointLight(0xffe3b6,4.5,12);
@@ -39,6 +40,36 @@ export class Excavation {
     return this.openings.some(o=>distance2(o,{x,z})<1.7);
   }
   nearOpening(x:number,z:number,radius=1.5):boolean{return this.openings.some(o=>distance2(o,{x,z})<radius);}
+
+  /** A child's next physical waypoint through connected earth, including surface ramps. */
+  nextStep(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):DigNode|undefined{
+    const fromInside=this.isSheltered(from.x,from.y,from.z);
+    const toInside=this.isSheltered(to.x,to.y,to.z);
+    if(!fromInside&&!toInside)return undefined;
+    const opening=this.openings.slice().sort((a,b)=>
+      distance2(a,from)+distance2(a,to)-distance2(b,from)-distance2(b,to))[0];
+    if(!opening)return undefined;
+    if(!fromInside&&toInside)return{x:opening.x,y:opening.y-0.95,z:opening.z};
+    if(fromInside&&!toInside&&distance2(opening,from)<0.65){
+      const dx=to.x-opening.x,dz=to.z-opening.z,length=Math.hypot(dx,dz)||1;
+      const x=opening.x+dx/length*2.2,z=opening.z+dz/length*2.2;
+      return{x,y:this.world.heightAt(x,z),z};
+    }
+    const destination=toInside?to:opening;
+    const start=this.nearestNode(from.x,from.y,from.z),goal=this.nearestNode(destination.x,destination.y,destination.z);
+    if(!start||!goal||start===goal)return toInside?undefined:{x:opening.x,y:opening.y-0.95,z:opening.z};
+    const queue=[start],came=new Map<DigNode,DigNode|null>([[start,null]]);
+    for(let head=0;head<queue.length&&!came.has(goal);head++){
+      const node=queue[head];
+      for(const neighbor of this.neighbors.get(node)??[])
+        if(!came.has(neighbor)){came.set(neighbor,node);queue.push(neighbor);}
+    }
+    if(!came.has(goal))return{x:start.x,y:start.y-0.95,z:start.z};
+    let next=goal;
+    while(came.get(next)&&came.get(next)!==start)next=came.get(next)!;
+    const waypoint=distance2(start,from)>0.55?start:next;
+    return{x:waypoint.x,y:waypoint.y-0.95,z:waypoint.z};
+  }
 
   /** The closest centerline also defines a continuous, walkable slope. */
   private centerline(x:number,z:number,feetY:number):{distance:number;y:number;edge:boolean}|undefined{
@@ -73,10 +104,10 @@ export class Excavation {
   }
 
   /** Surface ray starts at the rabbit; the camera provides aim, not teleportation. */
-  target(camera:THREE.Camera,x:number,y:number,z:number):{node:DigNode;point:THREE.Vector3}|undefined{
+  target(camera:THREE.Camera,x:number,y:number,z:number,forceDown=false):{node:DigNode;point:THREE.Vector3}|undefined{
     const direction=new THREE.Vector3();camera.getWorldDirection(direction);
     const sheltered=this.isSheltered(x,y,z);
-    if(!sheltered&&!this.nearOpening(x,z,1.5)){
+    if(!forceDown&&!sheltered&&!this.nearOpening(x,z,1.5)){
       const horizontal=new THREE.Vector2(direction.x,direction.z).normalize();
       const fallbackX=x+horizontal.x*2.2,fallbackZ=z+horizontal.y*2.2;
       const fallbackY=this.world.heightAt(fallbackX,fallbackZ);
@@ -89,23 +120,23 @@ export class Excavation {
       return{node:{x:nx,y:this.world.heightAt(nx,nz)+0.45,z:nz},point:hit};
     }
     const horizontal=new THREE.Vector2(direction.x,direction.z).normalize();
-    if(horizontal.lengthSq()<0.1)return undefined;
+    if(horizontal.lengthSq()<0.1)horizontal.set(0,-1);
     const nearest=this.nearestNode(x,y,z);if(!nearest)return undefined;
     const nx=this.snap(x+horizontal.x*2.1),nz=this.snap(z+horizontal.y*2.1);
-    const slope=clamp(direction.y*1.65,-0.7,0.7);
-    const node={x:nx,y:Math.round((nearest.y+slope)*2)/2,z:nz};
+    const slope=forceDown||direction.y< -0.42?-0.75:clamp(direction.y*1.65,-0.7,0.7);
+    const node={x:nx,y:Math.round((nearest.y+slope)*4)/4,z:nz};
     return{node,point:new THREE.Vector3(nx,node.y,nz)};
   }
-  dig(camera:THREE.Camera,x:number,y:number,z:number):{success:boolean;reason:string;node?:DigNode}{
-    const preview=this.preview(camera,x,y,z);
+  dig(camera:THREE.Camera,x:number,y:number,z:number,forceDown=false):{success:boolean;reason:string;node?:DigNode}{
+    const preview=this.preview(camera,x,y,z,forceDown);
     if(!preview)return{success:false,reason:'Направь прицел на землю рядом с крольчихой.'};
     if(!preview.valid)return{success:false,reason:preview.reason};
     const node=preview.node;
     this.save.excavation.push(node);this.addGeometry(node);
     return{success:true,reason:'Земля выкопана. Иди по образовавшемуся ходу.',node};
   }
-  preview(camera:THREE.Camera,x:number,y:number,z:number):DigPreview|undefined{
-    const aimed=this.target(camera,x,y,z);if(!aimed)return undefined;
+  preview(camera:THREE.Camera,x:number,y:number,z:number,forceDown=false):DigPreview|undefined{
+    const aimed=this.target(camera,x,y,z,forceDown);if(!aimed)return undefined;
     const node=aimed.node;
     let reason='';
     if(Math.abs(node.x)>103||Math.abs(node.z)>103)reason='Здесь край исследуемого леса.';
@@ -117,7 +148,12 @@ export class Excavation {
     return{...aimed,valid:!reason,reason};
   }
   private nearestNode(x:number,y:number,z:number):DigNode|undefined{
-    return this.save.excavation.slice().sort((a,b)=>Math.hypot(a.x-x,a.y-(y+0.95),a.z-z)-Math.hypot(b.x-x,b.y-(y+0.95),b.z-z))[0];
+    let nearest:DigNode|undefined,best=Infinity;
+    for(const node of this.save.excavation){
+      const distance=Math.hypot(node.x-x,node.y-(y+0.95),node.z-z);
+      if(distance<best){best=distance;nearest=node;}
+    }
+    return nearest;
   }
   private connected(a:DigNode,b:DigNode):boolean{
     const horizontal=distance2(a,b);
@@ -126,7 +162,11 @@ export class Excavation {
   private addGeometry(node:DigNode):void{
     const previous=this.save.excavation.slice(0,this.save.excavation.indexOf(node));
     const connections=previous.filter(other=>this.connected(other,node));
-    for(const other of connections)this.edges.push([other,node]);
+    for(const other of connections){
+      this.edges.push([other,node]);
+      this.neighbors.set(other,[...(this.neighbors.get(other)??[]),node]);
+      this.neighbors.set(node,[...(this.neighbors.get(node)??[]),other]);
+    }
     this.mesher.addNode(node,connections);
     if(node.y+1>this.world.heightAt(node.x,node.z)){
       this.openings.push(node);this.world.addGroundHole(node.x,node.z,1.7);

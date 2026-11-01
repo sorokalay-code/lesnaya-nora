@@ -6,6 +6,8 @@ import {FamilyMember, Hawk, Predator, RabbitActor, RabbitFactory} from '../src/g
 import {Random} from '../src/game/Random';
 import {ViewCamera} from '../src/game/ViewCamera';
 import {createForestAnimal, type WildlifeKind} from '../src/game/Wildlife';
+import {SeasonSystem} from '../src/game/Systems';
+import type {Excavation} from '../src/game/Excavation';
 
 const scene=new THREE.Scene();
 const world=new World(scene,31415);
@@ -65,7 +67,7 @@ test('rabbits and predators stay grounded while moving across a hill',()=>{
 });
 
 test('new forest animals wander on terrain and react to nearby predators',()=>{
-  const kinds:WildlifeKind[]=['deer','squirrel','hedgehog','beaver'];
+  const kinds:WildlifeKind[]=['deer','squirrel','hedgehog','beaver','moose'];
   for(const [index,kind] of kinds.entries()){
     const animal=createForestAnimal(kind,25+index*2,12,new Random(index+500));
     const startX=animal.x,startZ=animal.z;
@@ -74,6 +76,34 @@ test('new forest animals wander on terrain and react to nearby predators',()=>{
     assert.ok(Math.abs(animal.root.position.y-groundAt(animal.x,animal.z))<0.001);
     assert.equal((animal as unknown as {legs:THREE.Group[]}).legs.length,4);
   }
+});
+
+test('paired rabbit returns through an opening to the underground home',()=>{
+  const rng=new Random(77),partner=new RabbitFactory(rng).partners(1)[0];
+  partner.x=4;partner.z=0;
+  const rabbit=new RabbitActor(partner,rng);
+  const earth={openings:[{x:0,y:0.45,z:0}],isSheltered:(_x:number,y:number)=>y< -0.18,
+    floorAt:(x:number,_z:number)=>Math.abs(x)<1.7?-0.5:0} as unknown as Excavation;
+  for(let frame=0;frame<180;frame++)rabbit.updateMate(1/60,frame/60,{x:0,y:-0.5,z:0},[],earth,()=>0);
+  assert.ok(Math.abs(rabbit.data.x)<0.8);
+  assert.ok(rabbit.rig.root.position.y< -0.18);
+});
+
+test('each season lasts thirty game days',()=>{
+  const season=new SeasonSystem(3);
+  assert.equal(season.name(30),'Весна');assert.equal(season.name(31),'Лето');
+  assert.equal(season.name(60),'Лето');assert.equal(season.name(61),'Осень');
+  assert.equal(season.name(91),'Зима');assert.equal(season.name(121),'Весна');
+});
+
+test('moving the mouse rotates the camera without holding a button',()=>{
+  const listeners=new Map<string,(event:{clientX:number;clientY:number})=>void>();
+  const canvas={addEventListener:(name:string,callback:(event:{clientX:number;clientY:number})=>void)=>listeners.set(name,callback)} as unknown as HTMLCanvasElement;
+  const view=new ViewCamera(new THREE.PerspectiveCamera(),canvas);
+  const before=view.forwardAt();
+  listeners.get('pointerenter')?.({clientX:100,clientY:100});
+  listeners.get('pointermove')?.({clientX:145,clientY:100});
+  assert.notEqual(view.forwardAt().x,before.x);
 });
 
 test('view switches between eye height and the orbit camera',()=>{

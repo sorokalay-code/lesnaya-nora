@@ -1,6 +1,6 @@
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind = 'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
-export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel';
+export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
@@ -41,6 +41,7 @@ export interface KitData {
   stayX?: number;
   stayZ?: number;
   stayY?: number;
+  x?:number;y?:number;z?:number;independent?:boolean;
 }
 
 export interface NestData {
@@ -56,6 +57,7 @@ export interface StashData {id:number;x:number;y:number;z:number;food:Partial<Re
 
 export interface SaveData {
   version: 2;
+  calendarVersion?:2;
   seed: number;
   clock: number;
   day: number;
@@ -66,6 +68,8 @@ export interface SaveData {
   materials: { grass: number; twigs: number; fur: number };
   excavation: DigNode[];
   gnawedRoots?: Record<string,number>;
+  gnawedBark?:Record<string,number>;
+  mateId?:number;
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];

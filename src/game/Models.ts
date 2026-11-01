@@ -30,6 +30,7 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
   part(root, sphere, light, [0, 0.68, -0.28], [0.23, 0.22, 0.22]);
   for (const side of [-1,1]) part(root, sphere, light, [side*0.29,0.63,0.32],[0.09,0.07,0.16]);
   const head = new THREE.Group(); head.position.set(0, 0.69, -0.44); root.add(head);
+  if(baby)head.scale.setScalar(1.12);
   part(head, sphere, fur, [0, 0, 0], [0.32, 0.3, 0.31]);
   part(head, sphere, light, [0, -0.11, -0.24], [0.19, 0.13, 0.16]);
   const eyes: THREE.Mesh[] = [];
@@ -38,6 +39,7 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
     part(head, sphere, shine, [side * 0.245 - 0.012, 0.087, -0.207], [0.014, 0.018, 0.008]);
     part(head, sphere, light, [side*0.12,-0.105,-0.25],[0.125,0.08,0.13]);
     const ear = new THREE.Group(); ear.position.set(side * 0.17, 0.19, 0.065); head.add(ear);
+    if(baby)ear.scale.setScalar(0.72);
     ear.rotation.z = side * -0.12;
     part(ear, sphere, fur, [0, genes.ear * 0.31, 0], [0.115, genes.ear * 0.42, 0.07]);
     part(ear, sphere, pink, [0, genes.ear * 0.31, -0.059], [0.067, genes.ear * 0.33, 0.019]);
@@ -99,11 +101,18 @@ export function animateRabbit(r: RabbitRig, time: number, moving: boolean, frigh
 
 export function createPredator(kind: PredatorKind): THREE.Group {
   const root = new THREE.Group();
-  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : kind==='lynx'?0xb98e60:kind==='weasel'?0x8e6245:0x9a7859;
+  if(kind==='snake'){
+    const skin=new THREE.MeshStandardMaterial({color:0x627447,roughness:0.9});
+    for(let i=0;i<8;i++)part(root,sphere,skin,[Math.sin(i*0.65)*0.18,0.13,0.75-i*0.23],[0.18-i*0.012,0.13,0.22]);
+    part(root,sphere,skin,[0,0.2,-1.03],[0.25,0.15,0.23]);
+    for(const side of [-1,1])part(root,sphere,new THREE.MeshBasicMaterial({color:0x1c2118}),[side*0.17,0.28,-1.17],[0.035,0.035,0.035]);
+    root.userData.legs=[];return root;
+  }
+  const color = kind === 'fox' ? 0xb96732 : kind === 'wolf' ? 0x797d78 : kind==='lynx'?0xb98e60:kind==='weasel'?0x8e6245:kind==='bear'?0x654c3c:0x9a7859;
   const fur = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
   const pale = new THREE.MeshStandardMaterial({ color: kind === 'wolf' ? 0xc5c5bd : 0xf4debd, roughness: 1 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x292b26, roughness: 0.7 });
-  const s = kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : kind==='lynx'?1.07:1;
+  const s = kind === 'bear' ? 2.2:kind === 'wolf' ? 1.45 : kind === 'dog' ? 1.2 : kind==='lynx'?1.07:1;
   root.scale.set(kind==='weasel'?0.67:s,kind==='weasel'?0.58:s,kind==='weasel'?1.15:s);
   part(root, sphere, fur, [0, 0.65, 0], [0.38, 0.39, 0.82]);
   part(root, sphere, pale, [0, 0.48, -0.43], [0.3, 0.25, 0.32]);

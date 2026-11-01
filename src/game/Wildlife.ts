@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Random } from './Random';
 import type { GroundHeight } from './Entities';
 
-export type WildlifeKind='deer'|'squirrel'|'hedgehog'|'beaver';
+export type WildlifeKind='deer'|'squirrel'|'hedgehog'|'beaver'|'moose';
 const sphere=new THREE.SphereGeometry(1,10,8);
 const cone=new THREE.ConeGeometry(1,1,7);
 const mat=(color:number)=>new THREE.MeshStandardMaterial({color,roughness:0.95,flatShading:true});
@@ -148,7 +148,26 @@ export class Beaver extends ForestAnimal {
   }
 }
 
+export class Moose extends ForestAnimal {
+  constructor(x:number,z:number,rng:Random){
+    super('moose',x,z,rng);this.speed=1.05;this.range=10;
+    const fur=mat(0x6b523e),antler=mat(0xb49a72);
+    this.body(this.root,sphere,fur,0,1.55,0,0.7,0.68,1.15);
+    this.body(this.root,sphere,fur,0,2.14,-0.75,0.45,0.65,0.42);
+    this.body(this.root,sphere,fur,0,2.43,-1.14,0.48,0.4,0.5);
+    this.body(this.root,sphere,fur,0,2.2,-1.62,0.34,0.23,0.38);
+    for(const side of [-1,1]){
+      this.eye(side*0.36,2.54,-1.37);
+      this.body(this.root,cone,fur,side*0.45,2.75,-0.98,0.2,0.42,0.13);
+      for(const back of [-0.72,0.7])this.leg(side*0.47,1.23,back,1.14,fur);
+      const palm=this.body(this.root,sphere,antler,side*0.84,3.08,-1.03,0.48,0.18,0.25);
+      palm.rotation.z=side*0.3;
+      for(let i=0;i<3;i++)this.body(this.root,cone,antler,side*(0.63+i*0.2),3.31,-1.02,0.08,0.38,0.08);
+    }
+  }
+}
+
 export function createForestAnimal(kind:WildlifeKind,x:number,z:number,rng:Random):ForestAnimal{
   switch(kind){case'deer':return new Deer(x,z,rng);case'squirrel':return new Squirrel(x,z,rng);
-    case'hedgehog':return new Hedgehog(x,z,rng);case'beaver':return new Beaver(x,z,rng);}
+    case'hedgehog':return new Hedgehog(x,z,rng);case'beaver':return new Beaver(x,z,rng);case'moose':return new Moose(x,z,rng);}
 }

@@ -18,9 +18,8 @@ export class ViewCamera {
   constructor(readonly camera:THREE.PerspectiveCamera,canvas:HTMLCanvasElement){
     this.buildPaws();this.camera.add(this.paws);this.paws.visible=false;
     canvas.addEventListener('contextmenu',e=>e.preventDefault());
-    canvas.addEventListener('pointerdown',e=>{if(e.button!==2)return;this.pointer={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
-    canvas.addEventListener('pointerup',()=>{this.pointer=undefined;});
-    canvas.addEventListener('pointercancel',()=>{this.pointer=undefined;});
+    canvas.addEventListener('pointerenter',e=>{this.pointer={x:e.clientX,y:e.clientY};});
+    canvas.addEventListener('pointerleave',()=>{this.pointer=undefined;});
     canvas.addEventListener('pointermove',e=>{
       if(!this.pointer)return;
       this.yaw-=(e.clientX-this.pointer.x)*0.006;

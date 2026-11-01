@@ -12,6 +12,7 @@ export class ExcavationTraffic {
   update(dt:number,time:number,night:boolean,predators:Predator[],rabbits:RabbitActor[],save:SaveData,earth:Excavation):TunnelEvent[]{
     const events:TunnelEvent[]=[];
     for(const actor of rabbits){
+      if(actor.data.id===save.mateId)continue;
       if(actor.data.trust<55||!earth.isSheltered(save.player.x,save.player.y,save.player.z)){actor.leaveTunnel();continue;}
       const opening=earth.openings.find(o=>Math.hypot(actor.data.x-o.x,actor.data.z-o.z)<2);
       if(!opening){actor.leaveTunnel();continue;}
@@ -31,7 +32,7 @@ export class ExcavationTraffic {
         }
         const kit=save.kits.find(k=>k.alive&&k.age<3&&k.command!=='follow'&&
           Math.hypot(k.homeX-opening.x,k.homeZ-opening.z)<2.5&&Math.abs(k.homeY-(opening.y-0.95))<2.5);
-        if(kit&&time-visit.lastHit>5){visit.lastHit=time;kit.health=Math.max(0,kit.health-12);events.push({type:'kit-attack',kind:predator.kind,name:kit.name});}
+        if(kit&&time-visit.lastHit>5){visit.lastHit=time;kit.health=Math.max(0,kit.health-12*0.8);events.push({type:'kit-attack',kind:predator.kind,name:kit.name});}
         continue;
       }
       if(!night&&predator.kind!=='weasel')continue;

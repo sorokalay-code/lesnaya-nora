@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Random } from './Random';
 import { animatePredator, animateRabbit, createHawk, createPredator, createRabbit, type RabbitRig } from './Models';
 import { type Genes, type PartnerTraits, type PredatorKind } from './types';
+import type { Excavation } from './Excavation';
 
 const names = ['Листик', 'Тимофей', 'Пушок', 'Рыжик', 'Ветерок', 'Клевер', 'Туман', 'Шорох', 'Орешек', 'Бор'];
 const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
@@ -39,6 +40,8 @@ export class RabbitActor {
   private targetX: number;
   private targetZ: number;
   private tunnelPosition?:{x:number;y:number;z:number};
+  private mateForageUntil=0;
+  private mateForageTarget?:{x:number;z:number};
   constructor(readonly data: PartnerTraits, private readonly rng: Random) {
     this.rig = createRabbit(data.genes); this.rig.root.position.set(data.x, 0, data.z);
     this.targetX=data.x;this.targetZ=data.z;
@@ -48,6 +51,34 @@ export class RabbitActor {
     this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;
   }
   leaveTunnel():void{this.tunnelPosition=undefined;}
+  updateMate(dt:number,time:number,home:{x:number;y:number;z:number},food:{x:number;z:number}[],earth:Excavation,groundAt:GroundHeight):void{
+    this.tunnelPosition=undefined;
+    if(time>this.mateForageUntil){
+      this.mateForageUntil=time+this.rng.range(10,22);
+      this.mateForageTarget=this.rng.chance(0.5)?this.rng.pick(food.filter(f=>Math.hypot(f.x-home.x,f.z-home.z)<18)):undefined;
+    }
+    let target=this.mateForageTarget??home;
+    const opening=earth.openings.slice().sort((a,b)=>Math.hypot(a.x-home.x,a.z-home.z)-Math.hypot(b.x-home.x,b.z-home.z))[0];
+    const inside=earth.isSheltered(this.data.x,this.rig.root.position.y,this.data.z);
+    if(opening&&this.mateForageTarget&&inside){
+      const angle=Math.atan2(this.mateForageTarget.x-opening.x,this.mateForageTarget.z-opening.z);
+      target={x:opening.x+Math.sin(angle)*2.4,z:opening.z+Math.cos(angle)*2.4};
+    }else if(opening&&!this.mateForageTarget&&earth.isSheltered(home.x,home.y,home.z)&&!inside)
+      target=opening;
+    const distance=Math.hypot(target.x-this.data.x,target.z-this.data.z);
+    const moving=distance>0.7;
+    if(moving){
+      const heading=Math.atan2(target.x-this.data.x,target.z-this.data.z);
+      this.data.x+=Math.sin(heading)*dt*2.2;this.data.z+=Math.cos(heading)*dt*2.2;
+      const desired=heading+Math.PI;
+      const turn=Math.atan2(Math.sin(desired-this.rig.root.rotation.y),Math.cos(desired-this.rig.root.rotation.y));
+      this.rig.root.rotation.y+=THREE.MathUtils.clamp(turn,-dt*3,dt*3);
+    }
+    const y=earth.floorAt(this.data.x,this.data.z,this.rig.root.position.y);
+    this.rig.root.position.x=this.data.x;this.rig.root.position.z=this.data.z;
+    this.rig.root.userData.baseY=earth.isSheltered(this.data.x,y,this.data.z)?y:groundAt(this.data.x,this.data.z);
+    animateRabbit(this.rig,time+this.data.id,moving,false,dt);
+  }
   update(dt: number, time: number, playerX: number, playerZ: number,groundAt:GroundHeight): void {
     if(this.tunnelPosition){
       this.rig.root.position.set(this.tunnelPosition.x,this.tunnelPosition.y,this.tunnelPosition.z);
@@ -108,7 +139,7 @@ export class Predator {
     this.x = this.targetX = x; this.z = this.targetZ = z;
     this.homeX=x;this.homeZ=z;
     this.root = createPredator(kind); this.root.position.set(x, 0, z);
-    this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : kind==='lynx'?14:kind==='weasel'?9:11;
+    this.range = kind === 'wolf' ? 15 : kind === 'dog' ? 13 : kind==='lynx'?14:kind==='weasel'?9:kind==='bear'?12:kind==='snake'?5:11;
   }
   enterTunnel(x:number,y:number,z:number):void{
     this.tunnelPosition={x,y,z};this.x=x;this.z=z;this.root.position.set(x,y,z);
@@ -122,7 +153,7 @@ export class Predator {
       animatePredator(this.root,time,false,dt);return false;
     }
     const dist = Math.hypot(px - this.x, pz - this.z);
-    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||!day||dist < (this.kind==='lynx'?10:7));
+    const hunting = !hidden && dist < this.range*activity*(1+scent*0.4) && (this.kind === 'dog'||this.kind==='weasel'||this.kind==='snake'||!day||dist < (this.kind==='lynx'?10:7));
     if (hunting) { this.targetX = px; this.targetZ = pz; }
     else if(Math.hypot(this.x-this.homeX,this.z-this.homeZ)>20){this.targetX=this.homeX;this.targetZ=this.homeZ;}
     else if (time > this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1) {
@@ -131,12 +162,12 @@ export class Predator {
       this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
     }
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-    const speed = hunting ? (this.kind === 'wolf' ? 3.7 : this.kind==='lynx'?4.15:this.kind==='weasel'?4.4:3.3) : this.kind==='weasel'?1.15:0.75;
+    const speed = hunting ? (this.kind === 'wolf' ? 3.7 : this.kind==='lynx'?4.15:this.kind==='weasel'?4.4:this.kind==='bear'?2.8:this.kind==='snake'?2.1:3.3) : this.kind==='weasel'?1.15:this.kind==='snake'?0.45:0.75;
     this.x += Math.sin(angle) * speed * dt; this.z += Math.cos(angle) * speed * dt;
     this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting ? 13 : 5))) * (hunting ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;
     animatePredator(this.root,time,hunting,dt);
-    if (hunting && dist < 1.5 && this.attackCooldown <= 0) { this.attackCooldown = 3; return true; }
+    if (hunting && dist < (this.kind==='bear'?2.3:1.5) && this.attackCooldown <= 0) { this.attackCooldown = this.kind==='snake'?6:3; return true; }
     return false;
   }
 }
@@ -144,16 +175,16 @@ export class Predator {
 export class Hawk {
   readonly root=createHawk();
   readonly shadow=new THREE.Mesh(new THREE.CircleGeometry(0.8,24),new THREE.MeshBasicMaterial({color:0x222a23,transparent:true,opacity:0.24,depthWrite:false}));
-  private angle:number;
+  private targetX:number;private targetZ:number;private nextTurn=0;
   private diveUntil=0;
   private cooldown=0;
-  private homeX:number;private homeZ:number;
+  private readonly rng:Random;
   x:number;z:number;
-  constructor(x:number,z:number,rng:Random){this.homeX=x;this.homeZ=z;this.x=x;this.z=z;this.angle=rng.range(0,Math.PI*2);this.shadow.rotation.x=-Math.PI/2;}
+  constructor(x:number,z:number,rng:Random){this.x=this.targetX=x;this.z=this.targetZ=z;this.rng=rng;this.shadow.rotation.x=-Math.PI/2;}
   update(dt:number,time:number,px:number,pz:number,exposed:boolean,groundAt:GroundHeight):boolean{
     this.cooldown=Math.max(0,this.cooldown-dt);
     const distance=Math.hypot(px-this.x,pz-this.z);
-    if(exposed&&distance<24&&this.cooldown<=0&&this.diveUntil<=time){this.diveUntil=time+2.5;this.cooldown=22;}
+    if(exposed&&distance<18&&this.cooldown<=0&&this.diveUntil<=time){this.diveUntil=time+2.5;this.cooldown=35;}
     if(this.diveUntil>time){
       const fraction=1-(this.diveUntil-time)/2.5;
       const direction=Math.atan2(px-this.x,pz-this.z);
@@ -162,8 +193,13 @@ export class Hawk {
       this.root.rotation.y=direction+Math.PI;
       if(fraction>0.5&&fraction<0.75&&Math.hypot(px-this.x,pz-this.z)<2&&exposed){this.diveUntil=0;return true;}
     }else{
-      this.angle+=dt*0.42;this.x=this.homeX+Math.cos(this.angle)*11;this.z=this.homeZ+Math.sin(this.angle)*11;
-      this.root.position.set(this.x,groundAt(this.x,this.z)+11+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=-this.angle;
+      if(time>=this.nextTurn||Math.hypot(this.targetX-this.x,this.targetZ-this.z)<3){
+        this.nextTurn=time+this.rng.range(7,15);
+        this.targetX=this.rng.range(-85,85);this.targetZ=this.rng.range(-85,85);
+      }
+      const heading=Math.atan2(this.targetX-this.x,this.targetZ-this.z);
+      this.x+=Math.sin(heading)*dt*5.5;this.z+=Math.cos(heading)*dt*5.5;
+      this.root.position.set(this.x,groundAt(this.x,this.z)+13+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=heading+Math.PI;
     }
     const wings=this.root.userData.wings as THREE.Group[];
     wings.forEach((w,i)=>w.rotation.z=(i===0?-1:1)*(0.12+Math.sin(time*7)*0.22));

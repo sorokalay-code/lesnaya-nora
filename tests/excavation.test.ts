@@ -56,6 +56,25 @@ test('digging respects the 50 m depth limit',()=>{
   assert.match(result.reason,/50 м/);
 });
 
+test('digging downward creates a connected sloped section',()=>{
+  const save=fixture();save.excavation=[{x:0,y:-0.5,z:0}];
+  const earth=new Excavation(new THREE.Scene(),fakeWorld(),save);
+  const result=earth.dig(camera(),0,-1.45,0,true);
+  assert.equal(result.success,true);
+  assert.equal(save.excavation.length,2);
+  assert.equal(save.excavation[1].y,-1.25);
+  assert.equal(Math.hypot(save.excavation[1].x,save.excavation[1].z),2);
+});
+
+test('a kit follows connected tunnel sections around a bend',()=>{
+  const save=fixture();save.excavation=[
+    {x:0,y:-0.5,z:0},{x:2,y:-0.5,z:0},{x:4,y:-0.5,z:0},{x:4,y:-0.5,z:2},
+  ];
+  const earth=new Excavation(new THREE.Scene(),fakeWorld(),save);
+  const step=earth.nextStep({x:0,y:-1.45,z:0},{x:4,y:-1.45,z:2});
+  assert.equal(step?.x,2);assert.equal(step?.z,0);
+});
+
 test('downward aim can start digging on a slope even if the terrain ray misses',()=>{
   const save=fixture();
   const world={...fakeWorld(),heightAt:()=>-0.4,surfaceHit:()=>undefined} as unknown as World;
@@ -121,6 +140,18 @@ test('new saves never load the previous save key',()=>{
   try{
     const repository=new SaveRepository();assert.equal(repository.exists(),false);
     repository.store(fixture());assert.equal(repository.exists(),true);assert.equal(repository.load().version,2);
+  }finally{(globalThis as unknown as {localStorage?:unknown}).localStorage=previous;}
+});
+
+test('old six-day calendar keeps the selected season when loaded',()=>{
+  const old=fixture();old.day=19;old.clock=18*1440+420;
+  const values=new Map([['lesnaya-nora-save-v2',JSON.stringify(old)]]);
+  const previous=(globalThis as unknown as {localStorage?:unknown}).localStorage;
+  (globalThis as unknown as {localStorage:unknown}).localStorage={getItem:(key:string)=>values.get(key)??null,setItem:()=>{}};
+  try{
+    const loaded=new SaveRepository().load();
+    assert.equal(loaded.day,91);assert.equal(loaded.clock%1440,420);
+    assert.equal(loaded.calendarVersion,2);
   }finally{(globalThis as unknown as {localStorage?:unknown}).localStorage=previous;}
 });
 

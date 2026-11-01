@@ -6,7 +6,7 @@ const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 
 export class SeasonSystem {
   constructor(private readonly seed:number){}
-  name(day:number):Season{return (['Весна','Лето','Осень','Зима'] as const)[Math.floor((day-1)/6)%4];}
+  name(day:number):Season{return (['Весна','Лето','Осень','Зима'] as const)[Math.floor((day-1)/30)%4];}
   temperature(day:number,clock:number,weather:Weather):number{
     const base={Весна:13,Лето:25,Осень:9,Зима:-3}[this.name(day)];
     const hour=clock%1440/60;
@@ -16,7 +16,7 @@ export class SeasonSystem {
     const season=this.name(day);
     const chance=season==='Зима'?(kind==='mushroom'||kind==='acorn'?0.28:kind==='carrot'||kind==='cabbage'?0.08:0.14):
       season==='Осень'?(kind==='berries'||kind==='acorn'?0.98:0.78):season==='Лето'?0.93:0.82;
-    return hash2(id,Math.floor((day-1)/6),this.seed+499)<chance;
+    return hash2(id,Math.floor((day-1)/30),this.seed+499)<chance;
   }
   predatorActivity(day:number):number{return this.name(day)==='Зима'?1.25:1;}
 }
@@ -33,9 +33,9 @@ export class SurvivalSystem {
     p.bowel=clamp(p.bowel+dt*0.055,0,100);
     p.bodyTemp=clamp(p.bodyTemp+((warm?38.6:38.4-Math.max(0,12-ambient)*0.36)-p.bodyTemp)*Math.min(1,dt*(warm?0.09:0.022)),28,41);
     p.poison=clamp(p.poison-dt*0.32,0,100);
-    if(p.poison>25){p.health=clamp(p.health-dt*(p.poison>60?0.25:0.11),0,100);p.thirst=clamp(p.thirst-dt*0.09,0,100);}
+    if(p.poison>25){p.health=clamp(p.health-dt*(p.poison>60?0.25:0.11)*0.8,0,100);p.thirst=clamp(p.thirst-dt*0.09,0,100);}
     if(p.poison>42&&elapsed-this.lastDiarrhea>20){this.lastDiarrhea=elapsed;onDiarrhea();p.bowel=clamp(p.bowel-30,0,100);p.dirtiness=clamp(p.dirtiness+15,0,100);}
-    if(p.hunger<10||p.energy<5||p.bladder>95||p.bowel>95||p.thirst<10||p.bodyTemp<34||p.dirtiness>82)p.health=clamp(p.health-dt*(p.thirst<2||p.bodyTemp<32?0.4:0.18),0,100);
+    if(p.hunger<10||p.energy<5||p.bladder>95||p.bowel>95||p.thirst<10||p.bodyTemp<34||p.dirtiness>82)p.health=clamp(p.health-dt*(p.thirst<2||p.bodyTemp<32?0.4:0.18)*0.8,0,100);
     else if(p.hunger>55&&p.energy>55&&p.thirst>50&&p.poison<15)p.health=clamp(p.health+dt*0.025,0,100);
     if(p.hunger>45&&p.thirst>40&&p.poison<30)p.milk=clamp(p.milk+dt*0.055,0,100);
   }

@@ -98,6 +98,14 @@ export class World {
     this.treeRootRegrow.set(id,clock+260);
     if(this.save){this.save.gnawedRoots??={};this.save.gnawedRoots[id]=clock+260;}
   }
+  gnawBark(x:number,z:number,clock:number):boolean{
+    const index=this.treeLocations.findIndex(t=>Math.hypot(t.x-x,t.z-z)<2.2);
+    if(index<0)return false;
+    const cooldown=this.save?.gnawedBark?.[index]??0;
+    if(clock<cooldown)return false;
+    if(this.save){this.save.gnawedBark??={};this.save.gnawedBark[index]=clock+240;}
+    return true;
+  }
 
   biomeAt(x: number, z: number): Biome {
     if (Math.hypot(x - 34, z - 31) < 15 || Math.hypot(x + 35, z - 29) < 12) return 'garden';
@@ -393,7 +401,7 @@ export class World {
 
   private buildResources(): void {
     let id = 0;
-    for (let i = 0; i < 670; i++) {
+    for (let i = 0; i < 1050; i++) {
       const x = this.rng.range(-100, 100), z = this.rng.range(-100, 100);
       const biome = this.biomeAt(x, z);
       const kind: FoodKind = biome === 'garden' ? this.rng.pick(['carrot', 'carrot', 'cabbage','bitterleaf']) : biome === 'swamp' ? this.rng.pick(['mushroom', 'berries', 'clover','toadstool','bitterleaf']) : biome === 'forest' ? this.rng.pick(['berries', 'mushroom', 'clover','acorn','toadstool']) : this.rng.pick(['clover','clover','bitterleaf','berries']);
@@ -459,6 +467,7 @@ export class World {
     for (const r of this.resources) {
       if (!r.available && clock >= r.regrowAt)r.available=true;
       r.mesh.visible=r.available&&this.seasons.foodVisible(r.id,r.kind,day);
+      r.mesh.scale.setScalar(r.regrowAt>0?Math.min(1,0.25+Math.max(0,clock-r.regrowAt)/90):1);
     }
     for (const r of this.resources) if (r.available && r.mesh.visible) r.mesh.rotation.y = Math.sin(time * 0.7 + r.id) * 0.04;
     if (this.rain) {
