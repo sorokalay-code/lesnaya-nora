@@ -59,9 +59,22 @@
   display: none;
 }
 .controls {
-  width: auto;
-  max-width: 440px;
+  display: block;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(680px, calc(100% - 24px));
+  white-space: normal;
   padding: 9px 12px;
+}
+.controls[open] {
+  width: min(680px, calc(100% - 24px));
+}
+.controls.controls-hint > span {
+  display: block;
+  margin-top: 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
 }
 .controls summary {
   cursor: pointer;

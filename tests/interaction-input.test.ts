@@ -42,8 +42,23 @@ test('Enter focuses chat, sends from the text field and respects IME composition
   for (const key of ['KeyW', 'KeyE', 'Space', 'Tab', 'Digit1'])
     assert.equal(input.action(key, { ...menu, editable: true }), undefined);
 });
-test('Escape closes an open panel and releases the cursor while in the world', () => {
+test('Escape closes panels and opens the main menu directly from the world', () => {
   assert.equal(input.action('Escape', menu), 'close-panels');
   assert.equal(input.action('Escape', { ...menu, editable: true }), 'close-panels');
-  assert.equal(input.action('Escape', game), 'release-cursor');
+  assert.equal(input.action('Escape', game), 'menu');
+});
+
+test('menu shortcuts preserve chat text and confirmation Escape only cancels removal', () => {
+  assert.equal(input.action('KeyI', game), 'status-panel');
+  assert.equal(input.action('KeyI', menu), 'status-panel');
+  assert.equal(input.action('KeyI', { ...menu, editable: true }), undefined);
+  for (const key of ['Backquote', 'F1']) {
+    assert.equal(input.action(key, game), 'menu');
+    assert.equal(input.action(key, menu), 'menu');
+    assert.equal(input.action(key, { ...menu, editable: true }), undefined);
+  }
+  const confirmation = { ...menu, mateMenuOpen: false, confirmationOpen: true };
+  assert.equal(input.action('Escape', confirmation), 'cancel-remove');
+  for (const key of ['KeyM', 'KeyJ', 'KeyE', 'Backquote', 'Enter'])
+    assert.equal(input.action(key, confirmation), undefined);
 });

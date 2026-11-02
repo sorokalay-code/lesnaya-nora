@@ -100,6 +100,11 @@ test('scene decorations follow relief and partner markers are replaced without d
   const before = context.scene.children.length;
   decorations.addNest({ id: 1, x: 4, y: 20, z: 7, quality: 1 });
   assert.equal(context.scene.children[before].position.y, context.world.heightAt(4, 7) + 0.04);
+  decorations.addStash({ id: 4, x: 4, y: 20, z: 7, food: {} });
+  assert.equal(context.scene.children.length, before + 2);
+  decorations.removeNest(1);
+  decorations.removeStash(4);
+  assert.equal(context.scene.children.length, before);
   const rabbit = new RabbitActor(context.save.partners[0], context.rng);
   decorations.markPartner(rabbit, true);
   decorations.markPartner(rabbit, true);

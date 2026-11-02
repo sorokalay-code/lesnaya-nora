@@ -15,6 +15,7 @@ export interface PromptPart {
   text: string;
 }
 export interface HudView {
+  nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
   status: string;
   bars: { label: string; value: number; color: string; icon: string }[];
   temperature: number;
@@ -41,6 +42,8 @@ export interface HudView {
 }
 
 export type DialogViewModel =
+  | { type: 'help' }
+  | { type: 'remove'; kind: 'stash' | 'nest'; items: number }
   | { type: 'self'; player: SaveData['player']; pregnant: boolean }
   | { type: 'mate'; partner: PartnerTraits; command: MateCommand; messages: MateMessage[] }
   | { type: 'partner'; partner: PartnerTraits; score: number; line?: string; paired: boolean }

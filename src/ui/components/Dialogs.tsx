@@ -1,4 +1,5 @@
 import { FOOD, type FoodKind } from '../../game/types';
+import { ControlGuide } from './ControlGuide';
 import type { DialogViewModel, UIAction } from '../types';
 
 import type { ReactNode } from 'react';
@@ -74,6 +75,41 @@ export function DialogView({
     </Choice>
   );
   switch (data.type) {
+    case 'help':
+      return (
+        <>
+          <Heading eyebrow="СПРАВКА" title="Управление" onAction={onAction} />
+          <ControlGuide />
+          <p>
+            Esc закрывает окно. На телефоне используй джойстик и кнопки, камеру поворачивай свайпом.
+          </p>
+        </>
+      );
+    case 'remove':
+      return (
+        <>
+          <Heading
+            eyebrow="УБЕЖИЩЕ"
+            title={data.kind === 'stash' ? 'Разобрать склад?' : 'Разобрать гнездо?'}
+            onAction={onAction}
+          />
+          <p>
+            {data.kind === 'stash'
+              ? `Внутри ${data.items} предметов. Склад и его содержимое будут удалены. Сначала забери нужные припасы.`
+              : 'Материалы гнезда будут потеряны. Разобрать можно только освобождённое от малышей гнездо.'}
+          </p>
+          <div className="dialog-actions">
+            {choice('cancel-remove', 'Отмена — вернуться в меню')}
+            <button
+              className="danger-button"
+              data-action="confirm-remove"
+              onClick={() => onAction('confirm-remove')}
+            >
+              Разобрать навсегда
+            </button>
+          </div>
+        </>
+      );
     case 'self':
       return (
         <>

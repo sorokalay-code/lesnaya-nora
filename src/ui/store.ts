@@ -57,9 +57,13 @@ export function createUIStore(dispatch: UIAction) {
 
 export type UIStore = ReturnType<typeof createUIStore>;
 
-/** На сенсорном устройстве выбор команд безопасен; на ПК окна сохраняют прежнее поведение. */
+/** Приостанавливает мир для обзора состояния и меню; на сенсорном устройстве — для всех окон. */
 export function simulationPaused(state: UIState): boolean {
   return (
+    state.statusOpen ||
+    state.familyOpen ||
+    state.dialog?.type === 'remove' ||
+    state.dialog?.type === 'help' ||
     state.actionMenuOpen ||
     state.background ||
     state.portrait ||

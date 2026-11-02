@@ -48,7 +48,7 @@ export function MobileControls({ store }: { store: UIStore }) {
           </>
         )}
         <button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</button>
-        <button onClick={() => store.setState({ actionMenuOpen: true })}>Действия ☰</button>
+        <button onClick={() => dispatch('menu')}>Действия ☰</button>
       </div>
       <span className="touch-look-hint">Свайп по миру — осмотреться</span>
     </div>

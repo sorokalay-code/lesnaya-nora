@@ -1,3 +1,5 @@
+import { ControlGuide } from './ControlGuide';
+import { trapDialogFocus } from './DialogKeyboard';
 import { ActionMenu } from './ActionMenu';
 import { MobileControls } from './MobileControls';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -39,7 +41,6 @@ export function GameApp({ store }: { store: UIStore }) {
 }
 
 function Toolbar() {
-  const store = useUIStore();
   const fullscreen = useUI((s) => s.fullscreen);
   const fullscreenAvailable = useUI((s) => s.fullscreenAvailable);
   const dispatch = useUI((state) => state.dispatch),
@@ -68,11 +69,7 @@ function Toolbar() {
           >
             {fullscreen ? '⤢ Свернуть' : '⛶ Полный экран'}
           </button>
-          <button
-            onClick={() => store.setState({ actionMenuOpen: !store.getState().actionMenuOpen })}
-          >
-            ☰ Меню
-          </button>
+          <button onClick={() => dispatch('menu')}>☰ Меню · Esc</button>
         </div>
       </div>
       <div className="family-avatars">
@@ -102,7 +99,7 @@ function Toolbar() {
 }
 
 function Hud() {
-  const store = useUIStore();
+  const dispatch = useUI((s) => s.dispatch);
   const touch = useUI((s) => s.touch);
   const expanded = useUI((s) => s.statusOpen);
   const familyOpen = useUI((s) => s.familyOpen);
@@ -133,16 +130,17 @@ function Hud() {
       </div>
       <button
         className="status-toggle"
+        title="I — подробное состояние"
         aria-expanded={expanded}
-        onClick={() => store.setState({ statusOpen: !expanded })}
+        onClick={() => dispatch('status-panel')}
       >
         ♥ {Math.round(hud.bars.find((bar) => bar.label === 'Здоровье')?.value ?? 0)} · Состояние{' '}
-        {hud.birthWarning ? ' ⚠ Роды!' : ''} {expanded ? '×' : '▾'}
+        {!touch && <kbd>I</kbd>} {hud.birthWarning ? ' ⚠ Роды!' : ''} {expanded ? '×' : '▾'}
       </button>
       <button
         className="family-toggle"
         aria-expanded={familyOpen}
-        onClick={() => store.setState({ familyOpen: !familyOpen })}
+        onClick={() => dispatch('family-panel')}
       >
         🐇 Семья · {hud.young.length} {familyOpen ? '×' : '▾'}
       </button>
@@ -227,7 +225,9 @@ function Panels() {
   useLayoutEffect(() => {
     if (!dialog) return;
 
-    if (focus.target === 'message')
+    if (dialog.type === 'remove')
+      panel.current?.querySelector<HTMLElement>('[data-action=cancel-remove]')?.focus();
+    else if (focus.target === 'message')
       panel.current?.querySelector<HTMLInputElement>('#mate-message')?.focus();
     else panel.current?.focus({ preventScroll: true });
 
@@ -236,13 +236,16 @@ function Panels() {
   }, [dialog, focus]);
   return (
     <>
+      {dialog?.type === 'remove' && <div className="confirmation-backdrop" />}
       <div
         ref={panel}
         tabIndex={-1}
         id="dialog"
         role="dialog"
+        aria-modal="true"
+        onKeyDown={trapDialogFocus}
         aria-label="Общение"
-        className={`dialog-panel ${dialog ? '' : 'hidden'}`}
+        className={`dialog-panel ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog ? '' : 'hidden'}`}
       >
         {dialog && (
           <DialogView
@@ -383,15 +386,7 @@ function Controls() {
   return (
     <details className={`controls controls-hint ${visible ? '' : 'hidden'}`}>
       <summary>Управление ⌨</summary>
-      <span>
-        WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — закрыть меню /
-        освободить курсор · ЛКМ (1-е лицо) — копать · Z — копать вниз
-      </span>
-      <span>
-        E — общаться/подобрать ветку · G — еда и багаж · Tab — партнёр · V — пить · P/L — нужда ·
-        Q/T — корни · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F/Y — кормить
-        детей · K/O — тайник
-      </span>
+      <ControlGuide />
     </details>
   );
 }

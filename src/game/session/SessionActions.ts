@@ -1,3 +1,4 @@
+import type { ShelterController } from './ShelterController';
 import { GameUI } from '../../ui/GameUI';
 import { Soundscape } from '../Audio';
 import { type MateCommand, type SaveData } from '../types';
@@ -9,6 +10,9 @@ import { InventoryController } from './InventoryController';
 import { SessionQueries } from './SessionQueries';
 
 interface Context {
+  shelters: ShelterController;
+  resetInput: () => void;
+  refreshHud: () => void;
   sound: Soundscape;
   save: SaveData;
   ui: GameUI;
@@ -29,8 +33,41 @@ interface Context {
 export class SessionActions {
   constructor(private readonly context: Context) {}
 
+  showMenu(): void {
+    this.context.resetInput();
+    this.context.refreshHud();
+    this.context.view.unlock();
+    this.context.interactions.clearSelection();
+    this.context.ui.closePanels();
+    this.context.ui.store.setState({ actionMenuOpen: true });
+  }
+
   execute(action: string): void {
+    if (action === 'close' && this.context.ui.state.dialog?.type === 'remove')
+      action = 'cancel-remove';
+    if (action === 'menu') {
+      if (this.context.ui.state.actionMenuOpen) this.context.interactions.close();
+      else this.showMenu();
+      return;
+    }
+    const fromMenu = this.context.ui.state.actionMenuOpen;
+    if (fromMenu) this.context.ui.closePanels();
+    try {
+      this.route(action);
+    } finally {
+      if (fromMenu && !this.context.ui.panelsOpen && !this.context.ui.state.overlay)
+        this.context.interactions.close();
+    }
+  }
+
+  private route(action: string): void {
     this.context.sound.unlock();
+    if (this.context.shelters.execute(action)) return;
+    if (action === 'controls-help') {
+      this.context.view.unlock();
+      this.context.ui.showDialog({ type: 'help' });
+      return;
+    }
     if (action === 'save') {
       this.context.persist(true);
       return;
@@ -84,6 +121,23 @@ export class SessionActions {
             ? 'Вид от первого лица: удерживай кнопку копания.'
             : 'Вид от первого лица: теперь можно копать ЛКМ.'
           : 'Вид от третьего лица. Для копания нажми B.',
+      );
+      return;
+    }
+
+    if (action === 'status-panel' || action === 'family-panel') {
+      const wasOpen =
+        action === 'status-panel'
+          ? this.context.ui.state.statusOpen
+          : this.context.ui.state.familyOpen;
+      this.context.view.unlock();
+      this.context.ui.closePanels();
+      if (wasOpen) {
+        this.context.interactions.close();
+        return;
+      }
+      this.context.ui.store.setState(
+        action === 'status-panel' ? { statusOpen: true } : { familyOpen: true },
       );
       return;
     }

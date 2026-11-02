@@ -45,6 +45,24 @@ export class SceneDecorations {
     this.context.scene.add(mesh);
   }
 
+  removeNest(id: number): void {
+    const mesh = this.nestMeshes.get(id);
+    if (mesh) {
+      ModelAssets.shared.release(mesh);
+      mesh.removeFromParent();
+      this.nestMeshes.delete(id);
+    }
+  }
+
+  removeStash(id: number): void {
+    const mesh = this.stashMeshes.get(id);
+    if (mesh) {
+      ModelAssets.shared.release(mesh);
+      mesh.removeFromParent();
+      this.stashMeshes.delete(id);
+    }
+  }
+
   markPartner(actor: RabbitActor, active: boolean): void {
     const previous = actor.rig.root.getObjectByName('mate-mark');
     if (previous) {

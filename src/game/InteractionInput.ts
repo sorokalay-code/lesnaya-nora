@@ -5,6 +5,7 @@ export interface InteractionContext {
   mateMenuOpen: boolean;
   editable: boolean;
   buttonFocused?: boolean;
+  confirmationOpen?: boolean;
 }
 
 /** Выбирает команды окон до игровых клавиш и защищает ввод текста от действий персонажа. */
@@ -13,10 +14,20 @@ export class InteractionInput {
   action(code: string, context: InteractionContext, composing = false): string | undefined {
     if (!context.playing) return;
 
-    if (code === 'Escape') return context.panelsOpen ? 'close-panels' : 'release-cursor';
+    if (code === 'Escape')
+      return context.confirmationOpen
+        ? 'cancel-remove'
+        : context.panelsOpen
+          ? 'close-panels'
+          : 'menu';
+
+    if (context.confirmationOpen) return;
+    if (!context.editable && (code === 'Backquote' || code === 'F1')) return 'menu';
 
     if (context.editable)
       return code === 'Enter' && context.mateMenuOpen && !composing ? 'mate-send' : undefined;
+
+    if (code === 'KeyI') return 'status-panel';
 
     if (context.panelsOpen && code === 'KeyM') return 'map';
 

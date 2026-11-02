@@ -17,12 +17,27 @@ export interface InputContext {
 
 /** Контроллер клавиатуры и мыши: отделяет ввод текста от игровых команд. */
 export class DesktopInput implements InputController {
+  private wasLocked = false;
+  private menuOpenedAt = -Infinity;
   private readonly shortcuts = new InteractionInput();
   private readonly listeners = new AbortController();
 
   constructor(private readonly context: InputContext) {
     const options = { signal: this.listeners.signal };
     window.addEventListener('resize', context.resize, options);
+    document.addEventListener(
+      'pointerlockchange',
+      () => {
+        const lost = this.wasLocked && !context.view.isLocked;
+        this.wasLocked = context.view.isLocked;
+        if (lost && this.playing && !context.ui.panelsOpen && !context.ui.state.touch) {
+          this.menuOpenedAt = performance.now();
+          this.reset();
+          context.action('menu');
+        }
+      },
+      options,
+    );
     window.addEventListener('keydown', this.keyDown, options);
     window.addEventListener('keyup', (event) => context.keys.delete(event.code), options);
     window.addEventListener('blur', () => this.reset(), options);
@@ -30,6 +45,7 @@ export class DesktopInput implements InputController {
       'pointerdown',
       (event) => {
         if (event.pointerType === 'touch' || !this.playing) return;
+        if (context.ui.state.dialog?.type === 'remove') return;
 
         if (context.ui.panelsOpen) {
           context.closePanels();
@@ -55,9 +71,7 @@ export class DesktopInput implements InputController {
   }
 
   private get playing(): boolean {
-    return (
-      this.context.running() && !this.context.ui.state.overlay && !this.context.ui.simulationPaused
-    );
+    return this.context.running() && !this.context.ui.state.overlay;
   }
 
   reset(): void {
@@ -73,6 +87,11 @@ export class DesktopInput implements InputController {
       return;
     }
 
+    if (event.code === 'Escape' && performance.now() - this.menuOpenedAt < 180) {
+      event.preventDefault();
+      return;
+    }
+
     const target = event.target instanceof HTMLElement ? event.target : undefined;
     const editable = !!target?.closest('input,textarea,select,[contenteditable="true"]');
     const shortcut = this.shortcuts.action(
@@ -80,6 +99,7 @@ export class DesktopInput implements InputController {
       {
         playing: this.playing,
         dialogOpen: !!ui.state.dialog,
+        confirmationOpen: ui.state.dialog?.type === 'remove',
         panelsOpen: ui.panelsOpen,
         editable,
         mateMenuOpen: ui.state.dialog?.type === 'mate',
@@ -99,7 +119,7 @@ export class DesktopInput implements InputController {
       return;
     }
 
-    if (editable || ui.panelsOpen || !this.playing) return;
+    if (editable || ui.panelsOpen || !this.playing || ui.simulationPaused) return;
 
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code))
       event.preventDefault();

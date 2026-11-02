@@ -1,3 +1,5 @@
+import { nestHasKits, stashItemCount } from '../../game/session/ShelterController';
+import type { NestData } from '../../game/types';
 import type { ForestAnimal } from '../../game/animals';
 import { animalNames } from '../../game/animals/names';
 import type { Excavation } from '../../game/Excavation';
@@ -32,6 +34,7 @@ export class HudPresenter {
     child?: KitData,
     animal?: ForestAnimal,
     item?: GroundPickup,
+    nest?: NestData,
   ): HudView {
     const p = save.player,
       underground = earth.isSheltered(p.x, p.y, p.z),
@@ -87,6 +90,10 @@ export class HudPresenter {
       icon,
     });
     return {
+      nearbyShelter: {
+        stash: stash ? { items: stashItemCount(stash) } : undefined,
+        nest: nest ? { occupied: nestHasKits(save, nest) } : undefined,
+      },
       status: underground ? '● ПОД ЗЕМЛЁЙ' : threat < 8 ? '● ОПАСНОСТЬ' : '● В ЛЕСУ',
       bars: [
         bar('Сытость', p.hunger, '#bdcf79', '✿'),

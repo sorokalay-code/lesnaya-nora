@@ -55,6 +55,7 @@ export class SessionInterface {
         this.context.queries.kit(),
         this.context.queries.animal(),
         this.context.items.nearest(p.x, p.y, p.z),
+        this.context.queries.nest(),
       ),
     );
   }

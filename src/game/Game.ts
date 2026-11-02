@@ -1,3 +1,4 @@
+import { ShelterController } from './session/ShelterController';
 import { FullscreenController } from './input/FullscreenController';
 import * as THREE from 'three';
 import { GameUI } from '../ui/GameUI';
@@ -48,6 +49,7 @@ export class Game {
   private consequences!: PlayerConsequences;
   private decorations!: SceneDecorations;
   private animals!: AnimalSimulation;
+  private shelters!: ShelterController;
   private actions!: SessionActions;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(60, 1, 0.1, 350);
@@ -391,7 +393,19 @@ export class Game {
       interactions: this.interactions,
       toast: (text) => this.toast(text),
     });
+    this.shelters = new ShelterController({
+      save: this.save,
+      queries: this.queries,
+      decorations: this.decorations,
+      ui: this.ui,
+      menu: () => this.actions.showMenu(),
+      persist: () => this.sessionUI.persist(false),
+      toast: (text) => this.toast(text),
+    });
     this.actions = new SessionActions({
+      shelters: this.shelters,
+      resetInput: () => this.input.clear(),
+      refreshHud: () => this.sessionUI.updateHud(),
       save: this.save,
       ui: this.ui,
       sound: this.sound,
