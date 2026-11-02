@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "test": "node tools/run-tests.mjs",
+    "format": "prettier --write src tests tools vite.config.ts tsconfig.json package.json",
+    "format:check": "prettier --check src tests tools vite.config.ts tsconfig.json package.json",
+    "check:structure": "node tools/check-structure.mjs",
     "audit:models": "node tools/audit-models.mjs",
     "audit:scene": "node tools/audit-scene.mjs",
     "models": "node tools/build-models.mjs",
@@ -12,10 +16,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "^0.186.1"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.186.1",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "prettier": "^3.9.10",
     "typescript": "^5.9.3",
     "vite": "^7.1.0"
   }

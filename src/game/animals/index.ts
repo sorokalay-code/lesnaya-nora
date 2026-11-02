@@ -1,0 +1,12 @@
+export { Animal } from './Animal';
+export { AnimalFactory, createForestAnimal, createPredatorActor } from './AnimalFactory';
+export { FamilyMember } from './FamilyMember';
+export { ForestAnimal } from './ForestAnimal';
+export { Hawk } from './Hawk';
+export { PlayerRabbit } from './PlayerRabbit';
+export { Predator } from './Predator';
+export { Rabbit } from './Rabbit';
+export { RabbitActor } from './RabbitActor';
+export { RabbitFactory, partnerScore } from './RabbitFactory';
+export { RabbitKit } from './RabbitKit';
+export type { GroundHeight, PredatorProfile, WildlifeKind, WildlifeProfile } from './types';
