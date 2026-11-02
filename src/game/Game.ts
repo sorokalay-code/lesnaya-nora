@@ -20,6 +20,7 @@ import { PartnerSupport } from './PartnerSupport';
 import { ModelAssets } from './ModelAssets';
 import { AnimalPhysics, type PhysicalBody } from './AnimalPhysics';
 import {PerformanceMonitor} from './PerformanceMonitor';
+import {InteractionInput} from './InteractionInput';
 import { FOOD, type FoodKind, type KitData, type MateCommand, type MaterialKind, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -47,6 +48,7 @@ export class Game {
   private partnerSupport!:PartnerSupport;
   private readonly physics=new AnimalPhysics();
   private performanceMonitor!:PerformanceMonitor;
+  private readonly interactionInput=new InteractionInput();
   private rng!: Random;
   private factory!: RabbitFactory;
   private world!: World;
@@ -104,6 +106,7 @@ export class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
     this.renderer.domElement.className = 'game-canvas';
+    this.renderer.domElement.tabIndex=-1;
     this.app.append(this.renderer.domElement);
     this.buildUi(); this.bind(); this.resize();
     this.performanceMonitor=new PerformanceMonitor(this.app);
@@ -116,7 +119,7 @@ export class Game {
     layer.innerHTML = `<div class="topbar"><div class="brand"><span class="brand-icon">✦</span><span>ЛЕСНАЯ НОРА<small>история дикой крольчихи</small></span></div><div id="world-info" class="world-info"></div><div class="top-actions"><button id="camera-button" data-action="camera" title="Переключить вид (B)">◉ 3-е лицо</button><button data-action="map" title="Карта (M)">◈ Карта</button><button data-action="journal" title="Дневник (J)">☰ Дневник</button><button data-action="save" title="Сохранить (F5)">▣ Сохранить</button><button data-action="sound" title="Звук">♪</button><button data-action="settings" title="Настройки">⚙</button></div></div>
       <div id="family-avatars" class="family-avatars"></div><div id="kit-progress" class="kit-progress hidden"></div>
       <div id="hud" class="hud"></div><div id="prompt" class="prompt"></div><div id="toast" class="toast-box"></div><div class="dig-reticle" aria-hidden="true">✦</div>
-      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — освободить курсор · щелчок по миру — вернуться · ЛКМ (1-е лицо) — копать · Z — копать вниз</span><span>E — общаться/подобрать ветку · G — еда и выбросить предмет · иконка партнёра — команды и сообщения · V — пить · P/L — нужда · Q/T — корни · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F/Y — кормить детей · K/O — тайник</span></div>
+      <div id="controls" class="controls"><b>Управление</b><span>WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — закрыть меню / освободить курсор · щелчок по миру — вернуться · ЛКМ (1-е лицо) — копать · Z — копать вниз</span><span>E — общаться/подобрать ветку · G — еда и выбросить предмет · Tab — партнёр, приказы и сообщения · V — пить · P/L — нужда · Q/T — корни · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F/Y — кормить детей · K/O — тайник</span></div>
       <div id="settings" class="settings-panel hidden"></div><div id="journal" class="journal hidden"></div><div id="dialog" class="dialog-panel hidden"></div><div id="overlay" class="overlay"></div>`;
     this.app.append(layer);
     this.overlay = layer.querySelector('#overlay')!; this.hud = layer.querySelector('#hud')!;
@@ -140,6 +143,24 @@ export class Game {
   private bind(): void {
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', e => {
+      if(e.code==='F5'){e.preventDefault();if(!e.repeat)this.action('save');return;}
+      const target=e.target instanceof HTMLElement?e.target:undefined;
+      const editable=!!target?.closest('input,textarea,select,[contenteditable="true"]');
+      const dialogOpen=!this.dialog.classList.contains('hidden');
+      const panelsOpen=dialogOpen||!this.journal.classList.contains('hidden')||!this.settings.classList.contains('hidden');
+      const shortcut=this.interactionInput.action(e.code,{
+        playing:this.running&&this.overlay.classList.contains('hidden'),dialogOpen,panelsOpen,editable,
+        mateMenuOpen:dialogOpen&&!!this.dialog.querySelector('#mate-message'),buttonFocused:!!target?.closest('button')
+      },e.isComposing);
+      if(shortcut){
+        e.preventDefault();if(e.repeat)return;this.keys.clear();this.digHeld=false;
+        if(shortcut==='close-panels')this.closeInteractionPanels();
+        else if(shortcut==='release-cursor')this.view.unlock();
+        else if(shortcut==='mate-focus')this.dialog.querySelector<HTMLInputElement>('#mate-message')?.focus();
+        else this.action(shortcut);
+        return;
+      }
+      if(editable||panelsOpen)return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5'].includes(e.code)) e.preventDefault();
       if(e.code==='Escape'){this.view.unlock();this.digHeld=false;return;}
       this.keys.add(e.code); if (e.repeat) return;
@@ -154,6 +175,7 @@ export class Game {
     window.addEventListener('blur', () => {this.keys.clear();this.digHeld=false;});
     this.renderer.domElement.addEventListener('pointerdown',e=>{
       if(!this.running||!this.overlay.classList.contains('hidden'))return;
+      if(!this.dialog.classList.contains('hidden')||!this.journal.classList.contains('hidden')||!this.settings.classList.contains('hidden')){this.closeInteractionPanels();return;}
       this.view.lock();
       if(e.button!==0)return;
       this.digHeld=this.view.isFirstPerson;this.action('dig');
@@ -672,7 +694,7 @@ export class Game {
       this.controls.classList.toggle('hidden',!this.showControls);this.settings.innerHTML=`<div class="journal-head"><h2>Настройки</h2><button data-action="settings">×</button></div><button class="setting-row" data-action="toggle-controls">${this.showControls?'☑':'☐'} Показывать подсказку управления</button>`;return;
     }
     if (action === 'journal' || action === 'map') { this.toggleJournal(action); return; }
-    if (action === 'close') { this.dialog.classList.add('hidden'); this.dialogPartner = undefined;this.dialogKit=undefined;this.dialogAnimal=undefined; return; }
+    if (action === 'close') { this.closeInteractionPanels();return; }
     if (['talk','gift','court','divorce','ask-food','ask-home','ask-danger','compliment'].includes(action)) { this.partnerAction(action); return; }
     if (['child-follow','child-stay','child-rest'].includes(action)) { this.childAction(action);return;}
     if(['animal-observe','animal-food','animal-path'].includes(action)){this.animalAction(action);return;}
@@ -839,9 +861,20 @@ export class Game {
 
   private openMatePanel():void{
     const mate=this.save.partners.find(p=>p.id===this.save.mateId);
-    if(!mate){this.toast('Партнёр пока не найден. Познакомься с кролами в лесу.');return;}
+    if(!mate){this.toast('Партнёра пока нет. Подойди к кролу и нажми E, чтобы познакомиться.');return;}
+    this.keys.clear();this.digHeld=false;this.dialogPartner=undefined;this.dialogKit=undefined;this.dialogAnimal=undefined;
+    this.settings.classList.add('hidden');
     this.view.unlock();this.journal.classList.add('hidden');this.dialog.classList.remove('hidden');
     this.dialog.innerHTML=this.panels.matePanel(this.save,mate);
+    this.dialog.tabIndex=-1;this.dialog.focus({preventScroll:true});
+    const chat=this.dialog.querySelector<HTMLElement>('.mate-chat');if(chat)chat.scrollTop=chat.scrollHeight;
+  }
+
+  private closeInteractionPanels():void{
+    this.dialog.classList.add('hidden');this.journal.classList.add('hidden');this.settings.classList.add('hidden');
+    this.dialogPartner=undefined;this.dialogKit=undefined;this.dialogAnimal=undefined;this.keys.clear();this.digHeld=false;
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    if(this.running&&this.overlay.classList.contains('hidden')){this.renderer.domElement.focus({preventScroll:true});this.view.lock();}
   }
 
   private commandMate(command:MateCommand):void{
@@ -868,6 +901,7 @@ export class Game {
     chat.push({from:'partner',text:reply,clock:this.save.clock});
     if(chat.length>20)chat.splice(0,chat.length-20);
     mate.trust=clamp(mate.trust+2,0,100);this.sound.play('chirp');this.openMatePanel();
+    this.dialog.querySelector<HTMLInputElement>('#mate-message')?.focus();
   }
 
   private partnerAction(action: string): void {

@@ -25,7 +25,7 @@ export class HudRenderer {
       .map(k=>`<span title="${FOOD[k].label}">${FOOD[k].emoji} ${save.inventory[k]}</span>`).join('')||'<span>Пусто</span>';
     const young=save.kits.filter(k=>k.alive&&k.age<3);
     const mate=save.partners.find(p=>p.id===save.mateId);
-    this.avatars.innerHTML=`<button class="avatar-chip" data-action="self-profile" title="Состояние крольчихи"><span class="avatar-face">🐰</span><span>Ты <small>крольчиха</small></span></button><button class="avatar-chip ${mate?'paired':''}" data-action="mate-panel" title="Партнёр: команды и сообщения"><span class="avatar-face">${mate?'🐰':'♡'}</span><span>${mate?.name??'Партнёр'} <small>${mate?'команды и чат':'пока не найден'}</small></span></button>`;
+    this.avatars.innerHTML=`<button class="avatar-chip" data-action="self-profile" title="Состояние крольчихи"><span class="avatar-face">🐰</span><span>Ты <small>крольчиха</small></span></button><button class="avatar-chip ${mate?'paired':''}" data-action="mate-panel" title="Tab — партнёр: команды и сообщения"><span class="avatar-face">${mate?'🐰':'♡'}</span><span>${mate?.name??'Партнёр'} <small>${mate?'Tab · команды и чат':'Tab · пока не найден'}</small></span></button>`;
     this.kitProgress.classList.toggle('hidden',young.length===0);
     this.kitProgress.innerHTML=young.length?`<b>РОСТ КРОЛЬЧАТ</b>${young.map(k=>{
       const growth=FamilyCare.growth(k),care=k.hunger>=70?'сыт':`подкорми: ${growth.feedsNeeded} раз · ${growth.food}`;
