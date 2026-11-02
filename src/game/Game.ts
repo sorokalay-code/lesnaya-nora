@@ -360,6 +360,7 @@ export class Game {
       persist: () => this.sessionUI.persist(false),
       markPartner: (actor, active) => this.decorations.markPartner(actor, active),
       playAction: (action, duration) => this.playAction(action, duration),
+      familyStash: () => this.partnerSupport.familyStash(),
       startMating: (fatherId, until) => {
         this.animalState.mating = { fatherId, until };
       },
@@ -423,7 +424,6 @@ export class Game {
       traffic: this.traffic,
       collisions: this.collisions,
       partnerSupport: this.partnerSupport,
-      inventory: this.inventory,
       seasons: this.seasons,
       consequences: this.consequences,
       state: this.animalState,

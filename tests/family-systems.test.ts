@@ -142,6 +142,7 @@ test('partner physically collects food and deposits it in the family stash', () 
   const data = save(),
     scene = new THREE.Scene();
   data.player.y = 0;
+  data.stashes[0].y = -1;
   const resource = {
     id: 1,
     x: 0.5,
@@ -162,15 +163,15 @@ test('partner physically collects food and deposits it in the family stash', () 
   const earth = {
     nextStep: () => undefined,
     floorAt: () => 0,
-    isSheltered: () => false,
+    isSheltered: (_x: number, y: number) => y < -0.2,
   } as unknown as Excavation;
   const items = new GroundItems(world, data),
     actor = new RabbitActor(partner, new Random(2));
   const support = new PartnerSupport(data, world, earth, items, new Random(3));
-  support.update(actor, 0.5, 1, data.stashes[0], data.stashes[0], () => 0);
+  support.update(actor, 0.5, 1, () => 0);
   assert.equal(resource.available, false);
   assert.equal(data.stashes[0].food.clover, undefined);
-  support.update(actor, 0.5, 2, data.stashes[0], data.stashes[0], () => 0);
+  support.update(actor, 0.5, 2, () => 0);
   assert.equal(data.stashes[0].food.clover, 1);
   assert.equal(data.stashes[0].materials?.grass, 1);
   assert.equal(data.stashes[0].materials?.fur, 1);
@@ -199,6 +200,51 @@ test('partner can return from the surface to an underground family nest', () => 
     actor.navigateMate(1 / 60, frame / 60, { x: 5, y: 0, z: 0 }, earth, () => 0);
   assert.ok(actor.data.x > 3);
   assert.ok((actor.rig.root.userData.baseY as number) > -0.1);
+});
+
+test('partner chooses the closest existing underground stash instead of a surface stash', () => {
+  const data = save();
+  const surface = data.stashes[0];
+  const far = { id: 2, x: 20, y: -2, z: 0, food: {} };
+  const near = { id: 3, x: 3, y: -2, z: 0, food: {} };
+  data.stashes.push(far, near);
+  const earth = { isSheltered: (_x: number, y: number) => y < 0 } as Excavation;
+  const support = new PartnerSupport(data, {} as World, earth, {} as GroundItems, new Random(3));
+  assert.equal(support.familyStash(), near);
+  assert.notEqual(support.familyStash(), surface);
+  data.player.x = 18;
+  assert.equal(support.familyStash(), far);
+  assert.equal(data.stashes.length, 3);
+});
+
+test('without underground storage partner follows mother and keeps cargo without creating a stash', (t) => {
+  const data = save();
+  data.mateCommand = 'forage';
+  data.partnerCargo = { food: 'clover', grass: 1, twigs: 2, fur: 1 };
+  const before = structuredClone(data.stashes);
+  const cargo = structuredClone(data.partnerCargo);
+  const earth = { isSheltered: () => false } as Excavation;
+  const actor = new RabbitActor({ ...partner }, new Random(2));
+  const targets: object[] = [];
+  t.mock.method(actor, 'navigateMate', (_dt: number, _time: number, target: object) => {
+    targets.push(target);
+    return true;
+  });
+  const support = new PartnerSupport(data, {} as World, earth, {} as GroundItems, new Random(3));
+  for (let frame = 0; frame < 120; frame++) support.update(actor, 1 / 60, frame / 60, () => 0);
+  assert.equal(data.mateCommand, 'follow');
+  assert.ok(targets.every((target) => target === data.player));
+  assert.deepEqual(data.stashes, before);
+  assert.deepEqual(data.partnerCargo, cargo);
+
+  data.mateCommand = 'home';
+  support.update(actor, 1 / 60, 3, () => 0);
+  assert.equal(data.mateCommand, 'follow');
+  data.mateCommand = 'stay';
+  data.mateStay = { x: 7, y: 0, z: 5 };
+  support.update(actor, 1 / 60, 4, () => 0);
+  assert.equal(targets.at(-1), data.mateStay);
+  assert.equal(data.mateCommand, 'stay');
 });
 
 test('other rabbits spread out and kits choose individual tunnel destinations', () => {

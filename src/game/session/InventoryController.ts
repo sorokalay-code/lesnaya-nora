@@ -254,27 +254,4 @@ export class InventoryController {
     );
     return;
   }
-
-  ensureFamilyStash(home: { x: number; y: number; z: number }): StashData {
-    const nearby = this.context.save.stashes.find(
-      (s) => Math.hypot(s.x - home.x, s.y - home.y, s.z - home.z) < 5,
-    );
-    if (nearby) return nearby;
-
-    const x = home.x + 0.65,
-      z = home.z + 0.45;
-    const stash: StashData = {
-      id: Math.max(0, ...this.context.save.stashes.map((s) => s.id)) + 1,
-      x,
-      y: this.context.earth.isSheltered(home.x, home.y, home.z)
-        ? this.context.earth.floorAt(x, z, home.y)
-        : this.context.world.heightAt(x, z),
-      z,
-      food: {},
-      materials: { grass: 0, twigs: 0, fur: 0 },
-    };
-    this.context.save.stashes.push(stash);
-    this.context.addStash(stash);
-    return stash;
-  }
 }

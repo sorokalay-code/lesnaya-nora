@@ -24,16 +24,39 @@ export class PartnerSupport {
     private readonly rng: Random,
   ) {}
 
+  familyStash(): StashData | undefined {
+    // Домом служит только готовый склад в укрытом ходе; расстояние считаем от крольчихи.
+    const player = this.save.player;
+    let nearest: StashData | undefined;
+    let distance = Infinity;
+    for (const stash of this.save.stashes) {
+      if (!this.earth.isSheltered(stash.x, stash.y, stash.z)) continue;
+      const current = Math.hypot(stash.x - player.x, stash.y - player.y, stash.z - player.z);
+      if (current < distance) {
+        nearest = stash;
+        distance = current;
+      }
+    }
+    return nearest;
+  }
+
   update(
     actor: RabbitActor,
     dt: number,
     time: number,
-    home: { x: number; y: number; z: number },
-    stash: StashData,
     groundAt: GroundHeight,
   ): PartnerEvent | undefined {
-    const command = this.save.mateCommand ?? 'forage',
-      cargo = (this.save.partnerCargo ??= { grass: 0, twigs: 0, fur: 0 });
+    const stash = this.familyStash();
+    const home = stash ?? this.save.player;
+    let command = this.save.mateCommand ?? 'forage';
+    if (!stash) {
+      this.target = undefined;
+      if (command !== 'stay') {
+        command = 'follow';
+        this.save.mateCommand = 'follow';
+      }
+    }
+    const cargo = (this.save.partnerCargo ??= { grass: 0, twigs: 0, fur: 0 });
     if (command === 'follow') {
       actor.navigateMate(dt, time, this.save.player, this.earth, groundAt, 3.4);
       return;
@@ -48,6 +71,8 @@ export class PartnerSupport {
       actor.navigateMate(dt, time, home, this.earth, groundAt);
       return;
     }
+
+    if (!stash) return;
 
     if (cargo.food || cargo.grass || cargo.twigs || cargo.fur) {
       actor.navigateMate(dt, time, stash, this.earth, groundAt);

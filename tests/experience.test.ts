@@ -168,6 +168,8 @@ test('forming a pair does not generate a nest or consume nest materials', () => 
     ui: { showDialog() {}, closeDialog() {} },
     sound: { play() {} },
     playAction() {},
+    familyStash: () => undefined,
+    resetInput() {},
     startMating() {},
     elapsed: () => 0,
     toast() {},
@@ -177,6 +179,13 @@ test('forming a pair does not generate a nest or consume nest materials', () => 
   interactions.openPartner(partner);
   interactions.partnerAction('court');
   assert.equal(save.mateId, partner.id);
+  assert.equal(save.mateCommand, 'follow');
+  assert.equal(save.stashes.length, 0);
+  interactions.commandMate('forage');
+  assert.equal(save.mateCommand, 'follow');
+  interactions.commandMate('home');
+  assert.equal(save.mateCommand, 'follow');
+  assert.equal(save.stashes.length, 0);
   assert.equal(save.nests.length, 0);
   assert.deepEqual(save.materials, before);
 });

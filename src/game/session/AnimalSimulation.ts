@@ -10,7 +10,6 @@ import { FamilyMember, Hawk, Predator, RabbitActor } from '../animals';
 import { SeasonSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
-import { InventoryController } from './InventoryController';
 
 import type { PlayerConsequences } from './PlayerConsequences';
 export interface AnimalState {
@@ -32,7 +31,6 @@ interface Context {
   traffic: ExcavationTraffic;
   collisions: AnimalCollisionSystem;
   partnerSupport: PartnerSupport;
-  inventory: InventoryController;
   seasons: SeasonSystem;
   consequences: PlayerConsequences;
   state: AnimalState;
@@ -63,20 +61,7 @@ export class AnimalSimulation {
     const p = this.context.save.player;
     for (const rabbit of this.context.rabbits) {
       if (rabbit.data.id === this.context.save.mateId) {
-        const home =
-          this.context.save.nests.find((n) => this.context.earth.isSheltered(n.x, n.y, n.z)) ??
-          this.context.save.nests[0] ??
-          this.context.save.stashes[0] ??
-          p;
-        const stash = this.context.inventory.ensureFamilyStash(home);
-        const event = this.context.partnerSupport.update(
-          rabbit,
-          dt,
-          time,
-          home,
-          stash,
-          this.context.groundAt,
-        );
+        const event = this.context.partnerSupport.update(rabbit, dt, time, this.context.groundAt);
         if (
           event?.kind === 'delivered' &&
           Math.hypot(rabbit.data.x - p.x, rabbit.data.z - p.z) < 12

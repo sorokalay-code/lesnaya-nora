@@ -1,4 +1,5 @@
 import type { GameUI } from '../../ui/GameUI';
+import type { StashData } from '../types';
 import type { Soundscape } from '../Audio';
 import type { RabbitAction } from '../Models';
 import { setRabbitAction } from '../Models';
@@ -24,6 +25,7 @@ interface InteractionContext {
   persist: () => void;
   markPartner: (actor: RabbitActor, active: boolean) => void;
   playAction: (action: RabbitAction, duration: number) => void;
+  familyStash: () => StashData | undefined;
   startMating: (fatherId: number, until: number) => void;
 }
 /** Управляет разговорами, отношениями и семейными командами через порт интерфейса. */
@@ -91,6 +93,15 @@ export class InteractionController {
       this.context.save.mateId === undefined
     )
       return;
+
+    if ((command === 'home' || command === 'forage') && !this.context.familyStash()) {
+      this.context.save.mateCommand = 'follow';
+      this.context.toast(
+        'Сначала устрой склад под землёй. Пока партнёр будет идти за тобой и ждать указаний.',
+      );
+      this.openMatePanel();
+      return;
+    }
 
     this.context.save.mateCommand = command;
     if (command === 'stay') {
@@ -226,7 +237,7 @@ export class InteractionController {
 
       this.context.save.pregnancy = { fatherId: p.id, progress: 0 };
       this.context.save.mateId = p.id;
-      this.context.save.mateCommand = 'forage';
+      this.context.save.mateCommand = this.context.familyStash() ? 'forage' : 'follow';
       this.context.save.mateMessages = [];
       this.context.playAction('mate', 3.1);
       this.context.startMating(p.id, this.context.elapsed() + 3.1);
