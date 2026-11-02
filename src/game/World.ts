@@ -4,6 +4,7 @@ import { SeasonSystem } from './Systems';
 import { WorldChunks } from './WorldChunks';
 import { Terrain } from './Terrain';
 import { ModelAssets } from './ModelAssets';
+import { ResourceInstances } from './ResourceInstances';
 import { type Biome, type FoodKind, type SaveData, type Weather } from './types';
 
 export interface Resource { id: number; x: number; z: number; kind: FoodKind; mesh: THREE.Group; available: boolean; regrowAt: number; }
@@ -49,6 +50,7 @@ export class World {
   private treeRootRegrow=new Map<number,number>();
   private currentClock=0;
   private nextResourceSync=0;
+  private resourceInstances!:ResourceInstances;
   private foliageMaterials=new Map<THREE.MeshStandardMaterial,THREE.Color>();
   private deciduousCrowns:THREE.Object3D[]=[];
   private fallenLeaves:THREE.Object3D[]=[];
@@ -63,6 +65,7 @@ export class World {
     this.exposedSoil.map=ModelAssets.shared.soil??null;
     for(const [id,time] of Object.entries(save?.gnawedRoots??{}))this.treeRootRegrow.set(Number(id),time);
     this.buildGround(); this.buildDecorations(); this.buildResources();
+    this.resourceInstances=new ResourceInstances(this.resources,this.chunks,root=>this.trackFoliage(root));
   }
 
   /** The rendered terrain consists of two triangles per 1 m tile. Gameplay samples those same planes. */
@@ -143,7 +146,7 @@ export class World {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2)); geo.setIndex(indices); geo.computeVertexNormals();
     this.groundColors=geo.getAttribute('color') as THREE.BufferAttribute;this.baseGroundColors=new Float32Array(colors);
-    const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true,map:ModelAssets.shared.ground, roughness: 1, side: THREE.DoubleSide }));
+    const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true,map:ModelAssets.shared.ground??null, roughness: 1, side: THREE.DoubleSide }));
     ground.receiveShadow = true; this.scene.add(ground);this.groundMesh=ground;
   }
 
@@ -342,7 +345,7 @@ export class World {
       for(const side of [-1,1]){
         const wing=new THREE.Mesh(wingGeo,wingMat);wing.position.set(side*0.12,0,0);wing.scale.set(0.15,0.025,0.1);root.add(wing);
       }
-      root.position.set(x,this.heightAt(x,z)+0.9,z);this.chunks.add(root,x,z);this.butterflies.push({mesh:root,x,z,phase:i*2.37});
+      root.position.set(x,this.heightAt(x,z)+0.9,z);this.chunks.add(root,x,z,true);this.butterflies.push({mesh:root,x,z,phase:i*2.37});
     }
   }
 
@@ -392,15 +395,9 @@ export class World {
       const x = this.rng.range(-100, 100), z = this.rng.range(-100, 100);
       const biome = this.biomeAt(x, z);
       const kind: FoodKind = biome === 'garden' ? this.rng.pick(['carrot', 'carrot', 'cabbage','bitterleaf']) : biome === 'swamp' ? this.rng.pick(['mushroom', 'berries', 'clover','toadstool','bitterleaf']) : biome === 'forest' ? this.rng.pick(['berries', 'mushroom', 'clover','acorn','toadstool']) : this.rng.pick(['clover','clover','bitterleaf','berries']);
-      const mesh = this.resourceModel(kind); mesh.position.set(x, this.heightAt(x,z), z); this.chunks.add(mesh,x,z);
+      const mesh = new THREE.Group();mesh.name=`resource-${kind}`; mesh.position.set(x, this.heightAt(x,z), z); this.chunks.add(mesh,x,z);
       this.resources.push({ id: id++, x, z, kind, mesh, available: true, regrowAt: 0 });
     }
-  }
-
-  private resourceModel(kind: FoodKind): THREE.Group {
-    const model=ModelAssets.shared.create(kind).root;
-    this.trackFoliage(model);
-    return model;
   }
 
   nearestResource(x: number, z: number, radius = 2): Resource | undefined {
@@ -422,6 +419,7 @@ export class World {
 
   harvest(resource: Resource, clock: number): void {
     resource.available = false; resource.mesh.visible = false; resource.regrowAt = clock + (this.seasons.name(this.currentDay)==='Зима'?480:110) + (resource.id % 60);
+    this.resourceInstances.sync(resource);
   }
 
   update(clock: number, time: number, weather: Weather,day:number,px:number,pz:number): void {
@@ -434,6 +432,7 @@ export class World {
         r.mesh.visible=r.available&&this.seasons.foodVisible(r.id,r.kind,day);
         r.mesh.scale.setScalar(r.regrowAt>0?Math.min(1,0.25+Math.max(0,clock-r.regrowAt)/90):1);
         if(r.mesh.visible&&Math.hypot(r.x-px,r.z-pz)<28)r.mesh.rotation.y=Math.sin(time*.7+r.id)*.04;
+        this.resourceInstances.sync(r);
       }
     }
     if (this.rain) {

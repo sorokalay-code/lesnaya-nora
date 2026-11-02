@@ -15,7 +15,7 @@ export class CaveMesher {
   private edges:Edge[]=[];
   private readonly chunkSize=6;
   private readonly step=0.5;
-  private readonly material=new THREE.MeshStandardMaterial({color:0x80694e,map:ModelAssets.shared.soil,roughness:1,side:THREE.BackSide});
+  private readonly material=new THREE.MeshStandardMaterial({color:0x80694e,map:ModelAssets.shared.soil??null,roughness:1,side:THREE.BackSide});
   constructor(scene:THREE.Scene,private readonly surfaceAt:(x:number,z:number)=>number=()=>Infinity){scene.add(this.group);}
 
   addNode(node:DigNode,connections:DigNode[]):void{

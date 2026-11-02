@@ -3,6 +3,7 @@ import { Predator, type GroundHeight } from './Entities';
 import { Random } from './Random';
 import { createForestAnimal, type ForestAnimal, type WildlifeKind } from './Wildlife';
 import { World, type Resource } from './World';
+import {ModelAssets} from './ModelAssets';
 
 type Target=ForestAnimal|Predator;
 export type WildlifeEvent={kind:'hunt'|'fight'|'defend'|'arrival';x:number;z:number;subject:string};
@@ -101,10 +102,10 @@ export class WildlifeEcology {
       this.preyTargets.delete(predator);
     }
     for(let i=this.animals.length-1;i>=0;i--)if(!this.animals[i].alive){
-      const animal=this.animals.splice(i,1)[0];animal.root.removeFromParent();this.foodTargets.delete(animal);
+      const animal=this.animals.splice(i,1)[0];ModelAssets.shared.release(animal.root);animal.root.removeFromParent();this.foodTargets.delete(animal);
     }
     for(let i=predators.length-1;i>=0;i--)if(!predators[i].alive){
-      const predator=predators.splice(i,1)[0];predator.root.removeFromParent();this.preyTargets.delete(predator);
+      const predator=predators.splice(i,1)[0];ModelAssets.shared.release(predator.root);predator.root.removeFromParent();this.preyTargets.delete(predator);
     }
     if(time>=this.nextSpawn){
       this.nextSpawn=time+this.rng.range(24,42);

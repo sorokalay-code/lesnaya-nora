@@ -1,6 +1,7 @@
 // Offline art pipeline. The game only loads the exported GLB files.
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
@@ -11,8 +12,8 @@ class NodeFileReader {
 }
 globalThis.FileReader = NodeFileReader;
 
-const sphere = new THREE.SphereGeometry(1, 16, 12);
-const smallSphere = new THREE.SphereGeometry(1, 10, 8);
+let sphere = new THREE.SphereGeometry(1, 16, 12);
+let smallSphere = new THREE.SphereGeometry(1, 10, 8);
 const cone = new THREE.ConeGeometry(1, 1, 9);
 const cylinder = new THREE.CylinderGeometry(1, 1, 1, 9);
 const materials = new Map();
@@ -300,12 +301,17 @@ function pineTree(){
 }
 function fern(){
   const root=group(new THREE.Group(),'fern'),green=mat('leaf_fern',0x4e8054);
+  green.side=THREE.DoubleSide;
+  const blade=new THREE.BufferGeometry();
+  blade.setAttribute('position',new THREE.Float32BufferAttribute([-.12,0,0,0,.025,-.055,.12,0,0,0,-.015,.055],3));
+  blade.setAttribute('uv',new THREE.Float32BufferAttribute([0,.5,.5,0,1,.5,.5,1],2));
+  blade.setIndex([0,1,2,0,2,3]);blade.computeVertexNormals();
   for(let i=0;i<9;i++){
     const a=i*Math.PI*2/9;const pivot=group(root,`Frond${i}`);
     stick(pivot,green,`Stem${i}`,[0,.04,0],[Math.cos(a)*.57,.66,Math.sin(a)*.57],.018);
     for(let j=0;j<6;j++){
       const t=(j+1)/7,x=Math.cos(a)*.57*t,z=Math.sin(a)*.57*t,y=.04+.62*t;
-      for(const side of [-1,1])ell(pivot,green,`Leaflet${i}_${j}_${side}`,[x+Math.sin(a)*side*.13*(1-t),y,z-Math.cos(a)*side*.13*(1-t)],[.13*(1-t*.5),.025,.06],[0,a,0]);
+      for(const side of [-1,1])mesh(pivot,blade,green,`Leaflet${i}_${j}_${side}`,[x+Math.sin(a)*side*.13*(1-t),y,z-Math.cos(a)*side*.13*(1-t)],[1-t*.5,1,1],[0,a,0]);
     }
   }
   return root;
@@ -438,10 +444,41 @@ const models={rabbit,fox:()=>quadruped('fox'),wolf:()=>quadruped('wolf'),dog:()=
   deer:()=>peaceful('deer'),squirrel:()=>peaceful('squirrel'),hedgehog:()=>peaceful('hedgehog'),beaver:()=>peaceful('beaver'),moose:()=>peaceful('moose'),nest,stash,
   branch:branchItem,grass_bundle:grassItem,twig_bundle:twigsItem,fur_tuft:furItem,
   oak,pine:pineTree,fern,reed,bush,carrot:()=>foodPlant('carrot'),cabbage:()=>foodPlant('cabbage'),mushroom:()=>foodPlant('mushroom'),toadstool:()=>foodPlant('toadstool'),berries:()=>foodPlant('berries'),acorn:()=>foodPlant('acorn'),clover:()=>foodPlant('clover'),bitterleaf:()=>foodPlant('bitterleaf')};
+const creatures=new Set(['rabbit','fox','wolf','dog','lynx','weasel','bear','snake','hawk','deer','squirrel','hedgehog','beaver','moose']);
+function mergeParts(root,flatten=false){
+  // Bake rigid details into their pivot. Animated groups and seasonal groups remain intact.
+  if(flatten){
+    root.updateMatrixWorld(true);
+    const parts=[];root.traverse(object=>{if(object.isMesh)parts.push(object);});
+    const inverse=root.matrixWorld.clone().invert();
+    for(const part of parts){const transform=inverse.clone().multiply(part.matrixWorld);part.removeFromParent();root.add(part);part.matrix.copy(transform);part.matrix.decompose(part.position,part.quaternion,part.scale);}
+    for(const child of [...root.children])if(!child.isMesh)root.remove(child);
+  }
+  for(const child of [...root.children])if(!child.isMesh)mergeParts(child);
+  const buckets=new Map();
+  for(const child of root.children)if(child.isMesh){const list=buckets.get(child.material)??[];list.push(child);buckets.set(child.material,list);}
+  for(const [material,parts] of buckets){
+    if(parts.length<2)continue;
+    const geometries=parts.map(part=>{part.updateMatrix();return part.geometry.clone().applyMatrix4(part.matrix);});
+    const geometry=mergeGeometries(geometries,false);
+    if(!geometry)throw new Error('Cannot merge '+root.name);
+    const combined=new THREE.Mesh(geometry,material);combined.name=parts[0].name;root.add(combined);
+    parts.forEach(part=>root.remove(part));geometries.forEach(g=>g.dispose());
+  }
+}
 for(const [name,build] of Object.entries(models)){
+  sphere=new THREE.SphereGeometry(1,creatures.has(name)?16:8,creatures.has(name)?12:5);
+  smallSphere=new THREE.SphereGeometry(1,creatures.has(name)?10:6,creatures.has(name)?8:4);
   const model=build();
   const animations=name==='rabbit'?rabbitClips():['fox','wolf','dog','lynx','weasel','bear'].includes(name)?quadrupedClips(name):name==='snake'?snakeClips():name==='hawk'?hawkClips():['deer','squirrel','hedgehog','beaver','moose'].includes(name)?peacefulClips(name):[];
+  mergeParts(model,!creatures.has(name)&&name!=='oak');
   const buffer=await new GLTFExporter().parseAsync(model,{binary:true,animations});
   writeFileSync(`public/models/${name}.glb`,Buffer.from(buffer));
   console.log(name,Math.round(buffer.byteLength/1024)+' KiB',animations.map(a=>a.name).join(','));
+  if(creatures.has(name)){
+    sphere=new THREE.SphereGeometry(1,8,5);smallSphere=new THREE.SphereGeometry(1,6,4);
+    const distant=build();mergeParts(distant);
+    const lod=await new GLTFExporter().parseAsync(distant,{binary:true,animations});
+    writeFileSync(`public/models/${name}-low.glb`,Buffer.from(lod));
+  }
 }

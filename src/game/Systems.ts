@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {ModelAssets} from './ModelAssets';
 import { hash2, Random } from './Random.ts';
 import { FOOD, type FoodKind, type SaveData, type Season, type StashData, type WasteData, type Weather } from './types.ts';
 
@@ -74,7 +75,9 @@ export class WasteSystem {
     for(const w of this.save.waste){
       if(Math.hypot(px-w.x,pz-w.z)<0.7&&Math.abs(py-w.y)<1.2)p.dirtiness=clamp(p.dirtiness+dt*(w.kind==='pellets'?0.16:0.6),0,100);
     }
-    if(this.save.waste.length>180){const old=this.save.waste.splice(0,this.save.waste.length-180);old.forEach(w=>{this.meshes.get(w.id)?.removeFromParent();this.meshes.delete(w.id);});}
+    if(this.save.waste.length>180){const old=this.save.waste.splice(0,this.save.waste.length-180);old.forEach(w=>{
+      const mesh=this.meshes.get(w.id);if(mesh){ModelAssets.shared.release(mesh);mesh.removeFromParent();}this.meshes.delete(w.id);
+    });}
   }
 }
 

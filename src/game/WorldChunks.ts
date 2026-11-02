@@ -5,12 +5,16 @@ export class WorldChunks {
   private chunks=new Map<string,{group:THREE.Group;cx:number;cz:number}>();
   private activeKey='';
   constructor(private readonly scene:THREE.Scene,private readonly size=24,private readonly radius=2){}
-  add(object:THREE.Object3D,x:number,z:number):void{
+  add(object:THREE.Object3D,x:number,z:number,dynamic=false):void{
     const cx=Math.floor(x/this.size),cz=Math.floor(z/this.size),key=`${cx},${cz}`;
     let chunk=this.chunks.get(key);
     if(!chunk){const group=new THREE.Group();group.name=`chunk-${key}`;this.scene.add(group);chunk={group,cx,cz};this.chunks.set(key,chunk);
       if(this.activeKey){const [ax,az]=this.activeKey.split(',').map(Number);group.visible=Math.abs(cx-ax)<=this.radius&&Math.abs(cz-az)<=this.radius;}}
     chunk.group.add(object);
+    if(!dynamic){
+      object.updateWorldMatrix(true,true);
+      object.traverse(part=>{part.matrixAutoUpdate=false;part.matrixWorldAutoUpdate=false;});
+    }
   }
   update(x:number,z:number):void{
     const cx=Math.floor(x/this.size),cz=Math.floor(z/this.size);

@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "audit:models": "node tools/audit-models.mjs",
+    "audit:scene": "node tools/audit-scene.mjs",
     "models": "node tools/build-models.mjs",
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",

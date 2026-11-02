@@ -19,6 +19,7 @@ import { GroundItems } from './GroundItems';
 import { PartnerSupport } from './PartnerSupport';
 import { ModelAssets } from './ModelAssets';
 import { AnimalPhysics, type PhysicalBody } from './AnimalPhysics';
+import {PerformanceMonitor} from './PerformanceMonitor';
 import { FOOD, type FoodKind, type KitData, type MateCommand, type MaterialKind, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -45,6 +46,7 @@ export class Game {
   private items!:GroundItems;
   private partnerSupport!:PartnerSupport;
   private readonly physics=new AnimalPhysics();
+  private performanceMonitor!:PerformanceMonitor;
   private rng!: Random;
   private factory!: RabbitFactory;
   private world!: World;
@@ -104,6 +106,7 @@ export class Game {
     this.renderer.domElement.className = 'game-canvas';
     this.app.append(this.renderer.domElement);
     this.buildUi(); this.bind(); this.resize();
+    this.performanceMonitor=new PerformanceMonitor(this.app);
     this.showStart();
     requestAnimationFrame(this.frame);
   }
@@ -206,6 +209,7 @@ export class Game {
   }
 
   private setupWorld(): void {
+    ModelAssets.shared.release(this.scene);
     this.scene.clear(); this.kitMeshes.clear(); this.nestMeshes.clear();this.stashMeshes.clear();
     this.scene.background = new THREE.Color(0xb9d3ba);
     this.scene.add(this.camera);
@@ -267,7 +271,8 @@ export class Game {
     const mesh=makeStash();mesh.position.set(s.x,(this.earth.isSheltered(s.x,s.y,s.z)?s.y:this.world.heightAt(s.x,s.z))+0.02,s.z);this.stashMeshes.set(s.id,mesh);this.scene.add(mesh);
   }
   private markPartner(actor:RabbitActor,active:boolean):void{
-    actor.rig.root.getObjectByName('mate-mark')?.removeFromParent();
+    const previous=actor.rig.root.getObjectByName('mate-mark');
+    if(previous){ModelAssets.shared.release(previous);previous.removeFromParent();}
     if(!active)return;
     const mark=new THREE.Group();mark.name='mate-mark';
     const teal=new THREE.MeshStandardMaterial({color:0x89cfc0,emissive:0x285d50,emissiveIntensity:0.3});
@@ -298,14 +303,24 @@ export class Game {
     rig.root.position.set(k.x,k.y,k.z);this.scene.add(rig.root); this.kitMeshes.set(k.id, rig);
   }
 
+  private removeKitModel(id:number):void{
+    const rig=this.kitMeshes.get(id);if(!rig)return;
+    ModelAssets.shared.release(rig.root);rig.root.removeFromParent();this.kitMeshes.delete(id);
+  }
+
   private frame = (timestamp: number): void => {
-    const dt = Math.min((timestamp - (this.lastFrame || timestamp)) / 1000, 0.05); this.lastFrame = timestamp;
+    const frameMs=timestamp-(this.lastFrame||timestamp);
+    const dt = Math.min(frameMs / 1000, 0.05); this.lastFrame = timestamp;
+    const start=performance.now();
     if (this.running && this.overlay.classList.contains('hidden')) this.update(dt);
+    const afterUpdate=performance.now();
     if (this.running) this.render();
+    if(this.running&&frameMs>0)this.performanceMonitor.record(this.renderer,frameMs,afterUpdate-start,performance.now()-afterUpdate);
     requestAnimationFrame(this.frame);
   };
 
   private update(dt: number): void {
+    ModelAssets.shared.updateView(this.camera);
     this.elapsed += dt; this.eventCooldown = Math.max(0, this.eventCooldown - dt); this.hopCooldown = Math.max(0, this.hopCooldown - dt);this.furCooldown=Math.max(0,this.furCooldown-dt);
     if(this.digHeld&&this.view.isFirstPerson&&this.elapsed>=this.nextDigAt)this.action('dig');
     const p = this.save.player;
@@ -526,7 +541,7 @@ export class Game {
       if (wasYoung && kit.age >= 3) {
         this.save.stats.grown++;kit.independent=true;kit.command=undefined;
         this.kitWander.forget(kit.id);
-        this.kitMeshes.get(kit.id)?.root.removeFromParent();
+        this.removeKitModel(kit.id);
         const adult=createRabbit(kit.genes);adult.root.position.set(kit.x??kit.homeX,kit.y??kit.homeY,kit.z??kit.homeZ);
         this.kitMeshes.set(kit.id,adult);this.scene.add(adult.root);
         const angle=kit.id*2.4;kit.homeX=clamp(kit.homeX+Math.cos(angle)*22,-90,90);
@@ -541,7 +556,7 @@ export class Game {
         else if(nest&&!this.earth.isSheltered(nest.x,nest.y,nest.z)&&this.airTemperature()<0)kit.health=clamp(kit.health-dt*0.055*0.8,0,100);
         if (kit.hunger < 12) kit.health = clamp(kit.health - dt * 0.2*0.8, 0, 100);
         else if (kit.hunger > 65) kit.health = clamp(kit.health + dt * 0.04, 0, 100);
-        if (kit.health <= 0) { kit.alive = false; this.kitMeshes.get(kit.id)?.root.removeFromParent(); this.toast(`${kit.name} не пережил трудные дни. Позаботься о других крольчатах.`); continue; }
+        if (kit.health <= 0) { kit.alive = false; this.removeKitModel(kit.id); this.toast(`${kit.name} не пережил трудные дни. Позаботься о других крольчатах.`); continue; }
       }
       const rig = this.kitMeshes.get(kit.id);
       if (rig) {

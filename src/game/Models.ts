@@ -20,8 +20,8 @@ export function createRabbit(genes:Genes,baby=false):RabbitRig{
   const leftEar=model.root.getObjectByName('EarL');
   const rightEar=model.root.getObjectByName('EarR');
   if(!leftEar||!rightEar)throw new Error('У модели кролика нет ушей');
-  leftEar.scale.y=rightEar.scale.y=genes.ear*(baby?.78:1);
-  return{...model,leftEar,rightEar};
+  model.root.traverse(object=>{if(object.name==='EarL'||object.name==='EarR')object.scale.y=genes.ear*(baby?.78:1);});
+  return Object.assign(model,{leftEar,rightEar});
 }
 
 export function animateRabbit(r:RabbitRig,time:number,moving:boolean,frightened=false,dt=1/60):void{
