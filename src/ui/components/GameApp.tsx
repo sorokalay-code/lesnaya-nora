@@ -1,3 +1,4 @@
+import { MobileControls } from './MobileControls';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { UIState, UIStore } from '../store';
@@ -18,9 +19,10 @@ function useUIStore() {
 
 /** Корневой React-интерфейс подписывает каждый блок только на необходимые ему данные. */
 export function GameApp({ store }: { store: UIStore }) {
+  const touch = useStore(store, (state) => state.touch);
   return (
     <UIContext.Provider value={store}>
-      <div className="ui-layer">
+      <div className={`ui-layer ${touch ? 'touch-ui' : ''}`}>
         <Toolbar />
         <Hud />
         <Panels />
@@ -28,6 +30,7 @@ export function GameApp({ store }: { store: UIStore }) {
         <Toasts />
         <Overlay />
         <Performance />
+        <MobileControls store={store} />
       </div>
     </UIContext.Provider>
   );
@@ -93,6 +96,9 @@ function Toolbar() {
 }
 
 function Hud() {
+  const store = useUIStore();
+  const touch = useUI((s) => s.touch);
+  const expanded = useUI((s) => s.touchStatusOpen);
   const hud = useUI((state) => state.hud);
   if (!hud) return null;
 
@@ -117,6 +123,14 @@ function Hud() {
           </div>
         ))}
       </div>
+      <button
+        className="status-toggle"
+        aria-expanded={expanded}
+        onClick={() => store.setState({ touchStatusOpen: !expanded })}
+      >
+        ♥ {Math.round(hud.bars.find((bar) => bar.label === 'Здоровье')?.value ?? 0)} · Состояние{' '}
+        {expanded ? '×' : '▾'}
+      </button>
       <div className="hud">
         <div className="status-card">
           <div className="card-heading">
@@ -176,7 +190,8 @@ function Hud() {
         {hud.prompt.map((part, index) => (
           <span key={index}>
             {index > 0 ? ' · ' : ''}
-            {part.key && <kbd>{part.key}</kbd>} {part.text}
+            {part.key && <kbd>{part.key}</kbd>}{' '}
+            {touch ? part.text.replaceAll('ЛКМ', '«Копать»') : part.text}
           </span>
         ))}
       </div>
@@ -351,7 +366,7 @@ function WorldMap({ data }: { data: MapViewModel }) {
 function Controls() {
   const visible = useUI((state) => state.showControls);
   return (
-    <div className={`controls ${visible ? '' : 'hidden'}`}>
+    <div className={`controls controls-hint ${visible ? '' : 'hidden'}`}>
       <b>Управление</b>
       <span>
         WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — закрыть меню /

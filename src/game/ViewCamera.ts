@@ -8,6 +8,7 @@ export type CameraMode = 'first' | 'third';
 /** Управляет видами от первого и третьего лица, захватом мыши и коллизиями камеры. */
 
 export class ViewCamera {
+  private touchMode = false;
   private yaw = 0.3;
   private pitch = 0.27;
   private distance = 7.5;
@@ -37,6 +38,7 @@ export class ViewCamera {
       this.edgeX = this.edgeY = 0;
     });
     canvas.addEventListener('mousemove', (e) => {
+      if (this.touchMode) return;
       if (!this.lookEnabled) return;
 
       const dx = this.isLocked
@@ -85,10 +87,24 @@ export class ViewCamera {
     return typeof document !== 'undefined' && document.pointerLockElement === this.canvas;
   }
 
+  setTouchMode(touch: boolean): void {
+    this.touchMode = touch;
+    this.fallbackPointer = undefined;
+    this.edgeX = this.edgeY = 0;
+    if (touch && this.isLocked) this.unlock();
+  }
+
+  lookBy(dx: number, dy: number): void {
+    this.yaw -= dx * 0.006;
+    this.pitch = clamp(this.pitch + dy * 0.004, -0.3, 1.1);
+  }
+
   lock(): void {
     this.fallbackPaused = false;
     this.lookEnabled = true;
     this.canvas.classList?.remove('look-paused');
+    if (this.touchMode) return;
+
     if (!this.isLocked) void this.canvas.requestPointerLock?.().catch(() => {});
   }
 

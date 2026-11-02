@@ -1,3 +1,5 @@
+import { DesktopInput, type InputContext } from './input/DesktopInput';
+import { MobileInput } from './input/MobileInput';
 import * as THREE from 'three';
 import { GameUI } from '../ui/GameUI';
 import { HudPresenter } from '../ui/presenters/HudPresenter';
@@ -112,7 +114,9 @@ export class Game {
 
   constructor(private readonly app: HTMLElement) {
     this.view = new ViewCamera(this.camera, this.renderer.domElement);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.45));
+    this.renderer.setPixelRatio(
+      Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.1 : 1.45),
+    );
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -137,7 +141,7 @@ export class Game {
   }
 
   private bind(): void {
-    this.input = new GameInputController({
+    const context: InputContext = {
       canvas: this.renderer.domElement,
       view: this.view,
       ui: this.ui,
@@ -149,7 +153,11 @@ export class Game {
       setDigHeld: (held) => {
         this.digHeld = held;
       },
-    });
+    };
+    this.input = new GameInputController([
+      new DesktopInput(context),
+      new MobileInput(context.canvas, context.view, context.ui, context.keys, context.setDigHeld),
+    ]);
   }
 
   private syncCameraUi(): void {
@@ -544,7 +552,7 @@ export class Game {
     const dt = Math.min(frameMs / 1000, 0.05);
     this.lastFrame = timestamp;
     const start = performance.now();
-    if (this.running && !this.ui.state.overlay) this.update(dt);
+    if (this.running && !this.ui.state.overlay && !this.ui.simulationPaused) this.update(dt);
 
     const afterUpdate = performance.now();
     if (this.running) this.render();
@@ -972,7 +980,9 @@ export class Game {
       this.syncCameraUi();
       this.toast(
         mode === 'first'
-          ? 'Вид от первого лица: теперь можно копать ЛКМ.'
+          ? this.ui.state.touch
+            ? 'Вид от первого лица: удерживай кнопку копания.'
+            : 'Вид от первого лица: теперь можно копать ЛКМ.'
           : 'Вид от третьего лица. Для копания нажми B.',
       );
       return;
