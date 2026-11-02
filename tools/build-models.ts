@@ -7,22 +7,23 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
-  result;
-  onloadend;
-  readAsArrayBuffer(blob) {
+  result: ArrayBuffer | string;
+  onloadend?: () => void;
+  readAsArrayBuffer(blob: Blob) {
     blob.arrayBuffer().then((data) => {
       this.result = data;
       this.onloadend?.();
     });
   }
-  readAsDataURL(blob) {
+  readAsDataURL(blob: Blob) {
     blob.arrayBuffer().then((data) => {
       this.result = `data:${blob.type};base64,${Buffer.from(data).toString('base64')}`;
       this.onloadend?.();
     });
   }
 }
-globalThis.FileReader = NodeFileReader;
+// Экспортёр использует только два метода этого адаптера; DOM FileReader в Node отсутствует.
+globalThis.FileReader = NodeFileReader as unknown as typeof FileReader;
 
 let sphere = new THREE.SphereGeometry(1, 16, 12);
 let smallSphere = new THREE.SphereGeometry(1, 10, 8);
@@ -49,7 +50,16 @@ function group(parent, name, x = 0, y = 0, z = 0) {
   parent.add(item);
   return item;
 }
-function mesh(parent, geometry, material, name, position, scale, rotation) {
+type VectorTuple = [number, number, number];
+function mesh(
+  parent: THREE.Object3D,
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material,
+  name: string,
+  position: VectorTuple,
+  scale: VectorTuple,
+  rotation?: VectorTuple,
+) {
   const item = new THREE.Mesh(geometry, material);
   item.name = name;
   item.position.set(...position);
@@ -60,9 +70,30 @@ function mesh(parent, geometry, material, name, position, scale, rotation) {
   parent.add(item);
   return item;
 }
-const ell = (p, m, n, xyz, s, r) => mesh(p, sphere, m, n, xyz, s, r);
-const mini = (p, m, n, xyz, s, r) => mesh(p, smallSphere, m, n, xyz, s, r);
-const tip = (p, m, n, xyz, s, r) => mesh(p, cone, m, n, xyz, s, r);
+const ell = (
+  p: THREE.Object3D,
+  m: THREE.Material,
+  n: string,
+  xyz: VectorTuple,
+  s: VectorTuple,
+  r?: VectorTuple,
+) => mesh(p, sphere, m, n, xyz, s, r);
+const mini = (
+  p: THREE.Object3D,
+  m: THREE.Material,
+  n: string,
+  xyz: VectorTuple,
+  s: VectorTuple,
+  r?: VectorTuple,
+) => mesh(p, smallSphere, m, n, xyz, s, r);
+const tip = (
+  p: THREE.Object3D,
+  m: THREE.Material,
+  n: string,
+  xyz: VectorTuple,
+  s: VectorTuple,
+  r?: VectorTuple,
+) => mesh(p, cone, m, n, xyz, s, r);
 const stick = (p, m, n, a, b, radius) => {
   const midpoint = new THREE.Vector3()
     .addVectors(new THREE.Vector3(...a), new THREE.Vector3(...b))
@@ -1512,7 +1543,10 @@ for (const [name, build] of Object.entries(models)) {
               ? peacefulClips(name)
               : [];
   mergeParts(model, !creatures.has(name) && name !== 'oak');
-  const buffer = await new GLTFExporter().parseAsync(model, { binary: true, animations });
+  const buffer = (await new GLTFExporter().parseAsync(model, {
+    binary: true,
+    animations,
+  })) as ArrayBuffer;
   writeFileSync(`public/models/${name}.glb`, Buffer.from(buffer));
   console.log(
     name,
@@ -1524,7 +1558,10 @@ for (const [name, build] of Object.entries(models)) {
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
     const distant = build();
     mergeParts(distant);
-    const lod = await new GLTFExporter().parseAsync(distant, { binary: true, animations });
+    const lod = (await new GLTFExporter().parseAsync(distant, {
+      binary: true,
+      animations,
+    })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }
 }

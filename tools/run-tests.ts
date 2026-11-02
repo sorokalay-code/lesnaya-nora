@@ -1,13 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const viteRequire = createRequire(require.resolve('vite'));
-const { build } = await import(pathToFileURL(viteRequire.resolve('esbuild')).href);
+import { build } from 'esbuild';
 const directory = await mkdtemp(join(tmpdir(), 'lesnaya-nora-tests-'));
 
 try {

@@ -1,8 +1,4 @@
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
-const require = createRequire(import.meta.url),
-  viteRequire = createRequire(require.resolve('vite'));
-const { build } = await import(pathToFileURL(viteRequire.resolve('esbuild')).href);
+import { build } from 'esbuild';
 const result = await build({
   stdin: {
     resolveDir: process.cwd(),

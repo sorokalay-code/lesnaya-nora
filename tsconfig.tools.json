@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["tools/**/*.ts", "vite.config.ts", "src/vite-env.d.ts"]
+}

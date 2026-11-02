@@ -1,3 +1,4 @@
+import { assetUrl } from './AssetPaths';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -77,7 +78,7 @@ export class ModelAssets {
     this.loading = (async () => {
       this.textures = await Promise.all(
         ['fur', 'leaf', 'ground', 'soil'].map((name) =>
-          new THREE.TextureLoader().loadAsync(`/textures/${name}.png`),
+          new THREE.TextureLoader().loadAsync(assetUrl(`textures/${name}.png`)),
         ),
       );
       for (const texture of this.textures) {
@@ -87,11 +88,11 @@ export class ModelAssets {
 
       await Promise.all(
         MODEL_NAMES.map(async (name) => {
-          const glb = await this.loader.loadAsync(`/models/${name}.glb`);
+          const glb = await this.loader.loadAsync(assetUrl(`models/${name}.glb`));
           this.prepare(glb);
           this.glbs.set(name, glb);
           if ((CREATURE_NAMES as readonly string[]).includes(name)) {
-            const low = await this.loader.loadAsync(`/models/${name}-low.glb`);
+            const low = await this.loader.loadAsync(assetUrl(`models/${name}-low.glb`));
             this.prepare(low);
             this.low.set(name, low);
           }

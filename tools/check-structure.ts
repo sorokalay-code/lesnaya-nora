@@ -16,15 +16,17 @@ function visitDirectory(directory) {
     if (!/\.tsx?$/.test(file)) continue;
     const text = readFileSync(file, 'utf8');
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-    function inspect(node) {
+    function inspect(node: ts.Node) {
       if (ts.isClassDeclaration(node)) {
         classes++;
-        if (!node.jsDoc?.some((doc) => /[А-Яа-яЁё]/.test(doc.getText(source)))) {
+        if (
+          !ts.getJSDocCommentsAndTags(node).some((doc) => /[А-Яа-яЁё]/.test(doc.getText(source)))
+        ) {
           errors.push(`${file}: у класса ${node.name?.text} нет русского комментария`);
         }
         node.members.forEach((member, index) => {
           const next = node.members[index + 1];
-          if (member.body && next) {
+          if ('body' in member && member.body && next) {
             const gap = text.slice(member.end, next.getStart(source));
             if (!/\r?\n\s*\r?\n/.test(gap)) {
               errors.push(
