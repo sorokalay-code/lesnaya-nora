@@ -27,12 +27,12 @@ interface EnvironmentContext {
   toast: (text: string) => void;
   playAction: (action: RabbitAction, duration: number) => void;
   addNest: (nest: NestData) => void;
+  requestJump?: () => boolean;
   makeWaste: (kind: 'pellets' | 'urine' | 'diarrhea') => void;
 }
 /** Реестр действий с окружением и потребностями; владеет их перезарядками. */
 export class EnvironmentController {
   nextDigAt = 0;
-  private hopCooldown = 0;
   private furCooldown = 0;
   private readonly handlers: Record<string, () => void> = {
     hop: () => this.hop(),
@@ -58,7 +58,6 @@ export class EnvironmentController {
   }
 
   update(dt: number): void {
-    this.hopCooldown = Math.max(0, this.hopCooldown - dt);
     this.furCooldown = Math.max(0, this.furCooldown - dt);
   }
 
@@ -70,13 +69,7 @@ export class EnvironmentController {
   }
 
   private hop(): void {
-    const p = this.context.save.player;
-    if (this.hopCooldown <= 0) {
-      this.hopCooldown = 0.4;
-      this.context.sound.play('hop');
-      p.y += 0.25;
-    }
-    return;
+    this.context.requestJump?.();
   }
 
   private drink(): void {
@@ -112,6 +105,11 @@ export class EnvironmentController {
   private buildNest(): void {
     const p = this.context.save.player;
     const m = this.context.save.materials;
+
+    if (!this.sheltered) {
+      this.context.toast('Гнездо можно устроить только в выкопанном подземном ходе.');
+      return;
+    }
 
     if (m.grass < 3 || m.twigs < 2 || m.fur < 2) {
       this.context.toast(

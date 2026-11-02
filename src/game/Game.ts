@@ -1,3 +1,4 @@
+import { FullscreenController } from './input/FullscreenController';
 import * as THREE from 'three';
 import { GameUI } from '../ui/GameUI';
 import { Soundscape } from './Audio';
@@ -70,6 +71,7 @@ export class Game {
   private partnerSupport!: PartnerSupport;
   private collisions!: AnimalCollisionSystem;
   private performanceMonitor!: PerformanceMonitor;
+  private fullscreen!: FullscreenController;
   private input!: GameInputController;
   private rng!: Random;
   private factory!: RabbitFactory;
@@ -108,6 +110,7 @@ export class Game {
     this.renderer.domElement.tabIndex = -1;
     this.app.append(this.renderer.domElement);
     this.buildUi();
+    this.fullscreen = new FullscreenController(this.app, this.ui);
     this.bind();
     this.resize();
     this.performanceMonitor = new PerformanceMonitor(this.ui.publishPerformance);
@@ -333,6 +336,7 @@ export class Game {
       elapsed: () => this.runtime.elapsed,
       toast: (text) => this.toast(text),
       playAction: (action, duration) => this.playAction(action, duration),
+      requestJump: () => this.movement.requestJump(this.runtime.elapsed),
       addNest: (nest) => this.decorations.addNest(nest),
       makeWaste: (kind) => this.consequences.makeWaste(kind),
     });
@@ -508,7 +512,7 @@ export class Game {
     this.view.update(
       p.x,
       p.z,
-      p.y,
+      p.y + ((this.player.root.userData.jumpHeight as number | undefined) ?? 0) * 0.4,
       this.sheltered ? this.earth : undefined,
       this.runtime.elapsed,
       digging,
@@ -519,6 +523,10 @@ export class Game {
   }
 
   private action(action: string): void {
+    if (action === 'fullscreen') {
+      void this.fullscreen.toggle();
+      return;
+    }
     if (action === 'new') {
       void this.newGame();
       return;

@@ -1,0 +1,126 @@
+/* Сводки постоянно видны, подробности раскрываются кнопками на обоих типах устройств. */
+.status-toggle,
+.family-toggle {
+  display: block;
+  position: absolute;
+  top: 82px;
+  left: 16px;
+  z-index: 70;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #acba8a70;
+  border-radius: 12px;
+  background: #173a2eea;
+  color: #f0efd9;
+  font: inherit;
+  font-size: 11px;
+}
+.family-toggle {
+  left: 218px;
+}
+.hud {
+  display: none;
+  top: 132px;
+  left: 16px;
+  width: 240px;
+  max-height: calc(100dvh - 150px);
+  overflow: auto;
+  z-index: 65;
+}
+.ui-layer:has(.status-toggle[aria-expanded='true']) .hud {
+  display: block;
+}
+.kit-progress:not(.hidden) {
+  top: 132px;
+  right: 16px;
+  width: 235px;
+  max-height: calc(100dvh - 160px);
+}
+.topbar {
+  height: 68px;
+  gap: 18px;
+  padding: 0 16px;
+}
+.brand {
+  font-size: 16px;
+}
+.brand small {
+  display: none;
+}
+.family-avatars {
+  top: 78px;
+  right: 16px;
+}
+.avatar-chip {
+  min-height: 40px;
+  padding: 5px 9px;
+}
+.avatar-chip small {
+  display: none;
+}
+.controls {
+  width: auto;
+  max-width: 440px;
+  padding: 9px 12px;
+}
+.controls summary {
+  cursor: pointer;
+  color: #e6dfb1;
+  font-size: 11px;
+}
+.controls p {
+  margin-bottom: 0;
+}
+.touch-menu {
+  max-width: 850px;
+  margin: auto;
+  max-height: 650px;
+}
+.top-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ui-layer:has(.overlay:not(.hidden)) .status-toggle,
+.ui-layer:has(.overlay:not(.hidden)) .family-toggle {
+  display: none;
+}
+#app:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  background: #19392b;
+}
+.touch-ui .family-toggle {
+  top: 44px;
+  left: 190px;
+  min-height: 44px;
+}
+.touch-ui .family-avatars {
+  top: 44px;
+  right: max(12px, env(safe-area-inset-right));
+}
+.touch-ui .avatar-chip {
+  min-width: 44px;
+}
+.touch-ui .avatar-chip > span:last-child {
+  display: none;
+}
+.touch-ui .kit-progress:not(.hidden) {
+  display: block;
+  top: 94px;
+  right: 12px;
+  max-height: calc(100dvh - 110px);
+  width: min(260px, 45vw);
+  z-index: 80;
+}
+.touch-ui .touch-menu {
+  max-height: calc(100dvh - 24px);
+}
+@media (max-width: 1000px) {
+  .brand {
+    display: none;
+  }
+  .world-info {
+    font-size: 10px;
+    gap: 6px;
+  }
+}

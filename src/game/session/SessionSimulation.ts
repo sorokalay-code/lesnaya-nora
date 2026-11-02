@@ -102,7 +102,12 @@ export class SessionSimulation {
       p.z,
     );
     this.context.world.updateRain(dt, p.x, p.z, this.context.save.weather);
-    this.context.sound.update(this.context.state.elapsed, night);
+    this.context.sound.update(
+      this.context.state.elapsed,
+      night,
+      this.context.world.biomeAt(p.x, p.z),
+      this.sheltered,
+    );
     this.context.sound.setWeather(this.context.save.weather, night);
     this.context.player.root.position.x = p.x;
     this.context.player.root.position.z = p.z;

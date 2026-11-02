@@ -3,39 +3,17 @@ import { useStore } from 'zustand';
 import type { TouchBindings } from '../../game/input/MobileInput';
 import type { UIStore } from '../store';
 
-const actions = [
-  ['drink', 'Пить'],
-  ['eat', 'Еда и багаж'],
-  ['mate-panel', 'Партнёр'],
-  ['feed', 'Кормить молоком'],
-  ['feed-vegetables', 'Кормить овощами'],
-  ['nest', 'Устроить гнездо'],
-  ['fur', 'Собрать пух'],
-  ['sleep', 'Спать'],
-  ['store', 'Сложить в тайник'],
-  ['retrieve', 'Взять из тайника'],
-  ['poop', 'Оставить помёт'],
-  ['pee', 'Помочиться'],
-  ['groom', 'Вылизаться'],
-  ['roots', 'Грызть корни'],
-  ['steal', 'Утащить корнеплод'],
-  ['bark', 'Грызть кору'],
-  ['map', 'Карта'],
-  ['journal', 'Дневник'],
-  ['save', 'Сохранить'],
-  ['settings', 'Настройки'],
-  ['sound', 'Звук'],
-];
-
 /** Сенсорные кнопки не эмулируют DOM-клавиатуру, а обращаются к адаптеру ввода. */
 export function MobileControls({ store }: { store: UIStore }) {
   const touch = useStore(store, (s) => s.touch);
   const portrait = useStore(store, (s) => s.portrait);
   const hidden = useStore(
     store,
-    (s) => !s.hud || !!(s.overlay || s.dialog || s.journal || s.settings || s.touchStatusOpen),
+    (s) =>
+      !s.hud ||
+      !!(s.overlay || s.dialog || s.journal || s.settings || s.statusOpen || s.familyOpen),
   );
-  const open = useStore(store, (s) => s.touchMenuOpen);
+  const open = useStore(store, (s) => s.actionMenuOpen);
   const bindings = useStore(store, (s) => s.touchBindings);
   const first = useStore(store, (s) => s.firstPerson);
   const dispatch = useStore(store, (s) => s.dispatch);
@@ -52,28 +30,7 @@ export function MobileControls({ store }: { store: UIStore }) {
     );
   if (hidden || !bindings) return null;
 
-  if (open)
-    return (
-      <section className="touch-menu" role="dialog" aria-label="Действия крольчихи">
-        <header>
-          <h2>Действия · пауза</h2>
-          <button onClick={() => store.setState({ touchMenuOpen: false })}>Вернуться ×</button>
-        </header>
-        <div>
-          {actions.map(([action, label]) => (
-            <button
-              key={action}
-              onClick={() => {
-                store.setState({ touchMenuOpen: false });
-                dispatch(action);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
-    );
+  if (open) return null;
 
   return (
     <div className="touch-controls">
@@ -91,7 +48,7 @@ export function MobileControls({ store }: { store: UIStore }) {
           </>
         )}
         <button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</button>
-        <button onClick={() => store.setState({ touchMenuOpen: true })}>Действия ☰</button>
+        <button onClick={() => store.setState({ actionMenuOpen: true })}>Действия ☰</button>
       </div>
       <span className="touch-look-hint">Свайп по миру — осмотреться</span>
     </div>

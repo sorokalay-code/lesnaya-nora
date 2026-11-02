@@ -1,3 +1,5 @@
+import { groundColor, seasonalGroundColor } from './TerrainColors';
+import { WorldBoundary } from './WorldBoundary';
 import * as THREE from 'three';
 import { ModelAssets } from './ModelAssets';
 import { Random, smoothNoise } from './Random';
@@ -70,6 +72,7 @@ export class World {
   readonly seed: number;
   readonly chunks: WorldChunks;
   readonly terrain: Terrain;
+  private readonly boundary: WorldBoundary;
   private seasons: SeasonSystem;
   private currentDay = 1;
   private displayedSeason = '';
@@ -109,6 +112,8 @@ export class World {
     this.seasons = new SeasonSystem(seed);
     this.chunks = new WorldChunks(scene);
     this.terrain = new Terrain(seed);
+    this.boundary = new WorldBoundary(this.terrain, seed, this.size, (x, z) => this.biomeAt(x, z));
+    this.scene.add(this.boundary.root);
     this.exposedSoil.map = ModelAssets.shared.soil ?? null;
     for (const [id, time] of Object.entries(save?.gnawedRoots ?? {}))
       this.treeRootRegrow.set(Number(id), time);
@@ -263,19 +268,7 @@ export class World {
           [wx + step, wz + step],
           [wx, wz + step],
         ]) {
-          const biome = this.biomeAt(vx, vz);
-          const base =
-            biome === 'forest'
-              ? 0x568255
-              : biome === 'meadow'
-                ? 0x90b672
-                : biome === 'swamp'
-                  ? 0x77966e
-                  : 0xab9268;
-          const variation =
-            smoothNoise(vx / 7, vz / 7, this.seed + 101) * 0.22 +
-            smoothNoise(vx / 2.3, vz / 2.3, this.seed + 311) * 0.1;
-          color.setHex(base).multiplyScalar(0.84 + variation);
+          groundColor(color, vx, vz, this.seed, this.biomeAt(vx, vz));
           colors.push(color.r, color.g, color.b);
           uvs.push(vx / 7, vz / 7);
         }
@@ -813,6 +806,7 @@ export class World {
 
   update(clock: number, time: number, weather: Weather, day: number, px: number, pz: number): void {
     this.currentDay = day;
+    this.boundary.setSeason(this.seasons.name(day));
     this.currentClock = clock;
     this.chunks.update(px, pz);
     this.updateSeason(day);
@@ -859,27 +853,16 @@ export class World {
     this.displayedSeason = season;
     if (this.groundColors && this.baseGroundColors) {
       const values = this.groundColors.array as Float32Array;
+      const color = new THREE.Color();
       for (let i = 0; i < values.length; i += 3) {
         const r = this.baseGroundColors[i],
           g = this.baseGroundColors[i + 1],
           b = this.baseGroundColors[i + 2];
-        if (season === 'Зима') {
-          values[i] = r * 0.32 + 0.68;
-          values[i + 1] = g * 0.34 + 0.66;
-          values[i + 2] = b * 0.36 + 0.64;
-        } else if (season === 'Осень') {
-          values[i] = Math.min(1, r * 1.22);
-          values[i + 1] = g * 0.88;
-          values[i + 2] = b * 0.71;
-        } else if (season === 'Весна') {
-          values[i] = r * 0.9;
-          values[i + 1] = Math.min(1, g * 1.1);
-          values[i + 2] = b * 0.9;
-        } else {
-          values[i] = r;
-          values[i + 1] = g;
-          values[i + 2] = b;
-        }
+        color.setRGB(r, g, b);
+        seasonalGroundColor(color, season);
+        values[i] = color.r;
+        values[i + 1] = color.g;
+        values[i + 2] = color.b;
       }
 
       this.groundColors.needsUpdate = true;

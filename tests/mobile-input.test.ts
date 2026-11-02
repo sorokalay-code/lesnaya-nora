@@ -30,9 +30,9 @@ test('mobile menus and rotation pause simulation without changing desktop menu b
   assert.equal(simulationPaused(store.getState()), false);
   store.setState({ touch: true });
   assert.equal(simulationPaused(store.getState()), true);
-  store.setState({ settings: false, touchMenuOpen: true });
+  store.setState({ settings: false, actionMenuOpen: true });
   assert.equal(simulationPaused(store.getState()), true);
-  store.setState({ touchMenuOpen: false, portrait: true });
+  store.setState({ actionMenuOpen: false, portrait: true });
   assert.equal(simulationPaused(store.getState()), true);
   store.setState({ portrait: false });
   assert.equal(simulationPaused(store.getState()), false);
@@ -140,14 +140,14 @@ test('touch movement and digging reset when menus open, with independent camera 
     pointer('pointerdown', 0);
     pointer('pointermove', 40);
     assert.notEqual(view.forwardAt().x, direction);
-    store.setState({ touchMenuOpen: true });
+    store.setState({ actionMenuOpen: true });
     assert.equal(keys.has('KeyW'), false);
     assert.equal(keys.has('ShiftLeft'), false);
     assert.equal(keys.has('ShiftRight'), true);
     assert.equal(digging, false);
     mobile.move(1, 0);
     assert.equal(keys.has('KeyD'), false);
-    store.setState({ touchMenuOpen: false });
+    store.setState({ actionMenuOpen: false });
     mobile.move(1, 0);
     assert.ok(keys.has('KeyD'));
     mobile.dispose();

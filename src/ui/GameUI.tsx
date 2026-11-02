@@ -28,7 +28,14 @@ export class GameUI {
   }
 
   get panelsOpen() {
-    return !!(this.state.dialog || this.state.journal || this.state.settings);
+    return !!(
+      this.state.dialog ||
+      this.state.journal ||
+      this.state.settings ||
+      this.state.actionMenuOpen ||
+      this.state.statusOpen ||
+      this.state.familyOpen
+    );
   }
 
   get simulationPaused(): boolean {
@@ -48,7 +55,7 @@ export class GameUI {
   }
 
   showOverlay(overlay?: OverlayViewModel) {
-    this.store.setState({ overlay });
+    this.store.setState({ overlay, actionMenuOpen: false, statusOpen: false, familyOpen: false });
   }
 
   showDialog(dialog: DialogViewModel, focus: 'dialog' | 'message' = 'dialog') {
@@ -56,6 +63,9 @@ export class GameUI {
       dialog: structuredClone(dialog),
       journal: undefined,
       settings: false,
+      statusOpen: false,
+      familyOpen: false,
+      actionMenuOpen: false,
       focus: { target: focus, revision: this.state.focus.revision + 1 },
     });
   }
@@ -77,7 +87,14 @@ export class GameUI {
   }
 
   closePanels() {
-    this.store.setState({ dialog: undefined, journal: undefined, settings: false });
+    this.store.setState({
+      dialog: undefined,
+      journal: undefined,
+      settings: false,
+      actionMenuOpen: false,
+      statusOpen: false,
+      familyOpen: false,
+    });
   }
 
   focusMessage() {

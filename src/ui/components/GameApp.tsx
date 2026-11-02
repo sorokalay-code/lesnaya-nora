@@ -1,3 +1,4 @@
+import { ActionMenu } from './ActionMenu';
 import { MobileControls } from './MobileControls';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -31,12 +32,16 @@ export function GameApp({ store }: { store: UIStore }) {
         <Overlay />
         <Performance />
         <MobileControls store={store} />
+        <ActionMenu store={store} />
       </div>
     </UIContext.Provider>
   );
 }
 
 function Toolbar() {
+  const store = useUIStore();
+  const fullscreen = useUI((s) => s.fullscreen);
+  const fullscreenAvailable = useUI((s) => s.fullscreenAvailable);
   const dispatch = useUI((state) => state.dispatch),
     hud = useUI((state) => state.hud),
     first = useUI((state) => state.firstPerson);
@@ -55,18 +60,19 @@ function Toolbar() {
           ))}
         </div>
         <div className="top-actions">
-          {[
-            ['camera', `◉ ${first ? '1' : '3'}-е лицо`],
-            ['map', '◈ Карта'],
-            ['journal', '☰ Дневник'],
-            ['save', '▣ Сохранить'],
-            ['sound', '♪'],
-            ['settings', '⚙'],
-          ].map(([action, label]) => (
-            <button key={action} onClick={() => dispatch(action)}>
-              {label}
-            </button>
-          ))}
+          <button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</button>
+          <button
+            disabled={!fullscreenAvailable}
+            onClick={() => dispatch('fullscreen')}
+            title="Полноэкранный режим"
+          >
+            {fullscreen ? '⤢ Свернуть' : '⛶ Полный экран'}
+          </button>
+          <button
+            onClick={() => store.setState({ actionMenuOpen: !store.getState().actionMenuOpen })}
+          >
+            ☰ Меню
+          </button>
         </div>
       </div>
       <div className="family-avatars">
@@ -98,14 +104,16 @@ function Toolbar() {
 function Hud() {
   const store = useUIStore();
   const touch = useUI((s) => s.touch);
-  const expanded = useUI((s) => s.touchStatusOpen);
+  const expanded = useUI((s) => s.statusOpen);
+  const familyOpen = useUI((s) => s.familyOpen);
   const hud = useUI((state) => state.hud);
   if (!hud) return null;
 
   return (
     <>
-      <div className={`kit-progress ${hud.young.length ? '' : 'hidden'}`}>
+      <div className={`kit-progress ${familyOpen ? '' : 'hidden'}`}>
         <b>РОСТ КРОЛЬЧАТ</b>
+        {!hud.young.length && <p>Крольчат пока нет. Подробности семьи — в дневнике.</p>}
         {hud.young.map((kit) => (
           <div className="kit-progress-row" key={kit.id}>
             <span>
@@ -126,10 +134,17 @@ function Hud() {
       <button
         className="status-toggle"
         aria-expanded={expanded}
-        onClick={() => store.setState({ touchStatusOpen: !expanded })}
+        onClick={() => store.setState({ statusOpen: !expanded })}
       >
         ♥ {Math.round(hud.bars.find((bar) => bar.label === 'Здоровье')?.value ?? 0)} · Состояние{' '}
-        {expanded ? '×' : '▾'}
+        {hud.birthWarning ? ' ⚠ Роды!' : ''} {expanded ? '×' : '▾'}
+      </button>
+      <button
+        className="family-toggle"
+        aria-expanded={familyOpen}
+        onClick={() => store.setState({ familyOpen: !familyOpen })}
+      >
+        🐇 Семья · {hud.young.length} {familyOpen ? '×' : '▾'}
       </button>
       <div className="hud">
         <div className="status-card">
@@ -366,8 +381,8 @@ function WorldMap({ data }: { data: MapViewModel }) {
 function Controls() {
   const visible = useUI((state) => state.showControls);
   return (
-    <div className={`controls controls-hint ${visible ? '' : 'hidden'}`}>
-      <b>Управление</b>
+    <details className={`controls controls-hint ${visible ? '' : 'hidden'}`}>
+      <summary>Управление ⌨</summary>
       <span>
         WASD — идти · Shift — бег · B — сменить вид · мышь — осмотреться · Esc — закрыть меню /
         освободить курсор · ЛКМ (1-е лицо) — копать · Z — копать вниз
@@ -377,7 +392,7 @@ function Controls() {
         Q/T — корни · H — кора · C — вылизаться · N — гнездо · U — пух · R — сон · F/Y — кормить
         детей · K/O — тайник
       </span>
-    </div>
+    </details>
   );
 }
 

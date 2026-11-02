@@ -9,11 +9,14 @@ import type {
 } from './types';
 
 export interface UIState {
+  fullscreen: boolean;
+  fullscreenAvailable: boolean;
+  familyOpen: boolean;
   touch: boolean;
   portrait: boolean;
   background: boolean;
-  touchMenuOpen: boolean;
-  touchStatusOpen: boolean;
+  actionMenuOpen: boolean;
+  statusOpen: boolean;
   touchBindings?: TouchBindings;
   hud?: HudView;
   dialog?: DialogViewModel;
@@ -33,11 +36,14 @@ export interface UIState {
 /** Создаёт изолированное хранилище интерфейса без ссылок на сцену и игровые сущности. */
 export function createUIStore(dispatch: UIAction) {
   return createStore<UIState>()(() => ({
+    fullscreen: false,
+    fullscreenAvailable: false,
+    familyOpen: false,
     touch: false,
     portrait: false,
     background: false,
-    touchMenuOpen: false,
-    touchStatusOpen: false,
+    actionMenuOpen: false,
+    statusOpen: false,
     settings: false,
     showControls: true,
     firstPerson: false,
@@ -54,6 +60,7 @@ export type UIStore = ReturnType<typeof createUIStore>;
 /** На сенсорном устройстве выбор команд безопасен; на ПК окна сохраняют прежнее поведение. */
 export function simulationPaused(state: UIState): boolean {
   return (
+    state.actionMenuOpen ||
     state.background ||
     state.portrait ||
     (state.touch &&
@@ -61,8 +68,9 @@ export function simulationPaused(state: UIState): boolean {
         state.dialog ||
         state.journal ||
         state.settings ||
-        state.touchMenuOpen ||
-        state.touchStatusOpen
+        state.actionMenuOpen ||
+        state.familyOpen ||
+        state.statusOpen
       ))
   );
 }

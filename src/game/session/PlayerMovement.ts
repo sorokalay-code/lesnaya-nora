@@ -1,3 +1,4 @@
+import { JumpMotion } from './JumpMotion';
 import type { PlayerRabbit } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
@@ -6,6 +7,8 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 /** Управляет направлением, ускорением, шагами и высотой крольчихи относительно рельефа. */
 export class PlayerMovement {
   private footstepAt = 0;
+  private readonly jump = new JumpMotion();
+  private nextJumpAt = 0;
 
   constructor(
     private readonly player: PlayerRabbit,
@@ -20,9 +23,50 @@ export class PlayerMovement {
     return this.earth.isSheltered(p.x, p.y, p.z);
   }
 
+  requestJump(elapsed: number): boolean {
+    const p = this.player.data;
+    if (
+      this.jump.active ||
+      elapsed < this.nextJumpAt ||
+      p.energy < 9 ||
+      this.sheltered ||
+      ((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed
+    )
+      return false;
+    const direction = {
+      x: -Math.sin(this.player.root.rotation.y),
+      z: -Math.cos(this.player.root.rotation.y),
+    };
+    if (!this.jump.start(direction.x, direction.z)) return false;
+    this.nextJumpAt = elapsed + 1.05;
+    p.energy -= 9;
+    this.sound.play('hop');
+    return true;
+  }
+
+  private advanceJump(dt: number): boolean {
+    const step = this.jump.advance(dt);
+    const p = this.player.data;
+    // Малые шаги не позволяют рывку перескочить проверку стен тоннеля или границы карты.
+    const steps = Math.max(1, Math.ceil(Math.hypot(step.x, step.z) / 0.18));
+    for (let i = 0; i < steps; i++) {
+      const x = clamp(p.x + step.x / steps, -103, 103),
+        z = clamp(p.z + step.z / steps, -103, 103);
+      if (this.earth.canMoveTo(x, p.z, p.y, this.sheltered)) p.x = x;
+      if (this.earth.canMoveTo(p.x, z, p.y, this.sheltered)) p.z = z;
+    }
+    this.player.rig.root.userData.jumpHeight = step.height;
+    this.player.rig.root.userData.jumpPitch = step.pitch;
+    this.player.rig.root.userData.jumping = this.jump.active;
+    if (step.landed) this.sound.play('step');
+    return true;
+  }
+
   move(dt: number, elapsed: number, blocked: boolean): boolean {
     const p = this.player.data;
     if (blocked) return false;
+
+    if (this.jump.active) return this.advanceJump(dt);
 
     if (((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed)
       return false;
@@ -55,6 +99,7 @@ export class PlayerMovement {
       Math.cos(desired - this.player.rig.root.rotation.y),
     );
     this.player.rig.root.rotation.y += clamp(turn, -dt * 8, dt * 8);
+    this.player.rig.root.userData.turnLean = clamp(turn, -0.8, 0.8) * -0.14;
     const facingX = -Math.sin(this.player.rig.root.rotation.y),
       facingZ = -Math.cos(this.player.rig.root.rotation.y);
     const speedScale = this.sheltered ? 0.68 : 1;

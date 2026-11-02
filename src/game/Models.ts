@@ -54,9 +54,14 @@ export function animateRabbit(
     state.actionUntil !== undefined && time < state.actionUntil ? state.action : undefined;
   if (!action) state.action = undefined;
 
-  const clip = action ?? (moving ? (frightened ? 'run' : 'hop') : 'idle');
-  ModelAssets.shared.play(r, clip, dt, frightened ? 1.2 : 1);
+  const jumping = r.root.userData.jumping === true;
+  const clip = jumping ? 'hop' : (action ?? (moving ? (frightened ? 'run' : 'hop') : 'idle'));
+  ModelAssets.shared.play(r, clip, dt, jumping ? 1.7 : frightened ? 1.2 : 1);
   r.root.position.y = (r.root.userData.baseY as number | undefined) ?? r.root.position.y;
+  r.root.position.y += (r.root.userData.jumpHeight as number | undefined) ?? 0;
+  r.root.rotation.x = (r.root.userData.jumpPitch as number | undefined) ?? 0;
+  const lean = moving && !action ? ((r.root.userData.turnLean as number | undefined) ?? 0) : 0;
+  r.root.rotation.z += (lean - r.root.rotation.z) * (1 - Math.exp(-dt * 10));
 }
 
 export function createPredator(kind: PredatorKind): THREE.Group {
