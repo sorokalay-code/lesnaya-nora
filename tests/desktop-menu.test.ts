@@ -77,6 +77,10 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     key('Escape');
     assert.equal(ui.panelsOpen, false);
     assert.equal(closed, 1);
+    context.keys.add('KeyW');
+    key('KeyI');
+    assert.equal(context.keys.has('KeyW'), true);
+    context.keys.clear();
     locked = true;
     documentMock.dispatchEvent(new Event('pointerlockchange'));
     locked = false;

@@ -278,6 +278,7 @@ export class Game {
       this.view,
       this.earth,
       this.sound,
+      (x, z, y, heading) => this.collisions.canPlayerMove(x, z, y, heading),
     );
     this.scene.add(this.player.root);
     const population = new WorldPopulation({
@@ -368,6 +369,7 @@ export class Game {
       },
     });
     this.collisions = new AnimalCollisionSystem({
+      playerHeading: () => this.player.root.rotation.y,
       save: this.save,
       world: this.world,
       earth: this.earth,
@@ -378,6 +380,7 @@ export class Game {
       family: this.family,
     });
     this.sessionUI = new SessionInterface({
+      captureWildlife: () => this.ecology.capture(),
       save: this.save,
       ui: this.ui,
       view: this.view,
@@ -424,6 +427,7 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      combatAllowed: () => !this.ui.conversationOpen,
       save: this.save,
       world: this.world,
       earth: this.earth,
@@ -445,6 +449,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.simulation = new SessionSimulation({
+      interactions: this.interactions,
       camera: this.camera,
       environment: this.environment,
       view: this.view,

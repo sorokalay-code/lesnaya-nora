@@ -24,10 +24,11 @@ export class ExcavationTraffic {
     rabbits: RabbitActor[],
     save: SaveData,
     earth: Excavation,
+    combatAllowed = true,
   ): TunnelEvent[] {
     const events: TunnelEvent[] = [];
     for (const actor of rabbits) {
-      if (actor.data.id === save.mateId) continue;
+      if (actor.data.id === save.mateId || actor.rig.root.userData.conversing) continue;
 
       if (
         actor.data.trust < 55 ||
@@ -68,6 +69,7 @@ export class ExcavationTraffic {
           opening.z + Math.cos(time) * 0.25,
         );
         if (
+          combatAllowed &&
           earth.isSheltered(save.player.x, save.player.y, save.player.z) &&
           earth.depthAt(save.player.x, save.player.y, save.player.z) <
             (predator.kind === 'weasel' ? 8 : 5) &&
@@ -86,7 +88,7 @@ export class ExcavationTraffic {
             Math.hypot(k.homeX - opening.x, k.homeZ - opening.z) < 2.5 &&
             Math.abs(k.homeY - (opening.y - 0.95)) < 2.5,
         );
-        if (kit && time - visit.lastHit > 5) {
+        if (combatAllowed && kit && time - visit.lastHit > 5) {
           visit.lastHit = time;
           kit.health = Math.max(0, kit.health - 12 * 0.8);
           events.push({ type: 'kit-attack', kind: predator.kind, name: kit.name });

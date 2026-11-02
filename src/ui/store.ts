@@ -57,10 +57,23 @@ export function createUIStore(dispatch: UIAction) {
 
 export type UIStore = ReturnType<typeof createUIStore>;
 
-/** Приостанавливает мир для обзора состояния и меню; на сенсорном устройстве — для всех окон. */
+export function blockingPanelOpen(state: UIState): boolean {
+  return !!(
+    state.dialog ||
+    state.journal ||
+    state.settings ||
+    state.actionMenuOpen ||
+    state.familyOpen
+  );
+}
+
+export function socialDialogOpen(state: UIState): boolean {
+  return !!state.dialog && ['animal', 'partner', 'mate', 'kit'].includes(state.dialog.type);
+}
+
+/** Состояние остаётся HUD; разговоры останавливают только бой, меню — всю симуляцию. */
 export function simulationPaused(state: UIState): boolean {
   return (
-    state.statusOpen ||
     state.familyOpen ||
     state.dialog?.type === 'remove' ||
     state.dialog?.type === 'help' ||
@@ -69,12 +82,11 @@ export function simulationPaused(state: UIState): boolean {
     state.portrait ||
     (state.touch &&
       !!(
-        state.dialog ||
+        (state.dialog && !socialDialogOpen(state)) ||
         state.journal ||
         state.settings ||
         state.actionMenuOpen ||
-        state.familyOpen ||
-        state.statusOpen
+        state.familyOpen
       ))
   );
 }

@@ -130,12 +130,32 @@ function Hud() {
       </div>
       <button
         className="status-toggle"
-        title="I — подробное состояние"
+        title="I — свернуть или развернуть состояние без паузы"
         aria-expanded={expanded}
         onClick={() => dispatch('status-panel')}
       >
-        ♥ {Math.round(hud.bars.find((bar) => bar.label === 'Здоровье')?.value ?? 0)} · Состояние{' '}
-        {!touch && <kbd>I</kbd>} {hud.birthWarning ? ' ⚠ Роды!' : ''} {expanded ? '×' : '▾'}
+        <span className="compact-vitals">
+          {['Здоровье', 'Силы', 'Сытость', 'Жажда'].map((label) => {
+            const bar = hud.bars.find((item) => item.label === label);
+            return (
+              bar && (
+                <span
+                  key={label}
+                  title={label}
+                  aria-label={`${label}: ${Math.round(bar.value)}%`}
+                  className={bar.value < 15 ? 'low-vital' : ''}
+                >
+                  {bar.icon}
+                  {Math.round(bar.value)}
+                </span>
+              )
+            );
+          })}
+        </span>
+        <small>
+          Состояние {!touch && <kbd>I</kbd>} {hud.birthWarning ? ' ⚠ Роды!' : ''}{' '}
+          {expanded ? '▴' : '▾'}
+        </small>
       </button>
       <button
         className="family-toggle"

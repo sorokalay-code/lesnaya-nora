@@ -3,6 +3,7 @@ import { Excavation } from './Excavation';
 import { GroundItems, type GroundPickup } from './GroundItems';
 import { setRabbitAction } from './Models';
 import { Random } from './Random';
+import { RABBIT_BODY } from './RabbitBody';
 import { FOOD, type SaveData, type StashData } from './types';
 import { World, type Resource } from './World';
 
@@ -46,6 +47,10 @@ export class PartnerSupport {
     time: number,
     groundAt: GroundHeight,
   ): PartnerEvent | undefined {
+    if (actor.rig.root.userData.conversing === true) {
+      actor.navigateMate(dt, time, this.save.player, this.earth, groundAt);
+      return;
+    }
     const stash = this.familyStash();
     const home = stash ?? this.save.player;
     let command = this.save.mateCommand ?? 'forage';
@@ -58,7 +63,15 @@ export class PartnerSupport {
     }
     const cargo = (this.save.partnerCargo ??= { grass: 0, twigs: 0, fur: 0 });
     if (command === 'follow') {
-      actor.navigateMate(dt, time, this.save.player, this.earth, groundAt, 3.4);
+      actor.navigateMate(
+        dt,
+        time,
+        this.save.player,
+        this.earth,
+        groundAt,
+        5.8,
+        RABBIT_BODY.followDistance * Math.max(this.save.player.genes.size, actor.data.genes.size),
+      );
       return;
     }
 

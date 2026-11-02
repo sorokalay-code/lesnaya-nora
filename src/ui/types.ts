@@ -1,4 +1,6 @@
 import type { WildlifeKind } from '../game/animals';
+import type { ConversationTurn } from '../game/session/ForestConversation';
+import type { DialogQuestion } from '../game/session/RabbitConversation';
 import type {
   FoodKind,
   KitData,
@@ -46,10 +48,18 @@ export type DialogViewModel =
   | { type: 'remove'; kind: 'stash' | 'nest'; items: number }
   | { type: 'self'; player: SaveData['player']; pregnant: boolean }
   | { type: 'mate'; partner: PartnerTraits; command: MateCommand; messages: MateMessage[] }
-  | { type: 'partner'; partner: PartnerTraits; score: number; line?: string; paired: boolean }
+  | {
+      type: 'partner';
+      partner: PartnerTraits;
+      score: number;
+      line?: string;
+      paired: boolean;
+      question?: DialogQuestion;
+    }
   | { type: 'kit'; kit: KitData; line?: string }
   | {
       type: 'animal';
+      conversation?: ConversationTurn;
       kind: WildlifeKind;
       mood: string;
       health: number;

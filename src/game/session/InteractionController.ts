@@ -9,6 +9,9 @@ import { partnerScore, type ForestAnimal, type RabbitActor } from '../animals';
 import type { FoodKind, KitData, MateCommand, PartnerTraits, SaveData } from '../types';
 import { FOOD } from '../types';
 import type { FamilyLifecycle } from './FamilyLifecycle';
+import { ConversationFocus } from './ConversationFocus';
+import { ForestConversation } from './ForestConversation';
+import { RabbitConversation } from './RabbitConversation';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface InteractionContext {
   save: SaveData;
@@ -33,16 +36,51 @@ export class InteractionController {
   private dialogPartner?: PartnerTraits;
   private dialogKit?: KitData;
   private dialogAnimal?: ForestAnimal;
+  private readonly focus = new ConversationFocus();
+  private readonly forest: ForestConversation;
+  private readonly rabbitDialogue: RabbitConversation;
 
-  constructor(private readonly context: InteractionContext) {}
+  constructor(private readonly context: InteractionContext) {
+    this.forest = new ForestConversation(context.save, context.world);
+    this.rabbitDialogue = new RabbitConversation(context.save);
+  }
+
+  update(dt: number): void {
+    const dialog = this.context.ui.state.dialog;
+    if (!dialog || !['partner', 'mate', 'animal', 'kit'].includes(dialog.type)) {
+      this.focus.select();
+      return;
+    }
+    if (this.dialogAnimal && !this.dialogAnimal.alive) {
+      this.close();
+      return;
+    }
+    const partnerId = dialog.type === 'mate' ? this.context.save.mateId : this.dialogPartner?.id;
+    const actor = this.context.rabbits.find((rabbit) => rabbit.data.id === partnerId);
+    const root =
+      this.dialogAnimal?.root ??
+      (this.dialogKit ? this.context.family.rigs.get(this.dialogKit.id)?.root : actor?.rig.root);
+    this.focus.select(
+      root &&
+        Math.hypot(
+          root.position.x - this.context.save.player.x,
+          root.position.z - this.context.save.player.z,
+        ) < 7
+        ? root
+        : undefined,
+    );
+    this.focus.update(dt, this.context.save.player);
+  }
 
   clearSelection(): void {
+    this.focus.select();
     this.dialogPartner = undefined;
     this.dialogKit = undefined;
     this.dialogAnimal = undefined;
   }
 
   openPartner(p: PartnerTraits, line?: string): void {
+    this.context.resetInput();
     this.dialogPartner = p;
     this.dialogKit = undefined;
     this.dialogAnimal = undefined;
@@ -53,6 +91,7 @@ export class InteractionController {
       score: this.compatibility(p),
       line,
       paired: this.context.save.mateId === p.id,
+      question: this.rabbitDialogue.question(p),
     });
   }
 
@@ -78,9 +117,7 @@ export class InteractionController {
 
   close(): void {
     this.context.ui.closePanels();
-    this.dialogPartner = undefined;
-    this.dialogKit = undefined;
-    this.dialogAnimal = undefined;
+    this.clearSelection();
     this.context.resetInput();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
@@ -160,6 +197,17 @@ export class InteractionController {
   partnerAction(action: string): void {
     const p = this.dialogPartner;
     if (!p) return;
+
+    if (action === 'rabbit-question') {
+      this.rabbitDialogue.ask(p);
+      this.openPartner(p, 'А теперь я хочу кое-что спросить у тебя.');
+      return;
+    }
+    if (action.startsWith('rabbit-answer-')) {
+      this.openPartner(p, this.rabbitDialogue.answer(p, action));
+      this.context.persist();
+      return;
+    }
 
     let line = '';
     if (action === 'divorce' && this.context.save.mateId === p.id) {
@@ -259,6 +307,7 @@ export class InteractionController {
   }
 
   openKit(kit: KitData, line?: string): void {
+    this.context.resetInput();
     this.dialogKit = kit;
     this.dialogPartner = undefined;
     this.dialogAnimal = undefined;
@@ -299,6 +348,7 @@ export class InteractionController {
   }
 
   openAnimal(animal: ForestAnimal, line?: string): void {
+    this.context.resetInput();
     this.dialogAnimal = animal;
     this.dialogPartner = undefined;
     this.dialogKit = undefined;
@@ -310,6 +360,7 @@ export class InteractionController {
       health: animal.health,
       maxHealth: animal.maxHealth,
       trust: animal.trust,
+      conversation: this.forest.view(animal),
       line,
     });
   }
@@ -321,44 +372,9 @@ export class InteractionController {
       return;
     }
 
-    if (action === 'animal-food') {
-      const kind = (['clover', 'carrot', 'cabbage', 'berries'] as FoodKind[]).find(
-        (k) => this.context.save.inventory[k] > 0,
-      );
-      if (!kind) {
-        this.openAnimal(animal, 'У тебя пока нет подходящего угощения.');
-        return;
-      }
-
-      this.context.save.inventory[kind]--;
-      animal.befriend(22);
-      this.context.sound.play('eat');
-      this.openAnimal(
-        animal,
-        `Животное осторожно взяло ${FOOD[kind].label.toLowerCase()} и стало спокойнее.`,
-      );
-      return;
-    }
-
-    if (action === 'animal-path') {
-      const line =
-        animal.kind === 'moose' || animal.kind === 'deer'
-          ? 'По моим следам можно выйти к лугу. Но в открытом поле опасно: смотри в небо.'
-          : animal.kind === 'beaver'
-            ? 'У воды много сочных растений. Прислушивайся к плеску и не задерживайся на берегу.'
-            : 'Под густыми деревьями легче укрыться и найти съедобную траву.';
-      animal.befriend(4);
-      this.openAnimal(animal, line);
-      return;
-    }
-
-    animal.befriend(3);
-    this.openAnimal(
-      animal,
-      animal.mood === 'раненое'
-        ? 'Оно бережёт раненую лапу и прислушивается к лесу.'
-        : 'Оно отвечает тихим звуком и внимательно наблюдает за тобой.',
-    );
+    this.openAnimal(animal, this.forest.respond(animal, action));
+    this.context.sound.play('chirp');
+    this.context.persist();
   }
 
   private compatibility(p: PartnerTraits): number {

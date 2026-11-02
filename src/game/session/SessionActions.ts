@@ -43,6 +43,12 @@ export class SessionActions {
   }
 
   execute(action: string): void {
+    if (action === 'status-panel') {
+      const expanded = this.context.ui.state.statusOpen;
+      if (this.context.ui.panelsOpen) this.context.interactions.close();
+      this.context.ui.store.setState({ statusOpen: !expanded });
+      return;
+    }
     if (action === 'close' && this.context.ui.state.dialog?.type === 'remove')
       action = 'cancel-remove';
     if (action === 'menu') {
@@ -125,20 +131,15 @@ export class SessionActions {
       return;
     }
 
-    if (action === 'status-panel' || action === 'family-panel') {
-      const wasOpen =
-        action === 'status-panel'
-          ? this.context.ui.state.statusOpen
-          : this.context.ui.state.familyOpen;
+    if (action === 'family-panel') {
+      const wasOpen = this.context.ui.state.familyOpen;
       this.context.view.unlock();
       this.context.ui.closePanels();
       if (wasOpen) {
         this.context.interactions.close();
         return;
       }
-      this.context.ui.store.setState(
-        action === 'status-panel' ? { statusOpen: true } : { familyOpen: true },
-      );
+      this.context.ui.store.setState({ familyOpen: true });
       return;
     }
 
@@ -175,6 +176,10 @@ export class SessionActions {
         'ask-home',
         'ask-danger',
         'compliment',
+        'rabbit-question',
+        'rabbit-answer-care',
+        'rabbit-answer-risk',
+        'rabbit-answer-listen',
       ].includes(action)
     ) {
       this.context.interactions.partnerAction(action);
@@ -186,7 +191,19 @@ export class SessionActions {
       return;
     }
 
-    if (['animal-observe', 'animal-food', 'animal-path'].includes(action)) {
+    if (
+      [
+        'animal-observe',
+        'animal-food',
+        'animal-path',
+        'animal-question',
+        'animal-answer-quiet',
+        'animal-answer-rush',
+        'animal-answer-later',
+        'animal-help',
+        'animal-danger',
+      ].includes(action)
+    ) {
       this.context.interactions.animalAction(action);
       return;
     }

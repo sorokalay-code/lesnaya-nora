@@ -10,6 +10,7 @@ import { FamilyMember, Hawk, Predator, RabbitActor } from '../animals';
 import { SeasonSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
+import { FriendSignals } from './FriendSignals';
 
 import type { PlayerConsequences } from './PlayerConsequences';
 export interface AnimalState {
@@ -17,6 +18,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  combatAllowed?: () => boolean;
   save: SaveData;
   world: World;
   earth: Excavation;
@@ -40,6 +42,7 @@ interface Context {
 
 /** Обновляет поведение животных, семейную поддержку, охоту и видимость существ. */
 export class AnimalSimulation {
+  private readonly friends = new FriendSignals();
   constructor(private readonly context: Context) {}
 
   update(dt: number, time: number, night: boolean): number {
@@ -54,6 +57,13 @@ export class AnimalSimulation {
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);
     this.updateVisibility();
+    this.friends.update(
+      time,
+      this.context.save.player,
+      this.context.wildlife,
+      this.context.predators,
+      this.context.toast,
+    );
     return closestThreat;
   }
 
@@ -100,24 +110,28 @@ export class AnimalSimulation {
     const p = this.context.save.player;
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
-      const prey = this.context.ecology.targetFor(predator, this.context.predators, time);
+      const combat = this.context.combatAllowed?.() ?? true;
+      const prey = combat
+        ? this.context.ecology.targetFor(predator, this.context.predators, time)
+        : undefined;
       if (
         predator.update(
           dt,
           time,
           p.x,
           p.z,
-          p.hidden,
+          p.hidden || !combat,
           !night,
           this.context.groundAt,
           p.dirtiness / 100,
           this.context.seasons.predatorActivity(this.context.save.day),
           prey,
+          p.genes.size,
         )
       )
         this.context.consequences.predatorAttack(predator.kind);
 
-      this.context.consequences.threatenKits(predator);
+      if (combat) this.context.consequences.threatenKits(predator);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     return closestThreat;
@@ -132,6 +146,7 @@ export class AnimalSimulation {
       this.context.rabbits,
       this.context.save,
       this.context.earth,
+      this.context.combatAllowed?.() ?? true,
     )) {
       const animal = event.kind === 'weasel' ? 'Ласка' : 'Лиса';
       if (event.type === 'predator-entered')
@@ -156,6 +171,7 @@ export class AnimalSimulation {
       p.z,
       this.context.groundAt,
       this.context.predators,
+      this.context.combatAllowed?.() ?? true,
     )) {
       if (Math.hypot(event.x - p.x, event.z - p.z) > 19 || event.kind === 'arrival') continue;
 
@@ -171,7 +187,7 @@ export class AnimalSimulation {
 
   private grazeRabbits(dt: number, time: number): void {
     for (const rabbit of this.context.rabbits)
-      if (this.context.rng.chance(dt * 0.025)) {
+      if (!rabbit.rig.root.userData.conversing && this.context.rng.chance(dt * 0.025)) {
         const food = this.context.world.nearestResource(rabbit.data.x, rabbit.data.z, 1.2);
         if (food && food.kind !== 'toadstool') {
           this.context.world.harvest(food, this.context.save.clock);
@@ -185,7 +201,10 @@ export class AnimalSimulation {
 
   private updateHawks(dt: number, time: number): void {
     const p = this.context.save.player;
-    const exposed = !this.sheltered && !this.context.world.hasCover(p.x, p.z);
+    const exposed =
+      (this.context.combatAllowed?.() ?? true) &&
+      !this.sheltered &&
+      !this.context.world.hasCover(p.x, p.z);
     for (const hawk of this.context.hawks)
       if (hawk.update(dt, time, p.x, p.z, exposed, this.context.groundAt))
         this.context.consequences.predatorAttack('hawk');

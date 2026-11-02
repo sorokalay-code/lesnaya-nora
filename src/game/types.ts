@@ -1,3 +1,5 @@
+import type { WildlifeKind } from './animals/types';
+
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
@@ -14,6 +16,7 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  lastConversationAt?: number;
   name: string;
   id: number;
   x: number;
@@ -85,6 +88,9 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  wildlife?: WildlifeData[];
+  nextWildlifeId?: number;
+  discoveries?: { x: number; z: number; label: string }[];
   version: 3;
   seed: number;
   clock: number;
@@ -144,6 +150,23 @@ export interface WasteData {
   y: number;
   z: number;
   age: number;
+}
+
+export interface WildlifeSocial {
+  trust: number;
+  lastBondAt?: number;
+  lastGiftAt?: number;
+  lastHelpDay?: number;
+  request?: 'food' | 'quiet';
+}
+
+export interface WildlifeData {
+  id: number;
+  kind: WildlifeKind;
+  x: number;
+  z: number;
+  health: number;
+  social: WildlifeSocial;
 }
 
 export const FOOD: Record<

@@ -10,6 +10,7 @@ import { World } from '../World';
 import { SurvivalSystem, WasteSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalSimulation } from './AnimalSimulation';
+import type { InteractionController } from './InteractionController';
 import { EnvironmentController } from './EnvironmentController';
 import { FamilyLifecycle } from './FamilyLifecycle';
 import { PlayerConsequences } from './PlayerConsequences';
@@ -24,6 +25,7 @@ export interface SimulationState {
 }
 
 interface Context {
+  interactions: InteractionController;
   state: SimulationState;
   camera: THREE.PerspectiveCamera;
   environment: EnvironmentController;
@@ -59,6 +61,7 @@ export class SessionSimulation {
   update(dt: number): void {
     ModelAssets.shared.updateView(this.context.camera);
     this.context.state.elapsed += dt;
+    this.context.interactions.update(dt);
     this.context.environment.update(dt);
     if (
       this.context.state.digHeld &&

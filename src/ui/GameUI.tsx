@@ -1,6 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { GameApp } from './components/GameApp';
-import { createUIStore, simulationPaused } from './store';
+import { blockingPanelOpen, createUIStore, simulationPaused, socialDialogOpen } from './store';
 import type {
   DialogViewModel,
   HudView,
@@ -28,18 +28,15 @@ export class GameUI {
   }
 
   get panelsOpen() {
-    return !!(
-      this.state.dialog ||
-      this.state.journal ||
-      this.state.settings ||
-      this.state.actionMenuOpen ||
-      this.state.statusOpen ||
-      this.state.familyOpen
-    );
+    return blockingPanelOpen(this.state);
   }
 
   get simulationPaused(): boolean {
     return simulationPaused(this.state);
+  }
+
+  get conversationOpen(): boolean {
+    return socialDialogOpen(this.state);
   }
 
   setHud(hud: HudView) {

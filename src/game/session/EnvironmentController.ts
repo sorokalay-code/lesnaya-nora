@@ -158,7 +158,9 @@ export class EnvironmentController {
 
     if (p.energy < 8) {
       this.nextDigAt = this.context.elapsed() + 1;
-      this.context.toast('Слишком мало сил для копания.');
+      this.context.toast(
+        'Мало сил. Постой спокойно: через 4 секунды силы начнут восстанавливаться.',
+      );
       return;
     }
 
@@ -275,7 +277,7 @@ export class EnvironmentController {
 
     for (const kit of this.context.save.kits) if (kit.alive) kit.age += 330 / 1440;
 
-    p.energy = clamp(p.energy + 65, 0, 100);
+    p.energy = this.context.queries.nest(2.5) ? 100 : clamp(p.energy + 65, 0, 100);
     p.hunger = clamp(p.hunger - 17, 0, 100);
     p.thirst = clamp(p.thirst - 20, 0, 100);
     p.bladder = clamp(p.bladder + 15, 0, 100);
@@ -283,7 +285,9 @@ export class EnvironmentController {
 
     p.health = 100;
     this.context.playAction('lie', 2.8);
-    this.context.toast('Ты выспалась. Здоровье полностью восстановилось.');
+    this.context.toast(
+      'Ты выспалась. Здоровье восстановилось; в гнезде силы восстанавливаются полностью.',
+    );
     return;
   }
 

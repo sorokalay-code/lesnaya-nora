@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import { ModelAssets, type ModelInstance } from '../ModelAssets';
 import { Random } from '../Random';
 import { Animal } from './Animal';
+import type { WildlifeSocial } from '../types';
 import type { GroundHeight, WildlifeKind, WildlifeProfile } from './types';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
   readonly model: ModelInstance;
   readonly defense: number;
-  trust = 0;
+  socialId = 0;
+  social: WildlifeSocial = { trust: 0 };
   protected legs: THREE.Object3D[] = [];
   private readonly speed: number;
   private readonly range: number;
@@ -49,6 +51,14 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
           : 'осторожное';
   }
 
+  get trust(): number {
+    return this.social.trust;
+  }
+
+  set trust(value: number) {
+    this.social.trust = value;
+  }
+
   befriend(amount: number): void {
     this.trust = THREE.MathUtils.clamp(this.trust + amount, 0, 100);
     this.fleeingUntil = 0;
@@ -77,6 +87,12 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     threats: readonly { x: number; z: number }[],
     food?: { x: number; z: number },
   ): boolean {
+    if (this.root.userData.conversing === true) {
+      ModelAssets.shared.play(this.model, 'idle', dt);
+      this.root.userData.tailPhase = time;
+      return false;
+    }
+
     const danger = threats.find((p) => Math.hypot(p.x - this.x, p.z - this.z) < 6);
     if (danger) {
       if (time < this.fightingUntil) {

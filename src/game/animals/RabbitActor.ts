@@ -52,7 +52,12 @@ export class RabbitActor extends Rabbit {
     earth: Excavation,
     groundAt: GroundHeight,
     speed = 2.3,
+    stopDistance = 0.2,
   ): void {
+    if (this.rig.root.userData.conversing === true) {
+      animateRabbit(this.rig, time + this.data.id, false, false, dt);
+      return;
+    }
     this.tunnelPosition = undefined;
     const from = {
       x: this.data.x,
@@ -63,9 +68,16 @@ export class RabbitActor extends Rabbit {
     const dx = waypoint.x - this.data.x,
       dz = waypoint.z - this.data.z,
       distance = Math.hypot(dx, dz);
-    const moving = distance > 0.2;
+    const atDestination =
+      Math.hypot(target.x - from.x, target.z - from.z) <= stopDistance &&
+      Math.abs(target.y - from.y) < 0.8;
+    const moving = !atDestination && distance > 0.2;
     if (moving) {
-      const step = Math.min(distance, speed * dt);
+      const remaining = Math.max(
+        0,
+        Math.hypot(target.x - from.x, target.z - from.z) - stopDistance,
+      );
+      const step = Math.min(distance, speed * dt, remaining || distance);
       this.data.x = THREE.MathUtils.clamp(this.data.x + (dx / distance) * step, -97, 97);
       this.data.z = THREE.MathUtils.clamp(this.data.z + (dz / distance) * step, -97, 97);
       const desired = Math.atan2(-dx, -dz);
@@ -146,6 +158,10 @@ export class RabbitActor extends Rabbit {
   }
 
   update(dt: number, time: number, playerX: number, playerZ: number, groundAt: GroundHeight): void {
+    if (this.rig.root.userData.conversing === true) {
+      animateRabbit(this.rig, time + this.data.id, false, false, dt);
+      return;
+    }
     if (this.tunnelPosition) {
       this.rig.root.position.set(
         this.tunnelPosition.x,

@@ -1,10 +1,13 @@
 import { AnimalPhysics, type PhysicalBody } from '../AnimalPhysics';
+import { RABBIT_BODY } from '../RabbitBody';
+import { bodyContact } from '../BodyContact';
 import type { FamilyMember, ForestAnimal, Predator, RabbitActor } from '../animals';
 import type { Excavation } from '../Excavation';
 import type { SaveData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 interface CollisionContext {
+  playerHeading?: () => number;
   save: SaveData;
   world: World;
   earth: Excavation;
@@ -17,8 +20,43 @@ interface CollisionContext {
 /** Собирает физические тела сущностей и синхронизирует результат со сценой и сохранением. */
 export class AnimalCollisionSystem {
   private readonly physics = new AnimalPhysics();
+  private bodies: PhysicalBody[] = [];
 
   constructor(private readonly context: CollisionContext) {}
+
+  canPlayerMove(x: number, z: number, y: number, heading: number): boolean {
+    const player = this.context.save.player;
+    const current: PhysicalBody = {
+      id: 0,
+      x: player.x,
+      y: player.y,
+      z: player.z,
+      heading,
+      radius: RABBIT_BODY.radius * player.genes.size,
+      halfLength: RABBIT_BODY.halfLength * player.genes.size,
+      sheltered: this.context.earth.isSheltered(player.x, player.y, player.z),
+      mass: Infinity,
+      moveTo: () => false,
+    };
+    const candidate = { ...current, x, z, y };
+    for (const other of this.bodies) {
+      if (
+        other.id === 0 ||
+        other.sheltered !== current.sheltered ||
+        Math.abs(other.y - y) > 1.2 ||
+        Math.hypot(other.x - x, other.z - z) > 4
+      )
+        continue;
+      const distance = bodyContact(candidate, other).distance;
+      // Из уже возникшего пересечения разрешаем выйти, но не углублять его в сторону стены.
+      if (
+        distance < current.radius + other.radius - 0.01 &&
+        distance < bodyContact(current, other).distance - 0.001
+      )
+        return false;
+    }
+    return true;
+  }
 
   resolve(matingId?: number): void {
     const p = this.context.save.player,
@@ -30,7 +68,9 @@ export class AnimalCollisionSystem {
       x: p.x,
       y: p.y,
       z: p.z,
-      radius: 0.38,
+      radius: RABBIT_BODY.radius * p.genes.size,
+      halfLength: RABBIT_BODY.halfLength * p.genes.size,
+      heading: this.context.playerHeading?.() ?? 0,
       mass: Infinity,
       sheltered: this.context.earth.isSheltered(p.x, p.y, p.z),
       moveTo: () => false,
@@ -46,7 +86,9 @@ export class AnimalCollisionSystem {
         x: actor.data.x,
         y,
         z: actor.data.z,
-        radius: 0.38 * root.scale.x,
+        radius: RABBIT_BODY.radius * root.scale.x,
+        halfLength: RABBIT_BODY.halfLength * root.scale.x,
+        heading: root.rotation.y,
         mass: 1,
         sheltered,
         moveTo: (x, z) => {
@@ -68,7 +110,9 @@ export class AnimalCollisionSystem {
         x: root.position.x,
         y,
         z: root.position.z,
-        radius: 0.34 * root.scale.x,
+        radius: RABBIT_BODY.radius * root.scale.x,
+        halfLength: RABBIT_BODY.halfLength * root.scale.x,
+        heading: root.rotation.y,
         mass: 1,
         sheltered: false,
         moveTo: (x, z) => {
@@ -91,7 +135,9 @@ export class AnimalCollisionSystem {
           x: kit.x ?? kit.homeX,
           y,
           z: kit.z ?? kit.homeZ,
-          radius: Math.max(0.17, 0.36 * rig.root.scale.x),
+          radius: Math.max(0.14, RABBIT_BODY.radius * rig.root.scale.x),
+          halfLength: RABBIT_BODY.halfLength * rig.root.scale.x,
+          heading: rig.root.rotation.y,
           mass: 0.55,
           sheltered,
           moveTo: (x, z) => {
@@ -150,5 +196,6 @@ export class AnimalCollisionSystem {
       });
     });
     this.physics.resolve(bodies);
+    this.bodies = bodies;
   }
 }

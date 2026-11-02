@@ -16,6 +16,12 @@ export class PlayerMovement {
     private readonly view: ViewCamera,
     private readonly earth: Excavation,
     private readonly sound: Soundscape,
+    private readonly canOccupy: (
+      x: number,
+      z: number,
+      y: number,
+      heading: number,
+    ) => boolean = () => true,
   ) {}
 
   private get sheltered(): boolean {
@@ -52,8 +58,16 @@ export class PlayerMovement {
     for (let i = 0; i < steps; i++) {
       const x = clamp(p.x + step.x / steps, -103, 103),
         z = clamp(p.z + step.z / steps, -103, 103);
-      if (this.earth.canMoveTo(x, p.z, p.y, this.sheltered)) p.x = x;
-      if (this.earth.canMoveTo(p.x, z, p.y, this.sheltered)) p.z = z;
+      if (
+        this.earth.canMoveTo(x, p.z, p.y, this.sheltered) &&
+        this.canOccupy(x, p.z, p.y, this.player.root.rotation.y)
+      )
+        p.x = x;
+      if (
+        this.earth.canMoveTo(p.x, z, p.y, this.sheltered) &&
+        this.canOccupy(p.x, z, p.y, this.player.root.rotation.y)
+      )
+        p.z = z;
     }
     this.player.rig.root.userData.jumpHeight = step.height;
     this.player.rig.root.userData.jumpPitch = step.pitch;
@@ -105,9 +119,17 @@ export class PlayerMovement {
     const speedScale = this.sheltered ? 0.68 : 1;
     const nx = clamp(p.x + facingX * speed * dt * speedScale, -103, 103),
       nz = clamp(p.z + facingZ * speed * dt * speedScale, -103, 103);
-    if (this.earth.canMoveTo(nx, p.z, p.y, this.sheltered)) p.x = nx;
+    if (
+      this.earth.canMoveTo(nx, p.z, p.y, this.sheltered) &&
+      this.canOccupy(nx, p.z, p.y, this.player.root.rotation.y)
+    )
+      p.x = nx;
 
-    if (this.earth.canMoveTo(p.x, nz, p.y, this.sheltered)) p.z = nz;
+    if (
+      this.earth.canMoveTo(p.x, nz, p.y, this.sheltered) &&
+      this.canOccupy(p.x, nz, p.y, this.player.root.rotation.y)
+    )
+      p.z = nz;
 
     if (elapsed > this.footstepAt) {
       this.footstepAt = elapsed + (sprint ? 0.17 : 0.28);

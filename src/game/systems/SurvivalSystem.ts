@@ -1,9 +1,11 @@
 import { Random } from '../Random';
+import { EnergyRecovery } from './EnergyRecovery';
 import { FOOD, type FoodKind, type SaveData } from '../types';
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 /** Обновляет потребности, температуру, загрязнение, отравление и здоровье крольчихи. */
 export class SurvivalSystem {
   private lastDiarrhea = 0;
+  private readonly recovery = new EnergyRecovery();
 
   constructor(
     private readonly save: SaveData,
@@ -20,7 +22,8 @@ export class SurvivalSystem {
   ): void {
     const p = this.save.player;
     p.hunger = clamp(p.hunger - dt * (moving ? 0.14 : 0.07), 0, 100);
-    p.energy = clamp(p.energy - dt * (moving ? 0.09 : 0.025), 0, 100);
+    this.recovery.update(p, dt, elapsed, moving);
+    if (moving) p.energy = clamp(p.energy - dt * 0.09, 0, 100);
     p.thirst = clamp(p.thirst - dt * (moving ? 0.15 : 0.09), 0, 100);
     p.bladder = clamp(p.bladder + dt * 0.075, 0, 100);
     p.bowel = clamp(p.bowel + dt * 0.055, 0, 100);

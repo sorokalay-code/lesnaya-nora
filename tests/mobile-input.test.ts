@@ -140,6 +140,11 @@ test('touch movement and digging reset when menus open, with independent camera 
     pointer('pointerdown', 0);
     pointer('pointermove', 40);
     assert.notEqual(view.forwardAt().x, direction);
+    store.setState({ statusOpen: true });
+    mobile.move(1, 0);
+    assert.equal(keys.has('KeyD'), true);
+    mobile.dig(true);
+    assert.equal(digging, true);
     store.setState({ actionMenuOpen: true });
     assert.equal(keys.has('KeyW'), false);
     assert.equal(keys.has('ShiftLeft'), false);

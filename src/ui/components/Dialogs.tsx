@@ -232,6 +232,13 @@ export function DialogView({
             <span>Совместимость: {fmt(data.score)}/100</span>
           </div>
           <div className="dialog-choices">
+            {data.question && (
+              <>
+                <p className="speech">{data.question.prompt}</p>
+                {data.question.choices.map(({ action, label }) => choice(action, label))}
+              </>
+            )}
+            {choice('rabbit-question', 'Теперь твоя очередь: что хочешь спросить?')}
             {choice('ask-home', 'Как живёт твоя семья?')}
             {choice('ask-food', 'Где искать еду и воду?')}
             {choice('ask-danger', 'Чего ты опасаешься?')}
@@ -295,11 +302,33 @@ export function DialogView({
             {data.mood} · здоровье {fmt(data.health)}/{fmt(data.maxHealth)} · доверие{' '}
             {fmt(data.trust)}/100
           </p>
+          {data.conversation && (
+            <>
+              <p className="friendship-label">♡ {data.conversation.relationship}</p>
+              <p className="dialog-meta">{data.conversation.benefit}</p>
+              {data.conversation.question && <p className="speech">{data.conversation.question}</p>}
+            </>
+          )}
           <div className="dialog-choices">
-            {choice('animal-observe', 'Как ты себя чувствуешь?')}
-            {choice('animal-path', 'Где искать еду и укрытие?')}
-            {choice('animal-food', 'Угостить едой')}
+            {data.conversation?.question ? (
+              data.conversation.choices.map(({ action, label }) => choice(action, label))
+            ) : (
+              <>
+                {choice('animal-observe', 'Как проходит твой день?')}
+                {choice('animal-question', 'Хочешь о чём-нибудь спросить?')}
+                {choice('animal-danger', 'Что тебя тревожит в лесу?')}
+                {choice('animal-path', 'Покажи место с едой на карте')}
+                {choice(
+                  'animal-food',
+                  data.kind === 'beaver' ? 'Подарить веточку' : 'Угостить едой',
+                )}
+                {choice('animal-help', 'Попросить припас у друга')}
+              </>
+            )}
           </div>
+          <small className="dialog-meta">
+            Лес живёт, но во время разговора животные не нападают. Esc — закончить беседу.
+          </small>
         </>
       );
     case 'bag':

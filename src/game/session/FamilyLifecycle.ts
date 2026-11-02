@@ -149,6 +149,10 @@ export class FamilyLifecycle {
 
       const rig = this.rigs.get(kit.id);
       if (rig) {
+        if (rig.root.userData.conversing === true) {
+          animateRabbit(rig, time + kit.id, false, false, dt);
+          continue;
+        }
         const nest = this.context.save.nests.find((n) => n.id === kit.nestId);
         const home = nest ?? { x: kit.homeX, y: kit.homeY, z: kit.homeZ };
         rig.root.visible = true;
@@ -174,9 +178,9 @@ export class FamilyLifecycle {
               )
             : kit.command === 'follow'
               ? {
-                  x: center.x + Math.cos(kit.id * 2.4) * 0.85,
+                  x: center.x + Math.cos(kit.id * 2.4) * (1.5 + (kit.id % 3) * 0.35),
                   y: center.y,
-                  z: center.z + Math.sin(kit.id * 2.4) * 0.85,
+                  z: center.z + Math.sin(kit.id * 2.4) * (1.5 + (kit.id % 3) * 0.35),
                 }
               : kit.command === 'rest'
                 ? {

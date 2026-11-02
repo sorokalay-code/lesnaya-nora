@@ -14,6 +14,7 @@ import { SessionQueries } from './SessionQueries';
 import { WorldCalendar } from './WorldCalendar';
 
 interface Context {
+  captureWildlife?: () => void;
   save: SaveData;
   ui: GameUI;
   view: ViewCamera;
@@ -82,6 +83,7 @@ export class SessionInterface {
   }
 
   persist(notify: boolean): void {
+    this.context.captureWildlife?.();
     this.context.save.harvested = this.context.world.resources
       .filter((r) => !r.available)
       .map((r) => r.id);

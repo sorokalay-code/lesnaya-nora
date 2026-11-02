@@ -110,7 +110,7 @@ export class DesktopInput implements InputController {
     if (shortcut) {
       event.preventDefault();
       if (event.repeat) return;
-      this.reset();
+      if (shortcut !== 'status-panel') this.reset();
       if (shortcut === 'close-panels') this.context.closePanels();
       else if (shortcut === 'release-cursor') view.unlock();
       else if (shortcut === 'mate-focus') ui.focusMessage();

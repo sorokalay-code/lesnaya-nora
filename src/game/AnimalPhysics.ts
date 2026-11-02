@@ -1,4 +1,8 @@
+import { bodyContact } from './BodyContact';
+
 export interface PhysicalBody {
+  heading?: number;
+  halfLength?: number;
   id: number;
   x: number;
   y: number;
@@ -15,7 +19,7 @@ export class AnimalPhysics {
   constructor(private readonly cellSize = 3) {}
 
   resolve(bodies: PhysicalBody[]): void {
-    for (let iteration = 0; iteration < 3; iteration++) {
+    for (let iteration = 0; iteration < 6; iteration++) {
       const cells = new Map<string, PhysicalBody[]>();
       const cell = (x: number, z: number) =>
         `${Math.floor(x / this.cellSize)},${Math.floor(z / this.cellSize)}`;
@@ -44,17 +48,24 @@ export class AnimalPhysics {
               const key = body.id < other.id ? `${body.id}:${other.id}` : `${other.id}:${body.id}`;
               if (checked.has(key)) continue;
               checked.add(key);
-              let dx = other.x - body.x,
-                dz = other.z - body.z,
-                distance = Math.hypot(dx, dz);
+              let { dx, dz, distance } = bodyContact(body, other);
               const minimum = body.radius + other.radius;
               if (distance >= minimum) continue;
 
               overlaps++;
               if (distance < 0.0001) {
+                // При пересечении осей капсул выбираем направление между центрами;
+                // одинаковые центры разводим детерминированно, без дрожания от RNG.
                 const a = body.id * 2.399 + other.id * 0.73;
-                dx = Math.cos(a) * 0.0001;
-                dz = Math.sin(a) * 0.0001;
+                const centerDistance = Math.hypot(other.x - body.x, other.z - body.z);
+                dx =
+                  centerDistance > 0.0001
+                    ? ((other.x - body.x) / centerDistance) * 0.0001
+                    : Math.cos(a) * 0.0001;
+                dz =
+                  centerDistance > 0.0001
+                    ? ((other.z - body.z) / centerDistance) * 0.0001
+                    : Math.sin(a) * 0.0001;
                 distance = 0.0001;
               }
 
@@ -68,20 +79,28 @@ export class AnimalPhysics {
                 second = mobilityB / total;
               const nx = dx / distance,
                 nz = dz / distance;
-              if (
+              const movedA =
                 first > 0 &&
-                body.moveTo(body.x - nx * overlap * first, body.z - nz * overlap * first)
-              ) {
+                body.moveTo(body.x - nx * overlap * first, body.z - nz * overlap * first);
+              if (movedA) {
                 body.x -= nx * overlap * first;
                 body.z -= nz * overlap * first;
               }
 
-              if (
+              const shareB = movedA ? second : 1;
+              const movedB =
                 second > 0 &&
-                other.moveTo(other.x + nx * overlap * second, other.z + nz * overlap * second)
+                other.moveTo(other.x + nx * overlap * shareB, other.z + nz * overlap * shareB);
+              if (movedB) {
+                other.x += nx * overlap * shareB;
+                other.z += nz * overlap * shareB;
+              } else if (
+                movedA &&
+                second > 0 &&
+                body.moveTo(body.x - nx * overlap * second, body.z - nz * overlap * second)
               ) {
-                other.x += nx * overlap * second;
-                other.z += nz * overlap * second;
+                body.x -= nx * overlap * second;
+                body.z -= nz * overlap * second;
               }
             }
       }

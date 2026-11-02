@@ -1,6 +1,7 @@
 import type { InputController } from './InputController';
 import type { GameUI } from '../../ui/GameUI';
 import type { ViewCamera } from '../ViewCamera';
+import { blockingPanelOpen } from '../../ui/store';
 
 export interface TouchBindings {
   move: (x: number, y: number) => void;
@@ -50,6 +51,7 @@ export class MobileInput implements TouchBindings, InputController {
       this.ui.state.touch &&
       !!this.ui.state.hud &&
       !this.ui.state.overlay &&
+      !blockingPanelOpen(this.ui.state) &&
       !this.ui.simulationPaused
     );
   }

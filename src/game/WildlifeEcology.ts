@@ -9,6 +9,7 @@ import {
 import { ModelAssets } from './ModelAssets';
 import { Random } from './Random';
 import { World, type Resource } from './World';
+import type { SaveData } from './types';
 
 type Target = ForestAnimal | Predator;
 export type WildlifeEvent = {
@@ -38,9 +39,22 @@ export class WildlifeEcology {
     private readonly scene: THREE.Scene,
     private readonly world: World,
     private readonly rng: Random,
+    private readonly save?: SaveData,
   ) {}
 
   populate(): void {
+    if (this.save?.wildlife) {
+      for (const data of this.save.wildlife) {
+        const animal = createForestAnimal(data.kind, data.x, data.z, this.rng);
+        animal.socialId = data.id;
+        animal.social = { ...data.social };
+        animal.health = Math.max(0, Math.min(animal.maxHealth, data.health));
+        animal.root.position.y = this.world.heightAt(data.x, data.z);
+        this.animals.push(animal);
+        this.scene.add(animal.root);
+      }
+      return;
+    }
     for (const [kind, count] of [
       ['deer', 6],
       ['squirrel', 9],
@@ -90,6 +104,8 @@ export class WildlifeEcology {
     if (!found) return;
 
     const animal = createForestAnimal(kind, x, z, this.rng);
+    animal.socialId = this.save ? (this.save.nextWildlifeId ??= 1) : this.animals.length + 1;
+    if (this.save) this.save.nextWildlifeId = animal.socialId + 1;
     animal.root.position.set(x, this.world.heightAt(x, z), z);
     this.animals.push(animal);
     this.scene.add(animal.root);
@@ -156,6 +172,7 @@ export class WildlifeEcology {
     pz: number,
     groundAt: GroundHeight,
     predators: Predator[],
+    combatAllowed = true,
   ): WildlifeEvent[] {
     const events: WildlifeEvent[] = [];
     if (time >= this.nextFoodSearch) {
@@ -195,6 +212,7 @@ export class WildlifeEcology {
     }
 
     for (const predator of predators) {
+      if (!combatAllowed) continue;
       if (
         !predator.alive ||
         predator.underground ||
@@ -271,5 +289,19 @@ export class WildlifeEcology {
     }
 
     return events;
+  }
+
+  capture(): void {
+    if (!this.save) return;
+    this.save.wildlife = this.animals
+      .filter((animal) => animal.alive)
+      .map((animal) => ({
+        id: animal.socialId,
+        kind: animal.kind,
+        x: animal.x,
+        z: animal.z,
+        health: animal.health,
+        social: { ...animal.social },
+      }));
   }
 }

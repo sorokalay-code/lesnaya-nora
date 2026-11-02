@@ -72,7 +72,7 @@ export class WorldPopulation {
       context.scene.add(predator.root);
     }
 
-    this.ecology = new WildlifeEcology(context.scene, context.world, context.rng);
+    this.ecology = new WildlifeEcology(context.scene, context.world, context.rng, context.save);
     this.ecology.populate();
     this.wildlife = this.ecology.animals;
     this.hawks = [[32, -30]].map(([x, z]) => new Hawk(x, z, context.rng));

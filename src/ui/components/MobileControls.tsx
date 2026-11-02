@@ -9,9 +9,7 @@ export function MobileControls({ store }: { store: UIStore }) {
   const portrait = useStore(store, (s) => s.portrait);
   const hidden = useStore(
     store,
-    (s) =>
-      !s.hud ||
-      !!(s.overlay || s.dialog || s.journal || s.settings || s.statusOpen || s.familyOpen),
+    (s) => !s.hud || !!(s.overlay || s.dialog || s.journal || s.settings || s.familyOpen),
   );
   const open = useStore(store, (s) => s.actionMenuOpen);
   const bindings = useStore(store, (s) => s.touchBindings);

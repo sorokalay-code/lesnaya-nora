@@ -18,6 +18,25 @@
 .family-toggle {
   left: 218px;
 }
+.status-toggle {
+  width: 190px;
+  padding: 5px 9px;
+}
+.compact-vitals {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.status-toggle small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #d7dfbd;
+}
+.low-vital {
+  color: #ffaea0;
+}
 .hud {
   display: none;
   top: 132px;
@@ -104,8 +123,15 @@
 }
 .touch-ui .family-toggle {
   top: 44px;
-  left: 190px;
+  left: 218px;
   min-height: 44px;
+}
+.touch-ui .status-toggle {
+  width: 190px;
+  padding: 5px 9px;
+}
+.touch-ui .hud {
+  max-height: max(110px, calc(100dvh - 245px));
 }
 .touch-ui .family-avatars {
   top: 44px;

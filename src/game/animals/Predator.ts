@@ -3,6 +3,7 @@ import { animatePredator, createPredator } from '../Models';
 import { Random } from '../Random';
 import type { PredatorKind } from '../types';
 import { Animal } from './Animal';
+import { RABBIT_BODY } from '../RabbitBody';
 import type { GroundHeight, PredatorProfile } from './types';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
@@ -84,6 +85,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     scent = 0,
     activity = 1,
     prey?: { x: number; z: number },
+    playerSize = 1,
   ): boolean {
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.huntingPlayer = false;
@@ -140,7 +142,13 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.z,
     );
     this.root.rotation.y = angle + Math.PI;
-    const strike = hunting && dist < this.profile.playerReach && this.attackCooldown <= 0;
+    // Дальность укуса согласована с капсулой крольчихи: коллизия не делает её неуязвимой спереди.
+    const biteReach = Math.max(
+      this.profile.playerReach,
+      this.profile.radius + (RABBIT_BODY.radius + RABBIT_BODY.halfLength) * playerSize + 0.08,
+    );
+    const strike =
+      hunting && Math.hypot(px - this.x, pz - this.z) < biteReach && this.attackCooldown <= 0;
     if (strike) {
       this.attackCooldown = this.profile.playerCooldown;
       this.playAttack(time);

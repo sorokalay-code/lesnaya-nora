@@ -16,7 +16,11 @@ export class MapPresenter {
 
     return {
       colors,
-      landmarks: world.landmarks.map(({ x, z, label }) => ({ x, z, label })),
+      landmarks: [...world.landmarks, ...(save.discoveries ?? [])].map(({ x, z, label }) => ({
+        x,
+        z,
+        label,
+      })),
       openings: save.excavation
         .filter((node) => node.y >= world.heightAt(node.x, node.z) - 0.5)
         .map(({ x, z }) => ({ x, z })),
