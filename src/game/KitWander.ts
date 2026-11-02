@@ -21,12 +21,7 @@ export class KitWander {
   ): Point {
     const current = { x: kit.x ?? home.x, y: kit.y ?? home.y, z: kit.z ?? home.z };
     const previous = this.targets.get(kit.id);
-    if (
-      previous &&
-      time < previous.until &&
-      Math.hypot(previous.point.x - current.x, previous.point.z - current.z) > 0.3
-    )
-      return previous.point;
+    if (previous && time < previous.until) return previous.point;
 
     let point = home;
     for (let attempt = 0; attempt < 16; attempt++) {

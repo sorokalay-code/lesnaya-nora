@@ -23,6 +23,7 @@ import { GameInputController } from './input/GameInputController';
 import { MobileInput } from './input/MobileInput';
 import { AnimalCollisionSystem } from './session/AnimalCollisionSystem';
 import { AnimalSimulation, type AnimalState } from './session/AnimalSimulation';
+import { AnimalWasteSystem } from './session/AnimalWasteSystem';
 import { EnvironmentController } from './session/EnvironmentController';
 import { FamilyLifecycle } from './session/FamilyLifecycle';
 import { InteractionController } from './session/InteractionController';
@@ -259,8 +260,13 @@ export class Game {
       this.items,
       new Random(this.save.seed + 6631),
     );
-    this.waste = new WasteSystem(this.scene, this.save, (w) =>
-      this.earth.isSheltered(w.x, w.y, w.z) ? w.y : this.world.heightAt(w.x, w.z),
+    this.waste = new WasteSystem(
+      this.scene,
+      this.save,
+      (w) => this.earth.floorAt(w.x, w.z, w.y),
+      (w) => {
+        if (!this.earth.isSheltered(w.x, w.y, w.z)) this.world.fertilize(w.x, w.z, this.save.clock);
+      },
     );
     this.consequences = new PlayerConsequences({
       save: this.save,
@@ -324,6 +330,8 @@ export class Game {
       closePanels: () => this.interactions.close(),
     });
     this.environment = new EnvironmentController({
+      waste: this.waste,
+      persist: () => this.sessionUI.persist(false),
       save: this.save,
       world: this.world,
       earth: this.earth,
@@ -427,6 +435,18 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      animalWaste: new AnimalWasteSystem({
+        scene: this.scene,
+        save: this.save,
+        earth: this.earth,
+        waste: this.waste,
+        family: this.family,
+        rabbits: this.rabbits,
+        families: this.families,
+        wildlife: this.wildlife,
+        predators: this.predators,
+        hawks: this.hawks,
+      }),
       combatAllowed: () => !this.ui.conversationOpen,
       save: this.save,
       world: this.world,
@@ -449,6 +469,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.simulation = new SessionSimulation({
+      decorations: this.decorations,
       interactions: this.interactions,
       camera: this.camera,
       environment: this.environment,

@@ -131,10 +131,9 @@ export class PartnerSupport {
         (r) =>
           r.available &&
           ['clover', 'carrot', 'cabbage', 'berries', 'acorn'].includes(r.kind) &&
-          Math.hypot(r.x - home.x, r.z - home.z) < 24 &&
-          Math.hypot(r.x - actor.data.x, r.z - actor.data.z) < 20,
+          Math.hypot(r.x - home.x, r.z - home.z) < 60,
       );
-      const branches = this.items.availableBranches(actor.data.x, actor.data.z, 30);
+      const branches = this.items.availableBranches(home.x, home.z, 55);
       if (branches.length && (this.rng.chance(0.45) || !food.length)) {
         const item = branches.sort(
           (a, b) =>

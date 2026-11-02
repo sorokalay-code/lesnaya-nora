@@ -6,6 +6,7 @@ import { Rabbit } from './Rabbit';
 import type { GroundHeight } from './types';
 /** Член чужой семьи выбирает собственные цели рядом с домом, не привязываясь к орбите родителя. */
 export class FamilyMember extends Rabbit {
+  readonly data: PartnerTraits;
   private readonly homeX: number;
   private readonly homeZ: number;
   private targetX: number;
@@ -17,10 +18,10 @@ export class FamilyMember extends Rabbit {
     parent: PartnerTraits,
     genes: Genes,
     private readonly index: number,
-    baby: boolean,
+    readonly young: boolean,
     private readonly rng = new Random(parent.id * 97 + index * 31 + 1),
   ) {
-    super({ x: parent.x, z: parent.z }, genes, baby);
+    super({ x: parent.x, z: parent.z }, genes, young);
     const angle = parent.id * 1.7 + index * 2.4,
       radius = 4 + index * 2.1;
     this.homeX =
@@ -31,6 +32,18 @@ export class FamilyMember extends Rabbit {
       this.z =
       this.targetZ =
         THREE.MathUtils.clamp(parent.z + Math.sin(angle) * radius, -90, 90);
+    const names = ['Шелест', 'Черныш', 'Листик', 'Сумрак', 'Орешек', 'Клевер', 'Пушок', 'Шорох'];
+    this.data = {
+      id: 100000 + parent.id * 100 + index,
+      name: names[(parent.id + index) % names.length],
+      x: this.x,
+      z: this.z,
+      genes,
+      preference: 'bond',
+      temperament: parent.temperament,
+      trust: 5,
+      familySize: 0,
+    };
   }
 
   moveTo(x: number, z: number, y: number): void {

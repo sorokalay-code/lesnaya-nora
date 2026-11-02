@@ -99,7 +99,7 @@ test('scene decorations follow relief and partner markers are replaced without d
   const decorations = new SceneDecorations(context);
   const before = context.scene.children.length;
   decorations.addNest({ id: 1, x: 4, y: 20, z: 7, quality: 1 });
-  assert.equal(context.scene.children[before].position.y, context.world.heightAt(4, 7) + 0.04);
+  assert.equal(context.scene.children[before].position.y, context.world.heightAt(4, 7) + 0.025);
   decorations.addStash({ id: 4, x: 4, y: 20, z: 7, food: {} });
   assert.equal(context.scene.children.length, before + 2);
   decorations.removeNest(1);

@@ -14,6 +14,7 @@ export class Excavation {
   readonly maxDepth = 50;
   readonly group = new THREE.Group();
   readonly openings: DigNode[] = [];
+
   private readonly mesher: CaveMesher;
   private edges: Array<[DigNode, DigNode]> = [];
   private neighbors = new Map<DigNode, DigNode[]>();
@@ -44,6 +45,10 @@ export class Excavation {
 
   private snap(v: number): number {
     return Math.round(v / 2) * 2;
+  }
+
+  get revision(): number {
+    return this.save.excavation.length;
   }
 
   private depth(node: DigNode): number {
@@ -77,57 +82,93 @@ export class Excavation {
     return this.openings.some((o) => distance2(o, { x, z }) < radius);
   }
 
-  /** Следующая физическая точка маршрута крольчонка через соединённые ходы и входной склон. */
+  /** Строит целый маршрут: выбранный выход и порядок камер не меняются посередине прохода. */
+  route(from: DigNode, to: DigNode): DigNode[] {
+    const fromInside = this.isSheltered(from.x, from.y, from.z);
+    const toInside = this.isSheltered(to.x, to.y, to.z);
+    if (!fromInside && !toInside) return [{ ...to }];
+
+    const anchor = this.nearestNode(
+      fromInside ? from.x : to.x,
+      fromInside ? from.y : to.y,
+      fromInside ? from.z : to.z,
+    );
+    if (!anchor) return [];
+    const queue = [anchor];
+    const came = new Map<DigNode, DigNode | null>([[anchor, null]]);
+    for (let head = 0; head < queue.length; head++) {
+      for (const neighbor of this.neighbors.get(queue[head]) ?? []) {
+        if (came.has(neighbor)) continue;
+        came.set(neighbor, queue[head]);
+        queue.push(neighbor);
+      }
+    }
+    const outside = fromInside ? to : from;
+    const exitCost = (node: DigNode) =>
+      distance2(node, outside) +
+      Math.max(0, this.world.heightAt(node.x, node.z) - (node.y - 0.95)) * 8;
+    const opening = this.openings
+      .filter((node) => came.has(node))
+      .sort((a, b) => exitCost(a) - exitCost(b))[0];
+    const endpoint = fromInside && toInside ? this.nearestNode(to.x, to.y, to.z) : opening;
+    if (!endpoint || !came.has(endpoint)) return [];
+    const nodes: DigNode[] = [];
+    for (let node: DigNode | null = endpoint; node; node = came.get(node) ?? null) nodes.push(node);
+    if (fromInside) nodes.reverse();
+    const points = nodes.map((node) => ({ x: node.x, y: node.y - 0.95, z: node.z }));
+    if (!fromInside && opening) {
+      const inward = nodes[1] ?? to;
+      let dx = opening.x - inward.x,
+        dz = opening.z - inward.z;
+      if (Math.hypot(dx, dz) < 0.1) {
+        dx = from.x - opening.x;
+        dz = from.z - opening.z;
+      }
+      const length = Math.hypot(dx, dz) || 1;
+      const x = opening.x + (dx / length) * 2.4,
+        z = opening.z + (dz / length) * 2.4;
+      const approach: DigNode[] = [];
+      if (dx * (from.x - opening.x) + dz * (from.z - opening.z) < 0) {
+        const side = dx * (from.z - opening.z) - dz * (from.x - opening.x) >= 0 ? 1 : -1;
+        const ax = x - (dz / length) * 3 * side,
+          az = z + (dx / length) * 3 * side;
+        approach.push({ x: ax, y: this.world.heightAt(ax, az), z: az });
+      }
+      approach.push({ x, y: this.world.heightAt(x, z), z });
+      points.unshift(...approach);
+    }
+    if (fromInside && !toInside && opening) {
+      // Выходим по продолжению последнего участка тоннеля, даже если еда находится за входом.
+      const previous = nodes.at(-2);
+      let dx = previous ? opening.x - previous.x : to.x - opening.x,
+        dz = previous ? opening.z - previous.z : to.z - opening.z;
+      if (Math.hypot(dx, dz) < 0.1) {
+        dx = to.x - opening.x;
+        dz = to.z - opening.z;
+      }
+      const length = Math.hypot(dx, dz) || 1;
+      const x = opening.x + (dx / length) * 2.4;
+      const z = opening.z + (dz / length) * 2.4;
+      points.push({ x, y: this.world.heightAt(x, z), z });
+      if (dx * (to.x - opening.x) + dz * (to.z - opening.z) < 0) {
+        const side = dx * (to.z - opening.z) - dz * (to.x - opening.x) >= 0 ? 1 : -1;
+        const detourX = x - (dz / length) * 3 * side,
+          detourZ = z + (dx / length) * 3 * side;
+        points.push({ x: detourX, y: this.world.heightAt(detourX, detourZ), z: detourZ });
+      }
+    }
+    points.push({ ...to });
+    return points;
+  }
+
+  /** Совместимый запрос отдельной точки; движущиеся существа хранят маршрут в GroundNavigator. */
   nextStep(
     from: { x: number; y: number; z: number },
     to: { x: number; y: number; z: number },
   ): DigNode | undefined {
-    const fromInside = this.isSheltered(from.x, from.y, from.z);
-    const toInside = this.isSheltered(to.x, to.y, to.z);
-    if (!fromInside && !toInside) return undefined;
-
-    const opening = this.openings
-      .slice()
-      .sort(
-        (a, b) => distance2(a, from) + distance2(a, to) - distance2(b, from) - distance2(b, to),
-      )[0];
-    if (!opening) return undefined;
-
-    if (!fromInside && toInside) return { x: opening.x, y: opening.y - 0.95, z: opening.z };
-    // Сохраняем выходную точку, пока животное не пересекло весь входной склон.
-    // Преждевременная смена цели у входа заставляет спутников бесконечно ходить туда и обратно.
-    if (fromInside && !toInside && distance2(opening, from) < 1.65) {
-      const dx = to.x - opening.x,
-        dz = to.z - opening.z,
-        length = Math.hypot(dx, dz) || 1;
-      const x = opening.x + (dx / length) * 2.2,
-        z = opening.z + (dz / length) * 2.2;
-      return { x, y: this.world.heightAt(x, z), z };
-    }
-
-    const destination = toInside ? to : opening;
-    const start = this.nearestNode(from.x, from.y, from.z),
-      goal = this.nearestNode(destination.x, destination.y, destination.z);
-    if (!start || !goal || start === goal)
-      return toInside ? undefined : { x: opening.x, y: opening.y - 0.95, z: opening.z };
-
-    const queue = [start],
-      came = new Map<DigNode, DigNode | null>([[start, null]]);
-    for (let head = 0; head < queue.length && !came.has(goal); head++) {
-      const node = queue[head];
-      for (const neighbor of this.neighbors.get(node) ?? [])
-        if (!came.has(neighbor)) {
-          came.set(neighbor, node);
-          queue.push(neighbor);
-        }
-    }
-
-    if (!came.has(goal)) return { x: start.x, y: start.y - 0.95, z: start.z };
-
-    let next = goal;
-    while (came.get(next) && came.get(next) !== start) next = came.get(next)!;
-    const waypoint = distance2(start, from) > 0.55 ? start : next;
-    return { x: waypoint.x, y: waypoint.y - 0.95, z: waypoint.z };
+    return this.route(from, to).find(
+      (point) => Math.hypot(point.x - from.x, point.z - from.z) > 0.3,
+    );
   }
 
   /** Ближайшая ось хода определяет непрерывный проходимый склон. */

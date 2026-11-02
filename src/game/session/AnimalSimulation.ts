@@ -11,6 +11,7 @@ import { SeasonSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
 import { FriendSignals } from './FriendSignals';
+import type { AnimalWasteSystem } from './AnimalWasteSystem';
 
 import type { PlayerConsequences } from './PlayerConsequences';
 export interface AnimalState {
@@ -18,6 +19,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  animalWaste?: AnimalWasteSystem;
   combatAllowed?: () => boolean;
   save: SaveData;
   world: World;
@@ -54,6 +56,7 @@ export class AnimalSimulation {
     this.updateUndergroundTraffic(dt, time, night);
     this.updateEcology(dt, time);
     this.context.collisions.resolve(this.context.state.mating?.fatherId);
+    this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);
     this.updateVisibility();
@@ -63,6 +66,7 @@ export class AnimalSimulation {
       this.context.wildlife,
       this.context.predators,
       this.context.toast,
+      this.context.save.clock,
     );
     return closestThreat;
   }

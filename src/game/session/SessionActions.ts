@@ -186,7 +186,9 @@ export class SessionActions {
       return;
     }
 
-    if (['child-follow', 'child-stay', 'child-rest'].includes(action)) {
+    if (
+      ['child-follow', 'child-stay', 'child-rest', 'child-news', 'child-family'].includes(action)
+    ) {
       this.context.interactions.childAction(action);
       return;
     }

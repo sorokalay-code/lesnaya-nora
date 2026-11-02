@@ -104,6 +104,8 @@ function fixture() {
     isSheltered: (_x: number, y: number) => y < -0.5,
     floorAt: (_x: number, _z: number, y: number) => (y < 0 ? -1 : 0),
     nextStep: () => undefined,
+    route: (_from: unknown, to: unknown) => [to],
+    revision: 0,
     canMoveTo: () => true,
   } as unknown as Excavation;
   const sound = { play: () => {} } as unknown as Soundscape;

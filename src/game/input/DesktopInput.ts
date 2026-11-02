@@ -137,6 +137,7 @@ export class DesktopInput implements InputController {
       KeyQ: 'roots',
       KeyT: 'steal',
       KeyC: 'groom',
+      KeyX: 'clean',
       KeyK: 'store',
       KeyO: 'retrieve',
       KeyY: 'feed-vegetables',

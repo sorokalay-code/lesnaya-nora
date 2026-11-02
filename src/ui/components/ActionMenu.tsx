@@ -23,6 +23,7 @@ const groups: { title: string; actions: [string, string, string?][] }[] = [
       ['feed-vegetables', 'Кормить овощами', 'Y'],
       ['sleep', 'Спать', 'R'],
       ['groom', 'Вылизаться', 'C'],
+      ['clean', 'Убрать нечистоты', 'X'],
       ['poop', 'Оставить помёт', 'P'],
       ['pee', 'Помочиться', 'L'],
     ],

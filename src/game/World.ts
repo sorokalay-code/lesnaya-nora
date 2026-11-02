@@ -8,6 +8,7 @@ import { SeasonSystem } from './systems';
 import { Terrain } from './Terrain';
 import { type Biome, type FoodKind, type SaveData, type Weather } from './types';
 import { WorldChunks } from './WorldChunks';
+import { GardenCrops } from './GardenCrops';
 
 export interface Resource {
   id: number;
@@ -751,6 +752,13 @@ export class World {
 
   private buildResources(): void {
     let id = 0;
+    const add = (x: number, z: number, kind: FoodKind) => {
+      const mesh = new THREE.Group();
+      mesh.name = `resource-${kind}`;
+      mesh.position.set(x, this.heightAt(x, z), z);
+      this.chunks.add(mesh, x, z);
+      this.resources.push({ id: id++, x, z, kind, mesh, available: true, regrowAt: 0 });
+    };
     for (let i = 0; i < 1050; i++) {
       const x = this.rng.range(-100, 100),
         z = this.rng.range(-100, 100);
@@ -763,12 +771,15 @@ export class World {
             : biome === 'forest'
               ? this.rng.pick(['berries', 'mushroom', 'clover', 'acorn', 'toadstool'])
               : this.rng.pick(['clover', 'clover', 'bitterleaf', 'berries']);
-      const mesh = new THREE.Group();
-      mesh.name = `resource-${kind}`;
-      mesh.position.set(x, this.heightAt(x, z), z);
-      this.chunks.add(mesh, x, z);
-      this.resources.push({ id: id++, x, z, kind, mesh, available: true, regrowAt: 0 });
+      add(x, z, kind);
     }
+    GardenCrops.plant(add);
+  }
+
+  fertilize(x: number, z: number, clock: number): void {
+    for (const resource of this.resources)
+      if (!resource.available && Math.hypot(resource.x - x, resource.z - z) < 2.6)
+        resource.regrowAt = Math.max(clock, resource.regrowAt - 90);
   }
 
   nearestResource(x: number, z: number, radius = 2): Resource | undefined {

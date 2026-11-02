@@ -3,7 +3,7 @@ import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
 import type { FamilyCare } from '../FamilyCare';
 import type { RabbitAction, RabbitRig } from '../Models';
-import type { FoodStore, SurvivalSystem } from '../systems';
+import type { FoodStore, SurvivalSystem, WasteSystem } from '../systems';
 import { FOOD, type NestData, type SaveData } from '../types';
 import type { ViewCamera } from '../ViewCamera';
 import type { World } from '../World';
@@ -11,6 +11,8 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { SessionQueries } from './SessionQueries';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface EnvironmentContext {
+  waste: WasteSystem;
+  persist: () => void;
   save: SaveData;
   world: World;
   earth: Excavation;
@@ -48,6 +50,7 @@ export class EnvironmentController {
     poop: () => this.defecate(),
     pee: () => this.urinate(),
     groom: () => this.groom(),
+    clean: () => this.clean(),
   };
 
   constructor(private readonly context: EnvironmentContext) {}
@@ -70,6 +73,24 @@ export class EnvironmentController {
 
   private hop(): void {
     this.context.requestJump?.();
+  }
+
+  private clean(): void {
+    const p = this.context.save.player;
+    if (p.energy < 3) {
+      this.context.toast('Для уборки нужно 3 единицы сил. Немного передохни.');
+      return;
+    }
+    const count = this.context.waste.cleanNear(p.x, p.y, p.z);
+    if (!count) {
+      this.context.toast('Рядом чисто. Подойди к нечистотам поближе.');
+      return;
+    }
+    p.energy -= 3;
+    this.context.playAction('dig', 1.2);
+    this.context.sound.play('dig');
+    this.context.persist();
+    this.context.toast(`Ты убрала нечистоты: ${count}. В гнезде стало чище.`);
   }
 
   private drink(): void {

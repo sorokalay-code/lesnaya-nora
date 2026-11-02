@@ -2,6 +2,7 @@ import type { ForestAnimal } from '../animals';
 import { animalNames } from '../animals/names';
 import { FOOD, type FoodKind, type SaveData } from '../types';
 import type { World } from '../World';
+import { FRIENDSHIP_TRUST } from '../Friendship';
 
 export interface ConversationTurn {
   question?: string;
@@ -45,12 +46,13 @@ export class ForestConversation {
     return {
       question,
       choices,
-      relationship: animal.trust >= 50 ? 'Друг' : animal.trust >= 25 ? 'Знакомый' : 'Незнакомец',
+      relationship:
+        animal.trust >= FRIENDSHIP_TRUST ? 'Друг' : animal.trust >= 25 ? 'Знакомый' : 'Незнакомец',
       benefit:
-        animal.trust >= 50
+        animal.trust >= FRIENDSHIP_TRUST
           ? 'Друг предупредит о близком хищнике и поделится припасом раз в игровой день.'
           : animal.trust >= 25
-            ? 'Знакомый может отметить съедобные растения на карте. Дружба — от 50 доверия.'
+            ? 'Знакомый может отметить съедобные растения на карте. Дружба — при 100 доверия.'
             : 'Узнавайте друг друга: беседы, уважительные ответы и угощения повышают доверие.',
     };
   }
@@ -119,7 +121,7 @@ export class ForestConversation {
     animal.social.lastGiftAt = this.save.clock;
     animal.befriend(animal.social.request === 'food' ? 28 : 20);
     animal.social.request = undefined;
-    return animal.trust >= 50
+    return animal.trust >= FRIENDSHIP_TRUST
       ? 'Спасибо! Теперь я считаю тебя другом. Можешь попросить помощи, и я предупрежу тебя об опасности.'
       : 'Спасибо за заботу! Я запомню тебя. Приходи ещё, когда снова отправишься гулять.';
   }
@@ -144,8 +146,8 @@ export class ForestConversation {
   }
 
   private help(animal: ForestAnimal): string {
-    if (animal.trust < 50)
-      return 'Мне нужно узнать тебя получше. Друзьями становимся от 50 доверия.';
+    if (animal.trust < FRIENDSHIP_TRUST)
+      return 'Мне нужно узнать тебя получше. Друзьями становимся при 100 доверия.';
     if (animal.social.lastHelpDay === this.save.day)
       return 'Сегодня я уже поделился запасами. Загляни в другой игровой день.';
     if (animal.kind === 'beaver') this.save.materials.twigs++;

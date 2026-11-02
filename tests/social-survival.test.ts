@@ -120,6 +120,9 @@ test('partner navigation holds a comfortable distance and respects conversation 
   actor.moveTo(0, 5, 0);
   const earth = {
     nextStep: (_from: unknown, target: unknown) => target,
+    route: (_from: unknown, to: unknown) => [to],
+    revision: 0,
+    canMoveTo: () => true,
     floorAt: () => 0,
     isSheltered: () => false,
   } as unknown as Excavation;
@@ -143,15 +146,17 @@ test('friendship has branching answers and talk/gift cooldowns; help is availabl
   dialogue.respond(animal, 'animal-question');
   dialogue.respond(animal, 'animal-answer-quiet');
   assert.equal(animal.trust, 12);
-  save.inventory.carrot = 4;
+  save.inventory.carrot = 6;
   save.inventory.clover = 0;
   dialogue.respond(animal, 'animal-food');
   const trust = animal.trust;
   dialogue.respond(animal, 'animal-food');
   assert.equal(animal.trust, trust);
-  assert.equal(save.inventory.carrot, 3);
-  save.clock += 180;
-  dialogue.respond(animal, 'animal-food');
+  assert.equal(save.inventory.carrot, 5);
+  for (let i = 0; i < 4; i++) {
+    save.clock += 180;
+    dialogue.respond(animal, 'animal-food');
+  }
   assert.equal(dialogue.view(animal).relationship, 'Друг');
   const count = save.inventory.clover;
   dialogue.respond(animal, 'animal-help');
@@ -175,6 +180,7 @@ test('friend hints reveal real food locations and a beaver exchanges branches', 
   const twigs = (save.materials.twigs = 2);
   dialogue.respond(animal, 'animal-food');
   assert.equal(save.materials.twigs, twigs - 1);
+  animal.trust = 100;
   dialogue.respond(animal, 'animal-help');
   assert.equal(save.materials.twigs, twigs);
 });
@@ -243,17 +249,17 @@ test('wildlife identities, friendship and reward cooldowns survive save and relo
 
 test('nearby friends warn of a real predator with a cooldown', () => {
   const friend = createForestAnimal('deer', 1, 0, new Random(1));
-  friend.trust = 50;
+  friend.trust = 100;
   const fox = createPredatorActor('fox', 8, 0, new Random(2));
   const lines: string[] = [],
     signals = new FriendSignals();
   const player = { x: 0, y: 0, z: 0, hidden: false };
   signals.update(1, player, [friend], [fox], (line) => lines.push(line));
   signals.update(2, player, [friend], [fox], (line) => lines.push(line));
-  assert.equal(lines.length, 1);
+  assert.equal(lines.filter((line) => line.includes('хищник')).length, 1);
   player.hidden = true;
   signals.update(30, player, [friend], [fox], (line) => lines.push(line));
-  assert.equal(lines.length, 1);
+  assert.equal(lines.filter((line) => line.includes('хищник')).length, 1);
 });
 
 test('animal simulation prevents surface attacks during conversation and resumes them afterwards', () => {

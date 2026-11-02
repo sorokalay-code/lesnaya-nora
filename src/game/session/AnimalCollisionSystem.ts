@@ -93,11 +93,7 @@ export class AnimalCollisionSystem {
         sheltered,
         moveTo: (x, z) => {
           if (!valid(x, z, y, sheltered)) return false;
-          actor.moveTo(
-            x,
-            z,
-            sheltered ? this.context.earth.floorAt(x, z, y) : this.context.world.heightAt(x, z),
-          );
+          actor.moveTo(x, z, this.context.earth.floorAt(x, z, y));
           return true;
         },
       });
@@ -144,9 +140,7 @@ export class AnimalCollisionSystem {
             if (!valid(x, z, y, sheltered)) return false;
             kit.x = x;
             kit.z = z;
-            kit.y = sheltered
-              ? this.context.earth.floorAt(x, z, y)
-              : this.context.world.heightAt(x, z);
+            kit.y = this.context.earth.floorAt(x, z, y);
             rig.root.position.set(x, kit.y, z);
             rig.root.userData.baseY = kit.y;
             return true;

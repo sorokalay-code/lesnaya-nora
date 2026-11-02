@@ -16,31 +16,23 @@ interface Context {
 export class SceneDecorations {
   private readonly nestMeshes = new Map<number, THREE.Group>();
   private readonly stashMeshes = new Map<number, THREE.Group>();
+  private readonly placements = new Map<THREE.Group, NestData | StashData>();
+  private revision = -1;
 
   constructor(private readonly context: Context) {}
 
   addNest(n: NestData): void {
     const mesh = makeNest();
-    mesh.position.set(
-      n.x,
-      (this.context.earth.isSheltered(n.x, n.y, n.z)
-        ? n.y
-        : this.context.world.heightAt(n.x, n.z)) + 0.04,
-      n.z,
-    );
+    this.placements.set(mesh, n);
+    this.place(mesh, n);
     this.nestMeshes.set(n.id, mesh);
     this.context.scene.add(mesh);
   }
 
   addStash(s: StashData): void {
     const mesh = makeStash();
-    mesh.position.set(
-      s.x,
-      (this.context.earth.isSheltered(s.x, s.y, s.z)
-        ? s.y
-        : this.context.world.heightAt(s.x, s.z)) + 0.02,
-      s.z,
-    );
+    this.placements.set(mesh, s);
+    this.place(mesh, s);
     this.stashMeshes.set(s.id, mesh);
     this.context.scene.add(mesh);
   }
@@ -51,6 +43,7 @@ export class SceneDecorations {
       ModelAssets.shared.release(mesh);
       mesh.removeFromParent();
       this.nestMeshes.delete(id);
+      this.placements.delete(mesh);
     }
   }
 
@@ -60,7 +53,27 @@ export class SceneDecorations {
       ModelAssets.shared.release(mesh);
       mesh.removeFromParent();
       this.stashMeshes.delete(id);
+      this.placements.delete(mesh);
     }
+  }
+
+  update(): void {
+    if (this.revision === this.context.earth.revision) return;
+    this.revision = this.context.earth.revision;
+    for (const [mesh, data] of this.placements) this.place(mesh, data);
+  }
+
+  private place(mesh: THREE.Group, data: NestData | StashData): void {
+    data.y = this.context.earth.floorAt(data.x, data.z, data.y);
+    const sample = 0.35;
+    const floor = (x: number, z: number) => this.context.earth.floorAt(x, z, data.y);
+    const normal = new THREE.Vector3(
+      floor(data.x - sample, data.z) - floor(data.x + sample, data.z),
+      sample * 2,
+      floor(data.x, data.z - sample) - floor(data.x, data.z + sample),
+    ).normalize();
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    mesh.position.set(data.x, data.y + 0.025, data.z);
   }
 
   markPartner(actor: RabbitActor, active: boolean): void {

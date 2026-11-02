@@ -269,7 +269,13 @@ test('urine and pellet waste are separate objects and holding either need harms 
     save.waste.map((w) => w.kind),
     ['pellets', 'urine'],
   );
-  assert.equal(scene.children.length, 2);
+  waste.update(0, 1, 0, 2);
+  assert.equal(
+    scene.children[0].children.filter(
+      (object) => object instanceof THREE.InstancedMesh && object.count > 0,
+    ).length,
+    2,
+  );
   const survival = new SurvivalSystem(save, new Random(17));
   save.player.bladder = 99;
   save.player.bowel = 0;

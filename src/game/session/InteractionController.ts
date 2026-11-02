@@ -320,7 +320,12 @@ export class InteractionController {
     if (!kit) return;
 
     if (kit.independent) {
-      this.context.ui.closeDialog();
+      this.openKit(
+        kit,
+        action === 'child-news'
+          ? 'Мама, я уже живу самостоятельно. Помню наше гнездо и всегда рад тебя видеть.'
+          : 'У меня всё хорошо. Я помню, как ты заботилась обо мне!',
+      );
       return;
     }
 

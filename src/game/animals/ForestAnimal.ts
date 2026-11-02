@@ -20,6 +20,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private fightingUntil = 0;
   private eatingUntil = 0;
   private nextGraze = 0;
+  private greeting?: { x: number; z: number; until: number };
 
   protected constructor(
     kind: WildlifeKind,
@@ -64,6 +65,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.fleeingUntil = 0;
   }
 
+  greet(player: { x: number; z: number }, time: number): void {
+    this.greeting = { x: player.x, z: player.z, until: time + 1.6 };
+  }
+
   receiveAttack(damage: number, time: number, attacker: { x: number; z: number }): number {
     this.health = Math.max(0, this.health - damage);
     if (!this.alive) return 0;
@@ -87,6 +92,20 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     threats: readonly { x: number; z: number }[],
     food?: { x: number; z: number },
   ): boolean {
+    if (
+      this.greeting &&
+      time < this.greeting.until &&
+      !threats.some((threat) => Math.hypot(threat.x - this.x, threat.z - this.z) < 6)
+    ) {
+      const desired = Math.atan2(-(this.greeting.x - this.x), -(this.greeting.z - this.z));
+      const turn = Math.atan2(
+        Math.sin(desired - this.root.rotation.y),
+        Math.cos(desired - this.root.rotation.y),
+      );
+      this.root.rotation.y += Math.max(-dt * 4, Math.min(dt * 4, turn));
+      ModelAssets.shared.play(this.model, 'idle', dt);
+      return false;
+    }
     if (this.root.userData.conversing === true) {
       ModelAssets.shared.play(this.model, 'idle', dt);
       this.root.userData.tailPhase = time;

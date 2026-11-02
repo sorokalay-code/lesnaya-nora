@@ -162,6 +162,9 @@ test('partner physically collects food and deposits it in the family stash', () 
   } as unknown as World;
   const earth = {
     nextStep: () => undefined,
+    route: (_from: unknown, to: unknown) => [to],
+    revision: 0,
+    canMoveTo: () => true,
     floorAt: () => 0,
     isSheltered: (_x: number, y: number) => y < -0.2,
   } as unknown as Excavation;

@@ -1,3 +1,4 @@
+import { KitMovement } from './KitMovement';
 import * as THREE from 'three';
 import { RabbitFactory, RabbitKit } from '../animals';
 import type { Soundscape } from '../Audio';
@@ -5,7 +6,7 @@ import type { Excavation } from '../Excavation';
 import type { FamilyCare } from '../FamilyCare';
 import { KitWander } from '../KitWander';
 import { ModelAssets } from '../ModelAssets';
-import { animateRabbit, setRabbitAction, type RabbitAction, type RabbitRig } from '../Models';
+import { type RabbitAction, type RabbitRig } from '../Models';
 import { Random } from '../Random';
 import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
@@ -40,13 +41,18 @@ export class FamilyLifecycle {
   readonly actors = new Map<number, RabbitKit>();
   readonly rigs = new Map<number, RabbitRig>();
   readonly wander: KitWander;
-  private elapsed = 0;
+  private readonly movement: KitMovement;
 
   constructor(private readonly context: FamilyContext) {
     this.wander = new KitWander(new Random(context.save.seed + 7741));
+    this.movement = new KitMovement(context, this.wander);
   }
 
   add(k: KitData): void {
+    if (k.age >= 3) {
+      k.independent = true;
+      k.command = undefined;
+    }
     const actor = new RabbitKit(k);
     this.actors.set(k.id, actor);
     const rig = actor.rig;
@@ -82,12 +88,12 @@ export class FamilyLifecycle {
 
     ModelAssets.shared.release(rig.root);
     rig.root.removeFromParent();
+    this.movement.forget(id);
     this.rigs.delete(id);
     this.actors.delete(id);
   }
 
   update(dt: number, time: number): void {
-    this.elapsed = time;
     const pregnancyEvent = this.context.care.advance(dt * 6);
     if (pregnancyEvent === 'warning') {
       this.context.sound.play('baby');
@@ -149,97 +155,8 @@ export class FamilyLifecycle {
 
       const rig = this.rigs.get(kit.id);
       if (rig) {
-        if (rig.root.userData.conversing === true) {
-          animateRabbit(rig, time + kit.id, false, false, dt);
-          continue;
-        }
-        const nest = this.context.save.nests.find((n) => n.id === kit.nestId);
-        const home = nest ?? { x: kit.homeX, y: kit.homeY, z: kit.homeZ };
         rig.root.visible = true;
-        if (rig.root.parent !== this.context.scene) this.context.scene.add(rig.root);
-
-        const center = kit.independent
-          ? { x: kit.homeX, y: kit.homeY, z: kit.homeZ }
-          : kit.command === 'follow'
-            ? this.context.save.player
-            : kit.command === 'rest' && !nest
-              ? {
-                  x: kit.stayX ?? kit.x ?? home.x,
-                  y: kit.stayY ?? kit.y ?? home.y,
-                  z: kit.stayZ ?? kit.z ?? home.z,
-                }
-              : kit.command === 'stay' && kit.stayX !== undefined
-                ? { x: kit.stayX, y: kit.stayY ?? home.y, z: kit.stayZ ?? home.z }
-                : home;
-        const destination =
-          kit.independent || !kit.command
-            ? this.wander.target(kit, center, this.elapsed, this.context.earth, (x, z) =>
-                this.context.world.heightAt(x, z),
-              )
-            : kit.command === 'follow'
-              ? {
-                  x: center.x + Math.cos(kit.id * 2.4) * (1.5 + (kit.id % 3) * 0.35),
-                  y: center.y,
-                  z: center.z + Math.sin(kit.id * 2.4) * (1.5 + (kit.id % 3) * 0.35),
-                }
-              : kit.command === 'rest'
-                ? {
-                    x: center.x + Math.cos(kit.id * 2.4) * 0.3,
-                    y: center.y,
-                    z: center.z + Math.sin(kit.id * 2.4) * 0.3,
-                  }
-                : center;
-        let targetX = destination.x,
-          targetZ = destination.z;
-        if (!kit.independent) {
-          const step = this.context.earth.nextStep(
-            { x: kit.x ?? home.x, y: kit.y ?? home.y, z: kit.z ?? home.z },
-            destination,
-          );
-          if (step) {
-            targetX = step.x;
-            targetZ = step.z;
-          }
-        }
-
-        const dx = targetX - (kit.x ?? home.x),
-          dz = targetZ - (kit.z ?? home.z),
-          distance = Math.hypot(dx, dz);
-        const speed = kit.independent
-          ? 2.4
-          : kit.command === 'follow'
-            ? Math.min(12, 3 + distance * 1.3)
-            : kit.age < 0.7
-              ? 0.55
-              : 1.2;
-        const step = Math.min(distance, speed * dt);
-        if (distance > 0.04) {
-          kit.x = (kit.x ?? home.x) + (dx / distance) * step;
-          kit.z = (kit.z ?? home.z) + (dz / distance) * step;
-          rig.root.rotation.y = Math.atan2(-dx, -dz);
-        }
-
-        const currentY = kit.y ?? home.y;
-        kit.y = kit.independent
-          ? this.context.world.heightAt(kit.x ?? home.x, kit.z ?? home.z)
-          : this.context.earth.floorAt(kit.x ?? home.x, kit.z ?? home.z, currentY);
-        rig.root.position.x = kit.x ?? home.x;
-        rig.root.position.z = kit.z ?? home.z;
-        rig.root.userData.baseY = kit.y;
-        rig.root.scale.setScalar(
-          kit.age < 3 ? (0.28 + kit.age * 0.095) * kit.genes.size : kit.genes.size,
-        );
-        const mark = rig.root.getObjectByName('family-mark');
-        if (mark) {
-          mark.rotation.y = this.elapsed * 0.9;
-          mark.position.y = Math.sin(this.elapsed * 2 + kit.id) * 0.07;
-        }
-
-        if (distance > 0.16) rig.root.userData.actionUntil = 0;
-        else if (kit.command === 'rest') setRabbitAction(rig, 'lie', this.elapsed + kit.id, 0.35);
-        else if (kit.command === 'stay') setRabbitAction(rig, 'sit', this.elapsed + kit.id, 0.35);
-
-        animateRabbit(rig, this.elapsed + kit.id, distance > 0.14, false, dt);
+        this.movement.update(kit, rig, time, dt);
       }
     }
   }

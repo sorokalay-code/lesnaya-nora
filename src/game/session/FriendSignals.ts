@@ -1,5 +1,6 @@
 import type { ForestAnimal, Predator } from '../animals';
 import { animalNames } from '../animals/names';
+import { FRIENDSHIP_TRUST } from '../Friendship';
 
 /** Друзья поблизости замечают наземных хищников; предупреждения ограничены по частоте. */
 export class FriendSignals {
@@ -11,12 +12,27 @@ export class FriendSignals {
     animals: readonly ForestAnimal[],
     predators: readonly Predator[],
     toast: (line: string) => void,
+    clock = time * 6,
   ): void {
-    if (time < this.nextWarning || player.hidden) return;
+    if (player.hidden) return;
+    for (const animal of animals) {
+      if (
+        animal.alive &&
+        animal.trust >= FRIENDSHIP_TRUST &&
+        Math.hypot(animal.x - player.x, animal.z - player.z) < 5 &&
+        clock - (animal.social.lastGreetingAt ?? -Infinity) > 360
+      ) {
+        animal.social.lastGreetingAt = clock;
+        animal.greet(player, time);
+        toast(`${animalNames[animal.kind]} узнаёт тебя и радостно приветствует!`);
+        break;
+      }
+    }
+    if (time < this.nextWarning) return;
     const friend = animals.find(
       (animal) =>
         animal.alive &&
-        animal.trust >= 50 &&
+        animal.trust >= FRIENDSHIP_TRUST &&
         Math.hypot(animal.x - player.x, animal.z - player.z) < 18,
     );
     if (!friend) return;

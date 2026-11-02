@@ -53,15 +53,20 @@ export class SessionQueries {
     const x = this.context.save.player.x,
       z = this.context.save.player.z;
     return this.context.save.kits
-      .filter((k) => k.alive && !k.independent)
-      .find((k) => {
+      .filter((k) => k.alive)
+      .filter((k) => {
         const mesh = this.context.family.rigs.get(k.id)?.root;
         return (
           mesh?.visible &&
           Math.abs(mesh.position.y - this.context.save.player.y) < 1.5 &&
           Math.hypot(mesh.position.x - x, mesh.position.z - z) < radius
         );
-      });
+      })
+      .sort(
+        (a, b) =>
+          Math.hypot((a.x ?? a.homeX) - x, (a.z ?? a.homeZ) - z) -
+          Math.hypot((b.x ?? b.homeX) - x, (b.z ?? b.homeZ) - z),
+      )[0];
   }
 
   animal(radius = 3): ForestAnimal | undefined {

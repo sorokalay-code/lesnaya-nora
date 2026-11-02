@@ -16,6 +16,7 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  y?: number;
   lastConversationAt?: number;
   name: string;
   id: number;
@@ -29,6 +30,7 @@ export interface PartnerTraits {
 }
 
 export interface KitData {
+  nextMealAt?: number;
   id: number;
   name: string;
   genes: Genes;
@@ -145,7 +147,8 @@ export interface SaveData {
 
 export interface WasteData {
   id: number;
-  kind: 'pellets' | 'urine' | 'diarrhea';
+  kind: 'pellets' | 'urine' | 'diarrhea' | 'bird';
+  size?: number;
   x: number;
   y: number;
   z: number;
@@ -153,6 +156,7 @@ export interface WasteData {
 }
 
 export interface WildlifeSocial {
+  lastGreetingAt?: number;
   trust: number;
   lastBondAt?: number;
   lastGiftAt?: number;

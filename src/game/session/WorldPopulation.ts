@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Random } from '../Random';
 import { WildlifeEcology } from '../WildlifeEcology';
 import { World } from '../World';
+import { ModelAssets } from '../ModelAssets';
 import type { ForestAnimal } from '../animals';
 import {
   createPredatorActor,
@@ -32,27 +33,39 @@ export class WorldPopulation {
   }) {
     this.rabbits = context.save.partners.map((p) => {
       const actor = new RabbitActor(p, context.rng);
-      actor.rig.root.position.y = context.world.heightAt(p.x, p.z);
+      actor.rig.root.position.y = p.y ?? context.world.heightAt(p.x, p.z);
+      actor.rig.root.userData.baseY = actor.rig.root.position.y;
       context.scene.add(actor.rig.root);
       if (p.id === context.save.mateId) context.markPartner(actor, true);
       return actor;
     });
     this.families = [];
-    for (const partner of context.save.partners) {
+    for (const partner of context.save.partners.slice()) {
       const familyFactory = new RabbitFactory(
         new Random(context.save.seed + 900 + partner.id * 71),
       );
       for (let i = 0; i < partner.familySize; i++) {
-        const member = new FamilyMember(
-          partner,
-          familyFactory.genes(),
-          i,
-          i < Math.floor(partner.familySize / 2),
-        );
+        const genes = familyFactory.genes();
+        const young = i < Math.floor(partner.familySize / 2);
+        if (
+          !young &&
+          context.save.partners.some((saved) => saved.id === 100000 + partner.id * 100 + i)
+        )
+          continue;
+        const member = new FamilyMember(partner, genes, i, young);
+        if (!young) {
+          const actor = new RabbitActor(member.data, context.rng);
+          actor.moveTo(member.x, member.z, context.world.heightAt(member.x, member.z));
+          ModelAssets.shared.release(member.root);
+          context.save.partners.push(member.data);
+          this.rabbits.push(actor);
+          context.scene.add(actor.root);
+          continue;
+        }
         member.rig.root.position.set(
-          partner.x,
-          context.world.heightAt(partner.x, partner.z),
-          partner.z,
+          member.x,
+          context.world.heightAt(member.x, member.z),
+          member.z,
         );
         this.families.push(member);
         context.scene.add(member.rig.root);

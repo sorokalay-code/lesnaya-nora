@@ -272,13 +272,22 @@ export function DialogView({
             »
           </p>
           <p className="dialog-meta">
-            {data.kit.age < 3 ? 'Крольчонок' : 'Взрослый кролик'} · сытость {fmt(data.kit.hunger)}%
-            · здоровье {fmt(data.kit.health)}%
+            {data.kit.age < 3 ? 'Твой крольчонок' : 'Твой взрослый ребёнок · живёт самостоятельно'}{' '}
+            · сытость {fmt(data.kit.hunger)}% · здоровье {fmt(data.kit.health)}%
           </p>
           <div className="dialog-choices">
-            {choice('child-follow', 'Иди за мной')}
-            {choice('child-stay', 'Жди здесь')}
-            {choice('child-rest', 'Отдыхай в гнезде')}
+            {data.kit.age < 3 ? (
+              <>
+                {choice('child-follow', 'Иди за мной')}
+                {choice('child-stay', 'Жди здесь')}
+                {choice('child-rest', 'Отдыхай в гнезде')}
+              </>
+            ) : (
+              <>
+                {choice('child-news', 'Как твоя самостоятельная жизнь?')}
+                {choice('child-family', 'Вспомнить наше гнездо')}
+              </>
+            )}
           </div>
         </>
       );

@@ -4,6 +4,7 @@ import { animateRabbit } from '../Models';
 import { Random } from '../Random';
 import type { PartnerTraits } from '../types';
 import { Rabbit } from './Rabbit';
+import { GroundNavigator } from '../GroundNavigator';
 import type { GroundHeight } from './types';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
@@ -15,6 +16,7 @@ export class RabbitActor extends Rabbit {
   private tunnelPosition?: { x: number; y: number; z: number };
   private mateForageUntil = 0;
   private mateForageTarget?: { x: number; z: number };
+  private readonly navigator = new GroundNavigator();
 
   constructor(
     readonly data: PartnerTraits,
@@ -28,6 +30,7 @@ export class RabbitActor extends Rabbit {
   moveTo(x: number, z: number, y: number): void {
     this.data.x = x;
     this.data.z = z;
+    this.data.y = y;
     this.rig.root.position.set(x, y, z);
     this.rig.root.userData.baseY = y;
     if (this.tunnelPosition) this.tunnelPosition = { x, y, z };
@@ -37,6 +40,7 @@ export class RabbitActor extends Rabbit {
     this.tunnelPosition = { x, y, z };
     this.data.x = x;
     this.data.z = z;
+    this.data.y = y;
     this.rig.root.position.set(x, y, z);
     this.rig.root.userData.baseY = y;
   }
@@ -50,11 +54,15 @@ export class RabbitActor extends Rabbit {
     time: number,
     target: { x: number; y: number; z: number },
     earth: Excavation,
-    groundAt: GroundHeight,
+    _groundAt: GroundHeight,
     speed = 2.3,
-    stopDistance = 0.2,
+    stopDistance = 0.6,
   ): void {
-    if (this.rig.root.userData.conversing === true) {
+    if (
+      this.rig.root.userData.conversing === true ||
+      (this.rig.root.userData.action === 'defecate' &&
+        Number(this.rig.root.userData.actionUntil) > time + this.data.id)
+    ) {
       animateRabbit(this.rig, time + this.data.id, false, false, dt);
       return;
     }
@@ -64,22 +72,20 @@ export class RabbitActor extends Rabbit {
       y: (this.rig.root.userData.baseY as number) ?? this.rig.root.position.y,
       z: this.data.z,
     };
-    const waypoint = earth.nextStep(from, target) ?? target;
-    const dx = waypoint.x - this.data.x,
-      dz = waypoint.z - this.data.z,
-      distance = Math.hypot(dx, dz);
-    const atDestination =
-      Math.hypot(target.x - from.x, target.z - from.z) <= stopDistance &&
-      Math.abs(target.y - from.y) < 0.8;
-    const moving = !atDestination && distance > 0.2;
+    const { point, moving } = this.navigator.step(
+      from,
+      target,
+      earth,
+      dt,
+      time,
+      speed,
+      stopDistance,
+    );
     if (moving) {
-      const remaining = Math.max(
-        0,
-        Math.hypot(target.x - from.x, target.z - from.z) - stopDistance,
-      );
-      const step = Math.min(distance, speed * dt, remaining || distance);
-      this.data.x = THREE.MathUtils.clamp(this.data.x + (dx / distance) * step, -97, 97);
-      this.data.z = THREE.MathUtils.clamp(this.data.z + (dz / distance) * step, -97, 97);
+      const dx = point.x - from.x,
+        dz = point.z - from.z;
+      this.data.x = THREE.MathUtils.clamp(point.x, -97, 97);
+      this.data.z = THREE.MathUtils.clamp(point.z, -97, 97);
       const desired = Math.atan2(-dx, -dz);
       const turn = Math.atan2(
         Math.sin(desired - this.rig.root.rotation.y),
@@ -88,12 +94,11 @@ export class RabbitActor extends Rabbit {
       this.rig.root.rotation.y += THREE.MathUtils.clamp(turn, -dt * 4, dt * 4);
     }
 
-    const y = earth.floorAt(this.data.x, this.data.z, from.y);
+    const y = point.y;
+    this.data.y = y;
     this.rig.root.position.x = this.data.x;
     this.rig.root.position.z = this.data.z;
-    this.rig.root.userData.baseY = earth.isSheltered(this.data.x, y, this.data.z)
-      ? y
-      : groundAt(this.data.x, this.data.z);
+    this.rig.root.userData.baseY = y;
     animateRabbit(this.rig, time + this.data.id, moving, false, dt);
   }
 
@@ -158,7 +163,11 @@ export class RabbitActor extends Rabbit {
   }
 
   update(dt: number, time: number, playerX: number, playerZ: number, groundAt: GroundHeight): void {
-    if (this.rig.root.userData.conversing === true) {
+    if (
+      this.rig.root.userData.conversing === true ||
+      (this.rig.root.userData.action === 'defecate' &&
+        Number(this.rig.root.userData.actionUntil) > time + this.data.id)
+    ) {
       animateRabbit(this.rig, time + this.data.id, false, false, dt);
       return;
     }
@@ -204,6 +213,7 @@ export class RabbitActor extends Rabbit {
     this.rig.root.position.x = this.data.x;
     this.rig.root.position.z = this.data.z;
     this.rig.root.userData.baseY = groundAt(this.data.x, this.data.z);
+    this.data.y = this.rig.root.userData.baseY as number;
     const targetRotation = near
       ? Math.atan2(-(playerX - this.data.x), -(playerZ - this.data.z))
       : this.wanderAngle + Math.PI;
