@@ -48,6 +48,7 @@ export class World {
   private readonly exposedSoil=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide});
   private treeRootRegrow=new Map<number,number>();
   private currentClock=0;
+  private nextResourceSync=0;
   private foliageMaterials=new Map<THREE.MeshStandardMaterial,THREE.Color>();
   private deciduousCrowns:THREE.Object3D[]=[];
   private fallenLeaves:THREE.Object3D[]=[];
@@ -59,6 +60,7 @@ export class World {
 
   constructor(scene: THREE.Scene, seed: number,private readonly save?:SaveData) {
     this.scene = scene; this.seed = seed; this.rng = new Random(seed);this.seasons=new SeasonSystem(seed);this.chunks=new WorldChunks(scene);this.terrain=new Terrain(seed);
+    this.exposedSoil.map=ModelAssets.shared.soil??null;
     for(const [id,time] of Object.entries(save?.gnawedRoots??{}))this.treeRootRegrow.set(Number(id),time);
     this.buildGround(); this.buildDecorations(); this.buildResources();
   }
@@ -117,27 +119,31 @@ export class World {
   }
 
   private buildGround(): void {
-    const verts: number[] = [], colors: number[] = [], indices: number[] = [];
+    const verts: number[] = [], colors: number[] = [], uvs:number[]=[], indices: number[] = [];
     const color = new THREE.Color();
     const n = 220, step = this.size * 2 / n;
     for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) {
       const wx = -this.size + x * step, wz = -this.size + z * step;
-      const biome = this.biomeAt(wx + step / 2, wz + step / 2);
-      const palette = biome === 'forest' ? [0x496d4b, 0x54754f, 0x5a7952] : biome === 'meadow' ? [0x789d62, 0x81a769, 0x8caf70] : biome === 'swamp' ? [0x5b795f, 0x688363, 0x7e8d6a] : [0x997e55, 0xa48b60, 0x8e7651];
-      color.setHex(palette[this.rng.int(0, 2)]);
       const j = verts.length / 3;
       verts.push(wx, this.heightAt(wx,wz), wz, wx + step, this.heightAt(wx+step,wz), wz,
         wx + step, this.heightAt(wx+step,wz+step), wz + step, wx, this.heightAt(wx,wz+step), wz + step);
-      for (let k = 0; k < 4; k++) colors.push(color.r, color.g, color.b);
+      for(const [vx,vz] of [[wx,wz],[wx+step,wz],[wx+step,wz+step],[wx,wz+step]]){
+        const biome=this.biomeAt(vx,vz);
+        const base=biome==='forest'?0x568255:biome==='meadow'?0x90b672:biome==='swamp'?0x77966e:0xab9268;
+        const variation=smoothNoise(vx/7,vz/7,this.seed+101)*.22+smoothNoise(vx/2.3,vz/2.3,this.seed+311)*.1;
+        color.setHex(base).multiplyScalar(.84+variation);
+        colors.push(color.r,color.g,color.b);
+        uvs.push(vx/7,vz/7);
+      }
       const tileIndices=[j,j+2,j+1,j,j+3,j+2];indices.push(...tileIndices);
       this.groundTiles.push({x:wx+step/2,z:wz+step/2,indices:tileIndices});
     }
     const geo = new THREE.BufferGeometry();
     this.groundGeometry=geo;
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geo.setIndex(indices); geo.computeVertexNormals();
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2)); geo.setIndex(indices); geo.computeVertexNormals();
     this.groundColors=geo.getAttribute('color') as THREE.BufferAttribute;this.baseGroundColors=new Float32Array(colors);
-    const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
+    const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true,map:ModelAssets.shared.ground, roughness: 1, side: THREE.DoubleSide }));
     ground.receiveShadow = true; this.scene.add(ground);this.groundMesh=ground;
   }
 
@@ -421,12 +427,15 @@ export class World {
   update(clock: number, time: number, weather: Weather,day:number,px:number,pz:number): void {
     this.currentDay=day;this.currentClock=clock;this.chunks.update(px,pz);
     this.updateSeason(day);
-    for (const r of this.resources) {
-      if (!r.available && clock >= r.regrowAt)r.available=true;
-      r.mesh.visible=r.available&&this.seasons.foodVisible(r.id,r.kind,day);
-      r.mesh.scale.setScalar(r.regrowAt>0?Math.min(1,0.25+Math.max(0,clock-r.regrowAt)/90):1);
+    if(clock>=this.nextResourceSync){
+      this.nextResourceSync=clock+1;
+      for (const r of this.resources) {
+        if (!r.available && clock >= r.regrowAt)r.available=true;
+        r.mesh.visible=r.available&&this.seasons.foodVisible(r.id,r.kind,day);
+        r.mesh.scale.setScalar(r.regrowAt>0?Math.min(1,0.25+Math.max(0,clock-r.regrowAt)/90):1);
+        if(r.mesh.visible&&Math.hypot(r.x-px,r.z-pz)<28)r.mesh.rotation.y=Math.sin(time*.7+r.id)*.04;
+      }
     }
-    for (const r of this.resources) if (r.available && r.mesh.visible) r.mesh.rotation.y = Math.sin(time * 0.7 + r.id) * 0.04;
     if (this.rain) {
       this.rain.visible = weather === 'rain'||weather==='snow';
       const material=this.rain.material as THREE.PointsMaterial;

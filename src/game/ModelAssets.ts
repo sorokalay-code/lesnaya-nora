@@ -4,7 +4,8 @@ import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 export const MODEL_NAMES = ['rabbit','fox','wolf','dog','lynx','weasel','bear','snake','hawk',
   'deer','squirrel','hedgehog','beaver','moose','nest','stash','oak','pine','fern','reed','bush',
-  'carrot','cabbage','mushroom','toadstool','berries','acorn','clover','bitterleaf'] as const;
+  'carrot','cabbage','mushroom','toadstool','berries','acorn','clover','bitterleaf',
+  'branch','grass_bundle','twig_bundle','fur_tuft'] as const;
 export type ModelName = typeof MODEL_NAMES[number];
 
 export interface ModelInstance {
@@ -23,13 +24,15 @@ export class ModelAssets {
   private loading?: Promise<void>;
   private furTexture?:THREE.Texture;
   private leafTexture?:THREE.Texture;
+  private groundTexture?:THREE.Texture;
+  private soilTexture?:THREE.Texture;
 
   async preload():Promise<void>{
     if(this.loading)return this.loading;
     this.loading=(async()=>{
-      const [fur,leaf]=await Promise.all(['/textures/fur.png','/textures/leaf.png'].map(path=>new THREE.TextureLoader().loadAsync(path)));
-      for(const texture of [fur,leaf]){texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;}
-      this.furTexture=fur;this.leafTexture=leaf;
+      const textures=await Promise.all(['fur','leaf','ground','soil'].map(name=>new THREE.TextureLoader().loadAsync(`/textures/${name}.png`)));
+      for(const texture of textures){texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;}
+      [this.furTexture,this.leafTexture,this.groundTexture,this.soilTexture]=textures;
       await Promise.all(MODEL_NAMES.map(async name=>{
         const glb=await this.loader.loadAsync(`/models/${name}.glb`);
         this.prepare(glb);
@@ -38,6 +41,8 @@ export class ModelAssets {
     })();
     try{await this.loading;}catch(err){this.loading=undefined;throw err;}
   }
+  get ground():THREE.Texture|undefined{return this.groundTexture;}
+  get soil():THREE.Texture|undefined{return this.soilTexture;}
 
   /** Tests can register GLB bytes without a browser network or DOM. */
   async register(name:ModelName,bytes:ArrayBuffer):Promise<void>{
@@ -75,6 +80,7 @@ export class ModelAssets {
   }
 
   play(instance:ModelInstance,name:string,dt:number,speed=1):void{
+    if(!instance.root.visible)return;
     const clip=instance.clips.get(name);
     if(!clip)return;
     if(instance.activeName!==name){

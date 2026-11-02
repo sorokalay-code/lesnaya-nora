@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { hash2 } from './Random';
 import { type DropData, type FoodKind, type MaterialKind, type SaveData } from './types';
 import { World } from './World';
+import { ModelAssets, type ModelName } from './ModelAssets';
 
 export type GroundPickup={id:number;x:number;y:number;z:number;kind:'branch'|FoodKind|MaterialKind};
 
@@ -9,7 +10,6 @@ export type GroundPickup={id:number;x:number;y:number;z:number;kind:'branch'|Foo
 export class GroundItems {
   private readonly branches=new Map<number,{item:GroundPickup;mesh:THREE.Group}>();
   private readonly drops=new Map<number,THREE.Group>();
-  private readonly wood=new THREE.MeshStandardMaterial({color:0x765239,roughness:1});
   constructor(private readonly world:World,private readonly save:SaveData){
     save.branchPicked??={};save.drops??=[];
     this.buildBranches();
@@ -22,11 +22,7 @@ export class GroundItems {
       const distance=0.8+hash2(id,13,this.save.seed)*1.8;
       const x=tree.x+Math.cos(angle)*distance,z=tree.z+Math.sin(angle)*distance;
       const y=this.world.heightAt(x,z)+0.07;
-      const mesh=new THREE.Group();mesh.position.set(x,y,z);
-      const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.055,0.76,5),this.wood);
-      stick.rotation.z=Math.PI/2;stick.rotation.y=angle;stick.castShadow=true;mesh.add(stick);
-      const fork=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.035,0.35,5),this.wood);
-      fork.position.set(0.24,0.08,0.04);fork.rotation.z=0.8;mesh.add(fork);
+      const mesh=ModelAssets.shared.create('branch').root;mesh.position.set(x,y,z);mesh.rotation.y=angle;
       this.world.chunks.add(mesh,x,z);
       const item:GroundPickup={id,x,y,z,kind:'branch'};
       this.branches.set(id,{item,mesh});
@@ -79,14 +75,8 @@ export class GroundItems {
   }
 
   private addDrop(item:DropData):void{
-    const colors:Record<FoodKind|MaterialKind,number>={clover:0x61a855,carrot:0xe48a3d,cabbage:0x8db769,mushroom:0xbda88a,
-      berries:0x685c9f,toadstool:0xce584d,bitterleaf:0x668c4f,acorn:0x9a714b,
-      grass:0x75a25a,twigs:0x79543a,fur:0xe8d8c7};
-    const mesh=new THREE.Group();mesh.position.set(item.x,item.y,item.z);
-    const body=new THREE.Mesh(new THREE.SphereGeometry(0.2,8,6),new THREE.MeshStandardMaterial({color:colors[item.kind],roughness:1}));
-    body.position.y=0.2;body.castShadow=true;mesh.add(body);
-    const leaf=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.22,5),new THREE.MeshStandardMaterial({color:0x638a47,roughness:1}));
-    leaf.position.y=0.42;mesh.add(leaf);
+    const kind:ModelName=item.kind==='grass'?'grass_bundle':item.kind==='twigs'?'twig_bundle':item.kind==='fur'?'fur_tuft':item.kind;
+    const mesh=ModelAssets.shared.create(kind).root;mesh.position.set(item.x,item.y,item.z);
     this.world.chunks.add(mesh,item.x,item.z);this.drops.set(item.id,mesh);
   }
 }

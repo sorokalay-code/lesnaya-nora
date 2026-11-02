@@ -46,6 +46,10 @@ export class RabbitActor {
     this.rig = createRabbit(data.genes); this.rig.root.position.set(data.x, 0, data.z);
     this.targetX=data.x;this.targetZ=data.z;
   }
+  moveTo(x:number,z:number,y:number):void{
+    this.data.x=x;this.data.z=z;this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;
+    if(this.tunnelPosition)this.tunnelPosition={x,y,z};
+  }
   enterTunnel(x:number,y:number,z:number):void{
     this.tunnelPosition={x,y,z};this.data.x=x;this.data.z=z;
     this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;
@@ -141,6 +145,7 @@ export class FamilyMember {
     this.homeX=this.x=this.targetX=THREE.MathUtils.clamp(parent.x+Math.cos(angle)*radius,-90,90);
     this.homeZ=this.z=this.targetZ=THREE.MathUtils.clamp(parent.z+Math.sin(angle)*radius,-90,90);
   }
+  moveTo(x:number,z:number,y:number):void{this.x=x;this.z=z;this.rig.root.position.set(x,y,z);this.rig.root.userData.baseY=y;}
   update(time: number, dt: number,groundAt:GroundHeight): void {
     if(time>=this.nextTarget||Math.hypot(this.targetX-this.x,this.targetZ-this.z)<0.4){
       this.nextTarget=time+this.rng.range(5,13);
@@ -185,6 +190,8 @@ export class Predator {
   leaveTunnel():void{this.tunnelPosition=undefined;}
   get alive():boolean{return this.health>0;}
   get underground():boolean{return this.tunnelPosition!==undefined;}
+  moveTo(x:number,z:number,y:number):void{this.x=x;this.z=z;this.root.position.set(x,y,z);if(this.tunnelPosition)this.tunnelPosition={x,y,z};}
+  playAttack(time:number):void{this.attackAnimUntil=Math.max(this.attackAnimUntil,time+.6);}
   receiveAttack(damage:number,time:number,attacker:{x:number;z:number}):void{
     this.health=Math.max(0,this.health-damage);
     this.retreatUntil=time+2.5;
@@ -220,7 +227,7 @@ export class Predator {
     this.root.position.set(this.x,groundAt(this.x,this.z)+Math.abs(Math.sin(time * (hunting||chasingPrey ? 13 : 5))) * (hunting||chasingPrey ? 0.08 : 0.02),this.z);
     this.root.rotation.y = angle + Math.PI;
     const strike=hunting&&dist<(this.kind==='bear'?2.3:1.5)&&this.attackCooldown<=0;
-    if(strike){this.attackCooldown=this.kind==='snake'?6:3;this.attackAnimUntil=time+.6;}
+    if(strike){this.attackCooldown=this.kind==='snake'?6:3;this.playAttack(time);}
     animatePredator(this.root,time,hunting||chasingPrey,dt,step>.005,time<this.attackAnimUntil);
     if(strike)return true;
     return false;
@@ -256,7 +263,8 @@ export class Hawk {
       this.x+=Math.sin(heading)*dt*5.5;this.z+=Math.cos(heading)*dt*5.5;
       this.root.position.set(this.x,groundAt(this.x,this.z)+13+Math.sin(time*1.4)*0.5,this.z);this.root.rotation.y=heading+Math.PI;
     }
-    animateHawk(this.root,this.diveUntil>time||Math.sin(time*2)>0.3,dt);
+    const striking=this.diveUntil>time&&1-(this.diveUntil-time)/2.5>.42;
+    animateHawk(this.root,this.diveUntil>time||Math.sin(time*2)>0.3,dt,striking);
     this.shadow.position.set(this.x,groundAt(this.x,this.z)+0.05,this.z);this.shadow.scale.setScalar(this.diveUntil>time?1.5:0.85);
     return false;
   }

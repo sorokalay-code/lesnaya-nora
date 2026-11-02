@@ -18,6 +18,7 @@ import { KitWander } from './KitWander';
 import { GroundItems } from './GroundItems';
 import { PartnerSupport } from './PartnerSupport';
 import { ModelAssets } from './ModelAssets';
+import { AnimalPhysics, type PhysicalBody } from './AnimalPhysics';
 import { FOOD, type FoodKind, type KitData, type MateCommand, type MaterialKind, type NestData, type PartnerTraits, type SaveData, type Season, type StashData, type Weather } from './types';
 
 const femaleNames = ['Искорка', 'Лапка', 'Ромашка', 'Звёздочка', 'Берёзка', 'Снежка', 'Брусничка', 'Ива'];
@@ -43,6 +44,7 @@ export class Game {
   private kitWander!:KitWander;
   private items!:GroundItems;
   private partnerSupport!:PartnerSupport;
+  private readonly physics=new AnimalPhysics();
   private rng!: Random;
   private factory!: RabbitFactory;
   private world!: World;
@@ -93,7 +95,7 @@ export class Game {
 
   constructor(private readonly app: HTMLElement) {
     this.view=new ViewCamera(this.camera,this.renderer.domElement);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.45));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -362,6 +364,7 @@ export class Game {
       else if(event.kind==='defend')this.toast(`${event.subject[0].toUpperCase()+event.subject.slice(1)} дал отпор хищнику!`);
       else this.toast('Хищники столкнулись из-за охотничьей территории.');
     }
+    this.resolveAnimalCollisions();
     for(const rabbit of this.rabbits)if(this.rng.chance(dt*0.025)){
       const food=this.world.nearestResource(rabbit.data.x,rabbit.data.z,1.2);
       if(food&&food.kind!=='toadstool'){
@@ -399,6 +402,42 @@ export class Game {
     if (this.scene.fog instanceof THREE.FogExp2) this.scene.fog.color.copy(sky);
     if (this.elapsed - this.lastHud > 0.22) { this.lastHud = this.elapsed; this.updateHud(closestThreat); }
     if (this.elapsed > this.autosaveAt) { this.autosaveAt = this.elapsed + 30; this.persist(false); }
+  }
+
+  private resolveAnimalCollisions():void{
+    const p=this.save.player,bodies:PhysicalBody[]=[];
+    const valid=(x:number,z:number,y:number,sheltered:boolean)=>Math.abs(x)<103&&Math.abs(z)<103&&this.earth.canMoveTo(x,z,y,sheltered);
+    bodies.push({id:0,x:p.x,y:p.y,z:p.z,radius:.38,mass:Infinity,sheltered:this.sheltered,moveTo:()=>false});
+    this.rabbits.forEach((actor,i)=>{
+      if(this.mating?.fatherId===actor.data.id)return;
+      const root=actor.rig.root,y=root.userData.baseY as number??root.position.y,sheltered=this.earth.isSheltered(actor.data.x,y,actor.data.z);
+      bodies.push({id:1000+i,x:actor.data.x,y,z:actor.data.z,radius:.38*root.scale.x,mass:1,sheltered,
+        moveTo:(x,z)=>{if(!valid(x,z,y,sheltered))return false;actor.moveTo(x,z,sheltered?this.earth.floorAt(x,z,y):this.groundAt(x,z));return true;}});
+    });
+    this.families.forEach((member,i)=>{
+      const root=member.rig.root,y=root.userData.baseY as number??root.position.y;
+      bodies.push({id:2000+i,x:root.position.x,y,z:root.position.z,radius:.34*root.scale.x,mass:1,sheltered:false,
+        moveTo:(x,z)=>{if(!valid(x,z,y,false))return false;member.moveTo(x,z,this.groundAt(x,z));return true;}});
+    });
+    this.save.kits.filter(k=>k.alive).forEach(kit=>{
+      const rig=this.kitMeshes.get(kit.id);if(!rig)return;
+      const y=kit.y??kit.homeY,sheltered=this.earth.isSheltered(kit.x??kit.homeX,y,kit.z??kit.homeZ);
+      bodies.push({id:3000+kit.id,x:kit.x??kit.homeX,y,z:kit.z??kit.homeZ,radius:Math.max(.17,.36*rig.root.scale.x),mass:.55,sheltered,
+        moveTo:(x,z)=>{if(!valid(x,z,y,sheltered))return false;kit.x=x;kit.z=z;kit.y=sheltered?this.earth.floorAt(x,z,y):this.groundAt(x,z);
+          rig.root.position.set(x,kit.y,z);rig.root.userData.baseY=kit.y;return true;}});
+    });
+    this.predators.forEach((predator,i)=>{
+      const y=predator.root.position.y,sheltered=predator.underground;
+      const radius=predator.kind==='bear'?1.15:predator.kind==='wolf'?.77:predator.kind==='snake'?.28:.62;
+      bodies.push({id:4000+i,x:predator.x,y,z:predator.z,radius,mass:predator.kind==='bear'?7:3,sheltered,
+        moveTo:(x,z)=>{if(!valid(x,z,y,sheltered))return false;predator.moveTo(x,z,sheltered?this.earth.floorAt(x,z,y):this.groundAt(x,z));return true;}});
+    });
+    this.wildlife.forEach((animal,i)=>{
+      const radius=animal.kind==='moose'?1.1:animal.kind==='deer'?.74:animal.kind==='beaver'?.52:.34;
+      bodies.push({id:5000+i,x:animal.x,y:animal.root.position.y,z:animal.z,radius,mass:animal.kind==='moose'?6:2,sheltered:false,
+        moveTo:(x,z)=>{if(!valid(x,z,animal.root.position.y,false))return false;animal.x=x;animal.z=z;animal.root.position.set(x,this.groundAt(x,z),z);return true;}});
+    });
+    this.physics.resolve(bodies);
   }
 
   private movePlayer(dt: number): boolean {

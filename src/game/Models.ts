@@ -45,8 +45,8 @@ export function animatePredator(root:THREE.Group,_time:number,running:boolean,dt
 export function createHawk():THREE.Group{
   const model=ModelAssets.shared.create('hawk');model.root.userData.model=model;return model.root;
 }
-export function animateHawk(root:THREE.Group,flapping:boolean,dt:number):void{
-  ModelAssets.shared.play(root.userData.model as ModelInstance,flapping?'flap':'glide',dt);
+export function animateHawk(root:THREE.Group,flapping:boolean,dt:number,striking=false):void{
+  ModelAssets.shared.play(root.userData.model as ModelInstance,striking?'strike':flapping?'flap':'glide',dt);
 }
 export function makeNest():THREE.Group{return ModelAssets.shared.create('nest').root;}
 export function makeStash():THREE.Group{return ModelAssets.shared.create('stash').root;}

@@ -30,3 +30,7 @@ test('rabbit instances have independent coat materials and animated digging paws
   animateRabbit(cream,.1,false,false,.1);
   assert.ok(Math.abs(paw.rotation.x)>.05);
 });
+test('snake and hawk GLB files include attack clips',()=>{
+  assert.ok(ModelAssets.shared.create('snake').clips.has('attack'));
+  assert.ok(ModelAssets.shared.create('hawk').clips.has('strike'));
+});

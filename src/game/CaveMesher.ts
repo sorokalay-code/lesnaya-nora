@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { DigNode } from './types';
+import { ModelAssets } from './ModelAssets';
 
 type Edge=[DigNode,DigNode];
 type Chunk={mesh:THREE.Mesh;center:THREE.Vector3};
@@ -14,7 +15,7 @@ export class CaveMesher {
   private edges:Edge[]=[];
   private readonly chunkSize=6;
   private readonly step=0.5;
-  private readonly material=new THREE.MeshStandardMaterial({color:0x80694e,roughness:1,side:THREE.BackSide});
+  private readonly material=new THREE.MeshStandardMaterial({color:0x80694e,map:ModelAssets.shared.soil,roughness:1,side:THREE.BackSide});
   constructor(scene:THREE.Scene,private readonly surfaceAt:(x:number,z:number)=>number=()=>Infinity){scene.add(this.group);}
 
   addNode(node:DigNode,connections:DigNode[]):void{
@@ -56,7 +57,7 @@ export class CaveMesher {
     const index=(x:number,y:number,z:number)=>(z*stride+y)*stride+x;
     for(let z=0;z<=n;z++)for(let y=0;y<=n;y++)for(let x=0;x<=n;x++)
       field[index(x,y,z)]=sdf(min.x+x*this.step,min.y+y*this.step,min.z+z*this.step);
-    const positions:number[]=[],normals:number[]=[];
+    const positions:number[]=[],normals:number[]=[],uvs:number[]=[];
     const gradient=(p:THREE.Vector3)=>{
       const h=0.06;
       return new THREE.Vector3(sdf(p.x+h,p.y,p.z)-sdf(p.x-h,p.y,p.z),
@@ -77,6 +78,7 @@ export class CaveMesher {
         for(const vertex of [p,q,r]){
           positions.push(vertex.x,vertex.y,vertex.z);
           const normal=gradient(vertex);normals.push(normal.x,normal.y,normal.z);
+          uvs.push((Math.abs(normal.x)>.55?vertex.z:vertex.x)*.45,vertex.y*.45);
         }
       }
     };
@@ -100,6 +102,7 @@ export class CaveMesher {
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
     geometry.computeBoundingSphere();
     const mesh=new THREE.Mesh(geometry,this.material);mesh.receiveShadow=true;this.group.add(mesh);
     this.chunks.set(key,{mesh,center:min.clone().addScalar(s/2)});

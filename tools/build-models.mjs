@@ -231,6 +231,37 @@ function stash() {
   for(let i=0;i<4;i++)ell(root,food,`Food${i}`,[Math.sin(i*2)*.24,.26,Math.cos(i*2)*.18],[.12,.1,.15]);
   return root;
 }
+function branchItem(){
+  const root=group(new THREE.Group(),'branch'),wood=mat('twig',0x775338),bud=mat('leaf_branch',0x77955b);
+  stick(root,wood,'Stem',[-.38,.05,0],[.42,.08,0],.052);
+  stick(root,wood,'Fork',[.12,.07,0],[.34,.21,.2],.029);
+  stick(root,wood,'ForkSmall',[-.18,.06,0],[-.3,.16,-.15],.022);
+  mini(root,bud,'Bud',[.35,.21,.2],[.06,.035,.04]);return root;
+}
+function grassItem(){
+  const root=group(new THREE.Group(),'grass_bundle'),green=mat('leaf_grass',0x77a45e),straw=mat('straw',0xb7a176);
+  for(let i=0;i<12;i++){
+    const a=i*2.4,x=Math.sin(a)*.18,z=Math.cos(a)*.13;
+    ell(root,i%4?green:straw,`Blade${i}`,[x,.13+i%3*.035,z],[.045,.22,.035],[Math.cos(a)*.4,0,Math.sin(a)*.4]);
+  }
+  return root;
+}
+function twigsItem(){
+  const root=group(new THREE.Group(),'twig_bundle'),wood=mat('twig',0x75543c);
+  for(let i=0;i<7;i++){
+    const a=i*2.4,x=Math.sin(a)*.13,z=Math.cos(a)*.12;
+    stick(root,wood,`Twig${i}`,[x-.21,.07,z],[x+.23,.1,z+.08],.022);
+  }
+  return root;
+}
+function furItem(){
+  const root=group(new THREE.Group(),'fur_tuft'),fluff=pale(0xe9dfd0);
+  for(let i=0;i<9;i++){
+    const a=i*2.4,r=.06+(i%3)*.05;
+    ell(root,fluff,`Tuft${i}`,[Math.cos(a)*r,.11+(i%4)*.027,Math.sin(a)*r],[.10,.065,.1]);
+  }
+  return root;
+}
 function oak(){
   const root=group(new THREE.Group(),'oak'),bark=mat('bark',0x735940),branch=mat('bark_dark',0x624934);
   const leaf1=mat('leaf_oak',0x518553),leaf2=mat('leaf_oak_dark',0x426e46);
@@ -366,10 +397,12 @@ function quadrupedClips(kind) {
   clips.push(new THREE.AnimationClip('attack',.6,[rotation('Head',[[0,0,0],[.25,0,0],[-.25,0,0],[.2,0,0],[0,0,0]])]));
   return clips;
 }
-function snakeClips(){return ['idle','walk','run'].map((name,index)=>new THREE.AnimationClip(name,index===2?.65:1.2,
-  [...Array.from({length:9},(_,i)=>rotation(`Segment${i}`,sequence((index===0?.04:.15)*(i%2?1:-1),Math.sin(i)*.08))),rotation('Head',sequence(index===0?.03:.11))]));}
-function hawkClips(){return ['glide','flap'].map((name,index)=>new THREE.AnimationClip(name,index?.72:1.6,
-  [rotation('WingL',sequence(index?.47:.06)),rotation('WingR',sequence(index?-.47:-.06)),rotation('Head',sequence(.025))]));}
+function snakeClips(){const clips=['idle','walk','run'].map((name,index)=>new THREE.AnimationClip(name,index===2?.65:1.2,
+  [...Array.from({length:9},(_,i)=>rotation(`Segment${i}`,sequence((index===0?.04:.15)*(i%2?1:-1),Math.sin(i)*.08))),rotation('Head',sequence(index===0?.03:.11))]));
+  clips.push(new THREE.AnimationClip('attack',.5,[position('Head',[[0,0,0],[0,.04,-.19],[0,.03,-.32],[0,.04,-.19],[0,0,0]],[0,.21,-1.14]),rotation('Head',[[0,0,0],[-.22,0,0],[.16,0,0],[-.12,0,0],[0,0,0]])]));return clips;}
+function hawkClips(){const clips=['glide','flap'].map((name,index)=>new THREE.AnimationClip(name,index?.72:1.6,
+  [rotation('WingL',sequence(index?.47:.06)),rotation('WingR',sequence(index?-.47:-.06)),rotation('Head',sequence(.025))]));
+  clips.push(new THREE.AnimationClip('strike',.6,[rotation('WingL',pose(-.52)),rotation('WingR',pose(.52)),rotation('Head',pose(.21))]));return clips;}
 function peacefulClips(kind){const legs=['LegFL','LegFR','LegBL','LegBR'];const tail=kind==='squirrel'?'Tail':undefined;
   return ['idle','walk','run','graze'].map((name,index)=>new THREE.AnimationClip(name,[1.2,1,.65,1.1][index],
   [rotation('Head',index===3?[[.18,0,0],[.28,0,0],[.2,0,0],[.3,0,0],[.18,0,0]]:sequence(.035)),
@@ -387,9 +420,23 @@ function texture(name,base){const width=64,height=64,raw=Buffer.alloc(height*(wi
   const header=Buffer.alloc(13);header.writeUInt32BE(width,0);header.writeUInt32BE(height,4);header[8]=8;header[9]=6;
   writeFileSync(`public/textures/${name}.png`,Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]));
 }
-mkdirSync('public/models',{recursive:true});mkdirSync('public/textures',{recursive:true});texture('fur',222);texture('leaf',210);
+function terrainTexture(name,soil=false){
+  const width=128,height=128,raw=Buffer.alloc(height*(width*4+1));let seed=soil?72091:44017;
+  const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const flecks=Array.from({length:soil?160:125},()=>({x:Math.floor(random()*width),y:Math.floor(random()*height),r:1+Math.floor(random()*4)}));
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const variation=Math.sin(x*Math.PI*2/width*3+y*Math.PI*2/height*2)*7+Math.sin(x*Math.PI*2/width*7-y*Math.PI*2/height*5)*5;
+    let v=225+variation+(random()-.5)*22;
+    for(const f of flecks){const dx=Math.min(Math.abs(x-f.x),width-Math.abs(x-f.x)),dy=Math.min(Math.abs(y-f.y),height-Math.abs(y-f.y));if(dx*dx+dy*dy<f.r*f.r)v-=soil?32:20;}
+    const i=y*(width*4+1)+1+x*4;raw[i]=Math.max(165,Math.min(255,v));raw[i+1]=Math.max(165,Math.min(255,v+(soil?1:3)));raw[i+2]=Math.max(165,Math.min(255,v-(soil?3:1)));raw[i+3]=255;
+  }
+  const header=Buffer.alloc(13);header.writeUInt32BE(width,0);header.writeUInt32BE(height,4);header[8]=8;header[9]=6;
+  writeFileSync(`public/textures/${name}.png`,Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]));
+}
+mkdirSync('public/models',{recursive:true});mkdirSync('public/textures',{recursive:true});texture('fur',222);texture('leaf',210);terrainTexture('ground');terrainTexture('soil',true);
 const models={rabbit,fox:()=>quadruped('fox'),wolf:()=>quadruped('wolf'),dog:()=>quadruped('dog'),lynx:()=>quadruped('lynx'),weasel:()=>quadruped('weasel'),bear:()=>quadruped('bear'),snake,hawk,
   deer:()=>peaceful('deer'),squirrel:()=>peaceful('squirrel'),hedgehog:()=>peaceful('hedgehog'),beaver:()=>peaceful('beaver'),moose:()=>peaceful('moose'),nest,stash,
+  branch:branchItem,grass_bundle:grassItem,twig_bundle:twigsItem,fur_tuft:furItem,
   oak,pine:pineTree,fern,reed,bush,carrot:()=>foodPlant('carrot'),cabbage:()=>foodPlant('cabbage'),mushroom:()=>foodPlant('mushroom'),toadstool:()=>foodPlant('toadstool'),berries:()=>foodPlant('berries'),acorn:()=>foodPlant('acorn'),clover:()=>foodPlant('clover'),bitterleaf:()=>foodPlant('bitterleaf')};
 for(const [name,build] of Object.entries(models)){
   const model=build();

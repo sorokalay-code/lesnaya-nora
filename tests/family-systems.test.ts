@@ -14,8 +14,9 @@ import { Excavation } from '../src/game/Excavation';
 import type { SaveData, PartnerTraits } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
 import { loadModels } from './model-fixture';
+import { MODEL_NAMES } from '../src/game/ModelAssets';
 
-await loadModels('rabbit');
+await loadModels(...MODEL_NAMES);
 
 const genes={coat:'cream' as const,ear:1,speed:3,vitality:3,size:1};
 const partner:PartnerTraits={id:1,name:'Пушок',x:0,z:0,genes,preference:'bond',temperament:'заботливый',trust:80,familySize:2};

@@ -87,6 +87,7 @@ export class WildlifeEcology {
       const reach=predator.kind==='bear'?2.5:predator.kind==='wolf'?1.9:1.45;
       if(Math.hypot(victim.x-predator.x,victim.z-predator.z)>reach)continue;
       predator.attackCooldown=predator.kind==='snake'?5:3;
+      predator.playAttack(time);
       const damage=predator.kind==='bear'?55:predator.kind==='wolf'?38:predator.kind==='lynx'?31:predator.kind==='dog'?32:predator.kind==='snake'?19:24;
       if(victim instanceof Predator){
         victim.receiveAttack(damage,time,predator);

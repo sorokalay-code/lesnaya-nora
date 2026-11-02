@@ -7,6 +7,7 @@ import { createForestAnimal } from '../src/game/Wildlife';
 import { WildlifeEcology } from '../src/game/WildlifeEcology';
 import type { Resource, World } from '../src/game/World';
 import { loadModels } from './model-fixture';
+import type { ModelInstance } from '../src/game/ModelAssets';
 
 await loadModels('deer','moose','squirrel','bear','wolf','fox');
 
@@ -35,6 +36,8 @@ test('predators hunt peaceful animals and a moose strikes back when attacked',()
   assert.ok(moose.health<moose.maxHealth);
   assert.ok(bear.health<bear.maxHealth);
   assert.ok(events.some(e=>e.kind==='defend'));
+  bear.update(0.05,1.1,80,80,false,true,()=>0);
+  assert.equal((bear.root.userData.model as ModelInstance).activeName,'attack');
 });
 
 test('a predator can kill a small animal and remove it from the world',()=>{
