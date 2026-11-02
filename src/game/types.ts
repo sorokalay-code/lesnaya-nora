@@ -3,7 +3,7 @@ import type { WildlifeKind } from './animals/types';
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
-export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake';
+export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake' | 'spider';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
@@ -16,6 +16,7 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  dirtiness?: number;
   y?: number;
   lastConversationAt?: number;
   name: string;
@@ -30,6 +31,7 @@ export interface PartnerTraits {
 }
 
 export interface KitData {
+  dirtiness?: number;
   nextMealAt?: number;
   id: number;
   name: string;
@@ -90,6 +92,8 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  animalWasteDays?: Record<string, number>;
+  webCooldowns?: Record<string, number>;
   wildlife?: WildlifeData[];
   nextWildlifeId?: number;
   discoveries?: { x: number; z: number; label: string }[];

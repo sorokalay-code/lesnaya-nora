@@ -5,6 +5,67 @@
   z-index: 150;
   background: #071a12aa;
 }
+.journal-log {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #acba8a55;
+  border-radius: 10px;
+}
+.journal-log summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.journal-log ol {
+  padding-left: 20px;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.journal-log li {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.web-notice {
+  position: absolute;
+  top: 132px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(350px, 42vw);
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid #e1caaa99;
+  border-radius: 12px;
+  background: #352c29ed;
+  color: #f5e9d2;
+  z-index: 75;
+  text-align: center;
+  pointer-events: none;
+}
+.web-notice p {
+  font-size: 12px;
+  margin: 7px 0;
+}
+.web-notice progress {
+  width: 100%;
+  accent-color: #d1b47c;
+}
+.web-notice small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.touch-ui .web-notice {
+  top: 94px;
+  width: min(300px, 36vw);
+  padding: 9px;
+}
+.web-toasts .toast:not(:last-child) {
+  display: none;
+}
+.touch-ui .toast-box.web-toasts {
+  top: 215px;
+}
 .controls[open] {
   max-height: 48dvh;
   overflow-y: auto;

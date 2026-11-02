@@ -9,6 +9,7 @@ import { Terrain } from './Terrain';
 import { type Biome, type FoodKind, type SaveData, type Weather } from './types';
 import { WorldChunks } from './WorldChunks';
 import { GardenCrops } from './GardenCrops';
+import { RockField } from './RockField';
 
 export interface Resource {
   id: number;
@@ -121,6 +122,12 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
+    new RockField(
+      seed,
+      this.chunks,
+      (x, z) => this.heightAt(x, z),
+      (x, z) => this.biomeAt(x, z) !== 'garden' && !this.nearWater(x, z, 3),
+    );
     this.buildResources();
     this.resourceInstances = new ResourceInstances(this.resources, this.chunks, (root) =>
       this.trackFoliage(root),

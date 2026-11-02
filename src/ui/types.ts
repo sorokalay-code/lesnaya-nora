@@ -1,6 +1,7 @@
 import type { WildlifeKind } from '../game/animals';
 import type { ConversationTurn } from '../game/session/ForestConversation';
 import type { DialogQuestion } from '../game/session/RabbitConversation';
+import type { WebView } from '../game/session/SpiderEncounter';
 import type {
   FoodKind,
   KitData,
@@ -17,6 +18,7 @@ export interface PromptPart {
   text: string;
 }
 export interface HudView {
+  web?: WebView;
   nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
   status: string;
   bars: { label: string; value: number; color: string; icon: string }[];

@@ -1,4 +1,6 @@
 import { ControlGuide } from './ControlGuide';
+import { JournalLog } from './JournalLog';
+import { WebNotice } from './WebNotice';
 import { trapDialogFocus } from './DialogKeyboard';
 import { ActionMenu } from './ActionMenu';
 import { MobileControls } from './MobileControls';
@@ -108,6 +110,7 @@ function Hud() {
 
   return (
     <>
+      <WebNotice web={hud.web} touch={touch} />
       <div className={`kit-progress ${familyOpen ? '' : 'hidden'}`}>
         <b>РОСТ КРОЛЬЧАТ</b>
         {!hud.young.length && <p>Крольчат пока нет. Подробности семьи — в дневнике.</p>}
@@ -299,6 +302,7 @@ function Panels() {
                   <span>Выросли: {journal.save.stats.grown}</span>
                   <span>Не выжили при родах: {journal.save.stats.stillborn ?? 0}</span>
                 </div>
+                <JournalLog entries={journal.save.messages} />
                 <h3>Семья</h3>
                 <p>
                   Партнёр:{' '}
@@ -414,8 +418,9 @@ function Controls() {
 function Toasts() {
   const store = useUIStore(),
     toasts = useUI((state) => state.toasts);
+  const trapped = useUI((state) => !!state.hud?.web);
   return (
-    <div className="toast-box">
+    <div className={trapped ? 'toast-box web-toasts' : 'toast-box'}>
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

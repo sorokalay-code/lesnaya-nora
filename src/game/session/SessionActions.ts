@@ -8,8 +8,12 @@ import { FamilyLifecycle } from './FamilyLifecycle';
 import { InteractionController } from './InteractionController';
 import { InventoryController } from './InventoryController';
 import { SessionQueries } from './SessionQueries';
+import type { FamilyGrooming } from './FamilyGrooming';
+import type { SpiderEncounter } from './SpiderEncounter';
 
 interface Context {
+  web: SpiderEncounter;
+  grooming: FamilyGrooming;
   shelters: ShelterController;
   resetInput: () => void;
   refreshHud: () => void;
@@ -43,6 +47,17 @@ export class SessionActions {
   }
 
   execute(action: string): void {
+    if (
+      action === 'struggle' ||
+      (action === 'interact' && this.context.web.trapped && !this.context.ui.panelsOpen)
+    ) {
+      if (!this.context.ui.panelsOpen) {
+        this.context.web.struggle();
+        this.context.refreshHud();
+      }
+      return;
+    }
+    if (this.context.web.trapped && ['dig', 'dig-down', 'hop'].includes(action)) return;
     if (action === 'status-panel') {
       const expanded = this.context.ui.state.statusOpen;
       if (this.context.ui.panelsOpen) this.context.interactions.close();
@@ -67,6 +82,7 @@ export class SessionActions {
   }
 
   private route(action: string): void {
+    if (this.context.grooming.execute(action)) return;
     this.context.sound.unlock();
     if (this.context.shelters.execute(action)) return;
     if (action === 'controls-help') {

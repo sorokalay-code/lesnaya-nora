@@ -42,6 +42,14 @@ export class WasteSystem {
     );
   }
 
+  contactDirt(dt: number, x: number, y: number, z: number): number {
+    let added = 0;
+    for (const waste of this.save.waste)
+      if (Math.hypot(x - waste.x, z - waste.z) < 0.7 && Math.abs(y - waste.y) < 1.2)
+        added += dt * (waste.kind === 'pellets' ? 3 : 8);
+    return added;
+  }
+
   cleanNear(x: number, y: number, z: number): number {
     const ids = new Set(this.nearby(x, y, z).map((waste) => waste.id));
     if (!ids.size) return 0;
@@ -65,14 +73,11 @@ export class WasteSystem {
   update(dt: number, px: number, py: number, pz: number): void {
     this.elapsed += dt;
     if (this.save.clock >= this.nextExpiry) this.expire();
-    for (const waste of this.save.waste) {
-      if (Math.hypot(px - waste.x, pz - waste.z) < 0.7 && Math.abs(py - waste.y) < 1.2)
-        this.save.player.dirtiness = clamp(
-          this.save.player.dirtiness + dt * (waste.kind === 'pellets' ? 0.16 : 0.6),
-          0,
-          100,
-        );
-    }
+    this.save.player.dirtiness = clamp(
+      this.save.player.dirtiness + this.contactDirt(dt, px, py, pz),
+      0,
+      100,
+    );
     if (this.elapsed >= this.nextVisual) {
       this.nextVisual = this.elapsed + 0.35;
       this.visuals.update(this.save.waste, { x: px, y: py, z: pz });

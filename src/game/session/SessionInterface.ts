@@ -12,8 +12,10 @@ import { type SaveData } from '../types';
 import { InteractionController } from './InteractionController';
 import { SessionQueries } from './SessionQueries';
 import { WorldCalendar } from './WorldCalendar';
+import type { WebView } from './SpiderEncounter';
 
 interface Context {
+  webView?: () => WebView | undefined;
   captureWildlife?: () => void;
   save: SaveData;
   ui: GameUI;
@@ -40,25 +42,26 @@ export class SessionInterface {
 
   updateHud(threat = Infinity): void {
     const p = this.context.save.player;
-    this.context.ui.setHud(
-      this.hudPresenter.build(
-        this.context.save,
-        this.context.world,
-        this.context.earth,
-        this.context.view.isFirstPerson,
-        this.context.store,
-        this.context.seasons,
-        this.context.calendar.airTemperature(),
-        threat,
-        this.context.queries.partner(),
-        this.sheltered ? undefined : this.context.world.nearestResource(p.x, p.z, 2.3),
-        this.context.queries.stash(),
-        this.context.queries.kit(),
-        this.context.queries.animal(),
-        this.context.items.nearest(p.x, p.y, p.z),
-        this.context.queries.nest(),
-      ),
+    const hud = this.hudPresenter.build(
+      this.context.save,
+      this.context.world,
+      this.context.earth,
+      this.context.view.isFirstPerson,
+      this.context.store,
+      this.context.seasons,
+      this.context.calendar.airTemperature(),
+      threat,
+      this.context.queries.partner(),
+      this.sheltered ? undefined : this.context.world.nearestResource(p.x, p.z, 2.3),
+      this.context.queries.stash(),
+      this.context.queries.kit(),
+      this.context.queries.animal(),
+      this.context.items.nearest(p.x, p.y, p.z),
+      this.context.queries.nest(),
     );
+    hud.web = this.context.webView?.();
+    if (hud.web) hud.prompt = [{ key: 'E', text: 'Многократно нажимай, чтобы вырваться' }];
+    this.context.ui.setHud(hud);
   }
 
   toggleJournal(mode: string): void {

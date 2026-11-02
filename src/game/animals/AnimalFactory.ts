@@ -15,12 +15,14 @@ import { Squirrel } from './Squirrel';
 import type { WildlifeKind } from './types';
 import { Weasel } from './Weasel';
 import { Wolf } from './Wolf';
+import { Spider } from './Spider';
 
 type Constructor<T> = new (x: number, z: number, rng: Random) => T;
 
 /** Реестр фабрик создаёт конкретные виды, не раскрывая их конструкторы игровым системам. */
 export class AnimalFactory {
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {
+    spider: Spider,
     fox: Fox,
     wolf: Wolf,
     dog: Dog,

@@ -124,7 +124,8 @@ test('population is reproducible, retains predator distribution and shares ecolo
     a.predators.map((animal) => [animal.kind, animal.x, animal.z]),
     b.predators.map((animal) => [animal.kind, animal.x, animal.z]),
   );
-  assert.equal(a.predators.length, 22);
+  assert.equal(a.predators.length, 25);
+  assert.equal(a.predators.filter((animal) => animal.kind === 'spider').length, 3);
   assert.equal(a.predators.filter((animal) => animal.kind === 'bear').length, 2);
   assert.equal(a.hawks.length, 1);
   assert.equal(a.wildlife, a.ecology.animals);

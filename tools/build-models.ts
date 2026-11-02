@@ -4,6 +4,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createRockModel, createSpiderModel, spiderClips, spiderLowClips } from './art/WildAssets';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1426,11 +1427,18 @@ function terrainTexture(name, soil = false) {
 }
 mkdirSync('public/models', { recursive: true });
 mkdirSync('public/textures', { recursive: true });
-texture('fur', 222);
-texture('leaf', 210);
-terrainTexture('ground');
-terrainTexture('soil', true);
+const requested = new Set(process.argv.slice(2).filter((name) => name !== '--'));
+if (!requested.size) {
+  texture('fur', 222);
+  texture('leaf', 210);
+  terrainTexture('ground');
+  terrainTexture('soil', true);
+}
 const models = {
+  spider: () => createSpiderModel(),
+  rock_granite: () => createRockModel('granite'),
+  rock_moss: () => createRockModel('moss'),
+  rock_slate: () => createRockModel('slate'),
   rabbit,
   fox: () => quadruped('fox'),
   wolf: () => quadruped('wolf'),
@@ -1466,6 +1474,7 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  'spider',
   'rabbit',
   'fox',
   'wolf',
@@ -1523,6 +1532,7 @@ function mergeParts(root, flatten = false) {
   }
 }
 for (const [name, build] of Object.entries(models)) {
+  if (requested.size && !requested.has(name)) continue;
   sphere = new THREE.SphereGeometry(1, creatures.has(name) ? 16 : 8, creatures.has(name) ? 12 : 5);
   smallSphere = new THREE.SphereGeometry(
     1,
@@ -1531,17 +1541,19 @@ for (const [name, build] of Object.entries(models)) {
   );
   const model = build();
   const animations =
-    name === 'rabbit'
-      ? rabbitClips()
-      : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-        ? quadrupedClips(name)
-        : name === 'snake'
-          ? snakeClips()
-          : name === 'hawk'
-            ? hawkClips()
-            : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose'].includes(name)
-              ? peacefulClips(name)
-              : [];
+    name === 'spider'
+      ? spiderClips()
+      : name === 'rabbit'
+        ? rabbitClips()
+        : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
+          ? quadrupedClips(name)
+          : name === 'snake'
+            ? snakeClips()
+            : name === 'hawk'
+              ? hawkClips()
+              : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose'].includes(name)
+                ? peacefulClips(name)
+                : [];
   mergeParts(model, !creatures.has(name) && name !== 'oak');
   const buffer = (await new GLTFExporter().parseAsync(model, {
     binary: true,
@@ -1556,11 +1568,11 @@ for (const [name, build] of Object.entries(models)) {
   if (creatures.has(name)) {
     sphere = new THREE.SphereGeometry(1, 8, 5);
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
-    const distant = build();
-    mergeParts(distant);
+    const distant = name === 'spider' ? createSpiderModel(true) : build();
+    mergeParts(distant, name === 'spider');
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,
-      animations,
+      animations: name === 'spider' ? spiderLowClips() : animations,
     })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }

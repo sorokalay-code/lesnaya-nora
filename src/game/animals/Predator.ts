@@ -7,6 +7,7 @@ import { RABBIT_BODY } from '../RabbitBody';
 import type { GroundHeight, PredatorProfile } from './types';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
+  readonly origin: { x: number; z: number };
   targetX: number;
   targetZ: number;
   private nextTarget = 0;
@@ -29,6 +30,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     readonly profile: PredatorProfile,
   ) {
     super(kind, createPredator(kind), { x, z }, profile.health);
+    this.origin = { x, z };
     this.targetX = x;
     this.targetZ = z;
     this.homeX = x;
@@ -38,6 +40,10 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   protected canHuntPlayer(distance: number, day: boolean): boolean {
     return this.profile.alwaysHunts || !day || distance < this.profile.dayRange;
+  }
+
+  get huntsWildlife(): boolean {
+    return true;
   }
 
   enterTunnel(x: number, y: number, z: number): void {

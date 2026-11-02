@@ -14,6 +14,7 @@ export function MobileControls({ store }: { store: UIStore }) {
   const open = useStore(store, (s) => s.actionMenuOpen);
   const bindings = useStore(store, (s) => s.touchBindings);
   const first = useStore(store, (s) => s.firstPerson);
+  const web = useStore(store, (s) => s.hud?.web);
   const dispatch = useStore(store, (s) => s.dispatch);
 
   if (!touch) return null;
@@ -35,11 +36,13 @@ export function MobileControls({ store }: { store: UIStore }) {
       <Joystick bindings={bindings} />
       <div className="touch-actions">
         <HoldButton label="Бег" onHold={bindings.sprint} />
-        <button onClick={() => dispatch('hop')}>Прыжок</button>
-        <button className="touch-primary" onClick={() => dispatch('interact')}>
-          Общаться / взять
+        <button disabled={!!web} onClick={() => dispatch('hop')}>
+          Прыжок
         </button>
-        {first && (
+        <button className="touch-primary" onClick={() => dispatch(web ? 'struggle' : 'interact')}>
+          {web ? 'Вырваться' : 'Общаться / взять'}
+        </button>
+        {first && !web && (
           <>
             <HoldButton label="Копать" onHold={bindings.dig} />
             <button onClick={() => dispatch('dig-down')}>Копать вниз</button>

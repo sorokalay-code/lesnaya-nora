@@ -117,7 +117,7 @@ export class WildlifeEcology {
     predators: readonly Predator[],
     time: number,
   ): { x: number; z: number } | undefined {
-    if (predator.underground || !predator.alive) return;
+    if (predator.underground || !predator.alive || !predator.huntsWildlife) return;
 
     let current = this.preyTargets.get(predator);
     if (

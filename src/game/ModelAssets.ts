@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 export const CREATURE_NAMES = [
+  'spider',
   'rabbit',
   'fox',
   'wolf',
@@ -20,6 +21,9 @@ export const CREATURE_NAMES = [
 ] as const;
 export const MODEL_NAMES = [
   ...CREATURE_NAMES,
+  'rock_granite',
+  'rock_moss',
+  'rock_slate',
   'nest',
   'stash',
   'oak',

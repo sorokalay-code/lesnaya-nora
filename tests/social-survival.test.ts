@@ -39,24 +39,27 @@ const world = () =>
     hasCover: () => false,
   }) as unknown as World;
 
-test('zero energy recovers after a break, while repeated expenditure and movement delay regeneration', () => {
+test('energy recovers slowly while moving and spending, with a larger bonus after a break', () => {
   const player = game().player;
   player.energy = 0;
   const energy = new EnergyRecovery();
   energy.update(player, 0.1, 0, false);
   energy.update(player, 1, 3, false);
-  assert.equal(player.energy, 0);
+  assert.ok(player.energy > 0 && player.energy < 0.3);
+  const beforeRest = player.energy;
   for (let time = 4; time < 12; time++) energy.update(player, 1, time, false);
-  assert.equal(player.energy, 8);
-  player.energy -= 8;
+  assert.ok(Math.abs(player.energy - beforeRest - 8) < 0.001);
+  player.energy = 0;
   energy.update(player, 0.1, 12, false);
   energy.update(player, 1, 15, false);
-  assert.equal(player.energy, 0);
+  assert.ok(player.energy > 0 && player.energy < 0.3);
+  const beforeMove = player.energy;
   energy.update(player, 1, 16, true);
   energy.update(player, 1, 19, false);
-  assert.equal(player.energy, 0);
+  assert.ok(Math.abs(player.energy - beforeMove - 0.36) < 0.001);
+  const beforeBonus = player.energy;
   energy.update(player, 1, 20, false);
-  assert.equal(player.energy, 1);
+  assert.ok(Math.abs(player.energy - beforeBonus - 1) < 0.001);
   player.energy = 99.8;
   energy.update(player, 1, 30, false);
   assert.equal(player.energy, 100);

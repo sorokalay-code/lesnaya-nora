@@ -12,6 +12,8 @@ import { type SaveData } from '../types';
 import { AnimalSimulation } from './AnimalSimulation';
 import type { InteractionController } from './InteractionController';
 import type { SceneDecorations } from './SceneDecorations';
+import { CoatDirt } from '../CoatDirt';
+import type { SpiderEncounter } from './SpiderEncounter';
 import { EnvironmentController } from './EnvironmentController';
 import { FamilyLifecycle } from './FamilyLifecycle';
 import { PlayerConsequences } from './PlayerConsequences';
@@ -26,6 +28,7 @@ export interface SimulationState {
 }
 
 interface Context {
+  web: SpiderEncounter;
   decorations: SceneDecorations;
   interactions: InteractionController;
   state: SimulationState;
@@ -68,6 +71,7 @@ export class SessionSimulation {
     this.context.environment.update(dt);
     if (
       this.context.state.digHeld &&
+      !this.context.web.trapped &&
       this.context.view.isFirstPerson &&
       this.context.state.elapsed >= this.context.environment.nextDigAt
     )
@@ -80,10 +84,11 @@ export class SessionSimulation {
     const moving = this.context.movement.move(
       dt,
       this.context.state.elapsed,
-      this.context.ui.panelsOpen,
+      this.context.ui.panelsOpen || this.context.web.trapped,
     );
     this.context.movement.settle(dt);
     p.hidden = this.sheltered;
+    this.context.web.update(dt, this.context.state.elapsed, !this.context.ui.conversationOpen);
     const air = this.context.calendar.airTemperature();
     const nearbyNest = this.context.queries.nest(2.8);
     const warmed = this.sheltered || nearbyNest !== undefined;
@@ -91,6 +96,7 @@ export class SessionSimulation {
       this.context.consequences.makeWaste('diarrhea'),
     );
     this.context.waste.update(dt, p.x, p.y, p.z);
+    CoatDirt.update(this.context.player, p.dirtiness);
     if (p.health <= 0) {
       this.context.gameOver();
       return;

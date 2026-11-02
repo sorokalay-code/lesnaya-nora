@@ -1,6 +1,6 @@
 import type { SaveData } from '../types';
 
-/** Восстанавливает силы после передышки; трата энергии заново запускает задержку восстановления. */
+/** Медленно возвращает силы постоянно, а после передышки включает ускоренное восстановление. */
 export class EnergyRecovery {
   private previousEnergy = 100;
   private recoverAfter = 0;
@@ -8,10 +8,10 @@ export class EnergyRecovery {
   update(player: SaveData['player'], dt: number, elapsed: number, moving: boolean): void {
     if (moving || player.energy < this.previousEnergy - 0.001) this.recoverAfter = elapsed + 4;
 
-    if (!moving && elapsed >= this.recoverAfter) {
-      const rate = player.hunger < 10 || player.thirst < 10 ? 0.3 : 1;
-      player.energy = Math.min(100, player.energy + rate * dt);
-    }
+    const depleted = player.hunger < 10 || player.thirst < 10;
+    const base = depleted ? 0.12 : 0.18;
+    const bonus = !moving && elapsed >= this.recoverAfter ? (depleted ? 0.18 : 0.82) : 0;
+    player.energy = Math.min(100, player.energy + (base + bonus) * dt);
 
     this.previousEnergy = player.energy;
   }

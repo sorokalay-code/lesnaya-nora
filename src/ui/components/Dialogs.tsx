@@ -167,6 +167,10 @@ export function DialogView({
               </Choice>
             ))}
             {choice('mate-talk', 'Поговорить о семье')}
+            {choice(
+              'mate-groom',
+              `Почистить шерсть · чистота ${Math.round(100 - (data.partner.dirtiness ?? 0))}%`,
+            )}
           </div>
           <div className="mate-chat" role="log">
             {data.messages.slice(-6).map((entry, index) => (
@@ -276,6 +280,10 @@ export function DialogView({
             · сытость {fmt(data.kit.hunger)}% · здоровье {fmt(data.kit.health)}%
           </p>
           <div className="dialog-choices">
+            {choice(
+              'child-groom',
+              `Почистить шерсть · чистота ${Math.round(100 - (data.kit.dirtiness ?? 0))}%`,
+            )}
             {data.kit.age < 3 ? (
               <>
                 {choice('child-follow', 'Иди за мной')}

@@ -83,7 +83,7 @@ export class SurvivalSystem {
 
   groom(): void {
     const p = this.save.player;
-    p.dirtiness = clamp(p.dirtiness - 37, 0, 100);
+    p.dirtiness = 0;
     p.energy = clamp(p.energy - 3, 0, 100);
   }
 }

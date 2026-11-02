@@ -11,6 +11,7 @@ import {
   Predator,
   RabbitActor,
   RabbitFactory,
+  Spider,
 } from '../animals';
 import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
@@ -85,6 +86,29 @@ export class WorldPopulation {
       context.scene.add(predator.root);
     }
 
+    const spiderRandom = new Random(context.save.seed + 9024);
+    const treeCandidates = (context.world.treeLocations ?? []).filter(
+      (tree) =>
+        Math.hypot(tree.x, tree.z) > 20 &&
+        Math.hypot(tree.x, tree.z) < 85 &&
+        context.world.biomeAt(tree.x, tree.z) === 'forest',
+    );
+    const spiderHomes: { x: number; z: number }[] = [];
+    for (
+      let attempt = 0;
+      attempt < 50 && spiderHomes.length < 3 && treeCandidates.length;
+      attempt++
+    ) {
+      const tree = spiderRandom.pick(treeCandidates);
+      const x = tree.x + 1.6,
+        z = tree.z + 1.3;
+      if (spiderHomes.some((home) => Math.hypot(home.x - x, home.z - z) < 16)) continue;
+      spiderHomes.push({ x, z });
+      const spider = new Spider(x, z, spiderRandom);
+      spider.root.position.y = context.world.heightAt(x, z);
+      this.predators.push(spider);
+      context.scene.add(spider.root);
+    }
     this.ecology = new WildlifeEcology(context.scene, context.world, context.rng, context.save);
     this.ecology.populate();
     this.wildlife = this.ecology.animals;

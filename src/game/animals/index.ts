@@ -5,6 +5,7 @@ export { ForestAnimal } from './ForestAnimal';
 export { Hawk } from './Hawk';
 export { PlayerRabbit } from './PlayerRabbit';
 export { Predator } from './Predator';
+export { Spider } from './Spider';
 export { Rabbit } from './Rabbit';
 export { RabbitActor } from './RabbitActor';
 export { RabbitFactory, partnerScore } from './RabbitFactory';

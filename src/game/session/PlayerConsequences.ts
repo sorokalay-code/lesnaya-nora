@@ -34,19 +34,23 @@ export class PlayerConsequences {
                 ? 11
                 : kind === 'bear'
                   ? 34
-                  : kind === 'snake'
-                    ? 8
-                    : 15) *
+                  : kind === 'spider'
+                    ? 6
+                    : kind === 'snake'
+                      ? 8
+                      : 15) *
           0.8,
       0,
       100,
     );
     if (kind === 'snake') p.poison = clamp(p.poison + 18, 0, 100);
 
-    p.energy = clamp(p.energy - 13, 0, 100);
+    p.energy = clamp(p.energy - (kind === 'spider' ? 2 : 13), 0, 100);
     this.context.sound.play('danger');
     this.context.toast(
-      `${kind === 'hawk' ? 'Сокол' : kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : kind === 'lynx' ? 'Рысь' : kind === 'weasel' ? 'Ласка' : kind === 'bear' ? 'Медведь' : kind === 'snake' ? 'Змея' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`,
+      kind === 'spider'
+        ? 'Паук укусил! Беги от него. Если лапы в паутине — нажимай E или «Вырваться».'
+        : `${kind === 'hawk' ? 'Сокол' : kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : kind === 'lynx' ? 'Рысь' : kind === 'weasel' ? 'Ласка' : kind === 'bear' ? 'Медведь' : kind === 'snake' ? 'Змея' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`,
     );
   }
 

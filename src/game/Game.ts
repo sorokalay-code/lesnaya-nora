@@ -24,6 +24,10 @@ import { MobileInput } from './input/MobileInput';
 import { AnimalCollisionSystem } from './session/AnimalCollisionSystem';
 import { AnimalSimulation, type AnimalState } from './session/AnimalSimulation';
 import { AnimalWasteSystem } from './session/AnimalWasteSystem';
+import { EventJournal } from './EventJournal';
+import { FamilyGrooming } from './session/FamilyGrooming';
+import { SpiderEncounter } from './session/SpiderEncounter';
+import { Spider } from './animals/Spider';
 import { EnvironmentController } from './session/EnvironmentController';
 import { FamilyLifecycle } from './session/FamilyLifecycle';
 import { InteractionController } from './session/InteractionController';
@@ -44,6 +48,7 @@ import { type SaveData } from './types';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
+  private web!: SpiderEncounter;
   private sessionUI!: SessionInterface;
   private simulation!: SessionSimulation;
   private calendar!: WorldCalendar;
@@ -300,6 +305,14 @@ export class Game {
     this.ecology = population.ecology;
     this.wildlife = population.wildlife;
     this.hawks = population.hawks;
+    this.web = new SpiderEncounter({
+      scene: this.scene,
+      save: this.save,
+      world: this.world,
+      spiders: this.predators.filter((predator): predator is Spider => predator instanceof Spider),
+      player: this.player,
+      toast: (text) => this.toast(text),
+    });
 
     this.save.nests.forEach((n) => this.decorations.addNest(n));
     this.save.stashes.forEach((s) => this.decorations.addStash(s));
@@ -347,7 +360,7 @@ export class Game {
       elapsed: () => this.runtime.elapsed,
       toast: (text) => this.toast(text),
       playAction: (action, duration) => this.playAction(action, duration),
-      requestJump: () => this.movement.requestJump(this.runtime.elapsed),
+      requestJump: () => !this.web.trapped && this.movement.requestJump(this.runtime.elapsed),
       addNest: (nest) => this.decorations.addNest(nest),
       makeWaste: (kind) => this.consequences.makeWaste(kind),
     });
@@ -388,6 +401,7 @@ export class Game {
       family: this.family,
     });
     this.sessionUI = new SessionInterface({
+      webView: () => this.web.view(),
       captureWildlife: () => this.ecology.capture(),
       save: this.save,
       ui: this.ui,
@@ -414,6 +428,17 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.actions = new SessionActions({
+      web: this.web,
+      grooming: new FamilyGrooming({
+        save: this.save,
+        ui: this.ui,
+        rabbits: this.rabbits,
+        family: this.family,
+        elapsed: () => this.runtime.elapsed,
+        playAction: (action, duration) => this.playAction(action, duration),
+        persist: () => this.sessionUI.persist(false),
+        toast: (message) => this.toast(message),
+      }),
       shelters: this.shelters,
       resetInput: () => this.input.clear(),
       refreshHud: () => this.sessionUI.updateHud(),
@@ -469,6 +494,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.simulation = new SessionSimulation({
+      web: this.web,
       decorations: this.decorations,
       interactions: this.interactions,
       camera: this.camera,
@@ -583,8 +609,7 @@ export class Game {
   }
 
   private toast(message: string): void {
-    this.save?.messages.push(message);
-    if (this.save?.messages.length > 30) this.save.messages.shift();
+    if (this.save) EventJournal.append(this.save, message);
 
     this.ui.toast(message);
   }
