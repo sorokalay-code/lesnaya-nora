@@ -220,7 +220,12 @@ export class WaterSimulation {
     // Не приземляем прыгающих/поднятых животных. Высота меняется только у берега или в воде.
     const y =
       (swimming || wasWet || x !== p.x || z !== p.z) && !root.userData.jumping
-        ? this.navigation.height(x, z, actor.immersion)
+        ? this.navigation.height(
+            x,
+            z,
+            actor.immersion,
+            this.context.earth.floorAt(x, z, Number(root.userData.baseY ?? p.y)),
+          )
         : actor.rabbit
           ? Number(root.userData.baseY ?? p.y)
           : p.y;

@@ -144,7 +144,7 @@ export class PlayerMovement {
     this.player.rig.root.userData.turnLean = clamp(turn, -0.8, 0.8) * -0.14;
     const facingX = -Math.sin(this.player.rig.root.rotation.y),
       facingZ = -Math.cos(this.player.rig.root.rotation.y);
-    const swimming = !!this.water?.swimming(p.x, p.z);
+    const swimming = !this.sheltered && !!this.water?.swimming(p.x, p.z);
     const speedScale = swimming ? RABBIT_SWIM_SPEED / speed : this.sheltered ? 0.68 : 1;
     const nx = clamp(p.x + facingX * speed * dt * speedScale, -103, 103),
       nz = clamp(p.z + facingZ * speed * dt * speedScale, -103, 103);
@@ -173,10 +173,11 @@ export class PlayerMovement {
     const p = this.player.data;
     const surfaceWater = !this.sheltered && this.water?.swimming(p.x, p.z);
     this.player.root.userData.swimming = !!surfaceWater && !this.jump.active;
+    const floor = this.earth.floorAt(p.x, p.z, p.y);
     const target =
       !this.sheltered && this.water
-        ? this.water.height(p.x, p.z, RABBIT_SWIM_IMMERSION * p.genes.size)
-        : this.earth.floorAt(p.x, p.z, p.y);
+        ? this.water.height(p.x, p.z, RABBIT_SWIM_IMMERSION * p.genes.size, floor)
+        : floor;
     if (surfaceWater && p.y < target - 0.5) p.y = target;
     p.y += clamp(target - p.y, -dt * 3.5, dt * 2.4);
   }

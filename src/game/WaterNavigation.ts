@@ -19,10 +19,11 @@ export class WaterNavigation {
     return water && water.depth > SWIM_DEPTH ? water : undefined;
   }
 
-  height(x: number, z: number, immersion: number): number {
-    const water = this.terrain.waterAt(x, z),
-      ground = this.terrain.heightAt(x, z);
-    return water ? Math.max(ground, water.level - immersion) : ground;
+  height(x: number, z: number, immersion: number, floor = this.terrain.heightAt(x, z)): number {
+    const water = this.terrain.waterAt(x, z);
+    // На суше опору задаёт раскоп, включая ещё не укрытый склон у входа.
+    // Возврат исходного рельефа здесь создавал невидимый пол над выкопанной землёй.
+    return water ? Math.max(floor, water.level - immersion) : floor;
   }
 
   dryStep(from: DigNode, x: number, z: number): { x: number; z: number } {

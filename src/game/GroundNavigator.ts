@@ -69,8 +69,8 @@ export class GroundNavigator {
       x = dry.x;
       z = dry.z;
     }
-    const y =
-      water && !sheltered && canSwim ? water.height(x, z, immersion) : earth.floorAt(x, z, from.y);
+    const floor = earth.floorAt(x, z, from.y);
+    const y = water && !sheltered && canSwim ? water.height(x, z, immersion, floor) : floor;
     if (!earth.canMoveTo(x, z, from.y, sheltered) || Math.abs(y - from.y) > 1.1) {
       this.retryAt = time + 0.8;
       this.destination = undefined;
