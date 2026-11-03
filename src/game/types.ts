@@ -118,6 +118,9 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  remains?: import('./RemainsData').RemainsData[];
+  nextRemainsId?: number;
+  deadPopulation?: string[];
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
   animalWasteDays?: Record<string, number>;

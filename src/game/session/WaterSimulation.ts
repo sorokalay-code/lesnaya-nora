@@ -42,8 +42,11 @@ export class WaterSimulation {
       const rng = new Random(context.save.seed + 55781);
       const count = (context.save.worldConfig ?? defaultWorldConfig()).creatures.pike;
       for (let index = 0; index < count; index++) {
+        const identity = `pike:${index}`;
+        if (context.save.deadPopulation?.includes(identity)) continue;
         const point = river.points[1 + (index % (river.points.length - 1))];
         const pike = AnimalFactory.pike(point.x, point.z, river, rng);
+        pike.root.userData.remainsIdentity = identity;
         pike.update(0, 0, context.world);
         this.pikes.push(pike);
         context.world.scene.add(pike.root);

@@ -16,6 +16,7 @@ import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
+  onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
   save: SaveData;
   scene: THREE.Scene;
   world: World;
@@ -78,6 +79,9 @@ export class FamilyLifecycle {
   remove(id: number): void {
     const rig = this.rigs.get(id);
     if (!rig) return;
+
+    const kit = this.context.save.kits.find((child) => child.id === id);
+    if (kit && (!kit.alive || kit.health <= 0)) this.context.onDeath?.(rig.root, kit.genes);
 
     ModelAssets.shared.release(rig.root);
     rig.root.removeFromParent();
@@ -179,6 +183,15 @@ export class FamilyLifecycle {
         rig.root.visible = true;
         this.movement.update(kit, rig, time, dt);
       }
+    }
+  }
+
+  /** Собирает смерти от нападений в конце кадра, до возможного автосохранения. */
+  collectDead(): void {
+    for (const kit of this.context.save.kits) {
+      if (kit.alive && kit.health > 0) continue;
+      kit.alive = false;
+      if (this.rigs.has(kit.id)) this.remove(kit.id);
     }
   }
 

@@ -49,10 +49,12 @@ import { WorldCalendar } from './session/WorldCalendar';
 import { WorldPopulation } from './session/WorldPopulation';
 import { FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './systems';
 import { type SaveData } from './types';
+import { AnimalRemains } from './AnimalRemains';
 import { validWorldConfig, defaultWorldConfig } from './WorldConfig';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
+  private remains?: AnimalRemains;
   private attackSounds?: AttackSounds;
   private web!: SpiderEncounter;
   private sessionUI!: SessionInterface;
@@ -231,10 +233,14 @@ export class Game {
     });
     this.attackSounds?.dispose();
     this.interactions?.dispose();
+    this.remains?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
     this.lighting.reset();
     this.world = new World(this.scene, this.save.seed, this.save);
+    this.remains = new AnimalRemains(this.scene, this.save, (x, z, y) =>
+      this.earth.floorAt(x, z, y),
+    );
     this.world.setRain();
     this.seasons = new SeasonSystem(this.save.seed, this.save.worldConfig?.seasonLengths);
     this.survival = new SurvivalSystem(this.save, this.rng);
@@ -265,6 +271,7 @@ export class Game {
     this.care = new FamilyCare(this.save, this.earth);
     this.items = new GroundItems(this.world, this.save);
     this.family = new FamilyLifecycle({
+      onDeath: (root, genes) => this.remains?.record({ kind: 'rabbit', root, genes }),
       save: this.save,
       scene: this.scene,
       world: this.world,
@@ -324,6 +331,7 @@ export class Game {
     );
     this.scene.add(this.player.root);
     const population = new WorldPopulation({
+      onDeath: (animal) => this.remains?.record(animal),
       scene: this.scene,
       world: this.world,
       save: this.save,
@@ -526,6 +534,7 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      remains: this.remains,
       resetInput: () => this.input.clear(),
       canGrabPlayer: () => !this.web.trapped,
       impactSound: () => this.sound.play('danger'),
@@ -696,6 +705,7 @@ export class Game {
   }
 
   private gameOver(): void {
+    this.remains?.record({ kind: 'rabbit', root: this.player.root, genes: this.save.player.genes });
     this.running = false;
     this.view.unlock();
     this.ui.closePanels();

@@ -133,6 +133,16 @@
   color: #bbcbb6;
   font-size: 11px;
 }
+.world-config .remains-option {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 44px;
+}
+.remains-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: #c0cd8b;
+}
 .world-config .config-range {
   display: block;
   margin: 16px 0;

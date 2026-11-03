@@ -6,6 +6,7 @@ export type BiomePreference = 'mixed' | Biome;
 export type SeasonLengths = Record<Season, number>;
 
 export interface WorldConfig {
+  leaveRemains?: boolean;
   /** Половина стороны квадратного мира, в метрах. */
   size: number;
   creatures: Record<CreatureKind, number>;
@@ -61,6 +62,7 @@ export function playableWorldLimit(size = 110): number {
 /** Каждый черновик и сохранение получают собственные вложенные объекты. */
 export function defaultWorldConfig(): WorldConfig {
   return {
+    leaveRemains: true,
     size: 110,
     creatures: {
       rabbit: 16,
@@ -113,6 +115,7 @@ export function validWorldConfig(value: unknown): value is WorldConfig {
   const creatures = value.creatures;
   const seasons = value.seasonLengths;
   return (
+    (value.leaveRemains === undefined || typeof value.leaveRemains === 'boolean') &&
     inRange(value.size, WORLD_LIMITS.size.min, WORLD_LIMITS.size.max, true) &&
     ['water', 'vegetation', 'food'].every((key) =>
       inRange(value[key], WORLD_LIMITS.density.min, WORLD_LIMITS.density.max),

@@ -34,6 +34,7 @@ export class WorldPopulation {
     save: SaveData;
     rng: Random;
     markPartner: (actor: RabbitActor, active: boolean) => void;
+    onDeath?: (animal: ForestAnimal | Predator) => void;
   }) {
     const config = context.save.worldConfig ?? defaultWorldConfig();
     const scale = config.size / 110;
@@ -192,7 +193,13 @@ export class WorldPopulation {
         context.scene.add(actor.root);
       }
     }
-    this.ecology = new WildlifeEcology(context.scene, context.world, context.rng, context.save);
+    this.ecology = new WildlifeEcology(
+      context.scene,
+      context.world,
+      context.rng,
+      context.save,
+      context.onDeath,
+    );
     this.ecology.populate();
     this.wildlife = this.ecology.animals;
     this.hawks = Array.from({ length: config.creatures.hawk }, (_, index) => {
@@ -204,6 +211,26 @@ export class WorldPopulation {
       return hawk;
     });
     for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
+    // Постоянные номера стартовых хищников не дают воскресить их при загрузке мира.
+    for (const [prefix, actors] of [
+      ['predator', this.predators],
+      ['hawk', this.hawks],
+    ] as const) {
+      for (let index = actors.length - 1; index >= 0; index--) {
+        const identity = `${prefix}:${index}`;
+        actors[index].root.userData.remainsIdentity = identity;
+        if (!context.save.deadPopulation?.includes(identity)) continue;
+        const animal = actors[index];
+        ModelAssets.shared.release(animal.root);
+        animal.root.removeFromParent();
+        if (animal instanceof Hawk) {
+          animal.shadow.geometry.dispose();
+          animal.shadow.material.dispose();
+          animal.shadow.removeFromParent();
+        }
+        actors.splice(index, 1);
+      }
+    }
   }
 
   private predatorKind(index: number): PredatorKind {

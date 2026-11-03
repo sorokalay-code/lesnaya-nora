@@ -1,6 +1,7 @@
 import { defaultWorldConfig, validWorldConfig } from './WorldConfig';
 import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
+import { validRemains } from './RemainsData';
 
 /** Хранит и проверяет актуальный формат сохранения без миграций старых версий. */
 
@@ -65,6 +66,26 @@ export class SaveRepository {
 
     // У существующих сохранений v4 мир был фиксированным; его параметры совпадают с дефолтами.
     data.worldConfig ??= defaultWorldConfig();
+    data.worldConfig.leaveRemains ??= true;
+    if (data.remains !== undefined && !validRemains(data.remains))
+      throw new Error('Сохранение содержит повреждённые останки животных.');
+    if (
+      data.deadPopulation !== undefined &&
+      (!Array.isArray(data.deadPopulation) ||
+        !data.deadPopulation.every(
+          (id) => typeof id === 'string' && /^(predator|hawk|pike):\d+$/.test(id),
+        ))
+    )
+      throw new Error('Сохранение содержит повреждённое состояние популяции.');
+    if (
+      data.nextRemainsId !== undefined &&
+      (!Number.isSafeInteger(data.nextRemainsId) || data.nextRemainsId < 1)
+    )
+      throw new Error('Сохранение содержит повреждённый счётчик останков.');
+    data.nextRemainsId = (data.remains ?? []).reduce(
+      (next, entry) => Math.max(next, entry.id + 1),
+      data.nextRemainsId ?? 1,
+    );
     return data;
   }
 }

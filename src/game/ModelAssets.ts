@@ -278,6 +278,11 @@ export class ModelAssets {
     }
   }
 
+  /** Статическое тело не участвует в обходе и обновлении анимаций живых существ. */
+  freeze(instance: ModelInstance): void {
+    this.actors.delete(instance);
+  }
+
   play(instance: ModelInstance, name: string, dt: number, speed = 1): void {
     if (!instance.root.visible) return;
 

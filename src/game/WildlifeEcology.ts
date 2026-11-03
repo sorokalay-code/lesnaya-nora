@@ -43,6 +43,7 @@ export class WildlifeEcology {
     private readonly world: World,
     private readonly rng: Random,
     private readonly save?: SaveData,
+    private readonly onDeath?: (animal: ForestAnimal | Predator) => void,
   ) {}
 
   populate(): void {
@@ -279,6 +280,7 @@ export class WildlifeEcology {
     for (let i = this.animals.length - 1; i >= 0; i--)
       if (!this.animals[i].alive) {
         const animal = this.animals.splice(i, 1)[0];
+        this.onDeath?.(animal);
         ModelAssets.shared.release(animal.root);
         animal.root.removeFromParent();
         this.foodTargets.delete(animal);
@@ -287,6 +289,7 @@ export class WildlifeEcology {
     for (let i = predators.length - 1; i >= 0; i--)
       if (!predators[i].alive) {
         const predator = predators.splice(i, 1)[0];
+        this.onDeath?.(predator);
         ModelAssets.shared.release(predator.root);
         predator.root.removeFromParent();
         this.preyTargets.delete(predator);

@@ -113,6 +113,18 @@ export function WorldSettings({ store }: { store: UIStore }) {
       </fieldset>
       <fieldset>
         <legend>Животные и другие существа</legend>
+        <label className="remains-option">
+          <input
+            type="checkbox"
+            checked={config.leaveRemains !== false}
+            onChange={(event) => update({ leaveRemains: event.target.checked })}
+          />
+          Оставлять останки животных
+        </label>
+        <p className="config-hint">
+          Тело остаётся на 0,5 игрового дня, затем скелет ещё на 0,5 дня. У пауков вместо костей —
+          сухой хитиновый панцирь.
+        </p>
         <p className="config-hint">
           0 полностью отключает вид. Числа задают стартовую популяцию; мирные животные со временем
           пополняются до этих значений. Игрок остаётся в мире всегда.

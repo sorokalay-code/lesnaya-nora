@@ -24,11 +24,13 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 
 import type { PlayerConsequences } from './PlayerConsequences';
 import { WaterSimulation } from './WaterSimulation';
+import type { AnimalRemains } from '../AnimalRemains';
 export interface AnimalState {
   mating?: { fatherId: number; until: number };
 }
 
 interface Context {
+  remains?: AnimalRemains;
   resetInput?: () => void;
   canGrabPlayer?: () => boolean;
   impactSound?: () => void;
@@ -109,7 +111,11 @@ export class AnimalSimulation {
     this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);
+    this.context.family?.collectDead?.();
+    for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
+    for (const pike of this.water?.pikes ?? []) if (!pike.alive) this.context.remains?.record(pike);
     this.removeDeadRabbits();
+    this.context.remains?.update();
     this.updateVisibility();
     this.ambience?.update(time, night);
     this.friends.update(
@@ -269,6 +275,14 @@ export class AnimalSimulation {
     for (const actors of [this.context.rabbits, this.context.families])
       for (let i = actors.length - 1; i >= 0; i--)
         if (!actors[i].alive) {
+          actors[i].data.health = 0;
+          if (actors[i] instanceof FamilyMember)
+            (this.context.save.familyHealth ??= {})[actors[i].data.id] = 0;
+          this.context.remains?.record({
+            kind: 'rabbit',
+            root: actors[i].root,
+            genes: actors[i].data.genes,
+          });
           ModelAssets.shared.release(actors[i].root);
           actors[i].root.removeFromParent();
           actors.splice(i, 1);
