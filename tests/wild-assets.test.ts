@@ -378,7 +378,7 @@ test('web gives a grace period, pauses for conversations and calls its spider on
 test('escaping breaks the web for four game hours and dead owners release the player', () => {
   const { traps, save, spider } = encounter();
   traps.update(0.1, 1, true);
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < WebEscape.required; i++) {
     traps.update(0.12, 1 + i * 0.12, true);
     traps.struggle();
   }

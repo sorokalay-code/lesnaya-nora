@@ -471,6 +471,8 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      ambientSound: (cue) => this.sound.animal(cue),
+      facing: () => this.view.forwardAt(),
       attackSound: (cue) => this.attackSounds?.emit(cue),
       family: this.family,
       animalWaste: new AnimalWasteSystem({

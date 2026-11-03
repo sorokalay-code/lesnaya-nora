@@ -2,6 +2,7 @@ import { Random } from '../Random';
 import type { Genes, PartnerTraits } from '../types';
 import { GenomeInheritance } from '../genetics/GenomeInheritance';
 import { Genealogy } from '../genetics/Genealogy';
+import { EYE_SHAPES } from '../genetics/RabbitFeatures';
 const names = [
   'Листик',
   'Тимофей',
@@ -37,6 +38,8 @@ export class RabbitFactory {
       pattern: this.rng.pick(['solid', 'solid', 'spotted', 'piebald'] as const),
       secondaryCoat: this.rng.pick(coats),
       eyeColor: this.rng.pick(['brown', 'amber', 'blue', 'green'] as const),
+      eyeShape: this.rng.pick(EYE_SHAPES),
+      earType: this.rng.pick(['upright', 'upright', 'upright', 'half-lop', 'lop'] as const),
       endurance: this.rng.int(1, 5),
       immunity: this.rng.int(1, 5),
       metabolism: this.rng.int(1, 5),

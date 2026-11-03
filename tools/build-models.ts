@@ -14,6 +14,7 @@ import {
 import { createLynxModel, lynxPounceClip } from './art/LynxAsset';
 import { createRabbitEye } from './art/RabbitEye';
 import { quadrupedGait } from './art/Locomotion';
+import { rabbitLocomotion } from './art/RabbitLocomotion';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -223,28 +224,38 @@ function rabbit() {
   for (const side of [-1, 1])
     for (const back of [false, true]) {
       const name = `Paw${back ? 'B' : 'F'}${side < 0 ? 'L' : 'R'}`;
-      const limb = group(visual, name, side * (back ? 0.31 : 0.28), 0.26, back ? 0.38 : -0.35);
+      const suffix = name.slice(3);
+      const limb = group(
+        visual,
+        name,
+        side * (back ? 0.31 : 0.265),
+        back ? 0.4 : 0.42,
+        back ? 0.38 : -0.3,
+      );
+      const length = back ? 0.33 : 0.35;
+      const upper = group(limb, 'Upper' + suffix);
+      const foot = group(limb, 'Foot' + suffix, 0, -length, 0);
       ell(
-        limb,
+        upper,
         fur(),
         `${name}Limb`,
-        [0, -0.07, back ? 0.02 : -0.025],
-        [back ? 0.19 : 0.13, 0.18, back ? 0.22 : 0.15],
+        [0, -length * 0.44, back ? 0.015 : 0],
+        [back ? 0.16 : 0.095, length * 0.55, back ? 0.16 : 0.1],
       );
       ell(
-        limb,
+        foot,
         pale(),
         `${name}Foot`,
-        [0, -0.19, -0.09],
-        [back ? 0.17 : 0.13, 0.07, back ? 0.2 : 0.17],
+        [0, -0.035, back ? -0.09 : -0.065],
+        [back ? 0.16 : 0.105, 0.035, back ? 0.22 : 0.14],
       );
       for (let t = 0; t < 3; t++)
         mini(
-          limb,
+          foot,
           pale(),
           `${name}Toe${t}`,
-          [(t - 1) * (back ? 0.095 : 0.075), -0.21, -0.22],
-          [0.036, 0.028, 0.06],
+          [(t - 1) * (back ? 0.08 : 0.055), -0.04, back ? -0.26 : -0.17],
+          [0.03, 0.025, 0.045],
         );
     }
   const tail = group(visual, 'Tail', 0, 0.58, 0.62);
@@ -1068,7 +1079,7 @@ const pose = (x, y = 0, z = 0) => [
   [x, y, z],
   [x, y, z],
 ];
-function rabbitClips() {
+function rabbitClips(root) {
   const clips = [];
   const make = (name, tracks, duration = 1) =>
     clips.push(new THREE.AnimationClip(name, duration, tracks));
@@ -1077,17 +1088,6 @@ function rabbitClips() {
       rotation(n, sequence(amplitude * (i % 2 ? 1 : -1) * (i < 2 ? 1 : phase))),
     );
   const head = (v) => rotation('Head', sequence(v));
-  const bound = (amplitude) =>
-    ['PawFL', 'PawFR', 'PawBL', 'PawBR'].map((name, index) =>
-      rotation(
-        name,
-        (index < 2 ? [0.3, -0.4, -0.8, 0.45, 0.3] : [-0.5, 0.6, 0.9, -0.4, -0.5]).map((value) => [
-          value * amplitude,
-          0,
-          0,
-        ]),
-      ),
-    );
   make('idle', [
     head(0.035),
     rotation('EarL', sequence(0.03)),
@@ -1100,32 +1100,7 @@ function rabbitClips() {
       [0, 0, 0],
     ]),
   ]);
-  make('hop', [
-    ...bound(0.9),
-    head(0.08),
-    position('Visual', [
-      [0, 0, 0],
-      [0, 0.13, 0],
-      [0, 0.26, 0],
-      [0, 0.13, 0],
-      [0, 0, 0],
-    ]),
-  ]);
-  make(
-    'run',
-    [
-      ...bound(1.1),
-      head(0.1),
-      position('Visual', [
-        [0, 0, 0],
-        [0, 0.2, 0],
-        [0, 0.34, 0],
-        [0, 0.2, 0],
-        [0, 0, 0],
-      ]),
-    ],
-    0.65,
-  );
+  clips.push(...(['hop', 'run', 'jump'] as const).map((name) => rabbitLocomotion(root, name)));
   make(
     'dig',
     [
@@ -1553,7 +1528,7 @@ for (const [name, build] of Object.entries(models)) {
     name === 'spider' || name === 'jumping-spider'
       ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
       : name === 'rabbit'
-        ? rabbitClips()
+        ? rabbitClips(model)
         : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
           ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
           : name === 'snake'

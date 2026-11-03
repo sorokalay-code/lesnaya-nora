@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { ModelInstance } from '../ModelAssets';
 import type { Genes } from '../types';
 import type { RabbitShape } from './types';
+import { RabbitFeatures } from './RabbitFeatures';
 
 export const NEUTRAL_RABBIT_SHAPE: RabbitShape = {
   earWidth: 1,
@@ -34,7 +35,7 @@ export class RabbitConformation {
       if (!visual?.parent) continue;
       const form = this.wrap(visual, 'RabbitForm');
       form.scale.set(shape.bodyWidth, 1, shape.bodyLength);
-      form.position.y = 0.26 * (shape.legLength - 1);
+      form.position.y = 0.41 * (shape.legLength - 1);
       const head = visual.getObjectByName('Head');
       head?.scale.set(
         shape.headSize / shape.bodyWidth,
@@ -43,15 +44,21 @@ export class RabbitConformation {
       );
       const parts: THREE.Object3D[] = [];
       visual.traverse((part) => {
-        if (/^(Ear[LR]|Paw[BF][LR])(-extra-\d+)?$/.test(part.name)) parts.push(part);
+        if (/^(Ear[LR]|Eye[LR]|Paw[BF][LR])(-extra-\d+)?$/.test(part.name)) parts.push(part);
       });
       for (const part of parts) {
         if (part.name.startsWith('Paw')) part.scale.y *= shape.legLength;
-        else {
+        else if (part.name.startsWith('Eye')) {
+          const eyes = RabbitFeatures.eyes(genes);
+          part.scale.x *= eyes.width;
+          part.scale.y *= eyes.height;
+        } else {
+          const ears = RabbitFeatures.ears(genes);
+          const side = part.name.startsWith('EarL') ? -1 : 1;
           const ear = this.wrap(part, part.name + '-form');
-          ear.scale.x = shape.earWidth;
+          ear.scale.x = shape.earWidth * ears.width;
           ear.rotation.x = shape.earBend;
-          ear.rotation.z = (part.name.startsWith('EarL') ? -1 : 1) * shape.earBend * 0.25;
+          ear.rotation.z = -side * ears.angle + side * shape.earBend * 0.25;
           ear.updateMatrix();
           ear.matrixAutoUpdate = false;
         }

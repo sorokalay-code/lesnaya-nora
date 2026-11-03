@@ -1,6 +1,7 @@
 import { Genealogy } from '../../game/genetics/Genealogy';
 import { GeneticTraits } from '../../game/genetics/GeneticTraits';
 import { RabbitConformation } from '../../game/genetics/RabbitConformation';
+import { RabbitFeatures } from '../../game/genetics/RabbitFeatures';
 import { GenomeInheritance } from '../../game/genetics/GenomeInheritance';
 import type { Lineage } from '../../game/genetics/types';
 import type { Genes } from '../../game/types';
@@ -53,6 +54,10 @@ export class GeneticsPresenter {
         'Генетическая устойчивость: ' + genes.stability + '/5',
       ],
       effects: [
+        'Глаза: ' +
+          RabbitFeatures.eyes(genes).label +
+          ' · уши: ' +
+          RabbitFeatures.ears(genes).label,
         'Пропорции: ширина ушей ' +
           Math.round(shape.earWidth * 100) +
           '%, длина лап ' +

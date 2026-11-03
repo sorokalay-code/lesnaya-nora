@@ -1,6 +1,8 @@
 import { NaturalVoices, type SoundEvent } from './audio/NaturalVoices';
 import type { Biome } from './types';
 import type { AttackCue } from './audio/AttackCue';
+import { AnimalCalls } from './audio/AnimalCalls';
+import type { AnimalVoiceCue } from './audio/AnimalVoice';
 
 /** Управляет звуковым ландшафтом, погодой и общей громкостью без сетевых аудиозависимостей. */
 export class Soundscape {
@@ -9,6 +11,7 @@ export class Soundscape {
   private windGain?: GainNode;
   private rainGain?: GainNode;
   private voices?: NaturalVoices;
+  private animalCalls?: AnimalCalls;
   private nextBird = 0;
   private mutedValue = false;
   private sheltered = false;
@@ -41,6 +44,7 @@ export class Soundscape {
     this.master.gain.value = this.mutedValue ? 0 : 0.13;
     this.master.connect(this.ctx.destination);
     this.voices = new NaturalVoices(this.ctx, this.master);
+    this.animalCalls = new AnimalCalls(this.voices);
     const source = this.ctx.createBufferSource();
     source.buffer = this.voices.noiseBuffer;
     source.loop = true;
@@ -71,6 +75,10 @@ export class Soundscape {
   attack(kind: string, phase: AttackCue['phase'], volume = 1, pan = 0): void {
     if (!this.mutedValue && this.ctx?.state === 'running')
       this.voices?.attack(kind, phase, volume, pan);
+  }
+
+  animal(cue: AnimalVoiceCue): void {
+    if (!this.mutedValue && this.ctx?.state === 'running') this.animalCalls?.play(cue);
   }
 
   setWeather(weather: string, night: boolean): void {

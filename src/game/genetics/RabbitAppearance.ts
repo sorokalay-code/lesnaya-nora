@@ -3,7 +3,8 @@ import type { ModelInstance } from '../ModelAssets';
 import { COAT_COLORS, type Genes } from '../types';
 import { RabbitConformation } from './RabbitConformation';
 
-type ExtraPart = { source: THREE.Object3D; copy: THREE.Object3D };
+type JointPair = { source: THREE.Object3D; copy: THREE.Object3D };
+type ExtraPart = JointPair & { joints: JointPair[] };
 const EYES = { brown: 0x674323, amber: 0xb28a29, blue: 0x608bba, green: 0x6b9452, red: 0xbd3037 };
 
 /** Применяет фенотип к обоим GLB LOD: узор в общем шейдере, анатомия из копий существующих деталей. */
@@ -44,8 +45,15 @@ export class RabbitAppearance {
   }
 
   static animate(model: ModelInstance): void {
-    for (const { source, copy } of this.extras.get(model.root) ?? [])
+    for (const { source, copy, joints } of this.extras.get(model.root) ?? []) {
       copy.quaternion.copy(source.quaternion);
+      // Добавочные лапы наследуют также положение стопы и длину верхнего сегмента.
+      for (const joint of joints) {
+        joint.copy.position.copy(joint.source.position);
+        joint.copy.quaternion.copy(joint.source.quaternion);
+        joint.copy.scale.copy(joint.source.scale);
+      }
+    }
   }
 
   private static parts(
@@ -73,7 +81,13 @@ export class RabbitAppearance {
       else copy.position.set(0, 0.15, -0.28);
       copy.scale.multiplyScalar(names[0].startsWith('Eye') ? 0.8 : 0.88);
       source.parent.add(copy);
-      extras.push({ source, copy });
+      const joints: JointPair[] = [];
+      source.traverse((part) => {
+        if (!/^(Upper|Foot)[BF][LR]$/.test(part.name)) return;
+        const duplicate = copy.getObjectByName(part.name + '-extra-' + index);
+        if (duplicate) joints.push({ source: part, copy: duplicate });
+      });
+      extras.push({ source, copy, joints });
     }
   }
 

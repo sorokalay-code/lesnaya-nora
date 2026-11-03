@@ -1,5 +1,5 @@
 import type { WildlifeKind } from './animals/types';
-import type { Anatomy, Lineage, RabbitShape } from './genetics/types';
+import type { Anatomy, Lineage, RabbitShape, EyeShape, EarType } from './genetics/types';
 import type { AppearanceTraits } from './AnimalAppearance';
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
@@ -11,6 +11,8 @@ export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {
+  eyeShape?: EyeShape;
+  earType?: EarType;
   shape?: RabbitShape;
   coat: 'cream' | 'brown' | 'gray' | 'black' | 'white';
   ear: number;

@@ -126,6 +126,30 @@ export class NaturalVoices {
     }
   }
 
+  vocal(start: number, end: number, duration: number, volume: number, delay = 0, pan = 0): void {
+    const oscillator = this.context.createOscillator();
+    const filter = this.context.createBiquadFilter();
+    oscillator.type = 'triangle';
+    filter.type = 'lowpass';
+    filter.frequency.value = Math.max(start, end) * 3.5;
+    oscillator.connect(filter);
+    const voice = this.route(filter, volume, duration, delay, pan);
+    const contour = new Float32Array(24);
+    // Неровная частотная огибающая и обертоны заменяют ровный синусоидальный «писк».
+    for (let i = 0; i < contour.length; i++) {
+      const fraction = i / (contour.length - 1);
+      const base = start * (end / start) ** fraction;
+      contour[i] = base * (1 + Math.sin(fraction * 17) * 0.028 * Math.sin(fraction * Math.PI));
+    }
+    oscillator.frequency.setValueCurveAtTime(contour, voice.time, duration);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      voice.disconnect();
+    };
+    oscillator.start(voice.time);
+    oscillator.stop(voice.time + duration + 0.02);
+  }
+
   attack(kind: string, phase: AttackCue['phase'], volume: number, pan: number): void {
     const variation = 0.9 + Math.random() * 0.2;
     if (phase === 'leap') this.noise(750 * variation, 0.2, 0.18 * volume, 0, pan);

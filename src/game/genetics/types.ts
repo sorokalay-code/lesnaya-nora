@@ -1,3 +1,6 @@
+export type EyeShape = 'round' | 'almond' | 'tall';
+export type EarType = 'upright' | 'half-lop' | 'lop';
+
 export interface Anatomy {
   legs: number;
   ears: number;

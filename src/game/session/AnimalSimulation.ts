@@ -14,6 +14,9 @@ import { FriendSignals } from './FriendSignals';
 import type { AnimalWasteSystem } from './AnimalWasteSystem';
 import type { AttackListener } from '../audio/AttackCue';
 import { RabbitPredation } from './RabbitPredation';
+import { AnimalAmbience } from '../audio/AnimalAmbience';
+import { AnimalVoiceSources } from '../audio/AnimalVoiceSources';
+import type { AnimalVoiceListener } from '../audio/AnimalVoice';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 
 import type { PlayerConsequences } from './PlayerConsequences';
@@ -22,6 +25,8 @@ export interface AnimalState {
 }
 
 interface Context {
+  ambientSound?: AnimalVoiceListener;
+  facing?: () => { x: number; z: number };
   attackSound?: AttackListener;
   family?: FamilyLifecycle;
   animalWaste?: AnimalWasteSystem;
@@ -51,9 +56,19 @@ interface Context {
 export class AnimalSimulation {
   private readonly friends = new FriendSignals();
   private readonly rabbitPredation: RabbitPredation;
+  private readonly ambience?: AnimalAmbience;
 
   constructor(private readonly context: Context) {
     this.rabbitPredation = new RabbitPredation(context);
+    if (context.ambientSound)
+      this.ambience = new AnimalAmbience({
+        sources: new AnimalVoiceSources(context),
+        listener: () => context.save.player,
+        facing: () => context.facing?.() ?? { x: 0, z: -1 },
+        sheltered: (point) => context.earth.isSheltered(point.x, point.y, point.z),
+        sound: context.ambientSound,
+        rng: new Random(context.save.seed + 70151),
+      });
   }
 
   update(dt: number, time: number, night: boolean): number {
@@ -70,6 +85,7 @@ export class AnimalSimulation {
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);
     this.updateVisibility();
+    this.ambience?.update(time, night);
     this.friends.update(
       time,
       this.context.save.player,

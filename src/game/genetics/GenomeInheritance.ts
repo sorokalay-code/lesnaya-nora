@@ -2,6 +2,7 @@ import { Random } from '../Random';
 import type { Genes } from '../types';
 import type { Anatomy } from './types';
 import { RabbitConformation } from './RabbitConformation';
+import { EAR_TYPES, EYE_SHAPES } from './RabbitFeatures';
 
 /** Наследует независимые признаки; устойчивость и близкое родство определяют риск игровых мутаций. */
 export class GenomeInheritance {
@@ -32,6 +33,8 @@ export class GenomeInheritance {
     const blend = (left: number, right: number, min: number, max: number) =>
       Math.max(min, Math.min(max, (left + right) / 2 + this.rng.range(-0.035, 0.035)));
     const genes: Genes = {
+      eyeShape: choose(mother.eyeShape ?? 'round', father.eyeShape ?? 'round'),
+      earType: choose(mother.earType ?? 'upright', father.earType ?? 'upright'),
       shape: {
         earWidth: blend(a.earWidth, b.earWidth, 0.82, 1.18),
         earBend: blend(a.earBend, b.earBend, -0.12, 0.38),
@@ -75,6 +78,8 @@ export class GenomeInheritance {
     else {
       genes.pattern = this.rng.pick(['spotted', 'piebald']);
       genes.eyeColor = this.rng.pick(['blue', 'green', 'amber']);
+      genes.eyeShape = this.rng.pick(EYE_SHAPES);
+      genes.earType = this.rng.pick(EAR_TYPES);
       genes.shape = {
         ...RabbitConformation.shape(genes),
         earBend: this.rng.range(-0.12, 0.38),
