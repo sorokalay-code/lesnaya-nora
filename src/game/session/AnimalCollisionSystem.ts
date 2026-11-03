@@ -8,7 +8,9 @@ import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { RabbitConformation } from '../genetics/RabbitConformation';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 interface CollisionContext {
+  playerRestrained?: () => boolean;
   playerHeading?: () => number;
   save: SaveData;
   world: World;
@@ -67,19 +69,21 @@ export class AnimalCollisionSystem {
     const shape = RabbitConformation.shape(p.genes);
     const valid = (x: number, z: number, y: number, sheltered: boolean) =>
       Math.abs(x) < 103 && Math.abs(z) < 103 && this.context.earth.canMoveTo(x, z, y, sheltered);
-    bodies.push({
-      id: 0,
-      x: p.x,
-      y: p.y,
-      z: p.z,
-      radius: RABBIT_BODY.radius * p.genes.size * shape.bodyWidth,
-      halfLength: RABBIT_BODY.halfLength * p.genes.size * shape.bodyLength,
-      heading: this.context.playerHeading?.() ?? 0,
-      mass: Infinity,
-      sheltered: this.context.earth.isSheltered(p.x, p.y, p.z),
-      moveTo: () => false,
-    });
+    if (!this.context.playerRestrained?.())
+      bodies.push({
+        id: 0,
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        radius: RABBIT_BODY.radius * p.genes.size * shape.bodyWidth,
+        halfLength: RABBIT_BODY.halfLength * p.genes.size * shape.bodyLength,
+        heading: this.context.playerHeading?.() ?? 0,
+        mass: Infinity,
+        sheltered: this.context.earth.isSheltered(p.x, p.y, p.z),
+        moveTo: () => false,
+      });
     this.context.rabbits.forEach((actor, i) => {
+      if (AnimalRestraint.active(actor.root) || !actor.alive) return;
       if (matingId === actor.data.id) return;
 
       const root = actor.rig.root,
@@ -104,6 +108,7 @@ export class AnimalCollisionSystem {
       });
     });
     this.context.families.forEach((member, i) => {
+      if (AnimalRestraint.active(member.root) || !member.alive) return;
       const root = member.rig.root,
         y = (root.userData.baseY as number) ?? root.position.y;
       bodies.push({
@@ -128,6 +133,7 @@ export class AnimalCollisionSystem {
       .forEach((kit) => {
         const rig = this.context.family.rigs.get(kit.id);
         if (!rig) return;
+        if (AnimalRestraint.active(rig.root)) return;
 
         const y = kit.y ?? kit.homeY,
           sheltered = this.context.earth.isSheltered(kit.x ?? kit.homeX, y, kit.z ?? kit.homeZ);
@@ -185,6 +191,7 @@ export class AnimalCollisionSystem {
       });
     });
     this.context.wildlife.forEach((animal, i) => {
+      if (AnimalRestraint.active(animal.root)) return;
       const radius = animal.profile.radius;
       bodies.push({
         id: 5000 + i,

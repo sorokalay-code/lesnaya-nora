@@ -17,6 +17,7 @@ export function MobileControls({ store }: { store: UIStore }) {
   const bindings = useStore(store, (s) => s.touchBindings);
   const first = useStore(store, (s) => s.firstPerson);
   const web = useStore(store, (s) => s.hud?.web);
+  const airlift = useStore(store, (s) => s.hud?.airlift);
   const dispatch = useStore(store, (s) => s.dispatch);
   const showControls = useStore(store, (s) => s.showControls);
 
@@ -30,7 +31,7 @@ export function MobileControls({ store }: { store: UIStore }) {
         <small>Игра на паузе — крольчиха в безопасности.</small>
       </div>
     );
-  if (hidden || !bindings) return null;
+  if (hidden || !bindings || airlift) return null;
 
   if (open) return null;
 

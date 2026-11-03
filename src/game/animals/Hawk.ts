@@ -27,6 +27,7 @@ export class Hawk extends Animal<'hawk'> {
   private nextTurn = 0;
   private diveUntil = 0;
   private cooldown = 0;
+  private diveStartY = 13;
   private readonly rng: Random;
   private attackListener?: AttackListener;
 
@@ -42,6 +43,11 @@ export class Hawk extends Animal<'hawk'> {
     this.z = this.targetZ = z;
     this.rng = rng;
     this.shadow.rotation.x = -Math.PI / 2;
+    this.root.position.y = 13;
+  }
+
+  isDiving(time: number): boolean {
+    return this.diveUntil > time;
   }
 
   update(
@@ -56,6 +62,7 @@ export class Hawk extends Animal<'hawk'> {
     const distance = Math.hypot(px - this.x, pz - this.z);
     if (exposed && distance < 18 && this.cooldown <= 0 && this.diveUntil <= time) {
       this.diveUntil = time + 2.5;
+      this.diveStartY = this.root.position.y;
       this.cooldown = 35;
       this.attackListener?.({
         kind: 'hawk',
@@ -70,18 +77,21 @@ export class Hawk extends Animal<'hawk'> {
     if (this.diveUntil > time) {
       const fraction = 1 - (this.diveUntil - time) / 2.5;
       const direction = Math.atan2(px - this.x, pz - this.z);
-      this.x += Math.sin(direction) * dt * 9;
-      this.z += Math.cos(direction) * dt * 9;
-      this.root.position.set(
-        this.x,
-        groundAt(this.x, this.z) + 1.2 + Math.abs(fraction - 0.6) * 17,
-        this.z,
-      );
+      const step = Math.min(dt * 9, Math.hypot(px - this.x, pz - this.z));
+      this.x += Math.sin(direction) * step;
+      this.z += Math.cos(direction) * step;
+      const floor = groundAt(this.x, this.z);
+      const altitude =
+        fraction < 0.6
+          ? floor + 0.95 + Math.max(0, this.diveStartY - floor - 0.95) * (1 - fraction / 0.6) ** 1.4
+          : floor + 0.95 + ((fraction - 0.6) / 0.4) * 10.5;
+      this.root.position.set(this.x, altitude, this.z);
       this.root.rotation.y = direction + Math.PI;
       if (
         fraction > 0.5 &&
         fraction < 0.75 &&
         Math.hypot(px - this.x, pz - this.z) < 2 &&
+        Math.abs(this.root.position.y - groundAt(px, pz) - 1) < 0.8 &&
         exposed
       ) {
         this.diveUntil = 0;
@@ -107,7 +117,12 @@ export class Hawk extends Animal<'hawk'> {
       this.z += Math.cos(heading) * dt * 5.5;
       this.root.position.set(
         this.x,
-        groundAt(this.x, this.z) + 13 + Math.sin(time * 1.4) * 0.5,
+        THREE.MathUtils.damp(
+          this.root.position.y,
+          groundAt(this.x, this.z) + 13 + Math.sin(time * 1.4) * 0.5,
+          2,
+          dt,
+        ),
         this.z,
       );
       this.root.rotation.y = heading + Math.PI;

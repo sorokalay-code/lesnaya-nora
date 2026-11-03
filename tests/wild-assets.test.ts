@@ -96,13 +96,19 @@ test('dirty fur changes both LODs independently of other rabbits and restores or
   assert.notDeepEqual(colours(rabbit.root), original);
   assert.deepEqual(colours(other.root), untouched);
   for (const variant of rabbit.variants!) {
-    const spots = variant.root.getObjectByName('coat-mud') as THREE.InstancedMesh;
-    assert.ok(spots.visible && spots.count > 1 && spots.count <= 8);
+    assert.equal(variant.root.getObjectByName('coat-mud'), undefined);
+    const material = (variant.root.getObjectByName('Body') as THREE.Mesh)
+      .material as THREE.MeshStandardMaterial;
+    assert.equal(material.userData.coatDirtLevel.value, 0.85);
   }
   CoatDirt.update(rabbit, 0);
   assert.deepEqual(colours(rabbit.root), original);
   for (const variant of rabbit.variants!)
-    assert.equal(variant.root.getObjectByName('coat-mud')!.visible, false);
+    assert.equal(
+      ((variant.root.getObjectByName('Body') as THREE.Mesh).material as THREE.MeshStandardMaterial)
+        .userData.coatDirtLevel.value,
+      0,
+    );
   ModelAssets.shared.release(rabbit.root);
   ModelAssets.shared.release(other.root);
 });
@@ -185,7 +191,10 @@ test('family contact soils fur between waste scans and ignores waste on another 
   assert.ok(kit.dirtiness > 0 && kit.dirtiness < 1);
   assert.equal(rig.root.getObjectByName('coat-mud'), undefined);
   for (let i = 2; i < 8; i++) hygiene.update(0.1, i * 0.1);
-  assert.ok(rig.root.getObjectByName('coat-mud')!.visible);
+  assert.ok(
+    ((rig.root.getObjectByName('Body') as THREE.Mesh).material as THREE.MeshStandardMaterial)
+      .userData.coatDirtLevel.value > 0,
+  );
   ModelAssets.shared.release(rig.root);
 });
 

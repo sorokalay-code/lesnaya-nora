@@ -13,6 +13,7 @@ import { AnimalSimulation } from './AnimalSimulation';
 import type { InteractionController } from './InteractionController';
 import type { SceneDecorations } from './SceneDecorations';
 import { CoatDirt } from '../CoatDirt';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 import type { SpiderEncounter } from './SpiderEncounter';
 import { EnvironmentController } from './EnvironmentController';
 import { FamilyLifecycle } from './FamilyLifecycle';
@@ -71,6 +72,7 @@ export class SessionSimulation {
     this.context.environment.update(dt);
     if (
       this.context.state.digHeld &&
+      !AnimalRestraint.active(this.context.player.root) &&
       !this.context.web.trapped &&
       this.context.view.isFirstPerson &&
       this.context.state.elapsed >= this.context.environment.nextDigAt
@@ -105,6 +107,10 @@ export class SessionSimulation {
     this.context.family.update(dt, this.context.state.elapsed);
     this.context.items.update(this.context.save.clock);
     const closestThreat = this.context.animals.update(dt, this.context.state.elapsed, night);
+    if (p.health <= 0) {
+      this.context.gameOver();
+      return;
+    }
     this.context.world.update(
       this.context.save.clock,
       this.context.state.elapsed,

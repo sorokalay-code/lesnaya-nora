@@ -7,6 +7,7 @@ import type { Genes, SaveData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { AttackListener } from '../audio/AttackCue';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 
 interface Context {
   attackSound?: AttackListener;
@@ -38,7 +39,7 @@ export class RabbitPredation {
 
   update(dt: number, time: number): void {
     for (const actor of this.context.rabbits) {
-      if (!actor.solitary) continue;
+      if (!actor.solitary || !actor.alive || AnimalRestraint.active(actor.root)) continue;
       this.hunt(
         {
           rig: actor.rig,
@@ -80,6 +81,7 @@ export class RabbitPredation {
   }
 
   private hunt(hunter: Hunter, dt: number, time: number): void {
+    if (AnimalRestraint.active(hunter.rig.root)) return;
     const { rig, genes } = hunter;
     rig.root.userData.hunting = false;
     if (
@@ -92,6 +94,7 @@ export class RabbitPredation {
     const prey = this.context.wildlife.find(
       (animal) =>
         animal.alive &&
+        !AnimalRestraint.active(animal.root) &&
         animal.profile.radius < 0.7 &&
         Math.hypot(animal.x - hunter.x, animal.z - hunter.z) < 9 &&
         Math.abs(animal.root.position.y - hunter.y) < 1.2,

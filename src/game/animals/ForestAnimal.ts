@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ModelAssets, type ModelInstance } from '../ModelAssets';
 import { Random } from '../Random';
 import { Animal } from './Animal';
+import { AnimalRestraint } from './AnimalRestraint';
 import type { WildlifeSocial } from '../types';
 import type { GroundHeight, WildlifeKind, WildlifeProfile } from './types';
 import {
@@ -106,6 +107,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     threats: readonly { x: number; z: number }[],
     food?: { x: number; z: number },
   ): boolean {
+    if (AnimalRestraint.active(this.root)) {
+      ModelAssets.shared.play(this.model, 'idle', dt);
+      return false;
+    }
     if (
       this.greeting &&
       time < this.greeting.until &&

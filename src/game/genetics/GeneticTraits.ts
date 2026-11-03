@@ -2,6 +2,7 @@ import type { Genes } from '../types';
 import { NEUTRAL_RABBIT_SHAPE } from './RabbitConformation';
 
 export const DEFAULT_GENES: Genes = {
+  tailType: 'fluffy',
   eyeShape: 'round',
   earType: 'upright',
   shape: { ...NEUTRAL_RABBIT_SHAPE },

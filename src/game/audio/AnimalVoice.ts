@@ -2,6 +2,7 @@ export type AnimalVoiceKind =
   | 'rabbit'
   | 'deer'
   | 'moose'
+  | 'boar'
   | 'squirrel'
   | 'hedgehog'
   | 'beaver'

@@ -19,6 +19,7 @@ export const CREATURE_NAMES = [
   'hedgehog',
   'beaver',
   'moose',
+  'boar',
 ] as const;
 export const MODEL_NAMES = [
   ...CREATURE_NAMES,

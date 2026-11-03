@@ -1,11 +1,13 @@
 import type { Genes } from '../types';
-import { EYE_SHAPES, EAR_TYPES } from './RabbitFeatures';
+import { EYE_SHAPES, EAR_TYPES, TAIL_TYPES } from './RabbitFeatures';
 
 /** Проверяет геном из сохранения до создания моделей; старые и неполные структуры не дополняются. */
 export class GenomeValidation {
   static valid(value: unknown): value is Genes {
     if (!value || typeof value !== 'object') return false;
     const genes = value as Record<string, unknown>;
+    if (genes.tailType !== undefined && !TAIL_TYPES.some((type) => type === genes.tailType))
+      return false;
     if (genes.eyeShape !== undefined && !EYE_SHAPES.some((shape) => shape === genes.eyeShape))
       return false;
     if (genes.earType !== undefined && !EAR_TYPES.some((type) => type === genes.earType))

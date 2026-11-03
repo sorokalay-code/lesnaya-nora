@@ -34,14 +34,16 @@ export class WorldPopulation {
     rng: Random;
     markPartner: (actor: RabbitActor, active: boolean) => void;
   }) {
-    this.rabbits = context.save.partners.map((p) => {
-      const actor = AnimalFactory.rabbit(p, context.rng);
-      actor.rig.root.position.y = p.y ?? context.world.heightAt(p.x, p.z);
-      actor.rig.root.userData.baseY = actor.rig.root.position.y;
-      context.scene.add(actor.rig.root);
-      if (p.id === context.save.mateId) context.markPartner(actor, true);
-      return actor;
-    });
+    this.rabbits = context.save.partners
+      .filter((p) => (p.health ?? 100) > 0)
+      .map((p) => {
+        const actor = AnimalFactory.rabbit(p, context.rng);
+        actor.rig.root.position.y = p.y ?? context.world.heightAt(p.x, p.z);
+        actor.rig.root.userData.baseY = actor.rig.root.position.y;
+        context.scene.add(actor.rig.root);
+        if (p.id === context.save.mateId) context.markPartner(actor, true);
+        return actor;
+      });
     this.families = [];
     for (const partner of context.save.partners.slice()) {
       if (partner.genes.anatomy.fangs) continue;
@@ -50,6 +52,8 @@ export class WorldPopulation {
       );
       for (let i = 0; i < partner.familySize; i++) {
         const genes = familyFactory.inherit(partner.genes, familyFactory.genes());
+        const health = context.save.familyHealth?.[100000 + partner.id * 100 + i] ?? 100;
+        if (health <= 0) continue;
         const young = i < Math.floor(partner.familySize / 2);
         if (
           !young &&
@@ -57,6 +61,8 @@ export class WorldPopulation {
         )
           continue;
         const member = new FamilyMember(partner, genes, i, young);
+        member.health = health;
+        member.data.health = health;
         if (!young) {
           const actor = AnimalFactory.rabbit(member.data, context.rng);
           actor.moveTo(member.x, member.z, context.world.heightAt(member.x, member.z));

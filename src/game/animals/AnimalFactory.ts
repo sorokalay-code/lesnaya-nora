@@ -5,6 +5,7 @@ import { FangedRabbit } from './FangedRabbit';
 import { Bear } from './Bear';
 import { Beaver } from './Beaver';
 import { Deer } from './Deer';
+import { Boar } from './Boar';
 import { Dog } from './Dog';
 import type { ForestAnimal } from './ForestAnimal';
 import { Fox } from './Fox';
@@ -37,6 +38,7 @@ export class AnimalFactory {
     snake: Snake,
   };
   private static readonly wildlife: Record<WildlifeKind, Constructor<ForestAnimal>> = {
+    boar: Boar,
     deer: Deer,
     squirrel: Squirrel,
     hedgehog: Hedgehog,

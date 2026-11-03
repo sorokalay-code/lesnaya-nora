@@ -1,4 +1,5 @@
 import { RabbitActor, type GroundHeight } from './animals';
+import { AnimalRestraint } from './animals/AnimalRestraint';
 import { Excavation } from './Excavation';
 import { GroundItems, type GroundPickup } from './GroundItems';
 import { setRabbitAction } from './Models';
@@ -47,6 +48,7 @@ export class PartnerSupport {
     time: number,
     groundAt: GroundHeight,
   ): PartnerEvent | undefined {
+    if (AnimalRestraint.active(actor.root)) return;
     if (actor.rig.root.userData.conversing === true) {
       actor.navigateMate(dt, time, this.save.player, this.earth, groundAt);
       return;

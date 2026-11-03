@@ -1,5 +1,5 @@
 import type { WildlifeKind } from './animals/types';
-import type { Anatomy, Lineage, RabbitShape, EyeShape, EarType } from './genetics/types';
+import type { Anatomy, Lineage, RabbitShape, EyeShape, EarType, TailType } from './genetics/types';
 import type { AppearanceTraits } from './AnimalAppearance';
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
@@ -11,6 +11,7 @@ export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {
+  tailType?: TailType;
   eyeShape?: EyeShape;
   earType?: EarType;
   shape?: RabbitShape;
@@ -31,6 +32,7 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  health?: number;
   lineage?: Lineage;
   dirtiness?: number;
   y?: number;
@@ -109,6 +111,7 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  familyHealth?: Record<number, number>;
   animalWasteDays?: Record<string, number>;
   webCooldowns?: Record<string, number>;
   wildlife?: WildlifeData[];

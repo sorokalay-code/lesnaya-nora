@@ -1,4 +1,5 @@
 import { KitMovement } from './KitMovement';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { Genealogy } from '../genetics/Genealogy';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import * as THREE from 'three';
@@ -105,11 +106,19 @@ export class FamilyLifecycle {
     if (pregnancyEvent === 'birth') this.birth();
 
     for (const kit of this.context.save.kits) {
-      if (!kit.alive) continue;
+      if (!kit.alive || kit.health <= 0) {
+        kit.alive = false;
+        if (this.rigs.has(kit.id)) this.remove(kit.id);
+        continue;
+      }
 
-      const wasYoung = kit.age < 3;
+      const currentRig = this.rigs.get(kit.id);
       kit.age += (dt * 6) / 1440;
-      if (wasYoung && kit.age >= 3) {
+      if (
+        !kit.independent &&
+        kit.age >= 3 &&
+        (!currentRig || !AnimalRestraint.active(currentRig.root))
+      ) {
         this.context.save.stats.grown++;
         kit.independent = true;
         kit.command = undefined;

@@ -14,6 +14,9 @@ import { FriendSignals } from './FriendSignals';
 import type { AnimalWasteSystem } from './AnimalWasteSystem';
 import type { AttackListener } from '../audio/AttackCue';
 import { RabbitPredation } from './RabbitPredation';
+import { HawkHunting } from './HawkHunting';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
+import { ModelAssets } from '../ModelAssets';
 import { AnimalAmbience } from '../audio/AnimalAmbience';
 import { AnimalVoiceSources } from '../audio/AnimalVoiceSources';
 import type { AnimalVoiceListener } from '../audio/AnimalVoice';
@@ -25,6 +28,9 @@ export interface AnimalState {
 }
 
 interface Context {
+  resetInput?: () => void;
+  canGrabPlayer?: () => boolean;
+  impactSound?: () => void;
   ambientSound?: AnimalVoiceListener;
   facing?: () => { x: number; z: number };
   attackSound?: AttackListener;
@@ -54,11 +60,13 @@ interface Context {
 
 /** Обновляет поведение животных, семейную поддержку, охоту и видимость существ. */
 export class AnimalSimulation {
+  private readonly hawkHunting: HawkHunting;
   private readonly friends = new FriendSignals();
   private readonly rabbitPredation: RabbitPredation;
   private readonly ambience?: AnimalAmbience;
 
   constructor(private readonly context: Context) {
+    this.hawkHunting = new HawkHunting(context);
     this.rabbitPredation = new RabbitPredation(context);
     if (context.ambientSound)
       this.ambience = new AnimalAmbience({
@@ -69,6 +77,14 @@ export class AnimalSimulation {
         sound: context.ambientSound,
         rng: new Random(context.save.seed + 70151),
       });
+  }
+
+  get hasCaptures(): boolean {
+    return this.hawkHunting.busy;
+  }
+
+  get airliftView() {
+    return this.hawkHunting.playerView;
   }
 
   update(dt: number, time: number, night: boolean): number {
@@ -84,6 +100,7 @@ export class AnimalSimulation {
     this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);
+    this.removeDeadRabbits();
     this.updateVisibility();
     this.ambience?.update(time, night);
     this.friends.update(
@@ -118,6 +135,15 @@ export class AnimalSimulation {
   }
 
   private positionMatingPair(time: number): void {
+    if (
+      AnimalRestraint.active(this.context.player.root) ||
+      this.context.rabbits.some(
+        (r) => r.data.id === this.context.state.mating?.fatherId && AnimalRestraint.active(r.root),
+      )
+    ) {
+      this.context.state.mating = undefined;
+      return;
+    }
     const p = this.context.save.player;
     if (this.context.state.mating) {
       const actor = this.context.rabbits.find(
@@ -151,7 +177,7 @@ export class AnimalSimulation {
           time,
           p.x,
           p.z,
-          p.hidden || !combat,
+          p.hidden || !combat || AnimalRestraint.active(this.context.player.root),
           !night,
           this.context.groundAt,
           p.dirtiness / 100,
@@ -220,6 +246,7 @@ export class AnimalSimulation {
     for (const rabbit of this.context.rabbits)
       if (
         !rabbit.solitary &&
+        !AnimalRestraint.active(rabbit.root) &&
         !rabbit.rig.root.userData.conversing &&
         this.context.rng.chance(dt * 0.025)
       ) {
@@ -235,14 +262,17 @@ export class AnimalSimulation {
   }
 
   private updateHawks(dt: number, time: number): void {
-    const p = this.context.save.player;
-    const exposed =
-      (this.context.combatAllowed?.() ?? true) &&
-      !this.sheltered &&
-      !this.context.world.hasCover(p.x, p.z);
-    for (const hawk of this.context.hawks)
-      if (hawk.update(dt, time, p.x, p.z, exposed, this.context.groundAt))
-        this.context.consequences.predatorAttack('hawk');
+    this.hawkHunting.update(dt, time, this.context.combatAllowed?.() ?? true);
+  }
+
+  private removeDeadRabbits(): void {
+    for (const actors of [this.context.rabbits, this.context.families])
+      for (let i = actors.length - 1; i >= 0; i--)
+        if (!actors[i].alive) {
+          ModelAssets.shared.release(actors[i].root);
+          actors[i].root.removeFromParent();
+          actors.splice(i, 1);
+        }
   }
 
   private updateVisibility(): void {
@@ -260,10 +290,10 @@ export class AnimalSimulation {
         Math.hypot(predator.root.position.x - p.x, predator.root.position.z - p.z) < 76;
 
     for (const animal of this.context.wildlife)
-      animal.root.visible = Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
+      animal.root.visible = animal.alive && Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
 
     for (const hawk of this.context.hawks) {
-      const visible = Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
+      const visible = hawk.alive && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
       hawk.root.visible = visible;
       hawk.shadow.visible = visible && !this.sheltered;
     }

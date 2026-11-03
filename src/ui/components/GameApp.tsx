@@ -1,6 +1,7 @@
 import { ControlGuide } from './ControlGuide';
 import { JournalLog } from './JournalLog';
 import { WebNotice } from './WebNotice';
+import { AirliftNotice } from './AirliftNotice';
 import { trapDialogFocus } from './DialogKeyboard';
 import { ActionMenu } from './ActionMenu';
 import { GameMenu } from './GameMenu';
@@ -118,6 +119,7 @@ function Hud() {
   return (
     <>
       <WebNotice web={hud.web} touch={touch} />
+      <AirliftNotice view={hud.airlift} />
       <div className={`kit-progress ${familyOpen ? '' : 'hidden'}`}>
         <b>РОСТ КРОЛЬЧАТ</b>
         {!hud.young.length && <p>Крольчат пока нет. Подробности семьи — в дневнике.</p>}

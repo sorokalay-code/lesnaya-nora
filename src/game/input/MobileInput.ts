@@ -50,6 +50,7 @@ export class MobileInput implements TouchBindings, InputController {
     return (
       this.ui.state.touch &&
       !!this.ui.state.hud &&
+      !this.ui.state.hud.airlift &&
       !this.ui.state.overlay &&
       !blockingPanelOpen(this.ui.state) &&
       !this.ui.simulationPaused

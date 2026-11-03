@@ -3,6 +3,7 @@ import { ModelAssets, type ModelInstance } from './ModelAssets';
 import { COAT_COLORS, type Genes, type PredatorKind } from './types';
 import { RabbitAppearance } from './genetics/RabbitAppearance';
 import { RabbitGait } from './RabbitGait';
+import { AnimalRestraint } from './animals/AnimalRestraint';
 
 export interface RabbitRig extends ModelInstance {
   leftEar: THREE.Object3D;
@@ -59,7 +60,11 @@ export function animateRabbit(
 
   const jumping = r.root.userData.jumping === true;
   const gait = RabbitGait.update(r.root, moving, frightened, jumping, dt);
-  const clip = jumping ? gait.clip : (action ?? (moving ? gait.clip : 'idle'));
+  const clip = AnimalRestraint.active(r.root)
+    ? 'lie'
+    : jumping
+      ? gait.clip
+      : (action ?? (moving ? gait.clip : 'idle'));
   ModelAssets.shared.play(r, clip, dt, clip === gait.clip ? gait.rate : 1);
   RabbitAppearance.animate(r);
   r.root.position.y = (r.root.userData.baseY as number | undefined) ?? r.root.position.y;

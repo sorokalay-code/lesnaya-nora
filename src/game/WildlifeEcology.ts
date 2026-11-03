@@ -10,6 +10,7 @@ import { ModelAssets } from './ModelAssets';
 import { Random } from './Random';
 import { World, type Resource } from './World';
 import type { SaveData } from './types';
+import { AnimalRestraint } from './animals/AnimalRestraint';
 
 type Target = ForestAnimal | Predator;
 export type WildlifeEvent = {
@@ -19,6 +20,7 @@ export type WildlifeEvent = {
   subject: string;
 };
 const names: Record<WildlifeKind, string> = {
+  boar: 'кабан',
   deer: 'олень',
   squirrel: 'белка',
   hedgehog: 'ёж',
@@ -61,6 +63,7 @@ export class WildlifeEcology {
       ['hedgehog', 8],
       ['beaver', 5],
       ['moose', 3],
+      ['boar', 4],
     ] as [WildlifeKind, number][])
       for (let i = 0; i < count; i++) this.spawn(kind, 0, 0, true);
   }
@@ -124,6 +127,7 @@ export class WildlifeEcology {
       current &&
       (time > current.until ||
         !current.target.alive ||
+        AnimalRestraint.active(current.target.root) ||
         Math.hypot(current.target.x - predator.x, current.target.z - predator.z) > 22)
     ) {
       this.preyTargets.delete(predator);
@@ -132,7 +136,12 @@ export class WildlifeEcology {
 
     if (!current) {
       const prey = this.animals
-        .filter((a) => a.alive && Math.hypot(a.x - predator.x, a.z - predator.z) < 14)
+        .filter(
+          (a) =>
+            a.alive &&
+            !AnimalRestraint.active(a.root) &&
+            Math.hypot(a.x - predator.x, a.z - predator.z) < 14,
+        )
         .sort(
           (a, b) =>
             Math.hypot(a.x - predator.x, a.z - predator.z) -
@@ -224,7 +233,7 @@ export class WildlifeEcology {
         continue;
 
       const victim = this.preyTargets.get(predator)?.target;
-      if (!victim || !victim.alive) continue;
+      if (!victim || !victim.alive || AnimalRestraint.active(victim.root)) continue;
       if (Math.abs(victim.root.position.y - predator.root.position.y) > 1.5) continue;
 
       const reach = predator.profile.preyReach;
@@ -275,7 +284,7 @@ export class WildlifeEcology {
 
     if (time >= this.nextSpawn) {
       this.nextSpawn = time + this.rng.range(24, 42);
-      if (this.animals.length < 31) {
+      if (this.animals.length < 35) {
         const kind = this.rng.pick([
           'deer',
           'deer',
@@ -284,6 +293,7 @@ export class WildlifeEcology {
           'hedgehog',
           'beaver',
           'moose',
+          'boar',
         ] as WildlifeKind[]);
         const animal = this.spawn(kind, px, pz);
         if (animal)

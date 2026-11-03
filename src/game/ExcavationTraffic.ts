@@ -2,6 +2,7 @@ import type { Excavation } from './Excavation';
 import { Random } from './Random';
 import { Predator, RabbitActor } from './animals';
 import type { PredatorKind, SaveData } from './types';
+import { AnimalRestraint } from './animals/AnimalRestraint';
 
 export type TunnelEvent = {
   type: 'predator-entered' | 'predator-attack' | 'kit-attack';
@@ -28,6 +29,7 @@ export class ExcavationTraffic {
   ): TunnelEvent[] {
     const events: TunnelEvent[] = [];
     for (const actor of rabbits) {
+      if (AnimalRestraint.active(actor.root) || !actor.alive) continue;
       if (actor.data.id === save.mateId || actor.rig.root.userData.conversing) continue;
 
       if (

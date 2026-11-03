@@ -1,19 +1,14 @@
 import * as THREE from 'three';
 import type { RabbitRig } from './Models';
+import { CoatDirtTexture } from './CoatDirtTexture';
 
-type CoatState = {
+interface CoatState {
   step: number;
-  materials: {
-    material: THREE.MeshStandardMaterial;
-    color: THREE.Color;
-    roughness: number;
-    secondary?: THREE.Color;
-    originalSecondary?: THREE.Color;
-  }[];
-  spots: THREE.InstancedMesh[];
-};
+  level: { value: number };
+  materials: { material: THREE.MeshStandardMaterial; color: THREE.Color; roughness: number }[];
+}
 
-/** Меняет только личные материалы кролика и добавляет один пакет грязевых пятен на уровень LOD. */
+/** Накладывает грязевые разводы поверх шерсти и наследуемого узора, сохраняя исходные материалы и LOD. */
 export class CoatDirt {
   private static readonly states = new WeakMap<RabbitRig, CoatState>();
 
@@ -27,74 +22,64 @@ export class CoatDirt {
     }
     if (state.step === step) return;
     state.step = step;
-    const mud = new THREE.Color(0x695235),
-      amount = step / 100;
-    for (const { material, color, roughness, secondary, originalSecondary } of state.materials) {
-      material.color.copy(color).lerp(mud, amount * 0.7);
-      material.roughness = roughness + (1 - roughness) * amount;
-      if (secondary && originalSecondary) secondary.copy(originalSecondary).lerp(mud, amount * 0.7);
-    }
-    for (const spots of state.spots) {
-      spots.visible = step > 0;
-      spots.count = step ? Math.min(8, 1 + Math.floor(step / 13)) : 0;
+    state.level.value = step / 100;
+    const mud = new THREE.Color(0x83723f);
+    for (const { material, color, roughness } of state.materials) {
+      material.color.copy(color).lerp(mud, (step / 100) * 0.12);
+      material.roughness = roughness + (((1 - roughness) * step) / 100) * 0.4;
     }
   }
 
   private static prepare(rig: RabbitRig): CoatState {
     const materials = new Set<THREE.MeshStandardMaterial>();
     rig.root.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        for (const material of Array.isArray(object.material) ? object.material : [object.material])
-          if (material instanceof THREE.MeshStandardMaterial && material.name.startsWith('fur_'))
-            materials.add(material);
-      }
+      if (!(object instanceof THREE.Mesh)) return;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material])
+        if (material instanceof THREE.MeshStandardMaterial && material.name.startsWith('fur_'))
+          materials.add(material);
     });
-    const spots: THREE.InstancedMesh[] = [];
-    const geometry = new THREE.SphereGeometry(1, 5, 3),
-      material = new THREE.MeshStandardMaterial({ color: 0x6b5034, roughness: 1 });
-    const positions = [
-      [0.39, 0.48, 0.08],
-      [-0.39, 0.43, 0.12],
-      [0.3, 0.18, 0.4],
-      [-0.3, 0.18, 0.4],
-      [0.19, 0.25, -0.35],
-      [-0.19, 0.24, -0.35],
-      [0.24, 0.72, 0.36],
-      [-0.18, 0.7, 0.4],
-    ];
-    const transform = new THREE.Object3D();
-    for (const variant of rig.variants ?? [rig]) {
-      const visual = variant.root.getObjectByName('Visual') ?? variant.root;
-      const mesh = new THREE.InstancedMesh(geometry, material, 8);
-      mesh.name = 'coat-mud';
-      positions.forEach(([x, y, z], index) => {
-        transform.position.set(x, y, z);
-        transform.scale.set(0.09, 0.055, 0.16);
-        transform.rotation.set(index * 0.3, 0, index * 0.4);
-        transform.updateMatrix();
-        mesh.setMatrixAt(index, transform.matrix);
-      });
-      mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.5, 0), 1.6);
-      mesh.count = 0;
-      visual.add(mesh);
-      spots.push(mesh);
+    const level = { value: 0 };
+    for (const material of materials) {
+      const previous = material.onBeforeCompile.bind(material),
+        key = material.customProgramCacheKey();
+      material.userData.coatDirtLevel = level;
+      material.onBeforeCompile = (shader, renderer) => {
+        previous(shader, renderer);
+        shader.uniforms.coatDirtLevel = level;
+        shader.uniforms.coatDirtMap = { value: CoatDirtTexture.texture };
+        shader.vertexShader = 'varying vec2 vCoatUv;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\nvCoatUv = uv;',
+        );
+        shader.fragmentShader =
+          'varying vec2 vCoatUv;\nuniform float coatDirtLevel;\nuniform sampler2D coatDirtMap;\n' +
+          shader.fragmentShader;
+        // Вставка после цвета и roughness сохраняет генетический узор и не добавляет отдельный проход.
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <roughnessmap_fragment>',
+          `
+          #include <roughnessmap_fragment>
+          vec4 coatStain = texture2D(coatDirtMap, vCoatUv * vec2(1.7, 1.1));
+          float stainEdge = 1.0 - coatDirtLevel * 0.9;
+          float stainAmount = smoothstep(stainEdge - 0.08, stainEdge + 0.08, coatStain.a)
+            * min(1.0, coatDirtLevel * 1.6);
+          diffuseColor.rgb = mix(diffuseColor.rgb, coatStain.rgb, stainAmount * 0.93);
+          roughnessFactor = mix(roughnessFactor, 1.0, stainAmount);
+        `,
+        );
+      };
+      material.customProgramCacheKey = () => key + '|coat-stain-v3';
+      material.needsUpdate = true;
     }
     return {
       step: -1,
+      level,
       materials: [...materials].map((material) => ({
         material,
         color: material.color.clone(),
         roughness: material.roughness,
-        secondary:
-          material.userData.geneSecondary instanceof THREE.Color
-            ? material.userData.geneSecondary
-            : undefined,
-        originalSecondary:
-          material.userData.geneSecondary instanceof THREE.Color
-            ? material.userData.geneSecondary.clone()
-            : undefined,
       })),
-      spots,
     };
   }
 }

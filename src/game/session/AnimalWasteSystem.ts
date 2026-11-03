@@ -9,6 +9,7 @@ import type { SaveData } from '../types';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import { DailyWasteBudget } from '../systems/DailyWasteBudget';
 import { CoatDirt } from '../CoatDirt';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 
 interface Context {
   scene: THREE.Scene;
@@ -84,7 +85,7 @@ export class AnimalWasteSystem {
     for (const member of this.context.families)
       this.emit(`family:${member.data.id}`, member.root.position, time, 0, 0.8, member.rig);
     for (const animal of this.context.wildlife)
-      if (animal.alive)
+      if (animal.alive && !AnimalRestraint.active(animal.root))
         this.emit(
           `wild:${animal.socialId}`,
           animal.root.position,
@@ -102,7 +103,7 @@ export class AnimalWasteSystem {
           0.8,
         );
     for (const [index, bird] of this.context.hawks.entries()) {
-      if (this.budget.ready(`bird:${index}`))
+      if (bird.alive && this.budget.ready(`bird:${index}`))
         this.aerial.release(bird.x, bird.root.position.y, bird.z);
     }
   }
@@ -115,6 +116,7 @@ export class AnimalWasteSystem {
     size: number,
     rig?: RabbitRig,
   ): void {
+    if (rig && AnimalRestraint.active(rig.root)) return;
     if (!this.budget.ready(key)) return;
     this.context.waste.spawn(
       this.rng.chance(0.2) ? 'urine' : 'pellets',

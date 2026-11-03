@@ -3,6 +3,7 @@ import { animalNames } from '../animals/names';
 import { FRIENDSHIP_TRUST } from '../Friendship';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import type { Genes } from '../types';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 
 /** Друзья поблизости замечают наземных хищников; предупреждения ограничены по частоте. */
 export class FriendSignals {
@@ -20,6 +21,7 @@ export class FriendSignals {
     for (const animal of animals) {
       if (
         animal.alive &&
+        !AnimalRestraint.active(animal.root) &&
         animal.trust >= FRIENDSHIP_TRUST &&
         Math.hypot(animal.x - player.x, animal.z - player.z) < 5 &&
         clock - (animal.social.lastGreetingAt ?? -Infinity) > 360
@@ -35,6 +37,7 @@ export class FriendSignals {
     const friend = animals.find(
       (animal) =>
         animal.alive &&
+        !AnimalRestraint.active(animal.root) &&
         animal.trust >= FRIENDSHIP_TRUST &&
         Math.hypot(animal.x - player.x, animal.z - player.z) < 18 * hearing,
     );

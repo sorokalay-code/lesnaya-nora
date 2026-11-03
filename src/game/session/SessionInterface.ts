@@ -15,6 +15,8 @@ import { WorldCalendar } from './WorldCalendar';
 import type { WebView } from './SpiderEncounter';
 
 interface Context {
+  canSave?: () => boolean;
+  airliftView?: () => import('./HawkHunting').AirliftView | undefined;
   webView?: () => WebView | undefined;
   captureWildlife?: () => void;
   save: SaveData;
@@ -60,6 +62,8 @@ export class SessionInterface {
       this.context.queries.nest(),
     );
     hud.web = this.context.webView?.();
+    hud.airlift = this.context.airliftView?.();
+    if (hud.airlift) hud.prompt = [];
     if (hud.web) hud.prompt = [{ key: 'E', text: 'Многократно нажимай, чтобы вырваться' }];
     this.context.ui.setHud(hud);
   }
@@ -86,6 +90,14 @@ export class SessionInterface {
   }
 
   persist(notify: boolean): void {
+    if (this.context.canSave && !this.context.canSave()) {
+      if (notify) {
+        const message = 'Сохранение доступно после того, как сокол отпустит добычу.';
+        this.context.ui.store.setState({ saveNotice: message });
+        this.context.toast(message);
+      }
+      return;
+    }
     this.context.captureWildlife?.();
     this.context.save.harvested = this.context.world.resources
       .filter((r) => !r.available)

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GameUI } from '../ui/GameUI';
 import { Soundscape } from './Audio';
 import { AttackSounds } from './audio/AttackSounds';
+import { AnimalRestraint } from './animals/AnimalRestraint';
 import { Excavation } from './Excavation';
 import { ExcavationTraffic } from './ExcavationTraffic';
 import { FamilyCare } from './FamilyCare';
@@ -403,6 +404,7 @@ export class Game {
       },
     });
     this.collisions = new AnimalCollisionSystem({
+      playerRestrained: () => AnimalRestraint.active(this.player.root),
       playerHeading: () => this.player.root.rotation.y,
       save: this.save,
       world: this.world,
@@ -414,6 +416,8 @@ export class Game {
       family: this.family,
     });
     this.sessionUI = new SessionInterface({
+      canSave: () => !this.animals?.hasCaptures,
+      airliftView: () => this.animals?.airliftView,
       webView: () => this.web.view(),
       captureWildlife: () => this.ecology.capture(),
       save: this.save,
@@ -441,6 +445,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.actions = new SessionActions({
+      restrained: () => AnimalRestraint.active(this.player.root),
       web: this.web,
       grooming: new FamilyGrooming({
         save: this.save,
@@ -473,6 +478,9 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      resetInput: () => this.input.clear(),
+      canGrabPlayer: () => !this.web.trapped,
+      impactSound: () => this.sound.play('danger'),
       ambientSound: (cue) => this.sound.animal(cue),
       facing: () => this.view.forwardAt(),
       attackSound: (cue) => this.attackSounds?.emit(cue),

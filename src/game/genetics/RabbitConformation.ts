@@ -37,6 +37,15 @@ export class RabbitConformation {
       form.scale.set(shape.bodyWidth, 1, shape.bodyLength);
       form.position.y = 0.41 * (shape.legLength - 1);
       const head = visual.getObjectByName('Head');
+      const tail = visual.getObjectByName('Tail');
+      if (tail) {
+        const phenotype = RabbitFeatures.tail(genes);
+        const form = this.wrap(tail, 'Tail-form');
+        form.scale.set(...phenotype.scale);
+        form.rotation.x = phenotype.angle;
+        form.updateMatrix();
+        form.matrixAutoUpdate = false;
+      }
       head?.scale.set(
         shape.headSize / shape.bodyWidth,
         shape.headSize,

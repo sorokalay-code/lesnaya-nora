@@ -73,7 +73,12 @@ export class PlayerConsequences {
       if (Math.hypot(predator.x - nest.x, predator.z - nest.z) > 2) continue;
 
       const kit = this.context.save.kits.find(
-        (k) => k.alive && k.age < 3 && k.command !== 'follow' && k.nestId === nest.id,
+        (k) =>
+          k.alive &&
+          k.age < 3 &&
+          k.command !== 'follow' &&
+          k.nestId === nest.id &&
+          Math.abs((k.y ?? k.homeY) - nest.y) < 1.2,
       );
       if (!kit) continue;
 

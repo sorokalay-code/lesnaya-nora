@@ -14,6 +14,7 @@ import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 import { SessionMenus } from './SessionMenus';
 
 interface Context {
+  restrained?: () => boolean;
   web: SpiderEncounter;
   grooming: FamilyGrooming;
   shelters: ShelterController;
@@ -48,6 +49,28 @@ export class SessionActions {
   }
 
   execute(action: string): void {
+    if (
+      this.context.restrained?.() &&
+      ![
+        'menu',
+        'resume',
+        'close',
+        'menu-back',
+        'settings',
+        'controls-help',
+        'new-game-menu',
+        'save',
+        'sound',
+        'toggle-controls',
+        'status-panel',
+        'self-profile',
+        'journal',
+        'map',
+        'events-panel',
+        'camera',
+      ].includes(action)
+    )
+      return;
     if (
       action === 'struggle' ||
       (action === 'interact' && this.context.web.trapped && !this.context.ui.panelsOpen)

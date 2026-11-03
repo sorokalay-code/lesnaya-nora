@@ -6,6 +6,7 @@ import type { DigNode, KitData, SaveData } from '../types';
 import type { World } from '../World';
 import { KitFeeding } from './KitFeeding';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 
 interface Context {
   save: SaveData;
@@ -27,6 +28,10 @@ export class KitMovement {
   }
 
   update(kit: KitData, rig: RabbitRig, time: number, dt: number): void {
+    if (AnimalRestraint.active(rig.root)) {
+      animateRabbit(rig, time, false, false, dt);
+      return;
+    }
     if (rig.root.userData.hunting && !rig.root.userData.conversing) {
       animateRabbit(rig, time + kit.id, !!rig.root.userData.huntMoving, true, dt);
       return;

@@ -20,6 +20,7 @@ export interface PromptPart {
   text: string;
 }
 export interface HudView {
+  airlift?: import('../game/session/HawkHunting').AirliftView;
   web?: WebView;
   nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
   status: string;

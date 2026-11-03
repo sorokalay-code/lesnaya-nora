@@ -9,6 +9,10 @@ export class JumpMotion {
     return this.progress < 1;
   }
 
+  cancel(): void {
+    this.progress = 1;
+  }
+
   start(x: number, z: number): boolean {
     if (this.active) return false;
     const length = Math.hypot(x, z);

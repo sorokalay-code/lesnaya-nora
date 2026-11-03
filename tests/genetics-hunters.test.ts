@@ -226,7 +226,8 @@ test('pattern colours belong to one rabbit and grooming restores both fur colour
   const original = colour.getHex(),
     untouched = second.color.getHex();
   CoatDirt.update(first, 100);
-  assert.notEqual(colour.getHex(), original);
+  assert.equal(colour.getHex(), original);
+  assert.equal(material.userData.coatDirtLevel.value, 1);
   assert.equal(second.color.getHex(), untouched);
   CoatDirt.update(first, 0);
   assert.equal(colour.getHex(), original);
@@ -461,7 +462,12 @@ test('only the mother family keeps visible dirt; unrelated rabbits remain clean'
   hygiene.update(0.5, 1);
   assert.ok((mate.data.dirtiness ?? 0) > 0);
   assert.equal(neighbour.data.dirtiness, undefined);
-  assert.equal(neighbour.root.getObjectByName('coat-mud')!.visible, false);
+  assert.equal(neighbour.root.getObjectByName('coat-mud'), undefined);
+  assert.equal(
+    ((neighbour.root.getObjectByName('Body') as THREE.Mesh).material as THREE.MeshStandardMaterial)
+      .userData.coatDirtLevel.value,
+    0,
+  );
 });
 
 test('fanged adults hunt small wildlife and the player, but respect dialogue truce and underground safety', () => {

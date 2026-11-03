@@ -1,4 +1,5 @@
 import { JumpMotion } from './JumpMotion';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import type { PlayerRabbit } from '../animals';
 import type { Soundscape } from '../Audio';
@@ -33,6 +34,7 @@ export class PlayerMovement {
   requestJump(elapsed: number): boolean {
     const p = this.player.data;
     if (
+      AnimalRestraint.active(this.player.root) ||
       this.jump.active ||
       elapsed < this.nextJumpAt ||
       p.energy < 9 * GeneticTraits.energyCost(p.genes) ||
@@ -79,6 +81,10 @@ export class PlayerMovement {
   }
 
   move(dt: number, elapsed: number, blocked: boolean): boolean {
+    if (AnimalRestraint.active(this.player.root)) {
+      this.jump.cancel();
+      return false;
+    }
     const p = this.player.data;
     if (blocked || GeneticTraits.mobility(p.genes) === 0) return false;
 
@@ -146,6 +152,7 @@ export class PlayerMovement {
   }
 
   settle(dt: number): void {
+    if (AnimalRestraint.active(this.player.root)) return;
     const p = this.player.data,
       target = this.earth.floorAt(p.x, p.z, p.y);
     p.y += clamp(target - p.y, -dt * 3.5, dt * 2.4);

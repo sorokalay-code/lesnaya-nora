@@ -7,6 +7,7 @@ import { Rabbit } from './Rabbit';
 import { GroundNavigator } from '../GroundNavigator';
 import type { GroundHeight } from './types';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { AnimalRestraint } from './AnimalRestraint';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
   private wanderAngle = 0;
@@ -27,7 +28,7 @@ export class RabbitActor extends Rabbit {
     readonly data: PartnerTraits,
     private readonly rng: Random,
   ) {
-    super(data, data.genes);
+    super(data, data.genes, false, { health: data.health ?? 100 });
     this.targetX = data.x;
     this.targetZ = data.z;
   }
@@ -63,6 +64,10 @@ export class RabbitActor extends Rabbit {
     speed = 2.3,
     stopDistance = 0.6,
   ): void {
+    if (AnimalRestraint.active(this.root)) {
+      animateRabbit(this.rig, time, false, false, dt);
+      return;
+    }
     if (
       this.rig.root.userData.conversing === true ||
       GeneticTraits.mobility(this.data.genes) === 0 ||
@@ -116,6 +121,7 @@ export class RabbitActor extends Rabbit {
     earth: Excavation,
     groundAt: GroundHeight,
   ): void {
+    if (AnimalRestraint.active(this.root)) return;
     this.tunnelPosition = undefined;
     if (time > this.mateForageUntil) {
       this.mateForageUntil = time + this.rng.range(10, 22);
@@ -169,6 +175,10 @@ export class RabbitActor extends Rabbit {
   }
 
   update(dt: number, time: number, playerX: number, playerZ: number, groundAt: GroundHeight): void {
+    if (AnimalRestraint.active(this.root)) {
+      animateRabbit(this.rig, time, false, false, dt);
+      return;
+    }
     if (this.rig.root.userData.hunting && !this.rig.root.userData.conversing) {
       animateRabbit(this.rig, time + this.data.id, !!this.rig.root.userData.huntMoving, true, dt);
       return;

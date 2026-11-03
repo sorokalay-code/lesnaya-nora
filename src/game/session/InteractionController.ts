@@ -14,6 +14,7 @@ import { ForestConversation } from './ForestConversation';
 import { RabbitConversation } from './RabbitConversation';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface InteractionContext {
   save: SaveData;
@@ -82,6 +83,8 @@ export class InteractionController {
   }
 
   openPartner(p: PartnerTraits, line?: string): void {
+    const actor = this.context.rabbits.find((r) => r.data.id === p.id);
+    if ((p.health ?? 100) <= 0 || (actor && AnimalRestraint.active(actor.root))) return;
     this.context.resetInput();
     this.dialogPartner = p;
     this.dialogKit = undefined;
@@ -99,6 +102,11 @@ export class InteractionController {
   }
 
   openMatePanel(): void {
+    const actor = this.context.rabbits.find((r) => r.data.id === this.context.save.mateId);
+    if (actor && AnimalRestraint.active(actor.root)) {
+      this.context.toast('Партнёра держит сокол: сейчас он не может отвечать.');
+      return;
+    }
     const mate = this.context.save.partners.find((p) => p.id === this.context.save.mateId);
     if (!mate) {
       this.context.toast('Партнёра пока нет. Подойди к кролу и нажми E, чтобы познакомиться.');
@@ -318,6 +326,8 @@ export class InteractionController {
   }
 
   openKit(kit: KitData, line?: string): void {
+    const rig = this.context.family?.rigs?.get(kit.id);
+    if (rig && AnimalRestraint.active(rig.root)) return;
     this.context.resetInput();
     this.dialogKit = kit;
     this.dialogPartner = undefined;
@@ -373,6 +383,7 @@ export class InteractionController {
   }
 
   openAnimal(animal: ForestAnimal, line?: string): void {
+    if (AnimalRestraint.active(animal.root)) return;
     this.context.resetInput();
     this.dialogAnimal = animal;
     this.dialogPartner = undefined;

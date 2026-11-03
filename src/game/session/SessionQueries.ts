@@ -3,6 +3,7 @@ import type { Excavation } from '../Excavation';
 import type { KitData, NestData, PartnerTraits, SaveData, StashData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 interface QueryContext {
   save: SaveData;
   world: World;
@@ -41,6 +42,8 @@ export class SessionQueries {
       .filter((r) => {
         const actor = this.context.rabbits.find((a) => a.data.id === r.id);
         return (
+          (r.health ?? 100) > 0 &&
+          (!actor || !AnimalRestraint.active(actor.root)) &&
           Math.hypot(r.x - p.x, r.z - p.z) < radius &&
           Math.abs((actor?.rig.root.position.y ?? this.context.world.heightAt(r.x, r.z)) - p.y) <
             1.5
@@ -58,6 +61,7 @@ export class SessionQueries {
         const mesh = this.context.family.rigs.get(k.id)?.root;
         return (
           mesh?.visible &&
+          !AnimalRestraint.active(mesh) &&
           Math.abs(mesh.position.y - this.context.save.player.y) < 1.5 &&
           Math.hypot(mesh.position.x - x, mesh.position.z - z) < radius
         );
@@ -77,6 +81,7 @@ export class SessionQueries {
       .filter(
         (a) =>
           a.alive &&
+          !AnimalRestraint.active(a.root) &&
           Math.hypot(a.x - p.x, a.z - p.z) < radius &&
           Math.abs(a.root.position.y - p.y) < 1.5,
       )

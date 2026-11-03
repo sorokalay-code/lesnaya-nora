@@ -54,6 +54,7 @@ export class GeneticsPresenter {
         'Генетическая устойчивость: ' + genes.stability + '/5',
       ],
       effects: [
+        'Хвост: ' + RabbitFeatures.tail(genes).label,
         'Глаза: ' +
           RabbitFeatures.eyes(genes).label +
           ' · уши: ' +

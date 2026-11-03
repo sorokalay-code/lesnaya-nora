@@ -1,5 +1,6 @@
 import type { Object3D } from 'three';
 import { Random } from '../Random';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 import type { AnimalVoiceListener, AnimalVoiceKind } from './AnimalVoice';
 import type { AnimalVoiceSources, VoiceActor } from './AnimalVoiceSources';
 
@@ -19,6 +20,7 @@ const INTERVALS: Record<AnimalVoiceKind, number> = {
   beaver: 30,
   deer: 28,
   moose: 42,
+  boar: 28,
   fox: 32,
   dog: 30,
   wolf: 45,
@@ -43,6 +45,7 @@ export class AnimalAmbience {
     let chosen: VoiceActor | undefined;
     let score = -Infinity;
     for (const source of this.context.sources.all()) {
+      if (AnimalRestraint.active(source.root)) continue;
       if (source.root.userData.conversing || time < (this.cooldowns.get(source.root) ?? 0))
         continue;
       const position = source.root.position;

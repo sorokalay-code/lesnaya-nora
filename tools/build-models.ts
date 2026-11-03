@@ -15,6 +15,7 @@ import { createLynxModel, lynxPounceClip } from './art/LynxAsset';
 import { createRabbitEye } from './art/RabbitEye';
 import { quadrupedGait } from './art/Locomotion';
 import { rabbitLocomotion } from './art/RabbitLocomotion';
+import { createBoarModel } from './art/BoarAsset';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1417,6 +1418,7 @@ if (!requested.size) {
   terrainTexture('soil', true);
 }
 const models = {
+  boar: () => createBoarModel(),
   'jumping-spider': () => createSpiderModel(false, true),
   spider: () => createSpiderModel(),
   rock_granite: () => createRockModel('granite'),
@@ -1457,6 +1459,7 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  'boar',
   'jumping-spider',
   'spider',
   'rabbit',
@@ -1535,7 +1538,7 @@ for (const [name, build] of Object.entries(models)) {
             ? snakeClips()
             : name === 'hawk'
               ? hawkClips()
-              : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose'].includes(name)
+              : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'].includes(name)
                 ? peacefulClips(name, model)
                 : [];
   mergeParts(model, !creatures.has(name) && name !== 'oak');
@@ -1553,11 +1556,14 @@ for (const [name, build] of Object.entries(models)) {
     sphere = new THREE.SphereGeometry(1, 8, 5);
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
     const arachnid = name === 'spider' || name === 'jumping-spider';
-    const distant = arachnid
-      ? createSpiderModel(true, name === 'jumping-spider')
-      : name === 'lynx'
-        ? createLynxModel(true)
-        : build();
+    const distant =
+      name === 'boar'
+        ? createBoarModel(true)
+        : arachnid
+          ? createSpiderModel(true, name === 'jumping-spider')
+          : name === 'lynx'
+            ? createLynxModel(true)
+            : build();
     mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,

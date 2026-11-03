@@ -6,6 +6,7 @@ import { Rabbit } from './Rabbit';
 import type { GroundHeight } from './types';
 import { Genealogy } from '../genetics/Genealogy';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { AnimalRestraint } from './AnimalRestraint';
 /** Член чужой семьи выбирает собственные цели рядом с домом, не привязываясь к орбите родителя. */
 export class FamilyMember extends Rabbit {
   readonly data: PartnerTraits;
@@ -59,6 +60,10 @@ export class FamilyMember extends Rabbit {
   }
 
   update(time: number, dt: number, groundAt: GroundHeight): void {
+    if (AnimalRestraint.active(this.root)) {
+      animateRabbit(this.rig, time, false, false, dt);
+      return;
+    }
     if (time >= this.nextTarget || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 0.4) {
       this.nextTarget = time + this.rng.range(5, 13);
       this.resting = this.rng.chance(0.18);
