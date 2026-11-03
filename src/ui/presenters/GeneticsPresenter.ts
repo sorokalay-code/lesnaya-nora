@@ -1,5 +1,6 @@
 import { Genealogy } from '../../game/genetics/Genealogy';
 import { GeneticTraits } from '../../game/genetics/GeneticTraits';
+import { RabbitConformation } from '../../game/genetics/RabbitConformation';
 import { GenomeInheritance } from '../../game/genetics/GenomeInheritance';
 import type { Lineage } from '../../game/genetics/types';
 import type { Genes } from '../../game/types';
@@ -37,6 +38,7 @@ export class GeneticsPresenter {
       piebald: 'разноцветная шерсть',
     };
     const related = Genealogy.related(lineage, mate?.lineage);
+    const shape = RabbitConformation.shape(genes);
     return {
       generation: lineage?.generation ?? 1,
       appearance:
@@ -51,6 +53,13 @@ export class GeneticsPresenter {
         'Генетическая устойчивость: ' + genes.stability + '/5',
       ],
       effects: [
+        'Пропорции: ширина ушей ' +
+          Math.round(shape.earWidth * 100) +
+          '%, длина лап ' +
+          Math.round(shape.legLength * 100) +
+          '%, длина тела ' +
+          Math.round(shape.bodyLength * 100) +
+          '%',
         'Скорость движения от анатомии: ' + Math.round(GeneticTraits.mobility(genes) * 100) + '%',
         'Расход сил: ' + Math.round(GeneticTraits.energyCost(genes) * 100) + '%',
         'Относительный запас здоровья: ' + Math.round(GeneticTraits.resilience(genes) * 100) + '%',

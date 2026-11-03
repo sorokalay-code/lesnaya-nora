@@ -7,6 +7,7 @@ import type { SaveData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { RabbitConformation } from '../genetics/RabbitConformation';
 interface CollisionContext {
   playerHeading?: () => number;
   save: SaveData;
@@ -27,14 +28,15 @@ export class AnimalCollisionSystem {
 
   canPlayerMove(x: number, z: number, y: number, heading: number): boolean {
     const player = this.context.save.player;
+    const shape = RabbitConformation.shape(player.genes);
     const current: PhysicalBody = {
       id: 0,
       x: player.x,
       y: player.y,
       z: player.z,
       heading,
-      radius: RABBIT_BODY.radius * player.genes.size,
-      halfLength: RABBIT_BODY.halfLength * player.genes.size,
+      radius: RABBIT_BODY.radius * player.genes.size * shape.bodyWidth,
+      halfLength: RABBIT_BODY.halfLength * player.genes.size * shape.bodyLength,
       sheltered: this.context.earth.isSheltered(player.x, player.y, player.z),
       mass: Infinity,
       moveTo: () => false,
@@ -62,6 +64,7 @@ export class AnimalCollisionSystem {
   resolve(matingId?: number): void {
     const p = this.context.save.player,
       bodies: PhysicalBody[] = [];
+    const shape = RabbitConformation.shape(p.genes);
     const valid = (x: number, z: number, y: number, sheltered: boolean) =>
       Math.abs(x) < 103 && Math.abs(z) < 103 && this.context.earth.canMoveTo(x, z, y, sheltered);
     bodies.push({
@@ -69,8 +72,8 @@ export class AnimalCollisionSystem {
       x: p.x,
       y: p.y,
       z: p.z,
-      radius: RABBIT_BODY.radius * p.genes.size,
-      halfLength: RABBIT_BODY.halfLength * p.genes.size,
+      radius: RABBIT_BODY.radius * p.genes.size * shape.bodyWidth,
+      halfLength: RABBIT_BODY.halfLength * p.genes.size * shape.bodyLength,
       heading: this.context.playerHeading?.() ?? 0,
       mass: Infinity,
       sheltered: this.context.earth.isSheltered(p.x, p.y, p.z),
@@ -87,8 +90,8 @@ export class AnimalCollisionSystem {
         x: actor.data.x,
         y,
         z: actor.data.z,
-        radius: RABBIT_BODY.radius * root.scale.x,
-        halfLength: RABBIT_BODY.halfLength * root.scale.x,
+        radius: RABBIT_BODY.radius * root.scale.x * Number(root.userData.bodyWidth ?? 1),
+        halfLength: RABBIT_BODY.halfLength * root.scale.x * Number(root.userData.bodyLength ?? 1),
         heading: root.rotation.y,
         mass: GeneticTraits.mobility(actor.data.genes) === 0 ? Infinity : 1,
         sheltered,
@@ -108,8 +111,8 @@ export class AnimalCollisionSystem {
         x: root.position.x,
         y,
         z: root.position.z,
-        radius: RABBIT_BODY.radius * root.scale.x,
-        halfLength: RABBIT_BODY.halfLength * root.scale.x,
+        radius: RABBIT_BODY.radius * root.scale.x * Number(root.userData.bodyWidth ?? 1),
+        halfLength: RABBIT_BODY.halfLength * root.scale.x * Number(root.userData.bodyLength ?? 1),
         heading: root.rotation.y,
         mass: GeneticTraits.mobility(member.data.genes) === 0 ? Infinity : 1,
         sheltered: false,
@@ -133,8 +136,12 @@ export class AnimalCollisionSystem {
           x: kit.x ?? kit.homeX,
           y,
           z: kit.z ?? kit.homeZ,
-          radius: Math.max(0.14, RABBIT_BODY.radius * rig.root.scale.x),
-          halfLength: RABBIT_BODY.halfLength * rig.root.scale.x,
+          radius: Math.max(
+            0.14,
+            RABBIT_BODY.radius * rig.root.scale.x * Number(rig.root.userData.bodyWidth ?? 1),
+          ),
+          halfLength:
+            RABBIT_BODY.halfLength * rig.root.scale.x * Number(rig.root.userData.bodyLength ?? 1),
           heading: rig.root.rotation.y,
           mass: 0.55,
           sheltered,

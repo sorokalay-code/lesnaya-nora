@@ -3,8 +3,16 @@ import { animateHawk, createHawk } from '../Models';
 import { Random } from '../Random';
 import { Animal } from './Animal';
 import type { GroundHeight } from './types';
+import type { AttackListener } from '../audio/AttackCue';
+import {
+  AnimalAppearance,
+  type AppearanceOptions,
+  type AppearanceTraits,
+} from '../AnimalAppearance';
+import type { ModelInstance } from '../ModelAssets';
 /** Сокол летит между случайными целями и пикирует на добычу в открытом пространстве. */
 export class Hawk extends Animal<'hawk'> {
+  readonly appearance: AppearanceTraits;
   readonly shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.8, 24),
     new THREE.MeshBasicMaterial({
@@ -20,9 +28,16 @@ export class Hawk extends Animal<'hawk'> {
   private diveUntil = 0;
   private cooldown = 0;
   private readonly rng: Random;
+  private attackListener?: AttackListener;
 
-  constructor(x: number, z: number, rng: Random) {
+  setAttackListener(listener?: AttackListener): void {
+    this.attackListener = listener;
+  }
+
+  constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super('hawk', createHawk(), { x, z }, 60);
+    this.appearance = AnimalAppearance.normalize(appearance);
+    AnimalAppearance.apply(this.root.userData.model as ModelInstance, this.appearance);
     this.x = this.targetX = x;
     this.z = this.targetZ = z;
     this.rng = rng;
@@ -42,6 +57,14 @@ export class Hawk extends Animal<'hawk'> {
     if (exposed && distance < 18 && this.cooldown <= 0 && this.diveUntil <= time) {
       this.diveUntil = time + 2.5;
       this.cooldown = 35;
+      this.attackListener?.({
+        kind: 'hawk',
+        phase: 'leap',
+        x: this.x,
+        y: this.root.position.y,
+        z: this.z,
+        time,
+      });
     }
 
     if (this.diveUntil > time) {
@@ -62,6 +85,14 @@ export class Hawk extends Animal<'hawk'> {
         exposed
       ) {
         this.diveUntil = 0;
+        this.attackListener?.({
+          kind: 'hawk',
+          phase: 'strike',
+          x: this.x,
+          y: this.root.position.y,
+          z: this.z,
+          time,
+        });
         return true;
       }
     } else {

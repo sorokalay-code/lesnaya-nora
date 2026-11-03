@@ -4,8 +4,14 @@ import { Random } from '../Random';
 import { Animal } from './Animal';
 import type { WildlifeSocial } from '../types';
 import type { GroundHeight, WildlifeKind, WildlifeProfile } from './types';
+import {
+  AnimalAppearance,
+  type AppearanceOptions,
+  type AppearanceTraits,
+} from '../AnimalAppearance';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
+  readonly appearance: AppearanceTraits;
   readonly model: ModelInstance;
   readonly defense: number;
   socialId = 0;
@@ -28,10 +34,18 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     z: number,
     private readonly rng: Random,
     readonly profile: WildlifeProfile,
+    appearance?: AppearanceOptions,
   ) {
     const model = ModelAssets.shared.create(kind);
     super(kind, model.root, { x, z }, profile.health);
     this.model = model;
+    this.appearance = AnimalAppearance.normalize(appearance);
+    AnimalAppearance.apply(model, this.appearance);
+    this.profile = {
+      ...profile,
+      radius: profile.radius * this.appearance.size * this.appearance.bodyWidth,
+      mass: profile.mass * this.appearance.size ** 3,
+    };
     this.legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR']
       .map((name) => this.root.getObjectByName(name))
       .filter((leg): leg is THREE.Object3D => !!leg);
@@ -166,6 +180,13 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       this.model,
       time < this.eatingUntil ? 'graze' : moving ? (fleeing ? 'run' : 'walk') : 'idle',
       dt,
+      moving
+        ? THREE.MathUtils.clamp(
+            (this.speed * (fleeing ? 2 : 1)) / (fleeing ? 3.1 : 1.1) / this.appearance.size,
+            0.65,
+            1.8,
+          )
+        : 1,
     );
     this.root.userData.tailPhase = time;
     return grazing && time < this.eatingUntil;

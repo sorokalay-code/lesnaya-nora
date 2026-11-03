@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ModelInstance } from '../ModelAssets';
 import { COAT_COLORS, type Genes } from '../types';
+import { RabbitConformation } from './RabbitConformation';
 
 type ExtraPart = { source: THREE.Object3D; copy: THREE.Object3D };
 const EYES = { brown: 0x674323, amber: 0xb28a29, blue: 0x608bba, green: 0x6b9452, red: 0xbd3037 };
@@ -38,6 +39,7 @@ export class RabbitAppearance {
       if (fangs) fangs.visible = genes.anatomy.fangs;
     }
     this.extras.set(model.root, extras);
+    RabbitConformation.apply(model, genes);
     model.root.userData.legCount = genes.anatomy.legs;
   }
 

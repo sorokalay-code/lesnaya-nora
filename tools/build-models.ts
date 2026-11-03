@@ -4,9 +4,16 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { createRockModel, createSpiderModel, spiderClips, spiderLowClips } from './art/WildAssets';
+import {
+  createRockModel,
+  createSpiderModel,
+  spiderClips,
+  spiderLowClips,
+  spiderJumpClip,
+} from './art/WildAssets';
 import { createLynxModel, lynxPounceClip } from './art/LynxAsset';
 import { createRabbitEye } from './art/RabbitEye';
+import { quadrupedGait } from './art/Locomotion';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1070,6 +1077,17 @@ function rabbitClips() {
       rotation(n, sequence(amplitude * (i % 2 ? 1 : -1) * (i < 2 ? 1 : phase))),
     );
   const head = (v) => rotation('Head', sequence(v));
+  const bound = (amplitude) =>
+    ['PawFL', 'PawFR', 'PawBL', 'PawBR'].map((name, index) =>
+      rotation(
+        name,
+        (index < 2 ? [0.3, -0.4, -0.8, 0.45, 0.3] : [-0.5, 0.6, 0.9, -0.4, -0.5]).map((value) => [
+          value * amplitude,
+          0,
+          0,
+        ]),
+      ),
+    );
   make('idle', [
     head(0.035),
     rotation('EarL', sequence(0.03)),
@@ -1083,7 +1101,7 @@ function rabbitClips() {
     ]),
   ]);
   make('hop', [
-    ...paw(0.52, -0.8),
+    ...bound(0.9),
     head(0.08),
     position('Visual', [
       [0, 0, 0],
@@ -1096,7 +1114,7 @@ function rabbitClips() {
   make(
     'run',
     [
-      ...paw(0.75, -0.9),
+      ...bound(1.1),
       head(0.1),
       position('Visual', [
         [0, 0, 0],
@@ -1216,27 +1234,16 @@ function rabbitClips() {
   ]);
   return clips;
 }
-function quadrupedClips(kind) {
+function quadrupedClips(kind, root) {
   const clips = [];
-  const legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR'];
-  const gait = (name, a, duration) =>
-    new THREE.AnimationClip(name, duration, [
-      ...legs.map((n, i) => rotation(n, sequence(a * (i === 0 || i === 3 ? 1 : -1)))),
-      position('Visual', [
-        [0, 0, 0],
-        [0, 0.04, 0],
-        [0, 0.09, 0],
-        [0, 0.04, 0],
-        [0, 0, 0],
-      ]),
-    ]);
+  const gait = (name, duration) => quadrupedGait(root, name, duration, kind);
   clips.push(
     new THREE.AnimationClip('idle', 1, [
       rotation('Head', sequence(0.03)),
       rotation('Tail', sequence(0.08)),
     ]),
   );
-  clips.push(gait('walk', 0.32, 1.1), gait('run', 0.62, 0.62));
+  clips.push(gait('walk', 1.1), gait('run', 0.62));
   clips.push(
     new THREE.AnimationClip('attack', 0.6, [
       rotation('Head', [
@@ -1305,37 +1312,29 @@ function hawkClips() {
   );
   return clips;
 }
-function peacefulClips(kind) {
+function peacefulClips(kind, root) {
   const legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR'];
   const tail = kind === 'squirrel' ? 'Tail' : undefined;
-  return ['idle', 'walk', 'run', 'graze'].map(
-    (name, index) =>
-      new THREE.AnimationClip(name, [1.2, 1, 0.65, 1.1][index], [
-        rotation(
-          'Head',
-          index === 3
-            ? [
-                [0.18, 0, 0],
-                [0.28, 0, 0],
-                [0.2, 0, 0],
-                [0.3, 0, 0],
-                [0.18, 0, 0],
-              ]
-            : sequence(0.035),
-        ),
-        ...legs.map((n, i) =>
-          rotation(
-            n,
-            sequence(
-              index === 0 || index === 3
-                ? 0
-                : (index === 2 ? 0.55 : 0.27) * (i === 0 || i === 3 ? 1 : -1),
-            ),
-          ),
-        ),
-        ...(tail ? [rotation(tail, sequence(0.08))] : []),
-      ]),
-  );
+  return ['idle', 'walk', 'run', 'graze'].map((name, index) => {
+    if (name === 'walk' || name === 'run')
+      return quadrupedGait(root, name, name === 'run' ? 0.65 : 1, kind);
+    return new THREE.AnimationClip(name, [1.2, 1, 0.65, 1.1][index], [
+      rotation(
+        'Head',
+        index === 3
+          ? [
+              [0.18, 0, 0],
+              [0.28, 0, 0],
+              [0.2, 0, 0],
+              [0.3, 0, 0],
+              [0.18, 0, 0],
+            ]
+          : sequence(0.035),
+      ),
+      ...legs.map((name) => rotation(name, sequence(0))),
+      ...(tail ? [rotation(tail, sequence(0.08))] : []),
+    ]);
+  });
 }
 
 function crc(bytes) {
@@ -1443,6 +1442,7 @@ if (!requested.size) {
   terrainTexture('soil', true);
 }
 const models = {
+  'jumping-spider': () => createSpiderModel(false, true),
   spider: () => createSpiderModel(),
   rock_granite: () => createRockModel('granite'),
   rock_moss: () => createRockModel('moss'),
@@ -1482,6 +1482,7 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  'jumping-spider',
   'spider',
   'rabbit',
   'fox',
@@ -1549,18 +1550,18 @@ for (const [name, build] of Object.entries(models)) {
   );
   const model = build();
   const animations =
-    name === 'spider'
-      ? spiderClips()
+    name === 'spider' || name === 'jumping-spider'
+      ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
       : name === 'rabbit'
         ? rabbitClips()
         : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-          ? [...quadrupedClips(name), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
+          ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
           : name === 'snake'
             ? snakeClips()
             : name === 'hawk'
               ? hawkClips()
               : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose'].includes(name)
-                ? peacefulClips(name)
+                ? peacefulClips(name, model)
                 : [];
   mergeParts(model, !creatures.has(name) && name !== 'oak');
   const buffer = (await new GLTFExporter().parseAsync(model, {
@@ -1576,16 +1577,18 @@ for (const [name, build] of Object.entries(models)) {
   if (creatures.has(name)) {
     sphere = new THREE.SphereGeometry(1, 8, 5);
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
-    const distant =
-      name === 'spider'
-        ? createSpiderModel(true)
-        : name === 'lynx'
-          ? createLynxModel(true)
-          : build();
-    mergeParts(distant, name === 'spider');
+    const arachnid = name === 'spider' || name === 'jumping-spider';
+    const distant = arachnid
+      ? createSpiderModel(true, name === 'jumping-spider')
+      : name === 'lynx'
+        ? createLynxModel(true)
+        : build();
+    mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,
-      animations: name === 'spider' ? spiderLowClips() : animations,
+      animations: arachnid
+        ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
+        : animations,
     })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }

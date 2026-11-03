@@ -82,10 +82,28 @@ export function animatePredator(
   attacking = false,
 ): void {
   const model = root.userData.model as ModelInstance;
+  const previous = root.userData.gaitPosition as { x: number; y: number; z: number } | undefined;
+  const travelled = previous
+    ? Math.hypot(
+        root.position.x - previous.x,
+        root.position.y - previous.y,
+        root.position.z - previous.z,
+      )
+    : 0;
+  const position = previous ?? { x: root.position.x, y: root.position.y, z: root.position.z };
+  position.x = root.position.x;
+  position.y = root.position.y;
+  position.z = root.position.z;
+  root.userData.gaitPosition = position;
+  const rate =
+    moving && previous && dt > 0
+      ? THREE.MathUtils.clamp(travelled / dt / (running ? 3.4 : 1.1) / root.scale.x, 0.65, 1.8)
+      : 1;
   ModelAssets.shared.play(
     model,
     attacking ? 'attack' : moving ? (running ? 'run' : 'walk') : 'idle',
     dt,
+    rate,
   );
 }
 export function createHawk(): THREE.Group {

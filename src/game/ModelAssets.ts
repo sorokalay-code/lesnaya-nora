@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 export const CREATURE_NAMES = [
+  'jumping-spider',
   'spider',
   'rabbit',
   'fox',
@@ -69,6 +70,7 @@ export class ModelAssets {
   private readonly actors = new Set<ModelInstance>();
   private readonly sharedGeometry = new Set<THREE.BufferGeometry>();
   private readonly sharedMaterials = new Set<THREE.Material>();
+  private readonly palette = new WeakMap<THREE.Material, Map<number, THREE.Material>>();
   private loading?: Promise<void>;
   private textures: THREE.Texture[] = [];
   private readonly frustum = new THREE.Frustum();
@@ -113,6 +115,36 @@ export class ModelAssets {
 
   get ground(): THREE.Texture | undefined {
     return this.textures[2];
+  }
+
+  tintedMaterial(source: THREE.Material, variant: number): THREE.Material {
+    if (
+      !variant ||
+      !(source instanceof THREE.MeshStandardMaterial) ||
+      /eye|pupil|shine|horn|antler|tooth|beak|dark/i.test(source.name)
+    )
+      return source;
+    let variants = this.palette.get(source);
+    if (!variants) {
+      variants = new Map();
+      this.palette.set(source, variants);
+    }
+    let material = variants.get(variant);
+    if (!material) {
+      material = source.clone();
+      const shifts = [
+        [0, 0],
+        [-0.008, -0.035],
+        [0.008, 0.035],
+        [0, -0.06],
+        [0, 0.055],
+      ];
+      const [hue, light] = shifts[variant];
+      (material as THREE.MeshStandardMaterial).color.offsetHSL(hue, 0, light);
+      variants.set(variant, material);
+      this.sharedMaterials.add(material);
+    }
+    return material;
   }
 
   get soil(): THREE.Texture | undefined {

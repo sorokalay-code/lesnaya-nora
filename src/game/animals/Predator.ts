@@ -4,9 +4,17 @@ import { Random } from '../Random';
 import type { PredatorKind } from '../types';
 import { Animal } from './Animal';
 import { RABBIT_BODY } from '../RabbitBody';
+import type { AttackListener, AttackCue } from '../audio/AttackCue';
 import type { GroundHeight, PredatorProfile } from './types';
+import {
+  AnimalAppearance,
+  type AppearanceOptions,
+  type AppearanceTraits,
+} from '../AnimalAppearance';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
+  private attackListener?: AttackListener;
+  readonly appearance: AppearanceTraits;
   readonly origin: { x: number; z: number };
   targetX: number;
   targetZ: number;
@@ -28,8 +36,19 @@ export abstract class Predator extends Animal<PredatorKind> {
     z: number,
     private readonly rng: Random,
     readonly profile: PredatorProfile,
+    appearance?: AppearanceOptions,
   ) {
     super(kind, createPredator(kind), { x, z }, profile.health);
+    this.appearance = AnimalAppearance.normalize(appearance);
+    AnimalAppearance.apply(
+      this.root.userData.model as import('../ModelAssets').ModelInstance,
+      this.appearance,
+    );
+    this.profile = {
+      ...profile,
+      radius: profile.radius * this.appearance.size * this.appearance.bodyWidth,
+      mass: profile.mass * this.appearance.size ** 3,
+    };
     this.origin = { x, z };
     this.targetX = x;
     this.targetZ = z;
@@ -85,6 +104,16 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   playAttack(time: number): void {
     this.attackAnimUntil = Math.max(this.attackAnimUntil, time + 0.6);
+    this.signalAttack(time, 'strike');
+  }
+
+  setAttackListener(listener?: AttackListener): void {
+    this.attackListener = listener;
+  }
+
+  protected signalAttack(time: number, phase: AttackCue['phase']): void {
+    const { x, y, z } = this.root.position;
+    this.attackListener?.({ kind: this.kind, phase, x, y, z, time });
   }
 
   receiveAttack(damage: number, time: number, attacker: { x: number; z: number }): void {
@@ -165,13 +194,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     const step = Math.min(speed * dt, Math.hypot(this.targetX - this.x, this.targetZ - this.z));
     this.x = THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97);
     this.z = THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97);
-    this.root.position.set(
-      this.x,
-      groundAt(this.x, this.z) +
-        Math.abs(Math.sin(time * (hunting || chasingPrey ? 13 : 5))) *
-          (hunting || chasingPrey ? 0.08 : 0.02),
-      this.z,
-    );
+    this.root.position.set(this.x, groundAt(this.x, this.z), this.z);
     this.root.rotation.y = angle + Math.PI;
     // Дальность укуса согласована с капсулой крольчихи: коллизия не делает её неуязвимой спереди.
     const biteReach = Math.max(

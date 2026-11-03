@@ -1,6 +1,7 @@
 import { Random } from '../Random';
 import type { Genes } from '../types';
 import type { Anatomy } from './types';
+import { RabbitConformation } from './RabbitConformation';
 
 /** Наследует независимые признаки; устойчивость и близкое родство определяют риск игровых мутаций. */
 export class GenomeInheritance {
@@ -26,7 +27,19 @@ export class GenomeInheritance {
       eyes: choose(mother.anatomy.eyes, father.anatomy.eyes),
       fangs: choose(mother.anatomy.fangs, father.anatomy.fangs),
     };
+    const a = RabbitConformation.shape(mother),
+      b = RabbitConformation.shape(father);
+    const blend = (left: number, right: number, min: number, max: number) =>
+      Math.max(min, Math.min(max, (left + right) / 2 + this.rng.range(-0.035, 0.035)));
     const genes: Genes = {
+      shape: {
+        earWidth: blend(a.earWidth, b.earWidth, 0.82, 1.18),
+        earBend: blend(a.earBend, b.earBend, -0.12, 0.38),
+        legLength: blend(a.legLength, b.legLength, 0.86, 1.14),
+        bodyWidth: blend(a.bodyWidth, b.bodyWidth, 0.88, 1.12),
+        bodyLength: blend(a.bodyLength, b.bodyLength, 0.88, 1.12),
+        headSize: blend(a.headSize, b.headSize, 0.92, 1.08),
+      },
       coat: choose(mother.coat, father.coat),
       secondaryCoat: choose(mother.secondaryCoat, father.secondaryCoat),
       pattern: choose(mother.pattern, father.pattern),
@@ -62,6 +75,11 @@ export class GenomeInheritance {
     else {
       genes.pattern = this.rng.pick(['spotted', 'piebald']);
       genes.eyeColor = this.rng.pick(['blue', 'green', 'amber']);
+      genes.shape = {
+        ...RabbitConformation.shape(genes),
+        earBend: this.rng.range(-0.12, 0.38),
+        legLength: this.rng.range(0.86, 1.14),
+      };
     }
   }
 }

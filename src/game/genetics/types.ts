@@ -5,6 +5,15 @@ export interface Anatomy {
   fangs: boolean;
 }
 
+export interface RabbitShape {
+  earWidth: number;
+  earBend: number;
+  legLength: number;
+  bodyWidth: number;
+  bodyLength: number;
+  headSize: number;
+}
+
 export interface Ancestor {
   id: string;
   name: string;

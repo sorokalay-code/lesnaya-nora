@@ -45,7 +45,7 @@ export class WildlifeEcology {
   populate(): void {
     if (this.save?.wildlife) {
       for (const data of this.save.wildlife) {
-        const animal = createForestAnimal(data.kind, data.x, data.z, this.rng);
+        const animal = createForestAnimal(data.kind, data.x, data.z, this.rng, data.appearance);
         animal.socialId = data.id;
         animal.social = { ...data.social };
         animal.health = Math.max(0, Math.min(animal.maxHealth, data.health));
@@ -305,6 +305,7 @@ export class WildlifeEcology {
         z: animal.z,
         health: animal.health,
         social: { ...animal.social },
+        appearance: { ...animal.appearance },
       }));
   }
 }

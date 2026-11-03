@@ -3,6 +3,7 @@ import { FullscreenController } from './input/FullscreenController';
 import * as THREE from 'three';
 import { GameUI } from '../ui/GameUI';
 import { Soundscape } from './Audio';
+import { AttackSounds } from './audio/AttackSounds';
 import { Excavation } from './Excavation';
 import { ExcavationTraffic } from './ExcavationTraffic';
 import { FamilyCare } from './FamilyCare';
@@ -48,6 +49,7 @@ import { type SaveData } from './types';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
+  private attackSounds?: AttackSounds;
   private web!: SpiderEncounter;
   private sessionUI!: SessionInterface;
   private simulation!: SessionSimulation;
@@ -211,6 +213,7 @@ export class Game {
   }
 
   private setupWorld(): void {
+    this.attackSounds?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
     this.lighting.reset();
@@ -305,6 +308,14 @@ export class Game {
     this.ecology = population.ecology;
     this.wildlife = population.wildlife;
     this.hawks = population.hawks;
+    this.attackSounds = new AttackSounds({
+      sound: this.sound,
+      listener: () => this.save.player,
+      facing: () => this.view.forwardAt(),
+      combatAllowed: () => !this.ui.conversationOpen,
+      elapsed: () => this.runtime.elapsed,
+    });
+    this.attackSounds.bind([...this.predators, ...this.hawks]);
     this.web = new SpiderEncounter({
       scene: this.scene,
       save: this.save,
@@ -460,6 +471,7 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      attackSound: (cue) => this.attackSounds?.emit(cue),
       family: this.family,
       animalWaste: new AnimalWasteSystem({
         scene: this.scene,

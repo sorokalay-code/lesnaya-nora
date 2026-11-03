@@ -11,7 +11,7 @@ export class EnergyRecovery {
     const depleted = player.hunger < 10 || player.thirst < 10;
     const base = depleted ? 0.12 : 0.18;
     const bonus = !moving && elapsed >= this.recoverAfter ? (depleted ? 0.18 : 0.82) : 0;
-    player.energy = Math.min(100, player.energy + (base + bonus) * dt);
+    player.energy = Math.min(100, player.energy + (base + bonus) * dt * (moving ? 1 : 3));
 
     this.previousEnergy = player.energy;
   }

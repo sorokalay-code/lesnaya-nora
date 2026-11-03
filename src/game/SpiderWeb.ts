@@ -50,7 +50,7 @@ export class SpiderWeb {
       new THREE.LineBasicMaterial({
         color: 0xdce4d8,
         transparent: true,
-        opacity: 0.13,
+        opacity: 0.055,
         depthWrite: false,
       }),
     );

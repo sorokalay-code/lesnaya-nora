@@ -6,8 +6,10 @@ import { setRabbitAction, type RabbitRig } from '../Models';
 import type { Genes, SaveData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
+import type { AttackListener } from '../audio/AttackCue';
 
 interface Context {
+  attackSound?: AttackListener;
   save: SaveData;
   world: World;
   earth: Excavation;
@@ -119,6 +121,8 @@ export class RabbitPredation {
     if (distance < 1.9 && time >= (this.cooldowns.get(rig.root) ?? 0)) {
       this.cooldowns.set(rig.root, time + 3);
       setRabbitAction(rig, 'eat', time + hunter.phase, 0.5);
+      const { x, y, z } = rig.root.position;
+      this.context.attackSound?.({ kind: 'fanged-rabbit', phase: 'strike', x, y, z, time });
       if (prey) {
         prey.health = Math.max(0, prey.health - 14);
         if (!prey.alive) this.context.toast('Клыкастый кролик поймал лесную добычу.');

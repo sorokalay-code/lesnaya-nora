@@ -1,3 +1,5 @@
+import type { AttackCue } from './AttackCue';
+
 export type SoundEvent =
   | 'hop'
   | 'pickup'
@@ -121,6 +123,27 @@ export class NaturalVoices {
       case 'rain':
         this.noise(3400, 0.2, 0.06);
         break;
+    }
+  }
+
+  attack(kind: string, phase: AttackCue['phase'], volume: number, pan: number): void {
+    const variation = 0.9 + Math.random() * 0.2;
+    if (phase === 'leap') this.noise(750 * variation, 0.2, 0.18 * volume, 0, pan);
+    if (kind === 'spider' || kind === 'jumping-spider') {
+      this.noise(2100 * variation, 0.15, 0.23 * volume, 0, pan);
+      this.noise(3300, 0.065, 0.14 * volume, 0.045, pan);
+    } else if (kind === 'snake') {
+      this.noise(2700 * variation, 0.3, 0.35 * volume, 0, pan);
+    } else if (kind === 'hawk') {
+      this.tone(1700 * variation, 950, 0.18, 0.28 * volume, 0, pan);
+      this.tone(1300 * variation, 700, 0.13, 0.18 * volume, 0.09, pan);
+    } else {
+      const bass =
+        kind === 'bear' ? 65 : kind === 'lynx' ? 220 : kind === 'fanged-rabbit' ? 340 : 125;
+      const duration = kind === 'bear' ? 0.45 : 0.27;
+      this.noise(bass * 2.5 * variation, duration, 0.45 * volume, 0, pan);
+      this.tone(bass * variation, bass * 0.6, duration, 0.23 * volume, 0, pan);
+      if (kind === 'lynx') this.noise(1250, 0.2, 0.2 * volume, 0.05, pan);
     }
   }
 

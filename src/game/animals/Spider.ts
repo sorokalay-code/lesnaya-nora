@@ -1,6 +1,7 @@
 import { ModelAssets, type ModelInstance } from '../ModelAssets';
 import { animatePredator } from '../Models';
 import { Random } from '../Random';
+import type { AppearanceOptions } from '../AnimalAppearance';
 import { Predator } from './Predator';
 import type { GroundHeight } from './types';
 import { RABBIT_BODY } from '../RabbitBody';
@@ -15,23 +16,30 @@ export class Spider extends Predator {
   private height = 0;
   private awakeUntil = 0;
 
-  constructor(x: number, z: number, rng: Random) {
-    super('spider', x, z, rng, {
-      health: 28,
-      range: 8,
-      runSpeed: 2.6,
-      walkSpeed: 0.7,
-      playerReach: 1.4,
-      playerCooldown: 2.5,
-      preyReach: 0,
-      preyCooldown: 3,
-      damage: 6,
-      counterDamage: 4,
-      dayRange: 8,
-      alwaysHunts: false,
-      radius: 0.68,
-      mass: 1.2,
-    });
+  constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
+    super(
+      'spider',
+      x,
+      z,
+      rng,
+      {
+        health: 28,
+        range: 8,
+        runSpeed: 2.6,
+        walkSpeed: 0.7,
+        playerReach: 1.4,
+        playerCooldown: 2.5,
+        preyReach: 0,
+        preyCooldown: 3,
+        damage: 6,
+        counterDamage: 4,
+        dayRange: 8,
+        alwaysHunts: false,
+        radius: 0.68,
+        mass: 1.2,
+      },
+      appearance,
+    );
   }
 
   override get huntsWildlife(): boolean {

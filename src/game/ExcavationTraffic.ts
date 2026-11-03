@@ -78,6 +78,7 @@ export class ExcavationTraffic {
         ) {
           visit.lastHit = time;
           events.push({ type: 'predator-attack', kind: predator.kind });
+          predator.playAttack(time);
         }
 
         const kit = save.kits.find(
@@ -92,6 +93,7 @@ export class ExcavationTraffic {
           visit.lastHit = time;
           kit.health = Math.max(0, kit.health - 12 * 0.8);
           events.push({ type: 'kit-attack', kind: predator.kind, name: kit.name });
+          predator.playAttack(time);
         }
 
         continue;

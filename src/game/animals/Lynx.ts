@@ -1,4 +1,5 @@
 import { Random } from '../Random';
+import type { AppearanceOptions } from '../AnimalAppearance';
 import { Predator } from './Predator';
 import { PounceAttack } from './PounceAttack';
 import { ModelAssets, type ModelInstance } from '../ModelAssets';
@@ -18,23 +19,30 @@ export class Lynx extends Predator {
     super.playAttack(time);
   }
 
-  constructor(x: number, z: number, rng: Random) {
-    super('lynx', x, z, rng, {
-      health: 60,
-      range: 14,
-      runSpeed: 4.15,
-      walkSpeed: 0.75,
-      playerReach: 1.5,
-      playerCooldown: 3,
-      preyReach: 1.45,
-      preyCooldown: 3,
-      damage: 31,
-      counterDamage: 12,
-      dayRange: 10,
-      alwaysHunts: false,
-      radius: 0.62,
-      mass: 3,
-    });
+  constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
+    super(
+      'lynx',
+      x,
+      z,
+      rng,
+      {
+        health: 60,
+        range: 14,
+        runSpeed: 4.15,
+        walkSpeed: 0.75,
+        playerReach: 1.5,
+        playerCooldown: 3,
+        preyReach: 1.45,
+        preyCooldown: 3,
+        damage: 31,
+        counterDamage: 12,
+        dayRange: 10,
+        alwaysHunts: false,
+        radius: 0.62,
+        mass: 3,
+      },
+      appearance,
+    );
   }
 
   protected override specialApproach(
@@ -53,6 +61,7 @@ export class Lynx extends Predator {
       groundAt,
     );
     if (!step) return;
+    if (step.started) this.signalAttack(time, 'leap');
     this.root.rotation.y = Math.atan2(this.x - this.targetX, this.z - this.targetZ);
     this.x = step.x;
     this.z = step.z;

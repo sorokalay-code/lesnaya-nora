@@ -1,6 +1,8 @@
 import type { Genes } from '../types';
+import { NEUTRAL_RABBIT_SHAPE } from './RabbitConformation';
 
 export const DEFAULT_GENES: Genes = {
+  shape: { ...NEUTRAL_RABBIT_SHAPE },
   coat: 'cream',
   secondaryCoat: 'white',
   pattern: 'solid',

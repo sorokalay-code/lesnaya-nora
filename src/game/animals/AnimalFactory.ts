@@ -18,12 +18,15 @@ import type { WildlifeKind } from './types';
 import { Weasel } from './Weasel';
 import { Wolf } from './Wolf';
 import { Spider } from './Spider';
+import { JumpingSpider } from './JumpingSpider';
+import { AnimalAppearance, type AppearanceOptions } from '../AnimalAppearance';
 
-type Constructor<T> = new (x: number, z: number, rng: Random) => T;
+type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: AppearanceOptions) => T;
 
 /** Реестр фабрик создаёт конкретные виды, не раскрывая их конструкторы игровым системам. */
 export class AnimalFactory {
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {
+    'jumping-spider': JumpingSpider,
     spider: Spider,
     fox: Fox,
     wolf: Wolf,
@@ -41,20 +44,42 @@ export class AnimalFactory {
     moose: Moose,
   };
 
-  static predator(kind: PredatorKind, x: number, z: number, rng: Random): Predator {
-    return new this.predators[kind](x, z, rng);
+  static predator(
+    kind: PredatorKind,
+    x: number,
+    z: number,
+    rng: Random,
+    appearance?: AppearanceOptions,
+  ): Predator {
+    return new this.predators[kind](x, z, rng, appearance ?? AnimalAppearance.seeded(kind, x, z));
   }
 
   static rabbit(data: PartnerTraits, rng: Random): RabbitActor {
     return data.genes.anatomy.fangs ? new FangedRabbit(data, rng) : new RabbitActor(data, rng);
   }
 
-  static forest(kind: WildlifeKind, x: number, z: number, rng: Random): ForestAnimal {
-    return new this.wildlife[kind](x, z, rng);
+  static forest(
+    kind: WildlifeKind,
+    x: number,
+    z: number,
+    rng: Random,
+    appearance?: AppearanceOptions,
+  ): ForestAnimal {
+    return new this.wildlife[kind](x, z, rng, appearance ?? AnimalAppearance.seeded(kind, x, z));
   }
 }
 
-export const createPredatorActor = (kind: PredatorKind, x: number, z: number, rng: Random) =>
-  AnimalFactory.predator(kind, x, z, rng);
-export const createForestAnimal = (kind: WildlifeKind, x: number, z: number, rng: Random) =>
-  AnimalFactory.forest(kind, x, z, rng);
+export const createPredatorActor = (
+  kind: PredatorKind,
+  x: number,
+  z: number,
+  rng: Random,
+  appearance?: AppearanceOptions,
+) => AnimalFactory.predator(kind, x, z, rng, appearance);
+export const createForestAnimal = (
+  kind: WildlifeKind,
+  x: number,
+  z: number,
+  rng: Random,
+  appearance?: AppearanceOptions,
+) => AnimalFactory.forest(kind, x, z, rng, appearance);

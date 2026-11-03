@@ -2,6 +2,7 @@ import { RabbitFactory } from '../animals';
 import { type SaveData } from '../types';
 import { DEFAULT_GENES } from '../genetics/GeneticTraits';
 import { Genealogy } from '../genetics/Genealogy';
+import { RabbitConformation } from '../genetics/RabbitConformation';
 
 /** Создаёт начальное сохранение; не обращается к сцене, DOM и хранилищу браузера. */
 export class NewGameFactory {
@@ -16,7 +17,11 @@ export class NewGameFactory {
         x: 0,
         y: 0,
         z: 0,
-        genes: { ...DEFAULT_GENES, anatomy: { ...DEFAULT_GENES.anatomy } },
+        genes: {
+          ...DEFAULT_GENES,
+          anatomy: { ...DEFAULT_GENES.anatomy },
+          shape: { ...RabbitConformation.shape(DEFAULT_GENES) },
+        },
         lineage: Genealogy.founder('player:' + seed),
         hunger: 85,
         thirst: 85,

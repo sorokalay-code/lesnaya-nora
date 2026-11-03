@@ -16,6 +16,7 @@ import {
 } from '../animals';
 import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
+import { AnimalAppearance } from '../AnimalAppearance';
 
 /** Создаёт стартовую популяцию с сохранением порядка генерации случайных значений. */
 export class WorldPopulation {
@@ -115,15 +116,39 @@ export class WorldPopulation {
         z = tree.z;
       if (spiderHomes.some((home) => Math.hypot(home.x - x, home.z - z) < 16)) continue;
       spiderHomes.push({ x, z });
-      const spider = new Spider(x, z, spiderRandom);
+      const spider = new Spider(x, z, spiderRandom, AnimalAppearance.seeded('spider', x, z));
       spider.configureHabitat(tree, second, (x, z) => context.world.heightAt(x, z));
       this.predators.push(spider);
       context.scene.add(spider.root);
     }
+    const jumperRandom = new Random(context.save.seed + 11773),
+      jumperHomes: { x: number; z: number }[] = [];
+    for (
+      let attempt = 0;
+      attempt < 50 && jumperHomes.length < 2 && treeCandidates.length;
+      attempt++
+    ) {
+      const tree = jumperRandom.pick(treeCandidates);
+      if (
+        [...spiderHomes, ...jumperHomes].some(
+          (home) => Math.hypot(home.x - tree.x, home.z - tree.z) < 12,
+        )
+      )
+        continue;
+      const x = tree.x + 1.4,
+        z = tree.z + 0.8;
+      jumperHomes.push({ x, z });
+      const jumper = createPredatorActor('jumping-spider', x, z, jumperRandom);
+      jumper.root.position.y = context.world.heightAt(x, z);
+      this.predators.push(jumper);
+      context.scene.add(jumper.root);
+    }
     this.ecology = new WildlifeEcology(context.scene, context.world, context.rng, context.save);
     this.ecology.populate();
     this.wildlife = this.ecology.animals;
-    this.hawks = [[32, -30]].map(([x, z]) => new Hawk(x, z, context.rng));
+    this.hawks = [[32, -30]].map(
+      ([x, z]) => new Hawk(x, z, context.rng, AnimalAppearance.seeded('hawk', x, z)),
+    );
     for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
   }
 

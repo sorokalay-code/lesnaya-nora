@@ -37,11 +37,13 @@ export class PlayerConsequences {
                   ? 34
                   : kind === 'spider'
                     ? 6
-                    : kind === 'fanged-rabbit'
-                      ? 12
-                      : kind === 'snake'
-                        ? 8
-                        : 15) *
+                    : kind === 'jumping-spider'
+                      ? 7
+                      : kind === 'fanged-rabbit'
+                        ? 12
+                        : kind === 'snake'
+                          ? 8
+                          : 15) *
           0.8) /
           GeneticTraits.resilience(p.genes),
       0,
@@ -52,15 +54,17 @@ export class PlayerConsequences {
     p.energy = clamp(p.energy - (kind === 'spider' ? 2 : 13), 0, 100);
     this.context.sound.play('danger');
     this.context.toast(
-      kind === 'fanged-rabbit'
-        ? 'Клыкастый кролик атакует! Уйди в укрытие или оторвись от него.'
-        : kind === 'spider'
-          ? 'Паук укусил! Беги от него. Если лапы в паутине — нажимай E или «Вырваться».'
-          : `${kind === 'hawk' ? 'Сокол' : kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : kind === 'lynx' ? 'Рысь' : kind === 'weasel' ? 'Ласка' : kind === 'bear' ? 'Медведь' : kind === 'snake' ? 'Змея' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`,
+      kind === 'jumping-spider'
+        ? 'Паук-прыгун атакует! Увернись от следующего прыжка или спрячься.'
+        : kind === 'fanged-rabbit'
+          ? 'Клыкастый кролик атакует! Уйди в укрытие или оторвись от него.'
+          : kind === 'spider'
+            ? 'Паук укусил! Беги от него. Если лапы в паутине — нажимай E или «Вырваться».'
+            : `${kind === 'hawk' ? 'Сокол' : kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : kind === 'lynx' ? 'Рысь' : kind === 'weasel' ? 'Ласка' : kind === 'bear' ? 'Медведь' : kind === 'snake' ? 'Змея' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`,
     );
   }
 
-  threatenKits(predator: Predator): void {
+  threatenKits(predator: Predator, time = 0): void {
     if (predator.attackCooldown > 0 || !predator.canMelee) return;
 
     for (const nest of this.context.save.nests.filter(
@@ -75,6 +79,7 @@ export class PlayerConsequences {
 
       kit.health = clamp(kit.health - 24 * 0.8, 0, 100);
       predator.attackCooldown = 9;
+      predator.playAttack(time);
       this.context.sound.play('danger');
       this.context.toast(`Хищник нашёл наземное гнездо! ${kit.name} в опасности.`);
       return;

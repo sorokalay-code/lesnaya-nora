@@ -1,14 +1,17 @@
 import type { WildlifeKind } from './animals/types';
-import type { Anatomy, Lineage } from './genetics/types';
+import type { Anatomy, Lineage, RabbitShape } from './genetics/types';
+import type { AppearanceTraits } from './AnimalAppearance';
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
-export type PredatorKind = 'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake' | 'spider';
+export type PredatorKind =
+  'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake' | 'spider' | 'jumping-spider';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {
+  shape?: RabbitShape;
   coat: 'cream' | 'brown' | 'gray' | 'black' | 'white';
   ear: number;
   speed: number;
@@ -182,6 +185,7 @@ export interface WildlifeSocial {
 }
 
 export interface WildlifeData {
+  appearance?: AppearanceTraits;
   id: number;
   kind: WildlifeKind;
   x: number;

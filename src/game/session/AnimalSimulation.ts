@@ -12,6 +12,7 @@ import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
 import { FriendSignals } from './FriendSignals';
 import type { AnimalWasteSystem } from './AnimalWasteSystem';
+import type { AttackListener } from '../audio/AttackCue';
 import { RabbitPredation } from './RabbitPredation';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 
@@ -21,6 +22,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  attackSound?: AttackListener;
   family?: FamilyLifecycle;
   animalWaste?: AnimalWasteSystem;
   combatAllowed?: () => boolean;
@@ -144,7 +146,7 @@ export class AnimalSimulation {
       )
         this.context.consequences.predatorAttack(predator.kind);
 
-      if (combat) this.context.consequences.threatenKits(predator);
+      if (combat) this.context.consequences.threatenKits(predator, time);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     return closestThreat;

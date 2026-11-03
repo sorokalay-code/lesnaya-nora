@@ -32,17 +32,38 @@ function limb(parent: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, lo
 }
 
 /** Компактная модель паука с восемью шарнирными лапами и общей палитрой из трёх материалов. */
-export function createSpiderModel(low = false): THREE.Group {
+export function createSpiderModel(low = false, jumping = false): THREE.Group {
   const root = new THREE.Group();
   root.name = 'Spider';
   const body = new THREE.Group();
   body.name = 'SpiderBody';
   root.add(body);
-  ellipsoid(body, 'Abdomen', [0, 0.39, 0.26], [0.3, 0.27, 0.4], chitin, low);
+  ellipsoid(
+    body,
+    'Abdomen',
+    [0, 0.39, 0.26],
+    jumping ? [0.32, 0.28, 0.3] : [0.3, 0.27, 0.4],
+    chitin,
+    low,
+  );
   ellipsoid(body, 'Back', [0, 0.56, 0.32], [0.22, 0.11, 0.28], shell, low);
-  ellipsoid(body, 'Head', [0, 0.36, -0.3], [0.24, 0.2, 0.23], chitin, low);
+  ellipsoid(
+    body,
+    'Head',
+    [0, 0.36, -0.3],
+    jumping ? [0.29, 0.24, 0.25] : [0.24, 0.2, 0.23],
+    chitin,
+    low,
+  );
   for (const side of [-1, 1]) {
-    ellipsoid(body, `Eye${side}`, [side * 0.1, 0.42, -0.49], [0.058, 0.062, 0.03], amber, low);
+    ellipsoid(
+      body,
+      `Eye${side}`,
+      [side * 0.1, 0.42, -0.49],
+      jumping ? [0.085, 0.09, 0.045] : [0.058, 0.062, 0.03],
+      amber,
+      low,
+    );
     ellipsoid(body, `Fang${side}`, [side * 0.1, 0.26, -0.46], [0.045, 0.065, 0.075], shell, low);
     for (let index = 0; index < 4; index++) {
       const leg = new THREE.Group();
@@ -110,6 +131,40 @@ export function spiderClips(): THREE.AnimationClip[] {
             ],
           ),
         );
+        const name = `Leg${side}${index}`;
+        tracks.push(
+          new THREE.VectorKeyframeTrack(
+            name + '.position',
+            [0, duration / 4, duration / 2, (duration * 3) / 4, duration],
+            [
+              0,
+              0,
+              0,
+              0,
+              phase > 0 ? 0.075 : 0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              phase < 0 ? 0.075 : 0,
+              0,
+              0,
+              0,
+              0,
+            ].map(
+              (value, component) =>
+                value +
+                (component % 3 === 0
+                  ? side === 'L'
+                    ? -0.16
+                    : 0.16
+                  : component % 3 === 1
+                    ? 0.34
+                    : -0.28 + index * 0.18),
+            ),
+          ),
+        );
       }
     return tracks;
   };
@@ -117,8 +172,8 @@ export function spiderClips(): THREE.AnimationClip[] {
     new THREE.AnimationClip('idle', 2, [
       new THREE.VectorKeyframeTrack('SpiderBody.scale', [0, 1, 2], [1, 1, 1, 1, 1.035, 1, 1, 1, 1]),
     ]),
-    new THREE.AnimationClip('walk', 1, gait(0.2, 1)),
-    new THREE.AnimationClip('run', 0.55, gait(0.35, 0.55)),
+    new THREE.AnimationClip('walk', 1, gait(0.32, 1)),
+    new THREE.AnimationClip('run', 0.55, gait(0.48, 0.55)),
     new THREE.AnimationClip('spin', 1.5, gait(0.08, 1.5)),
     new THREE.AnimationClip('attack', 0.6, [
       ...gait(0.2, 0.6),
@@ -134,6 +189,36 @@ export function spiderClips(): THREE.AnimationClip[] {
       ),
     ]),
   ];
+}
+
+export function spiderJumpClip(low = false): THREE.AnimationClip {
+  if (low)
+    return new THREE.AnimationClip('jump', 0.66, [
+      new THREE.VectorKeyframeTrack(
+        'Spider.scale',
+        [0, 0.18, 0.4, 0.66],
+        [1, 1, 1, 1.05, 0.85, 1.05, 1, 1, 1, 1, 1, 1],
+      ),
+    ]);
+  return new THREE.AnimationClip(
+    'jump',
+    0.66,
+    ['L', 'R'].flatMap((side) =>
+      Array.from(
+        { length: 4 },
+        (_, index) =>
+          new THREE.QuaternionKeyframeTrack(
+            `Leg${side}${index}.quaternion`,
+            [0, 0.18, 0.4, 0.66],
+            [0, -0.5, 0.3, 0].flatMap((angle) =>
+              new THREE.Quaternion()
+                .setFromEuler(new THREE.Euler(angle * (index < 2 ? 1 : -1), 0, 0))
+                .toArray(),
+            ),
+          ),
+      ),
+    ),
+  );
 }
 
 /** Низкополигональные камни с общей геометрией корпуса и тонким слоем мха на верхних гранях. */

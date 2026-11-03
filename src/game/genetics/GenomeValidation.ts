@@ -29,6 +29,17 @@ export class GenomeValidation {
       if (!between(genes[key], 1, 5) || !Number.isInteger(genes[key])) return false;
     if (!genes.anatomy || typeof genes.anatomy !== 'object') return false;
     const anatomy = genes.anatomy as Record<string, unknown>;
+    if (genes.shape !== undefined) {
+      if (!genes.shape || typeof genes.shape !== 'object') return false;
+      const shape = genes.shape as Record<string, unknown>;
+      if (
+        !['earWidth', 'legLength', 'bodyWidth', 'bodyLength', 'headSize'].every((key) =>
+          between(shape[key], 0.75, 1.25),
+        ) ||
+        !between(shape.earBend, -0.2, 0.5)
+      )
+        return false;
+    }
     return (
       [anatomy.legs, anatomy.ears, anatomy.eyes].every(Number.isInteger) &&
       between(anatomy.legs, 0, 6) &&
