@@ -314,15 +314,16 @@ test('decorative rocks use tiny GLBs, share batches and respect chunk visibility
   assert.ok(visible > 0 && visible < batches.length);
 });
 
-test('escape requires fourteen distinct taps and ignores same-frame repeated events', () => {
+test('escape requires thirty distinct taps and ignores same-frame repeated events', () => {
   const escape = new WebEscape();
   assert.equal(escape.press(), false);
   for (let i = 0; i < 30; i++) escape.press();
   assert.equal(escape.hits, 1);
-  for (let i = 1; i < 14; i++) {
+  for (let i = 1; i < WebEscape.required; i++) {
     escape.update(0.12);
-    assert.equal(escape.press(), i === 13);
+    assert.equal(escape.press(), i === WebEscape.required - 1);
   }
+  assert.equal(escape.hits, WebEscape.required);
   escape.reset();
   assert.equal(escape.hits, 0);
 });

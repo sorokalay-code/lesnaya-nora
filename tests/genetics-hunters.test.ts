@@ -397,11 +397,11 @@ test('vertical web connects two trees, detects fast crossings and excludes unrel
 
 test('separate physical escape taps still count when rendering advances only a little simulation time', () => {
   const escape = new WebEscape();
-  for (let tap = 0; tap < 14; tap++) {
+  for (let tap = 0; tap < WebEscape.required; tap++) {
     escape.update(0.01);
-    assert.equal(escape.press(tap * 0.15), tap === 13);
+    assert.equal(escape.press(tap * 0.15), tap === WebEscape.required - 1);
   }
-  assert.equal(escape.hits, 14);
+  assert.equal(escape.hits, WebEscape.required);
 });
 
 test('spider waits on its host tree and descends visibly before it can bite', () => {
