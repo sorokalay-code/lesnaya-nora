@@ -2,8 +2,8 @@ import type { Object3D } from 'three';
 
 /** Временный запрет управления принадлежит самой модели; флаг не хранит ссылки на другие сессии. */
 export class AnimalRestraint {
-  static active(root: Object3D): boolean {
-    return root.userData?.hawkHeld === true;
+  static active(root?: Object3D): boolean {
+    return root?.userData?.hawkHeld === true;
   }
 
   static hold(root: Object3D): void {

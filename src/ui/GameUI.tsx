@@ -1,5 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { GameApp } from './components/GameApp';
+import { ConversationNavigation } from './ConversationNavigation';
 import { blockingPanelOpen, createUIStore, simulationPaused, socialDialogOpen } from './store';
 import type {
   DialogViewModel,
@@ -57,7 +58,15 @@ export class GameUI {
   }
 
   showDialog(dialog: DialogViewModel, focus: 'dialog' | 'message' = 'dialog') {
+    const sameSubject =
+      ConversationNavigation.subject(this.state.dialog) === ConversationNavigation.subject(dialog);
     this.store.setState({
+      conversationPage:
+        focus === 'message' && dialog.type === 'mate'
+          ? 'chat'
+          : sameSubject
+            ? this.state.conversationPage
+            : 'overview',
       dialog: structuredClone(dialog),
       journal: undefined,
       gameMenu: undefined,
@@ -70,7 +79,18 @@ export class GameUI {
   }
 
   closeDialog() {
-    this.store.setState({ dialog: undefined });
+    this.store.setState({ dialog: undefined, conversationPage: 'overview' });
+  }
+
+  openDialogPage(page: string): void {
+    if (!this.state.dialog || !ConversationNavigation.allows(this.state.dialog, page)) return;
+    this.store.setState({
+      conversationPage: page,
+      focus: {
+        target: page === 'chat' ? 'message' : 'dialog',
+        revision: this.state.focus.revision + 1,
+      },
+    });
   }
 
   showJournal(journal: JournalViewModel) {
@@ -108,6 +128,10 @@ export class GameUI {
   }
 
   focusMessage() {
+    if (this.state.dialog?.type === 'mate') {
+      this.openDialogPage('chat');
+      return;
+    }
     this.store.setState({ focus: { target: 'message', revision: this.state.focus.revision + 1 } });
   }
 

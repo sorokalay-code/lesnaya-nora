@@ -13,8 +13,8 @@ export function WebNotice({ web, touch }: { web?: WebView; touch: boolean }) {
       <progress max={web.required} value={web.hits} />
       <small>
         {web.danger
-          ? 'Паук нападает — продолжай вырываться!'
-          : `До приближения паука: ${web.seconds} с`}
+          ? 'Паук уже на земле — продолжай вырываться!'
+          : `Паук спускается с дерева: около ${web.seconds} с`}
       </small>
     </aside>
   );

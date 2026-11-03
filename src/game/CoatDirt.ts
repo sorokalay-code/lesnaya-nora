@@ -12,6 +12,10 @@ interface CoatState {
 export class CoatDirt {
   private static readonly states = new WeakMap<RabbitRig, CoatState>();
 
+  static forget(rig: RabbitRig): void {
+    this.states.delete(rig);
+  }
+
   static update(rig: RabbitRig, value: number): void {
     const step = Math.max(0, Math.min(100, Math.round(value)));
     let state = this.states.get(rig);

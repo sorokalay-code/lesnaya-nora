@@ -31,6 +31,11 @@ export class PlayerMovement {
     return this.earth.isSheltered(p.x, p.y, p.z);
   }
 
+  reset(): void {
+    this.jump.cancel();
+    this.nextJumpAt = 0;
+  }
+
   requestJump(elapsed: number): boolean {
     const p = this.player.data;
     if (

@@ -12,6 +12,10 @@ interface GaitState {
 export class RabbitGait {
   private static readonly states = new WeakMap<Object3D, GaitState>();
 
+  static reset(root: Object3D): void {
+    this.states.delete(root);
+  }
+
   static update(
     root: Object3D,
     moving: boolean,

@@ -244,6 +244,24 @@ export class ModelAssets {
     return instance;
   }
 
+  replace<T extends ModelInstance>(instance: T, replacement: T): void {
+    const root = instance.root;
+    this.release(root);
+    this.actors.delete(replacement);
+    root.clear();
+    root.scale.copy(replacement.root.scale);
+    root.userData = replacement.root.userData;
+    root.add(...replacement.root.children.slice());
+    // Корень и объект рига сохраняют идентичность для всех сервисов; LOD и микшеры принадлежат новым детям.
+    delete instance.active;
+    delete instance.activeName;
+    delete instance.selectedVariant;
+    delete instance.pendingTime;
+    delete instance.mixer;
+    Object.assign(instance, replacement, { root });
+    this.actors.add(instance);
+  }
+
   updateView(camera: THREE.Camera): void {
     camera.updateMatrixWorld();
     camera.getWorldPosition(this.cameraPosition);

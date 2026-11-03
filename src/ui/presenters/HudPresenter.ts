@@ -4,6 +4,7 @@ import type { ForestAnimal } from '../../game/animals';
 import { animalNames } from '../../game/animals/names';
 import type { Excavation } from '../../game/Excavation';
 import { FamilyCare } from '../../game/FamilyCare';
+import { RabbitFamily } from '../../game/session/RabbitFamily';
 import type { GroundPickup } from '../../game/GroundItems';
 import type { FoodStore, SeasonSystem } from '../../game/systems';
 import {
@@ -90,6 +91,16 @@ export class HudPresenter {
       icon,
     });
     return {
+      playerName: p.name,
+      familyCount: save.kits.filter((k) => k.alive && k.health > 0).length,
+      lineageMembers: save.kits
+        .filter((k) => k.alive && k.health > 0 && k.age >= 3 && RabbitFamily.sex(k) === 'female')
+        .map((k) => ({
+          id: k.id,
+          name: k.name,
+          relationship: RabbitFamily.relationship(save, k),
+          generation: k.lineage?.generation ?? 1,
+        })),
       nearbyShelter: {
         stash: stash ? { items: stashItemCount(stash) } : undefined,
         nest: nest ? { occupied: nestHasKits(save, nest) } : undefined,

@@ -148,6 +148,22 @@ test('сокол охотится на мелких соседей, кабана
   assert.equal(covered.save.player.health, 100);
 });
 
+test('смена героини отменяет охоту на удалённый NPC до захвата', () => {
+  const s = scenario();
+  s.save.player.x = 60;
+  s.player.root.position.x = 60;
+  const squirrel = AnimalFactory.forest('squirrel', 0, 0, new Random(8));
+  const context = { ...s.context, wildlife: [squirrel] };
+  const hunting = new HawkHunting(context);
+  hunting.update(0.1, 0.1, true);
+  context.wildlife.length = 0;
+  hunting.resetTargets();
+  for (let t = 0.2; t < 5; t += 0.05) hunting.update(0.05, t, true);
+  assert.equal(AnimalRestraint.active(squirrel.root), false);
+  assert.equal(squirrel.health, squirrel.maxHealth);
+  assert.equal(hunting.busy, false);
+});
+
 test('падение использует высоту места приземления, а не точки захвата', () => {
   const carry = new HawkCarry({ x: 0, y: 3, z: 0 }, 0, 0.8);
   let result = carry.update(0, () => 0);

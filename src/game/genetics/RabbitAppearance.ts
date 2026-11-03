@@ -11,6 +11,12 @@ const EYES = { brown: 0x674323, amber: 0xb28a29, blue: 0x608bba, green: 0x6b9452
 export class RabbitAppearance {
   private static readonly extras = new WeakMap<THREE.Object3D, ExtraPart[]>();
 
+  static rebind(source: THREE.Object3D, target: THREE.Object3D): void {
+    // При смене героини сохраняется корень игрока, а ссылки дополнительных суставов принадлежат новому ригу.
+    this.extras.set(target, this.extras.get(source) ?? []);
+    this.extras.delete(source);
+  }
+
   static apply(model: ModelInstance, genes: Genes): void {
     const extras: ExtraPart[] = [];
     for (const variant of model.variants ?? [model]) {

@@ -4,7 +4,8 @@ import { GeneticsPanel } from './GeneticsPanel';
 import type { DialogViewModel, UIAction } from '../types';
 
 import type { ReactNode } from 'react';
-import { animalNames } from '../../game/animals/names';
+import { ConversationView } from './conversation/ConversationView';
+import type { ConversationPage } from '../ConversationNavigation';
 const coatName = (coat: string) =>
   ({ cream: 'кремовый', brown: 'каштановый', gray: 'серый', black: 'чёрный', white: 'белый' })[
     coat
@@ -64,12 +65,21 @@ export function DialogView({
   onAction,
   message,
   onMessage,
+  page = 'overview',
 }: {
   data: DialogViewModel;
+  page?: ConversationPage;
   onAction: UIAction;
   message: string;
   onMessage: (value: string) => void;
 }) {
+  if (
+    data.type === 'mate' ||
+    data.type === 'partner' ||
+    data.type === 'kit' ||
+    data.type === 'animal'
+  )
+    return <ConversationView {...{ data, page, onAction, message, onMessage }} />;
   const choice = (action: string, label: string, primary = false) => (
     <Choice key={action} action={action} primary={primary} onAction={onAction}>
       {label}
@@ -137,221 +147,6 @@ export function DialogView({
               ? 'Ты ждёшь крольчат. Для родов нужно гнездо внутри выкопанной земли.'
               : 'Лес полон тропинок и новых встреч.'}
           </p>
-        </>
-      );
-    case 'mate': {
-      const commands = [
-        ['follow', 'Иди за мной'],
-        ['stay', 'Жди здесь'],
-        ['forage', 'Найди припасы для тайника'],
-        ['home', 'Вернись домой'],
-      ] as const;
-      return (
-        <>
-          <Heading eyebrow="МОЯ СЕМЬЯ" title={data.partner.name} onAction={onAction} />
-          <GeneticsPanel data={data.genetics} />
-          <p className="dialog-shortcuts">
-            1–4 — приказы · Enter — написать · Esc — вернуться в лес
-          </p>
-          <p className="dialog-meta">
-            Партнёр · {data.partner.temperament} · доверие {fmt(data.partner.trust)}/100
-          </p>
-          <p className="speech">«Я рядом. Скажи, чем помочь нашей семье.»</p>
-          <div className="dialog-choices">
-            {commands.map(([command, label], index) => (
-              <Choice
-                key={command}
-                action={`mate-command:${command}`}
-                onAction={onAction}
-                primary={data.command === command}
-                pressed={data.command === command}
-              >
-                <kbd>{index + 1}</kbd> {label}
-              </Choice>
-            ))}
-            {choice('mate-talk', 'Поговорить о семье')}
-            {choice(
-              'mate-groom',
-              `Почистить шерсть · чистота ${Math.round(100 - (data.partner.dirtiness ?? 0))}%`,
-            )}
-          </div>
-          <div className="mate-chat" role="log">
-            {data.messages.slice(-6).map((entry, index) => (
-              <p key={`${entry.clock}-${index}`}>
-                <b>{entry.from === 'player' ? 'Ты' : data.partner.name}:</b> {entry.text}
-              </p>
-            ))}
-          </div>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              onAction('mate-send');
-            }}
-          >
-            <input
-              id="mate-message"
-              className="mate-message"
-              value={message}
-              onChange={(event) => onMessage(event.target.value)}
-              maxLength={120}
-              placeholder="Написать партнёру..."
-              aria-label="Сообщение партнёру"
-            />
-            <div className="dialog-choices">
-              <button type="submit" data-action="mate-send">
-                Передать сообщение ↵ Enter
-              </button>
-            </div>
-          </form>
-        </>
-      );
-    }
-    case 'partner': {
-      const p = data.partner,
-        preference = {
-          speed: 'быстроту',
-          vitality: 'здоровье',
-          'rare-coat': 'редкий окрас',
-          bond: 'близость и доверие',
-        }[p.preference];
-      return (
-        <>
-          <Heading eyebrow="ЛЕСНОЙ РАЗГОВОР" title={p.name} onAction={onAction} />
-          <GeneticsPanel data={data.genetics} />
-          <p className="speech">
-            «
-            {data.line ??
-              (data.paired
-                ? 'Я вернулся домой. Рад тебя видеть!'
-                : p.temperament === 'осторожный'
-                  ? 'Сначала давай узнаем друг друга получше.'
-                  : 'Рад тебя видеть! Что хочешь узнать?')}
-            »
-          </p>
-          <p className="dialog-meta">
-            {data.paired ? 'Твой партнёр · ' : ''}
-            {p.temperament} крол · семья: {p.familySize} · ценит {preference}
-          </p>
-          <div className="gene-list">
-            <span>Окрас: {coatName(p.genes.coat)}</span>
-            <span>Скорость: {'◆'.repeat(p.genes.speed)}</span>
-            <span>Здоровье: {'◆'.repeat(p.genes.vitality)}</span>
-            <span>Доверие: {fmt(p.trust)}/100</span>
-            <span>Совместимость: {fmt(data.score)}/100</span>
-          </div>
-          <div className="dialog-choices">
-            {data.question && (
-              <>
-                <p className="speech">{data.question.prompt}</p>
-                {data.question.choices.map(({ action, label }) => choice(action, label))}
-              </>
-            )}
-            {choice('rabbit-question', 'Теперь твоя очередь: что хочешь спросить?')}
-            {choice('ask-home', 'Как живёт твоя семья?')}
-            {choice('ask-food', 'Где искать еду и воду?')}
-            {choice('ask-danger', 'Чего ты опасаешься?')}
-            {choice('compliment', 'Ты мне нравишься')}
-            {choice('gift', 'Подарить еду')}
-            {choice(
-              'court',
-              data.paired ? 'Планировать новых крольчат' : 'Предложить создать семью',
-              true,
-            )}
-            {data.paired && (
-              <>
-                {choice('mate-panel', 'Приказы и сообщения')}
-                {choice('divorce', 'Разойтись')}
-              </>
-            )}
-          </div>
-        </>
-      );
-    }
-    case 'kit':
-      return (
-        <>
-          <Heading eyebrow="МОЯ СЕМЬЯ" title={data.kit.name} onAction={onAction} />
-          <GeneticsPanel data={data.genetics} />
-          <p className="speech">
-            «
-            {data.line ??
-              (data.kit.age < 3
-                ? 'Мама, побудь со мной!'
-                : 'Я уже вырос, но мне всё ещё хорошо рядом с тобой.')}
-            »
-          </p>
-          <p className="dialog-meta">
-            {data.kit.age < 3 ? 'Твой крольчонок' : 'Твой взрослый ребёнок · живёт самостоятельно'}{' '}
-            · сытость {fmt(data.kit.hunger)}% · здоровье {fmt(data.kit.health)}%
-          </p>
-          <div className="dialog-choices">
-            {choice(
-              'child-groom',
-              `Почистить шерсть · чистота ${Math.round(100 - (data.kit.dirtiness ?? 0))}%`,
-            )}
-            {data.kit.age < 3 ? (
-              <>
-                {choice('child-follow', 'Иди за мной')}
-                {choice('child-stay', 'Жди здесь')}
-                {choice('child-rest', 'Отдыхай в гнезде')}
-              </>
-            ) : (
-              <>
-                {choice('child-news', 'Как твоя самостоятельная жизнь?')}
-                {choice('child-family', 'Вспомнить наше гнездо')}
-              </>
-            )}
-          </div>
-        </>
-      );
-    case 'animal':
-      return (
-        <>
-          <Heading eyebrow="ВСТРЕЧА В ЛЕСУ" title={animalNames[data.kind]} onAction={onAction} />
-          <p className="speech">
-            «
-            {data.line ??
-              {
-                deer: 'Я прислушиваюсь к лесу. Если хрустнет ветка — лучше отойти.',
-                squirrel: 'Сегодня ищу орехи и молодые побеги.',
-                hedgehog: 'Иду не спеша. Лес большой, торопиться некуда.',
-                beaver: 'Вода рядом — значит, дом недалеко.',
-                moose: 'Я спокойно пасусь. Не пугай малышей в лесу.',
-                boar: 'Под листвой столько вкусного. Я тебя не трону, если ты не нападаешь.',
-              }[data.kind]}
-            »
-          </p>
-          <p className="dialog-meta">
-            {data.mood} · здоровье {fmt(data.health)}/{fmt(data.maxHealth)} · доверие{' '}
-            {fmt(data.trust)}/100
-          </p>
-          {data.conversation && (
-            <>
-              <p className="friendship-label">♡ {data.conversation.relationship}</p>
-              <p className="dialog-meta">{data.conversation.benefit}</p>
-              {data.conversation.question && <p className="speech">{data.conversation.question}</p>}
-            </>
-          )}
-          <div className="dialog-choices">
-            {data.conversation?.question ? (
-              data.conversation.choices.map(({ action, label }) => choice(action, label))
-            ) : (
-              <>
-                {choice('animal-observe', 'Как проходит твой день?')}
-                {choice('animal-question', 'Хочешь о чём-нибудь спросить?')}
-                {choice('animal-danger', 'Что тебя тревожит в лесу?')}
-                {choice('animal-path', 'Покажи место с едой на карте')}
-                {choice(
-                  'animal-food',
-                  data.kind === 'beaver' ? 'Подарить веточку' : 'Угостить едой',
-                )}
-                {choice('animal-help', 'Попросить припас у друга')}
-              </>
-            )}
-          </div>
-          <small className="dialog-meta">
-            Лес живёт, но во время разговора животные не нападают. Esc — закончить беседу.
-          </small>
         </>
       );
     case 'bag':

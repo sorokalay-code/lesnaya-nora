@@ -1,3 +1,4 @@
+import { RabbitFamily, FEMALE_KIT_NAMES, MALE_KIT_NAMES } from './RabbitFamily';
 import { KitMovement } from './KitMovement';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { Genealogy } from '../genetics/Genealogy';
@@ -14,17 +15,6 @@ import { Random } from '../Random';
 import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-const femaleNames = [
-  'Искорка',
-  'Лапка',
-  'Ромашка',
-  'Звёздочка',
-  'Берёзка',
-  'Снежка',
-  'Брусничка',
-  'Ива',
-];
-const maleNames = ['Клевер', 'Шорох', 'Орешек', 'Лучик', 'Пушок', 'Ветерок', 'Туман', 'Листик'];
 interface FamilyContext {
   save: SaveData;
   scene: THREE.Scene;
@@ -137,7 +127,9 @@ export class FamilyLifecycle {
         kit.nestId = undefined;
         this.context.sound.play('baby');
         this.context.toast(
-          `${kit.name} вырос${kit.name.endsWith('а') ? 'ла' : ''} и отправился жить самостоятельно.`,
+          RabbitFamily.sex(kit) === 'female'
+            ? `${kit.name} выросла и живёт самостоятельно. В панели «Семья» можно продолжить историю за неё.`
+            : `${kit.name} вырос и отправился жить самостоятельно.`,
         );
       }
 
@@ -207,11 +199,13 @@ export class FamilyLifecycle {
 
     const home = nest;
     for (let i = 0; i < count; i++) {
-      const id = Math.max(0, ...this.context.save.kits.map((k) => k.id)) + 1;
-      const name = this.context.rng.pick(this.context.rng.chance(0.5) ? femaleNames : maleNames);
+      const id = RabbitFamily.nextId(this.context.save);
+      const sex = this.context.rng.chance(0.5) ? 'female' : 'male';
+      const name = this.context.rng.pick(sex === 'female' ? FEMALE_KIT_NAMES : MALE_KIT_NAMES);
       const kit: KitData = {
         id,
         name,
+        sex,
         genes: this.context.genetics.inherit(
           this.context.save.player.genes,
           father.genes,
@@ -219,7 +213,7 @@ export class FamilyLifecycle {
         ),
         lineage: Genealogy.child('child:' + this.context.save.seed + ':' + id, [
           {
-            name: 'Мама',
+            name: this.context.save.player.name ?? 'Мама',
             lineage:
               this.context.save.player.lineage ??
               Genealogy.founder('player:' + this.context.save.seed),

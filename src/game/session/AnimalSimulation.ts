@@ -83,6 +83,10 @@ export class AnimalSimulation {
     return this.hawkHunting.busy;
   }
 
+  avatarChanged(): void {
+    this.hawkHunting.resetTargets();
+  }
+
   get airliftView() {
     return this.hawkHunting.playerView;
   }

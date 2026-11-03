@@ -20,6 +20,9 @@ export interface PromptPart {
   text: string;
 }
 export interface HudView {
+  playerName?: string;
+  familyCount?: number;
+  lineageMembers?: { id: number; name: string; relationship: string; generation: number }[];
   airlift?: import('../game/session/HawkHunting').AirliftView;
   web?: WebView;
   nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
@@ -61,9 +64,16 @@ export type DialogViewModel = (
       paired: boolean;
       question?: DialogQuestion;
     }
-  | { type: 'kit'; kit: KitData; line?: string }
+  | {
+      type: 'kit';
+      kit: KitData;
+      line?: string;
+      relationship?: string;
+      succession?: import('../game/session/LineageSuccession').SuccessionOffer;
+    }
   | {
       type: 'animal';
+      id?: number;
       conversation?: ConversationTurn;
       kind: WildlifeKind;
       mood: string;

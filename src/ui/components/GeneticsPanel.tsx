@@ -1,11 +1,22 @@
 import type { GeneticsView } from '../presenters/GeneticsPresenter';
 
 /** Раскрываемая карточка генов и известных предков не загромождает обычный разговор. */
-export function GeneticsPanel({ data }: { data?: GeneticsView }) {
+export function GeneticsPanel({
+  data,
+  expanded = false,
+}: {
+  data?: GeneticsView;
+  expanded?: boolean;
+}) {
   if (!data) return null;
+  const Container = expanded ? 'section' : 'details';
   return (
-    <details className="genetics-panel">
-      <summary>Гены и родословная · поколение {data.generation}</summary>
+    <Container className="genetics-panel">
+      {expanded ? (
+        <h3>Гены и родословная · поколение {data.generation}</h3>
+      ) : (
+        <summary>Гены и родословная · поколение {data.generation}</summary>
+      )}
       <p>{data.appearance}</p>
       <div className="gene-list">
         {data.ratings.map((value) => (
@@ -46,6 +57,6 @@ export function GeneticsPanel({ data }: { data?: GeneticsView }) {
       <small>
         Здесь действуют игровые правила наследования. Взросление само по себе не меняет поколение.
       </small>
-    </details>
+    </Container>
   );
 }

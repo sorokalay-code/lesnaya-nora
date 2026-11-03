@@ -49,6 +49,11 @@ export interface PartnerTraits {
 }
 
 export interface KitData {
+  sex?: 'female' | 'male';
+  condition?: Pick<
+    SaveData['player'],
+    'thirst' | 'bodyTemp' | 'energy' | 'bladder' | 'bowel' | 'poison' | 'milk'
+  >;
   lineage?: Lineage;
   dirtiness?: number;
   nextMealAt?: number;
@@ -122,6 +127,8 @@ export interface SaveData {
   clock: number;
   day: number;
   player: {
+    name?: string;
+    originKitId?: number;
     lineage?: Lineage;
     x: number;
     y: number;

@@ -292,22 +292,26 @@ test('partner panel exposes commands and escapes typed messages', () => {
   const data = save();
   data.mateId = 1;
   data.mateMessages = [{ from: 'player', text: '<script>hello</script>', clock: 420 }];
-  const html = renderToStaticMarkup(
-    createElement(DialogView, {
-      data: {
-        type: 'mate',
-        partner,
-        command: data.mateCommand ?? 'forage',
-        messages: data.mateMessages ?? [],
-      },
-      message: '',
-      onMessage: () => {},
-      onAction: () => {},
-    }),
-  );
-  assert.match(html, /mate-command:follow/);
-  assert.match(html, /mate-command:stay/);
-  assert.match(html, /mate-command:forage/);
+  const render = (page: 'commands' | 'chat') =>
+    renderToStaticMarkup(
+      createElement(DialogView, {
+        data: {
+          type: 'mate',
+          partner,
+          command: data.mateCommand ?? 'forage',
+          messages: data.mateMessages ?? [],
+        },
+        page,
+        message: '',
+        onMessage: () => {},
+        onAction: () => {},
+      }),
+    );
+  const commands = render('commands'),
+    html = render('chat');
+  assert.match(commands, /mate-command:follow/);
+  assert.match(commands, /mate-command:stay/);
+  assert.match(commands, /mate-command:forage/);
   assert.match(html, /mate-send/);
   assert.match(html, /&lt;script&gt;hello&lt;\/script&gt;/);
   assert.equal(html.includes('<script>'), false);

@@ -50,6 +50,10 @@ export class Spider extends Predator {
     return this.height <= 0;
   }
 
+  get descentSeconds(): number {
+    return this.height / 1.6;
+  }
+
   alert(time: number): void {
     this.alertedUntil = time + 3;
     this.descend(time);

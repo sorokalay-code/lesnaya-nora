@@ -28,7 +28,6 @@ export class SpiderEncounter {
   private readonly entries: Entry[];
   private readonly escape = new WebEscape();
   private active?: Entry;
-  private warned = false;
   private previous?: { x: number; y: number; z: number };
 
   constructor(private readonly context: Context) {
@@ -47,13 +46,18 @@ export class SpiderEncounter {
     return this.active !== undefined;
   }
 
+  resetTraversal(): void {
+    // Передача управления — смена тела, а не движение сквозь все паутины между двумя крольчихами.
+    this.previous = undefined;
+  }
+
   view(): WebView | undefined {
     return this.active
       ? {
           hits: this.escape.hits,
           required: WebEscape.required,
-          seconds: Math.max(0, Math.ceil(WebEscape.grace - this.escape.elapsed)),
-          danger: this.escape.elapsed >= WebEscape.grace,
+          seconds: Math.ceil(this.active.spider.descentSeconds),
+          danger: this.active.spider.descentSeconds <= 0,
         }
       : undefined;
   }
@@ -87,20 +91,15 @@ export class SpiderEncounter {
       );
       if (this.active) {
         this.escape.reset();
-        this.warned = false;
-        this.context.toast('Лапы запутались в паутине! Быстро нажимай E или кнопку «Вырваться».');
+        this.active.spider.alert(time);
+        this.context.toast(
+          'Лапы запутались в паутине! Паук сразу спускается к тебе. Быстро нажимай E или «Вырваться».',
+        );
       }
     }
     if (!this.active) return;
-    this.active.spider.descend(time);
+    this.active.spider.alert(time);
     this.escape.update(dt);
-    if (this.escape.elapsed >= WebEscape.grace) {
-      this.active.spider.alert(time);
-      if (!this.warned) {
-        this.warned = true;
-        this.context.toast('Паук спустился с дерева и приближается. Продолжай вырываться!');
-      }
-    }
   }
 
   struggle(): void {

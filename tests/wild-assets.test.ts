@@ -359,29 +359,53 @@ function encounter() {
   return { save, scene, player, spider, lines, traps };
 }
 
-test('web gives a grace period, pauses for conversations and calls its spider only at the deadline', () => {
+test('web immediately calls its spider down and dialogue still forbids bites', () => {
   const { traps, spider, lines } = encounter();
+  spider.configureHabitat({ x: 0, z: 0 }, { x: 4, z: 0 }, () => 0);
+  const perch = spider.root.position.y;
   traps.update(0.1, 1, false);
   assert.equal(traps.trapped, false);
   traps.update(0.1, 1.1, true);
   assert.equal(traps.trapped, true);
-  traps.update(9, 10.1, false);
   assert.equal(traps.view()!.danger, false);
   assert.equal(
-    spider.update(0.1, 10.1, 0.8, 0, false, true, () => 0),
+    spider.update(0.1, 1.1, 0.8, 0, false, true, () => 0),
     false,
   );
-  traps.update(8, 18.1, true);
+  assert.ok(spider.huntingPlayer);
+  assert.ok(spider.root.position.y < perch);
+  traps.update(0.1, 1.2, false);
+  assert.equal(
+    spider.update(0.1, 1.2, 0.8, 0, true, true, () => 0),
+    false,
+  );
+  let attacked = false;
+  for (let t = 1.3; t < 5; t += 0.1) {
+    traps.update(0.1, t, true);
+    if (spider.update(0.1, t, 0.8, 0, false, true, () => 0)) {
+      assert.equal(spider.root.position.y, 0);
+      attacked = true;
+      break;
+    }
+  }
+  assert.ok(attacked, 'укус доступен после фактического спуска, без ожидания восьми секунд');
   assert.equal(traps.view()!.danger, true);
   assert.equal(
-    spider.update(0.1, 18.1, 0.8, 0, false, true, () => 0),
-    true,
-  );
-  assert.equal(
-    spider.update(0.1, 18.2, 0.8, 0, false, true, () => 0),
+    spider.update(0.1, 5, 0.8, 0, false, true, () => 0),
     false,
   );
-  assert.equal(lines.filter((line) => line.includes('приближается')).length, 1);
+  assert.equal(lines.filter((line) => line.includes('сразу спускается')).length, 1);
+});
+
+test('смена тела не считается перемещением через паутину между двумя точками', () => {
+  const { traps, save } = encounter();
+  save.player.z = -3;
+  traps.update(0.1, 1, true);
+  assert.equal(traps.trapped, false);
+  save.player.z = 3;
+  traps.resetTraversal();
+  traps.update(0.1, 1.1, true);
+  assert.equal(traps.trapped, false);
 });
 
 test('escaping breaks the web for four game hours and dead owners release the player', () => {

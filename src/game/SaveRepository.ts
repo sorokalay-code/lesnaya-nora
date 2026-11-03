@@ -43,6 +43,22 @@ export class SaveRepository {
     )
       throw new Error('Сохранение содержит неполные или повреждённые гены. Начни новую историю.');
 
+    if (
+      (data.player.originKitId !== undefined &&
+        (!Number.isSafeInteger(data.player.originKitId) || data.player.originKitId < 1)) ||
+      data.kits.some(
+        (kit) =>
+          (kit.sex !== undefined && kit.sex !== 'female' && kit.sex !== 'male') ||
+          (kit.condition !== undefined &&
+            (!kit.condition ||
+              typeof kit.condition !== 'object' ||
+              !['thirst', 'bodyTemp', 'energy', 'bladder', 'bowel', 'poison', 'milk'].every((key) =>
+                Number.isFinite(kit.condition?.[key as keyof NonNullable<typeof kit.condition>]),
+              ))),
+      )
+    )
+      throw new Error('Сохранение содержит повреждённое состояние семейной линии.');
+
     return data;
   }
 }

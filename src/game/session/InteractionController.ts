@@ -15,8 +15,11 @@ import { RabbitConversation } from './RabbitConversation';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
+import type { LineageSuccession } from './LineageSuccession';
+import { RabbitFamily } from './RabbitFamily';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface InteractionContext {
+  succession?: LineageSuccession;
   save: SaveData;
   ui: GameUI;
   view: ViewCamera;
@@ -336,6 +339,8 @@ export class InteractionController {
     this.context.ui.showDialog({
       type: 'kit',
       kit,
+      relationship: RabbitFamily.relationship(this.context.save, kit),
+      succession: this.context.succession?.offer(kit),
       line,
       genetics: GeneticsPresenter.build(kit.genes, kit.lineage),
     });
@@ -353,8 +358,8 @@ export class InteractionController {
       this.openKit(
         kit,
         action === 'child-news'
-          ? 'Мама, я уже живу самостоятельно. Помню наше гнездо и всегда рад тебя видеть.'
-          : 'У меня всё хорошо. Я помню, как ты заботилась обо мне!',
+          ? 'Я живу самостоятельно, ищу еду и исследую лес. Как хорошо снова встретиться!'
+          : 'Наша семья многое пережила. Хорошо, что мы заботимся друг о друге!',
       );
       return;
     }
@@ -382,6 +387,11 @@ export class InteractionController {
     );
   }
 
+  continueLineage(): void {
+    if (!this.dialogKit) return;
+    this.context.succession?.switchTo(this.dialogKit.id);
+  }
+
   openAnimal(animal: ForestAnimal, line?: string): void {
     if (AnimalRestraint.active(animal.root)) return;
     this.context.resetInput();
@@ -391,6 +401,7 @@ export class InteractionController {
     this.context.view.unlock();
     this.context.ui.showDialog({
       type: 'animal',
+      id: animal.socialId,
       kind: animal.kind,
       mood: animal.mood,
       health: animal.health,

@@ -5,6 +5,7 @@ import { GameUI } from '../ui/GameUI';
 import { Soundscape } from './Audio';
 import { AttackSounds } from './audio/AttackSounds';
 import { AnimalRestraint } from './animals/AnimalRestraint';
+import { LineageSuccession } from './session/LineageSuccession';
 import { Excavation } from './Excavation';
 import { ExcavationTraffic } from './ExcavationTraffic';
 import { FamilyCare } from './FamilyCare';
@@ -379,6 +380,29 @@ export class Game {
       makeWaste: (kind) => this.consequences.makeWaste(kind),
     });
     this.interactions = new InteractionController({
+      succession: new LineageSuccession({
+        save: this.save,
+        player: this.playerActor,
+        family: this.family,
+        earth: this.earth,
+        safe: () => !this.web.trapped && !this.animals?.hasCaptures,
+        toast: (text) => this.toast(text),
+        changed: (previousMate) => {
+          const mate = this.rabbits.find((r) => r.data.id === previousMate);
+          if (mate) this.decorations.markPartner(mate, false);
+          this.animalState.mating = undefined;
+          this.movement.reset();
+          this.web.resetTraversal();
+          this.animals.avatarChanged();
+          this.interactions.clearSelection();
+          this.ui.closePanels();
+          this.ui.clearMessage();
+          this.input.clear();
+          this.sessionUI.updateHud();
+          this.sessionUI.persist(false);
+          this.view.lock();
+        },
+      }),
       save: this.save,
       ui: this.ui,
       view: this.view,

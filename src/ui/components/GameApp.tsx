@@ -86,7 +86,7 @@ function Toolbar() {
         <button className="avatar-chip" onClick={() => dispatch('self-profile')}>
           <span className="avatar-face">🐰</span>
           <span>
-            Ты <small>крольчиха</small>
+            {hud?.playerName ?? 'Ты'} <small>крольчиха</small>
           </span>
         </button>
         <button
@@ -139,6 +139,24 @@ function Hud() {
             </small>
           </div>
         ))}
+        {!!hud.lineageMembers?.length && (
+          <>
+            <h3>Продолжить линию</h3>
+            <p>Выбери взрослую крольчиху, чтобы посмотреть гены или играть за неё.</p>
+            {hud.lineageMembers.map((member) => (
+              <button
+                className="lineage-member"
+                key={member.id}
+                onClick={() => dispatch('family-member:' + member.id)}
+              >
+                <b>♀ {member.name}</b>
+                <small>
+                  {member.relationship} · поколение {member.generation} ›
+                </small>
+              </button>
+            ))}
+          </>
+        )}
       </div>
       <button
         className="status-toggle"
@@ -174,7 +192,7 @@ function Hud() {
         aria-expanded={familyOpen}
         onClick={() => dispatch('family-panel')}
       >
-        🐇 Семья · {hud.young.length} {familyOpen ? '×' : '▾'}
+        🐇 Семья · {hud.familyCount ?? hud.young.length} {familyOpen ? '×' : '▾'}
       </button>
       <div className="hud">
         <div className="status-card">
@@ -250,6 +268,7 @@ function Panels() {
     dialog = useUI((state) => state.dialog),
     journal = useUI((state) => state.journal),
     message = useUI((state) => state.message),
+    page = useUI((state) => state.conversationPage),
     focus = useUI((state) => state.focus);
   const panel = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -263,7 +282,10 @@ function Panels() {
 
     const chat = panel.current?.querySelector('.mate-chat');
     if (chat) chat.scrollTop = chat.scrollHeight;
-  }, [dialog, focus]);
+  }, [dialog, focus, page]);
+  useLayoutEffect(() => {
+    if (panel.current) panel.current.scrollTop = 0;
+  }, [page]);
   return (
     <>
       {dialog?.type === 'remove' && <div className="confirmation-backdrop" />}
@@ -275,11 +297,12 @@ function Panels() {
         aria-modal="true"
         onKeyDown={trapDialogFocus}
         aria-label="Общение"
-        className={`dialog-panel ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog ? '' : 'hidden'}`}
+        className={`dialog-panel ${dialog && ['animal', 'partner', 'mate', 'kit'].includes(dialog.type) ? 'conversation-panel' : ''} ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog ? '' : 'hidden'}`}
       >
         {dialog && (
           <DialogView
             data={dialog}
+            page={page}
             onAction={dispatch}
             message={message}
             onMessage={(value) => store.setState({ message: value })}

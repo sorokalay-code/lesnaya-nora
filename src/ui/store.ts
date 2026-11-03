@@ -1,4 +1,5 @@
 import type { TouchBindings } from '../game/input/MobileInput';
+import type { ConversationPage } from './ConversationNavigation';
 import { createStore } from 'zustand/vanilla';
 import type {
   DialogViewModel,
@@ -10,6 +11,7 @@ import type {
 } from './types';
 
 export interface UIState {
+  conversationPage: ConversationPage;
   gameMenu?: GameMenuPage;
   soundMuted: boolean;
   saveNotice?: string;
@@ -42,6 +44,7 @@ export interface UIState {
 /** Создаёт изолированное хранилище интерфейса без ссылок на сцену и игровые сущности. */
 export function createUIStore(dispatch: UIAction) {
   return createStore<UIState>()(() => ({
+    conversationPage: 'overview',
     fullscreen: false,
     fullscreenAvailable: false,
     familyOpen: false,

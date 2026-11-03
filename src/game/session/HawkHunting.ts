@@ -38,6 +38,13 @@ export class HawkHunting {
     return [...this.hunts.values()].some((hunt) => !!hunt.carry);
   }
 
+  resetTargets(): void {
+    for (const hawk of this.context.hawks) {
+      if (!this.hunts.get(hawk)?.carry) this.hunts.delete(hawk);
+      this.searches.delete(hawk);
+    }
+  }
+
   get playerView(): AirliftView | undefined {
     for (const hunt of this.hunts.values())
       if (hunt.carry && hunt.victim.player)

@@ -100,6 +100,7 @@ export class DesktopInput implements InputController {
         playing: this.playing,
         gameMenu: ui.state.gameMenu,
         dialogOpen: !!ui.state.dialog,
+        dialogPageOpen: !!ui.state.dialog && ui.state.conversationPage !== 'overview',
         confirmationOpen: ui.state.dialog?.type === 'remove',
         panelsOpen: ui.panelsOpen,
         editable,

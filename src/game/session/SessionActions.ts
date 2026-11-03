@@ -91,6 +91,10 @@ export class SessionActions {
     if (action === 'close' && this.context.ui.state.dialog?.type === 'remove')
       action = 'cancel-remove';
     if (this.menus.execute(action)) return;
+    if (action.startsWith('dialog-page:') || action === 'dialog-back') {
+      this.context.ui.openDialogPage(action === 'dialog-back' ? 'overview' : action.slice(12));
+      return;
+    }
     const fromMenu = this.context.ui.state.actionMenuOpen;
     if (fromMenu) this.context.ui.closePanels();
     try {
@@ -102,6 +106,20 @@ export class SessionActions {
   }
 
   private route(action: string): void {
+    if (action.startsWith('family-member:')) {
+      const kit = this.context.save.kits.find(
+        (k) => k.id === Number(action.slice(14)) && k.alive && k.health > 0,
+      );
+      if (kit) {
+        this.context.ui.closePanels();
+        this.context.interactions.openKit(kit);
+      }
+      return;
+    }
+    if (action === 'lineage-switch') {
+      this.context.interactions.continueLineage();
+      return;
+    }
     if (this.context.grooming.execute(action)) return;
     this.context.sound.unlock();
     if (this.context.shelters.execute(action)) return;

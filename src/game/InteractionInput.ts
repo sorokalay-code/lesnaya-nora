@@ -1,6 +1,7 @@
 import type { GameMenuPage } from '../ui/types';
 
 export interface InteractionContext {
+  dialogPageOpen?: boolean;
   gameMenu?: GameMenuPage;
   playing: boolean;
   dialogOpen: boolean;
@@ -16,6 +17,7 @@ export interface InteractionContext {
 export class InteractionInput {
   action(code: string, context: InteractionContext, composing = false): string | undefined {
     if (!context.playing) return;
+    if (code === 'Escape' && context.dialogPageOpen) return 'dialog-back';
 
     if (code === 'Escape' && context.gameMenu && context.gameMenu !== 'main') return 'menu-back';
     if (code === 'Escape')
