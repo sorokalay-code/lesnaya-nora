@@ -8,6 +8,7 @@ import { GroundNavigator } from '../GroundNavigator';
 import type { GroundHeight } from './types';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from './AnimalRestraint';
+import { RABBIT_SWIM_IMMERSION } from '../WaterNavigation';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
   private wanderAngle = 0;
@@ -92,6 +93,9 @@ export class RabbitActor extends Rabbit {
       time,
       speed * GeneticTraits.mobility(this.data.genes),
       stopDistance,
+      this.waterNavigation,
+      this.swimSpeed > 0,
+      RABBIT_SWIM_IMMERSION * this.root.scale.x,
     );
     if (moving) {
       const dx = point.x - from.x,

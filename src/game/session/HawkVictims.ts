@@ -38,7 +38,7 @@ export interface HawkPopulation {
 export class HawkVictims {
   constructor(private readonly population: HawkPopulation) {}
 
-  *all(): Iterable<HawkVictim> {
+  *all(includeLargeWildlife = false): Iterable<HawkVictim> {
     const p = this.population.save.player;
     yield {
       root: this.population.player.root,
@@ -114,7 +114,7 @@ export class HawkVictims {
     }
     for (const animal of this.population.wildlife) {
       // mass — вес для наземных столкновений, а не килограммы; переносимость определяют габариты.
-      if (!animal.alive || animal.profile.radius > 0.43) continue;
+      if (!animal.alive || (!includeLargeWildlife && animal.profile.radius > 0.43)) continue;
       yield {
         root: animal.root,
         name: animalNames[animal.kind],

@@ -1,11 +1,20 @@
 import { smoothNoise } from './Random';
+import { WaterMap } from './WaterMap';
 
 /** Вычисляет рельеф мира и влияние высоты и низин на температуру. */
 
 export class Terrain {
-  constructor(private readonly seed: number) {}
+  readonly water: WaterMap;
+
+  constructor(private readonly seed: number) {
+    this.water = new WaterMap((x, z) => this.naturalHeightAt(x, z));
+  }
 
   heightAt(x: number, z: number): number {
+    return this.water.carve(x, z, this.naturalHeightAt(x, z));
+  }
+
+  private naturalHeightAt(x: number, z: number): number {
     const broad = (smoothNoise(x / 38, z / 38, this.seed + 211) - 0.5) * 9;
     const ridges = (smoothNoise(x / 18, z / 18, this.seed + 251) - 0.5) * 3.2;
     const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * 0.7;
@@ -17,15 +26,6 @@ export class Terrain {
     height *= 1 - flatten(-35, 29, 16, 0.8);
     const swamp = flatten(-31, -25, 20, 1);
     height = height * (1 - swamp) - swamp * 1.7;
-    for (const [px, pz, r] of [
-      [9, -7, 5],
-      [-28, -25, 7],
-      [-39, -18, 4],
-    ] as const) {
-      const pond = flatten(px, pz, r, 1);
-      height = height * (1 - pond) - pond * 0.55;
-    }
-
     return height;
   }
 

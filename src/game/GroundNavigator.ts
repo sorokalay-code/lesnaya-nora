@@ -1,5 +1,6 @@
 import type { Excavation } from './Excavation';
 import type { DigNode } from './types';
+import { RABBIT_SWIM_IMMERSION, type WaterNavigation } from './WaterNavigation';
 
 /** Ведёт существо по сохранённым точкам, учитывает пол и делает паузу при тесноте. */
 export class GroundNavigator {
@@ -19,6 +20,9 @@ export class GroundNavigator {
     time: number,
     speed: number,
     stop = 0.3,
+    water?: WaterNavigation,
+    canSwim = false,
+    immersion = RABBIT_SWIM_IMMERSION,
   ): { point: DigNode; moving: boolean } {
     if (this.expected && Math.hypot(from.x - this.expected.x, from.z - this.expected.z) > 0.09) {
       this.retryAt = time + 0.45;
@@ -57,10 +61,16 @@ export class GroundNavigator {
     const final = this.index === this.route.length - 1;
     const amount = Math.min(speed * dt, Math.max(0, distance - (final ? stop : 0)));
     if (amount < 0.001 || distance < 0.001) return { point: from, moving: false };
-    const x = from.x + (dx / distance) * amount,
+    let x = from.x + (dx / distance) * amount,
       z = from.z + (dz / distance) * amount;
     const sheltered = earth.isSheltered(from.x, from.y, from.z);
-    const y = earth.floorAt(x, z, from.y);
+    if (water && !sheltered && !canSwim) {
+      const dry = water.dryStep(from, x, z);
+      x = dry.x;
+      z = dry.z;
+    }
+    const y =
+      water && !sheltered && canSwim ? water.height(x, z, immersion) : earth.floorAt(x, z, from.y);
     if (!earth.canMoveTo(x, z, from.y, sheltered) || Math.abs(y - from.y) > 1.1) {
       this.retryAt = time + 0.8;
       this.destination = undefined;

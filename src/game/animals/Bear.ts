@@ -11,6 +11,7 @@ export class Bear extends Predator {
       z,
       rng,
       {
+        swimSpeed: 1.8,
         health: 160,
         range: 12,
         runSpeed: 2.8,

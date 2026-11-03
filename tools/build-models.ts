@@ -16,6 +16,8 @@ import { createRabbitEye } from './art/RabbitEye';
 import { quadrupedGait } from './art/Locomotion';
 import { rabbitLocomotion } from './art/RabbitLocomotion';
 import { createBoarModel } from './art/BoarAsset';
+import { createPikeModel, pikeClips } from './art/PikeAsset';
+import { swimmingClip, SWIMMING_MODELS } from './art/Swimming';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1418,6 +1420,7 @@ if (!requested.size) {
   terrainTexture('soil', true);
 }
 const models = {
+  pike: () => createPikeModel(),
   boar: () => createBoarModel(),
   'jumping-spider': () => createSpiderModel(false, true),
   spider: () => createSpiderModel(),
@@ -1459,6 +1462,7 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  'pike',
   'boar',
   'jumping-spider',
   'spider',
@@ -1528,19 +1532,22 @@ for (const [name, build] of Object.entries(models)) {
   );
   const model = build();
   const animations =
-    name === 'spider' || name === 'jumping-spider'
-      ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
-      : name === 'rabbit'
-        ? rabbitClips(model)
-        : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-          ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
-          : name === 'snake'
-            ? snakeClips()
-            : name === 'hawk'
-              ? hawkClips()
-              : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'].includes(name)
-                ? peacefulClips(name, model)
-                : [];
+    name === 'pike'
+      ? pikeClips()
+      : name === 'spider' || name === 'jumping-spider'
+        ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
+        : name === 'rabbit'
+          ? rabbitClips(model)
+          : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
+            ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
+            : name === 'snake'
+              ? snakeClips()
+              : name === 'hawk'
+                ? hawkClips()
+                : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'].includes(name)
+                  ? peacefulClips(name, model)
+                  : [];
+  if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
   mergeParts(model, !creatures.has(name) && name !== 'oak');
   const buffer = (await new GLTFExporter().parseAsync(model, {
     binary: true,
@@ -1557,13 +1564,15 @@ for (const [name, build] of Object.entries(models)) {
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
     const arachnid = name === 'spider' || name === 'jumping-spider';
     const distant =
-      name === 'boar'
-        ? createBoarModel(true)
-        : arachnid
-          ? createSpiderModel(true, name === 'jumping-spider')
-          : name === 'lynx'
-            ? createLynxModel(true)
-            : build();
+      name === 'pike'
+        ? createPikeModel(true)
+        : name === 'boar'
+          ? createBoarModel(true)
+          : arachnid
+            ? createSpiderModel(true, name === 'jumping-spider')
+            : name === 'lynx'
+              ? createLynxModel(true)
+              : build();
     mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,

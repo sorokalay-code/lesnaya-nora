@@ -1,6 +1,7 @@
 export type GroundHeight = (x: number, z: number) => number;
 export type WildlifeKind = 'deer' | 'squirrel' | 'hedgehog' | 'beaver' | 'moose' | 'boar';
 export interface PredatorProfile {
+  swimSpeed?: number;
   health: number;
   range: number;
   runSpeed: number;
@@ -17,6 +18,7 @@ export interface PredatorProfile {
   mass: number;
 }
 export interface WildlifeProfile {
+  swimSpeed?: number;
   health: number;
   defense: number;
   speed: number;

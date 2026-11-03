@@ -7,6 +7,7 @@ import type { World } from '../World';
 import { KitFeeding } from './KitFeeding';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
+import { WaterNavigation, RABBIT_SWIM_IMMERSION } from '../WaterNavigation';
 
 interface Context {
   save: SaveData;
@@ -18,6 +19,7 @@ interface Context {
 export class KitMovement {
   private readonly navigators = new Map<number, GroundNavigator>();
   private readonly feeding: KitFeeding;
+  private readonly water?: WaterNavigation;
   private readonly followTargets = new Map<number, { anchor: DigNode; point: DigNode }>();
 
   constructor(
@@ -25,6 +27,8 @@ export class KitMovement {
     private readonly wander: KitWander,
   ) {
     this.feeding = new KitFeeding(context.save, context.earth);
+    if (typeof context.world.waterAt === 'function')
+      this.water = new WaterNavigation(context.world);
   }
 
   update(kit: KitData, rig: RabbitRig, time: number, dt: number): void {
@@ -98,6 +102,9 @@ export class KitMovement {
       time,
       speed * GeneticTraits.mobility(kit.genes) * (0.7 + kit.genes.speed * 0.1),
       stop,
+      this.water,
+      kit.age >= 3,
+      RABBIT_SWIM_IMMERSION * rig.root.scale.x,
     );
     if (moving) {
       const desired = Math.atan2(-(point.x - from.x), -(point.z - from.z));

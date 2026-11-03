@@ -21,11 +21,17 @@ import { Wolf } from './Wolf';
 import { Spider } from './Spider';
 import { JumpingSpider } from './JumpingSpider';
 import { AnimalAppearance, type AppearanceOptions } from '../AnimalAppearance';
+import { Pike } from './Pike';
+import type { WaterBody } from '../WaterMap';
 
 type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: AppearanceOptions) => T;
 
 /** Реестр фабрик создаёт конкретные виды, не раскрывая их конструкторы игровым системам. */
 export class AnimalFactory {
+  static pike(x: number, z: number, river: WaterBody, rng: Random): Pike {
+    return new Pike(x, z, river, rng);
+  }
+
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {
     'jumping-spider': JumpingSpider,
     spider: Spider,

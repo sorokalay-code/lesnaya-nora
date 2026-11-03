@@ -13,6 +13,10 @@ import {
 } from '../AnimalAppearance';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
+  get swimSpeed(): number {
+    return this.profile.swimSpeed ?? 0;
+  }
+
   private attackListener?: AttackListener;
   readonly appearance: AppearanceTraits;
   readonly origin: { x: number; z: number };
@@ -176,14 +180,20 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
     }
 
-    const special = this.specialApproach(
-      dt,
-      time,
-      hunting || chasingPrey,
-      groundAt,
-      { x: px, z: pz },
-      playerSize,
-    );
+    const blockedByWater =
+      !this.swimSpeed &&
+      this.waterNavigation &&
+      !this.waterNavigation.clear(this, this.targetX, this.targetZ);
+    const special = blockedByWater
+      ? undefined
+      : this.specialApproach(
+          dt,
+          time,
+          hunting || chasingPrey,
+          groundAt,
+          { x: px, z: pz },
+          playerSize,
+        );
     if (special !== undefined) return special;
 
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
@@ -192,9 +202,12 @@ export abstract class Predator extends Animal<PredatorKind> {
         ? this.profile.runSpeed
         : this.profile.walkSpeed;
     const step = Math.min(speed * dt, Math.hypot(this.targetX - this.x, this.targetZ - this.z));
-    this.x = THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97);
-    this.z = THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97);
-    this.root.position.set(this.x, groundAt(this.x, this.z), this.z);
+    this.surfaceStep(
+      THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97),
+      THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97),
+      dt,
+      groundAt,
+    );
     this.root.rotation.y = angle + Math.PI;
     // Дальность укуса согласована с капсулой крольчихи: коллизия не делает её неуязвимой спереди.
     const biteReach = Math.max(

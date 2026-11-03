@@ -12,6 +12,10 @@ import {
 } from '../AnimalAppearance';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
+  get swimSpeed(): number {
+    return this.profile.swimSpeed ?? 0;
+  }
+
   readonly appearance: AppearanceTraits;
   readonly model: ModelInstance;
   readonly defense: number;
@@ -170,8 +174,12 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     if (moving) {
       const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
       const step = dt * this.speed * (fleeing ? 2 : 1);
-      this.x = THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97);
-      this.z = THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97);
+      this.surfaceStep(
+        THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97),
+        THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97),
+        dt,
+        groundAt,
+      );
       const desired = angle + Math.PI;
       const turn = Math.atan2(
         Math.sin(desired - this.root.rotation.y),
@@ -180,7 +188,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       this.root.rotation.y += THREE.MathUtils.clamp(turn, -dt * 4, dt * 4);
     }
 
-    this.root.position.set(this.x, groundAt(this.x, this.z), this.z);
+    if (!moving) this.surfaceStep(this.x, this.z, dt, groundAt);
     ModelAssets.shared.play(
       this.model,
       time < this.eatingUntil ? 'graze' : moving ? (fleeing ? 'run' : 'walk') : 'idle',

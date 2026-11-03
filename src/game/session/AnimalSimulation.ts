@@ -23,6 +23,7 @@ import type { AnimalVoiceListener } from '../audio/AnimalVoice';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 
 import type { PlayerConsequences } from './PlayerConsequences';
+import { WaterSimulation } from './WaterSimulation';
 export interface AnimalState {
   mating?: { fatherId: number; until: number };
 }
@@ -64,10 +65,12 @@ export class AnimalSimulation {
   private readonly friends = new FriendSignals();
   private readonly rabbitPredation: RabbitPredation;
   private readonly ambience?: AnimalAmbience;
+  private readonly water?: WaterSimulation;
 
   constructor(private readonly context: Context) {
     this.hawkHunting = new HawkHunting(context);
     this.rabbitPredation = new RabbitPredation(context);
+    if (typeof context.world.waterAt === 'function') this.water = new WaterSimulation(context);
     if (context.ambientSound)
       this.ambience = new AnimalAmbience({
         sources: new AnimalVoiceSources(context),
@@ -85,6 +88,7 @@ export class AnimalSimulation {
 
   avatarChanged(): void {
     this.hawkHunting.resetTargets();
+    this.water?.resetTargets();
   }
 
   get airliftView() {
@@ -101,6 +105,7 @@ export class AnimalSimulation {
     this.updateUndergroundTraffic(dt, time, night);
     this.updateEcology(dt, time);
     this.context.collisions.resolve(this.context.state.mating?.fatherId);
+    this.water?.update(dt, time, this.context.combatAllowed?.() ?? true);
     this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
     this.updateHawks(dt, time);

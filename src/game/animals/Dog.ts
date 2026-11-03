@@ -11,6 +11,7 @@ export class Dog extends Predator {
       z,
       rng,
       {
+        swimSpeed: 1.7,
         health: 70,
         range: 13,
         runSpeed: 3.3,

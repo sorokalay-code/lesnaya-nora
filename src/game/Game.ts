@@ -308,6 +308,7 @@ export class Game {
       this.earth,
       this.sound,
       (x, z, y, heading) => this.collisions.canPlayerMove(x, z, y, heading),
+      this.world,
     );
     this.scene.add(this.player.root);
     const population = new WorldPopulation({

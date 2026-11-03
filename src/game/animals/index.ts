@@ -4,6 +4,7 @@ export { FamilyMember } from './FamilyMember';
 export { ForestAnimal } from './ForestAnimal';
 export { Hawk } from './Hawk';
 export { PlayerRabbit } from './PlayerRabbit';
+export { Pike } from './Pike';
 export { Predator } from './Predator';
 export { Spider } from './Spider';
 export { Rabbit } from './Rabbit';

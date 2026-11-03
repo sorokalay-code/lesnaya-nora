@@ -39,24 +39,23 @@ test('gameplay height follows the exact triangles of the rendered terrain', () =
   }
 });
 
-test('pond and swamp water vertices lie directly on the local terrain', () => {
+test('pond and river water is flat above a real basin and clipped to its shore', () => {
   const water: THREE.Mesh[] = [];
   scene.traverse((object) => {
-    if (object instanceof THREE.Mesh && ['pond-water', 'swamp-water'].includes(object.name))
-      water.push(object);
+    if (object instanceof THREE.Mesh && object.name === 'water-surface') water.push(object);
   });
-  assert.ok(water.some((mesh) => mesh.name === 'pond-water'));
+  assert.ok(water.length >= 4);
   for (const mesh of water) {
-    const offset = mesh.name === 'pond-water' ? 0.035 : 0.025;
-    const positions = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
-    for (let i = 0; i < positions.count; i++)
-      assert.ok(
-        Math.abs(positions.getY(i) - groundAt(positions.getX(i), positions.getZ(i)) - offset) <
-          0.0001,
-      );
+    const positions = mesh.geometry.getAttribute('position');
+    const level = positions.getY(0);
+    for (let i = 0; i < positions.count; i++) {
+      assert.ok(Math.abs(positions.getY(i) - level) < 0.0001);
+      assert.ok(positions.getY(i) >= groundAt(positions.getX(i), positions.getZ(i)) - 0.0001);
+    }
   }
+  for (const body of world.terrain.water.bodies)
+    for (const p of body.points) assert.ok(body.level - groundAt(p.x, p.z) > 1.5);
 });
-
 test('garden soil follows the relief along each row', () => {
   const rows: THREE.Mesh[] = [];
   scene.traverse((object) => {

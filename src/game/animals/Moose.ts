@@ -11,6 +11,7 @@ export class Moose extends ForestAnimal {
       z,
       rng,
       {
+        swimSpeed: 2.2,
         health: 130,
         defense: 25,
         speed: 1.05,

@@ -17,6 +17,7 @@ import {
 } from '../../game/types';
 import type { Resource, World } from '../../game/World';
 import type { HudView, PromptPart } from '../types';
+import { SWIM_DEPTH } from '../../game/WaterNavigation';
 
 /** Преобразует изменяемые игровые данные в независимый снимок для React-интерфейса. */
 export class HudPresenter {
@@ -54,9 +55,12 @@ export class HudPresenter {
       : { forest: 'Лес', meadow: 'Луг', swamp: 'Болото', garden: 'Огород' }[
           world.biomeAt(p.x, p.z)
         ];
-    const dig: PromptPart = firstPerson
-      ? { text: 'ЛКМ — копать по прицелу · удерживай для продолжения' }
-      : { key: 'B', text: 'Переключись на вид от первого лица для копания' };
+    const swimming = !underground && (world.waterAt?.(p.x, p.z)?.depth ?? 0) > SWIM_DEPTH;
+    const dig: PromptPart = swimming
+      ? { text: 'Плыви к берегу · в воде нельзя прыгать и копать' }
+      : firstPerson
+        ? { text: 'ЛКМ — копать по прицелу · удерживай для продолжения' }
+        : { key: 'B', text: 'Переключись на вид от первого лица для копания' };
     let prompt: PromptPart[];
     if (underground) {
       const root = world.rootAt(p.x, p.z, earth.depthAt(p.x, p.y, p.z));

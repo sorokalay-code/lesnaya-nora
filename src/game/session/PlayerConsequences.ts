@@ -23,6 +23,12 @@ export class PlayerConsequences {
 
   predatorAttack(kind: string): void {
     const p = this.context.save.player;
+    if (kind === 'pike') {
+      p.health = clamp(p.health - 11.2 / GeneticTraits.resilience(p.genes), 0, 100);
+      this.context.sound.play('danger');
+      this.context.toast('Щука укусила! Выбирайся из воды на берег.');
+      return;
+    }
     p.health = clamp(
       p.health -
         ((kind === 'hawk'

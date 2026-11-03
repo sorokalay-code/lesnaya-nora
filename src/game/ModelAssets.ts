@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 export const CREATURE_NAMES = [
+  'pike',
   'jumping-spider',
   'spider',
   'rabbit',
@@ -279,6 +280,11 @@ export class ModelAssets {
 
   play(instance: ModelInstance, name: string, dt: number, speed = 1): void {
     if (!instance.root.visible) return;
+
+    if (instance.root.userData.swimming === true) {
+      name = 'swim';
+      speed = 1;
+    }
 
     const target = instance.variants?.find((v) => v.root.visible) ?? instance;
     const clip = target.clips.get(name);

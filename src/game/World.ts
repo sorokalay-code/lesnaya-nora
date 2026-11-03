@@ -10,6 +10,8 @@ import { type Biome, type FoodKind, type SaveData, type Weather } from './types'
 import { WorldChunks } from './WorldChunks';
 import { GardenCrops } from './GardenCrops';
 import { RockField } from './RockField';
+import { WaterScenery } from './WaterScenery';
+import type { WaterSample } from './WaterMap';
 
 export interface Resource {
   id: number;
@@ -36,7 +38,6 @@ export interface LandMark {
 const mat = (color: number) =>
   new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
 const sphere = new THREE.SphereGeometry(1, 8, 6);
-const cone = new THREE.ConeGeometry(1, 1, 7);
 
 function blob(
   parent: THREE.Object3D,
@@ -122,6 +123,8 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
+    new WaterScenery(this.terrain.water, (x, z) => this.heightAt(x, z), this.chunks);
+    for (const body of this.terrain.water.bodies) this.waterSources.push(...body.points);
     new RockField(
       seed,
       this.chunks,
@@ -161,6 +164,12 @@ export class World {
 
     const h01 = sample(ix, iz + 1);
     return h00 + (h11 - h01) * u + (h01 - h00) * v;
+  }
+
+  waterAt(x: number, z: number): WaterSample | undefined {
+    if (!this.terrain.water.near(x, z, 0)) return undefined;
+
+    return this.terrain.water.sample(x, z, this.heightAt(x, z));
   }
 
   temperatureOffset(x: number, z: number): number {
@@ -404,25 +413,13 @@ export class World {
   }
 
   private buildDecorations(): void {
-    const water = new THREE.MeshStandardMaterial({
-      color: 0x6c9c94,
-      transparent: true,
-      opacity: 0.74,
-      roughness: 0.3,
-    });
     for (let i = 0; i < 580; i++) {
       const x = this.rng.range(-105, 105),
         z = this.rng.range(-105, 105),
         biome = this.biomeAt(x, z);
       if (Math.hypot(x, z) < 6) continue;
 
-      if (biome === 'garden') continue;
-
-      if (biome === 'swamp' && this.rng.chance(0.28)) {
-        const puddle = this.terrainDisc(x, z, this.rng.range(1.5, 4), 0.025, water);
-        puddle.name = 'swamp-water';
-        this.chunks.add(puddle, x, z);
-      }
+      if (biome === 'garden' || this.terrain.water.near(x, z, 0.8)) continue;
 
       if (biome === 'forest' && this.rng.chance(0.58)) {
         const deciduous = this.rng.chance(0.55);
@@ -461,9 +458,6 @@ export class World {
 
     this.makeGarden(34, 31, 16);
     this.makeGarden(-35, 29, 13);
-    this.makePond(9, -7, 4.4);
-    this.makePond(-28, -25, 6);
-    this.makePond(-39, -18, 3.5);
     this.makeSmallDetails();
     this.makeButterflies();
     this.makeBoundary();
@@ -488,93 +482,6 @@ export class World {
     });
   }
 
-  private terrainDisc(
-    x: number,
-    z: number,
-    radius: number,
-    offset: number,
-    material: THREE.Material,
-  ): THREE.Mesh {
-    const segments = 48,
-      rings = Math.max(3, Math.ceil(radius / 0.34));
-    const vertices: number[] = [x, this.heightAt(x, z) + offset, z],
-      indices: number[] = [];
-    for (let ring = 1; ring <= rings; ring++)
-      for (let segment = 0; segment < segments; segment++) {
-        const angle = (segment * Math.PI * 2) / segments,
-          distance = (radius * ring) / rings;
-        const vx = x + Math.cos(angle) * distance,
-          vz = z + Math.sin(angle) * distance;
-        vertices.push(vx, this.heightAt(vx, vz) + offset, vz);
-      }
-
-    for (let segment = 0; segment < segments; segment++)
-      indices.push(0, 1 + ((segment + 1) % segments), 1 + segment);
-
-    for (let ring = 1; ring < rings; ring++)
-      for (let segment = 0; segment < segments; segment++) {
-        const a = 1 + (ring - 1) * segments + segment,
-          b = 1 + (ring - 1) * segments + ((segment + 1) % segments);
-        const c = a + segments,
-          d = b + segments;
-        indices.push(a, b, c, b, d, c);
-      }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.receiveShadow = true;
-    return mesh;
-  }
-
-  private makePond(x: number, z: number, radius: number): void {
-    const g = new THREE.Group();
-    const shore = this.terrainDisc(x, z, radius + 0.55, 0.015, mat(0x827f5b));
-    g.add(shore);
-    const water = this.terrainDisc(
-      x,
-      z,
-      radius,
-      0.035,
-      new THREE.MeshStandardMaterial({
-        color: 0x75b1ad,
-        roughness: 0.22,
-        metalness: 0.08,
-        transparent: true,
-        opacity: 0.88,
-      }),
-    );
-    water.name = 'pond-water';
-    g.add(water);
-    const reedMat = mat(0x829d5c);
-    for (let i = 0; i < 25; i++) {
-      const a = this.rng.range(0, Math.PI * 2),
-        d = this.rng.range(radius + 0.2, radius + 1.1);
-      const rx = x + Math.cos(a) * d,
-        rz = z + Math.sin(a) * d;
-      const reed = new THREE.Mesh(cone, reedMat);
-      reed.position.set(rx, this.heightAt(rx, rz) + 0.33, rz);
-      reed.scale.set(0.06, this.rng.range(0.5, 0.85), 0.06);
-      g.add(reed);
-    }
-
-    for (let i = 0; i < 7; i++) {
-      const a = this.rng.range(0, Math.PI * 2),
-        d = this.rng.range(0, radius * 0.78);
-      const px = x + Math.cos(a) * d,
-        pz = z + Math.sin(a) * d;
-      const pad = this.terrainDisc(px, pz, this.rng.range(0.25, 0.48), 0.055, mat(0x5c965e));
-      g.add(pad);
-      if (i % 3 === 0)
-        blob(g, mat(0xf2d5df), px, this.heightAt(px, pz) + 0.11, pz, 0.09, 0.06, 0.09);
-    }
-
-    this.chunks.add(g, x, z);
-    this.waterSources.push({ x, z });
-  }
-
   private makeSmallDetails(): void {
     const grassGeo = new THREE.ConeGeometry(0.12, 0.6, 3),
       stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
@@ -594,6 +501,8 @@ export class World {
       dummy.position.set(x, this.heightAt(x, z) + 0.25, z);
       dummy.rotation.y = this.rng.range(0, Math.PI * 2);
       dummy.scale.setScalar(this.rng.range(0.65, 1.4));
+      dummy.updateMatrix();
+      if (this.waterAt(x, z)) dummy.scale.setScalar(0);
       dummy.updateMatrix();
       grass.setMatrixAt(i, dummy.matrix);
       grass.setColorAt(
@@ -625,6 +534,8 @@ export class World {
       dummy.rotation.y = 0;
       dummy.scale.setScalar(this.rng.range(0.8, 1.6));
       dummy.updateMatrix();
+      if (this.waterAt(x, z)) dummy.scale.setScalar(0);
+      dummy.updateMatrix();
       flowers.setMatrixAt(i, dummy.matrix);
       flowers.setColorAt(i, color.setHex(this.rng.pick([0xf5e6d2, 0xeebfc5, 0xebdf8b, 0xc6b7dd])));
     }
@@ -635,7 +546,12 @@ export class World {
     for (let i = 0; i < 65; i++) {
       const x = this.rng.range(-98, 98),
         z = this.rng.range(-98, 98);
-      if (this.biomeAt(x, z) === 'garden' || Math.hypot(x, z) < 12) continue;
+      if (
+        this.biomeAt(x, z) === 'garden' ||
+        Math.hypot(x, z) < 12 ||
+        this.terrain.water.near(x, z, 1)
+      )
+        continue;
 
       const length = this.rng.range(1.2, 3.1),
         angle = this.rng.range(0, Math.PI * 2);
@@ -760,6 +676,7 @@ export class World {
   private buildResources(): void {
     let id = 0;
     const add = (x: number, z: number, kind: FoodKind) => {
+      if (this.terrain.water.near(x, z, 0.4)) return;
       const mesh = new THREE.Group();
       mesh.name = `resource-${kind}`;
       mesh.position.set(x, this.heightAt(x, z), z);
@@ -805,7 +722,7 @@ export class World {
   }
 
   nearWater(x: number, z: number, radius = 5): boolean {
-    return this.waterSources.some((w) => Math.hypot(w.x - x, w.z - z) < radius);
+    return this.terrain.water.near(x, z, radius);
   }
 
   hasCover(x: number, z: number): boolean {

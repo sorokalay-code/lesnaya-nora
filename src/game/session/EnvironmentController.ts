@@ -166,6 +166,10 @@ export class EnvironmentController {
 
   private dig(action: string): void {
     const p = this.context.save.player;
+    if (!this.sheltered && this.context.world.waterAt?.(p.x, p.z)) {
+      this.context.toast('В воде копать нельзя. Сначала выберись на берег.');
+      return;
+    }
     if (!this.context.view.isFirstPerson) {
       this.context.toast('Копать можно только от первого лица. Нажми B.');
       return;

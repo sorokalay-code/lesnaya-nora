@@ -11,6 +11,7 @@ export class Snake extends Predator {
       z,
       rng,
       {
+        swimSpeed: 1.3,
         health: 20,
         range: 5,
         runSpeed: 2.1,

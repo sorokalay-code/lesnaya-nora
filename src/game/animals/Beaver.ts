@@ -11,6 +11,7 @@ export class Beaver extends ForestAnimal {
       z,
       rng,
       {
+        swimSpeed: 2.4,
         health: 48,
         defense: 7,
         speed: 0.9,

@@ -5,12 +5,19 @@ import type { PlayerRabbit } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
 import type { ViewCamera } from '../ViewCamera';
+import {
+  WaterNavigation,
+  RABBIT_SWIM_SPEED,
+  RABBIT_SWIM_IMMERSION,
+  type WaterTerrain,
+} from '../WaterNavigation';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 /** Управляет направлением, ускорением, шагами и высотой крольчихи относительно рельефа. */
 export class PlayerMovement {
   private footstepAt = 0;
   private readonly jump = new JumpMotion();
   private nextJumpAt = 0;
+  private readonly water?: WaterNavigation;
 
   constructor(
     private readonly player: PlayerRabbit,
@@ -24,7 +31,10 @@ export class PlayerMovement {
       y: number,
       heading: number,
     ) => boolean = () => true,
-  ) {}
+    terrain?: WaterTerrain,
+  ) {
+    if (terrain) this.water = new WaterNavigation(terrain);
+  }
 
   private get sheltered(): boolean {
     const p = this.player.data;
@@ -45,6 +55,7 @@ export class PlayerMovement {
       p.energy < 9 * GeneticTraits.energyCost(p.genes) ||
       !GeneticTraits.canJump(p.genes) ||
       this.sheltered ||
+      this.water?.swimming(p.x, p.z) ||
       ((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed
     )
       return false;
@@ -133,7 +144,8 @@ export class PlayerMovement {
     this.player.rig.root.userData.turnLean = clamp(turn, -0.8, 0.8) * -0.14;
     const facingX = -Math.sin(this.player.rig.root.rotation.y),
       facingZ = -Math.cos(this.player.rig.root.rotation.y);
-    const speedScale = this.sheltered ? 0.68 : 1;
+    const swimming = !!this.water?.swimming(p.x, p.z);
+    const speedScale = swimming ? RABBIT_SWIM_SPEED / speed : this.sheltered ? 0.68 : 1;
     const nx = clamp(p.x + facingX * speed * dt * speedScale, -103, 103),
       nz = clamp(p.z + facingZ * speed * dt * speedScale, -103, 103);
     if (
@@ -148,7 +160,7 @@ export class PlayerMovement {
     )
       p.z = nz;
 
-    if (elapsed > this.footstepAt) {
+    if (!swimming && elapsed > this.footstepAt) {
       this.footstepAt = elapsed + (sprint ? 0.17 : 0.28);
       this.sound.play('step');
     }
@@ -158,8 +170,14 @@ export class PlayerMovement {
 
   settle(dt: number): void {
     if (AnimalRestraint.active(this.player.root)) return;
-    const p = this.player.data,
-      target = this.earth.floorAt(p.x, p.z, p.y);
+    const p = this.player.data;
+    const surfaceWater = !this.sheltered && this.water?.swimming(p.x, p.z);
+    this.player.root.userData.swimming = !!surfaceWater && !this.jump.active;
+    const target =
+      !this.sheltered && this.water
+        ? this.water.height(p.x, p.z, RABBIT_SWIM_IMMERSION * p.genes.size)
+        : this.earth.floorAt(p.x, p.z, p.y);
+    if (surfaceWater && p.y < target - 0.5) p.y = target;
     p.y += clamp(target - p.y, -dt * 3.5, dt * 2.4);
   }
 }
