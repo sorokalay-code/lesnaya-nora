@@ -16,6 +16,11 @@ export class GenomeValidation {
     const between = (number: unknown, min: number, max: number) =>
       typeof number === 'number' && Number.isFinite(number) && number >= min && number <= max;
     if (
+      genes.cleanliness !== undefined &&
+      (!between(genes.cleanliness, 1, 5) || !Number.isInteger(genes.cleanliness))
+    )
+      return false;
+    if (
       !colours.includes(String(genes.coat)) ||
       !colours.includes(String(genes.secondaryCoat)) ||
       !['solid', 'spotted', 'piebald'].includes(String(genes.pattern)) ||

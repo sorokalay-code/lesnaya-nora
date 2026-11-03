@@ -4,7 +4,7 @@ import { WasteVisuals } from './WasteVisuals';
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
-/** Хранит нечистоты три игровых дня, позволяет убирать их и возвращает питательные вещества почве. */
+/** Хранит семейные отходы три дня, чужие — один; уборка и естественное разложение имеют разные последствия. */
 export class WasteSystem {
   static readonly lifetime = 3 * 1440;
   private readonly visuals: WasteVisuals;
@@ -27,11 +27,31 @@ export class WasteSystem {
     }
   }
 
-  spawn(kind: WasteData['kind'], x: number, y: number, z: number, size = 1): WasteData {
-    const waste: WasteData = { id: this.nextId++, kind, x, y, z, size, age: this.save.clock };
+  static lifetimeOf(waste: WasteData): number {
+    return waste.origin === 'wild' || waste.kind === 'bird' ? 1440 : WasteSystem.lifetime;
+  }
+
+  spawn(
+    kind: WasteData['kind'],
+    x: number,
+    y: number,
+    z: number,
+    size = 1,
+    origin: WasteData['origin'] = 'family',
+  ): WasteData {
+    const waste: WasteData = {
+      id: this.nextId++,
+      kind,
+      x,
+      y,
+      z,
+      size,
+      origin,
+      age: this.save.clock,
+    };
     waste.y = this.groundY(waste);
     this.save.waste.push(waste);
-    this.nextExpiry = Math.min(this.nextExpiry, waste.age + WasteSystem.lifetime);
+    this.nextExpiry = Math.min(this.nextExpiry, waste.age + WasteSystem.lifetimeOf(waste));
     this.nextVisual = 0;
     return waste;
   }
@@ -58,11 +78,19 @@ export class WasteSystem {
     return ids.size;
   }
 
+  clean(id: number): boolean {
+    const index = this.save.waste.findIndex((w) => w.id === id);
+    if (index < 0) return false;
+    this.save.waste.splice(index, 1);
+    this.nextVisual = 0;
+    return true;
+  }
+
   private expire(): void {
     this.nextExpiry = Infinity;
     this.save.waste = this.save.waste.filter((waste) => {
-      if (this.save.clock - waste.age < WasteSystem.lifetime) {
-        this.nextExpiry = Math.min(this.nextExpiry, waste.age + WasteSystem.lifetime);
+      if (this.save.clock - waste.age < WasteSystem.lifetimeOf(waste)) {
+        this.nextExpiry = Math.min(this.nextExpiry, waste.age + WasteSystem.lifetimeOf(waste));
         return true;
       }
       this.fertilize(waste);

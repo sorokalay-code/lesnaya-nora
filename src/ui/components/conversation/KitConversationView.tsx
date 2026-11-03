@@ -73,6 +73,9 @@ export function KitConversationView({
       </div>
       {page === 'care' ? (
         <div className="dialog-choices">
+          <p className="conversation-note">
+            Уход доступен и на поверхности, и в норе — нужно быть рядом, в пределах 3 метров.
+          </p>
           {button(
             'child-groom',
             'Почистить шерсть · чистота ' + Math.round(100 - (kit.dirtiness ?? 0)) + '%',

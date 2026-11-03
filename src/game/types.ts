@@ -11,6 +11,7 @@ export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {
+  cleanliness?: number;
   tailType?: TailType;
   eyeShape?: EyeShape;
   earType?: EarType;
@@ -178,6 +179,7 @@ export interface SaveData {
 }
 
 export interface WasteData {
+  origin?: 'family' | 'wild';
   id: number;
   kind: 'pellets' | 'urine' | 'diarrhea' | 'bird';
   size?: number;

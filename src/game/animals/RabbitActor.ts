@@ -70,6 +70,7 @@ export class RabbitActor extends Rabbit {
     }
     if (
       this.rig.root.userData.conversing === true ||
+      Number(this.rig.root.userData.careUntil ?? 0) > time ||
       GeneticTraits.mobility(this.data.genes) === 0 ||
       (this.rig.root.userData.action === 'defecate' &&
         Number(this.rig.root.userData.actionUntil) > time + this.data.id)

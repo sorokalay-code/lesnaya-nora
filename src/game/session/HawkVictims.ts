@@ -16,6 +16,8 @@ export interface HawkVictim {
   root: Object3D;
   name: string;
   player: boolean;
+  related: boolean;
+  condition: () => number;
   bodyHeight: number;
   alive: () => boolean;
   move: (x: number, y: number, z: number) => void;
@@ -42,6 +44,8 @@ export class HawkVictims {
       root: this.population.player.root,
       name: 'Крольчиха',
       player: true,
+      related: true,
+      condition: () => p.health / 100,
       bodyHeight: 0.82 * p.genes.size,
       alive: () => p.health > 0,
       move: (x, y, z) => {
@@ -60,6 +64,8 @@ export class HawkVictims {
         root: actor.root,
         name: actor.data.name,
         player: false,
+        related: actor.data.id === this.population.save.mateId,
+        condition: () => actor.health / actor.maxHealth,
         bodyHeight: 0.82 * actor.root.scale.x,
         alive: () => actor.alive,
         move: (x, y, z) => {
@@ -91,6 +97,8 @@ export class HawkVictims {
         root: rig.root,
         name: kit.name,
         player: false,
+        related: true,
+        condition: () => kit.health / 100,
         bodyHeight: 0.82 * rig.root.scale.x,
         alive: () => kit.alive && kit.health > 0,
         move: (x, y, z) => {
@@ -111,6 +119,8 @@ export class HawkVictims {
         root: animal.root,
         name: animalNames[animal.kind],
         player: false,
+        related: false,
+        condition: () => animal.health / animal.maxHealth,
         bodyHeight: 0.55 * animal.appearance.size,
         alive: () => animal.alive,
         move: (x, y, z) => animal.moveTo(x, z, y),

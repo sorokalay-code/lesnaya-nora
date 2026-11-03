@@ -10,6 +10,7 @@ import {
   type AppearanceTraits,
 } from '../AnimalAppearance';
 import type { ModelInstance } from '../ModelAssets';
+import { HAWK_HUNT } from './HawkProfile';
 /** Сокол летит между случайными целями и пикирует на добычу в открытом пространстве. */
 export class Hawk extends Animal<'hawk'> {
   readonly appearance: AppearanceTraits;
@@ -50,6 +51,14 @@ export class Hawk extends Animal<'hawk'> {
     return this.diveUntil > time;
   }
 
+  get readyToHunt(): boolean {
+    return this.cooldown <= 0;
+  }
+
+  cancelDive(): void {
+    this.diveUntil = 0;
+  }
+
   update(
     dt: number,
     time: number,
@@ -60,7 +69,12 @@ export class Hawk extends Animal<'hawk'> {
   ): boolean {
     this.cooldown = Math.max(0, this.cooldown - dt);
     const distance = Math.hypot(px - this.x, pz - this.z);
-    if (exposed && distance < 18 && this.cooldown <= 0 && this.diveUntil <= time) {
+    if (
+      exposed &&
+      distance < HAWK_HUNT.preyRadius &&
+      this.cooldown <= 0 &&
+      this.diveUntil <= time
+    ) {
       this.diveUntil = time + 2.5;
       this.diveStartY = this.root.position.y;
       this.cooldown = 35;
@@ -106,15 +120,22 @@ export class Hawk extends Animal<'hawk'> {
         return true;
       }
     } else {
-      if (time >= this.nextTurn || Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 3) {
+      if (exposed && distance < HAWK_HUNT.disengageRadius && this.readyToHunt) {
+        this.targetX = px;
+        this.targetZ = pz;
+      } else if (
+        time >= this.nextTurn ||
+        Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 3
+      ) {
         this.nextTurn = time + this.rng.range(7, 15);
         this.targetX = this.rng.range(-85, 85);
         this.targetZ = this.rng.range(-85, 85);
       }
 
       const heading = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-      this.x += Math.sin(heading) * dt * 5.5;
-      this.z += Math.cos(heading) * dt * 5.5;
+      const speed = exposed && this.readyToHunt ? 6.5 : 5.5;
+      this.x += Math.sin(heading) * dt * speed;
+      this.z += Math.cos(heading) * dt * speed;
       this.root.position.set(
         this.x,
         THREE.MathUtils.damp(

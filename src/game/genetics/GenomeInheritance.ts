@@ -76,6 +76,7 @@ export class GenomeInheritance {
       metabolism: rating(mother.metabolism, father.metabolism),
       coldResistance: rating(mother.coldResistance, father.coldResistance),
       stability: rating(mother.stability, father.stability),
+      cleanliness: rating(mother.cleanliness ?? 3, father.cleanliness ?? 3),
       anatomy,
     };
     if (this.rng.chance(GenomeInheritance.risk(mother, father, related))) this.mutate(genes);

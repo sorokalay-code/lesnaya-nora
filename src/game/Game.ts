@@ -1,3 +1,4 @@
+import { PartnerCare } from './PartnerCare';
 import { ShelterController } from './session/ShelterController';
 import { FullscreenController } from './input/FullscreenController';
 import * as THREE from 'three';
@@ -265,13 +266,6 @@ export class Game {
       persist: () => this.sessionUI.persist(false),
       playAction: (action, duration) => this.playAction(action, duration),
     });
-    this.partnerSupport = new PartnerSupport(
-      this.save,
-      this.world,
-      this.earth,
-      this.items,
-      new Random(this.save.seed + 6631),
-    );
     this.waste = new WasteSystem(
       this.scene,
       this.save,
@@ -279,6 +273,23 @@ export class Game {
       (w) => {
         if (!this.earth.isSheltered(w.x, w.y, w.z)) this.world.fertilize(w.x, w.z, this.save.clock);
       },
+    );
+    this.partnerSupport = new PartnerSupport(
+      this.save,
+      this.world,
+      this.earth,
+      this.items,
+      new Random(this.save.seed + 6631),
+      new PartnerCare(
+        {
+          save: this.save,
+          earth: this.earth,
+          waste: this.waste,
+          rigs: this.family.rigs,
+          toast: (text) => this.toast(text),
+        },
+        new Random(this.save.seed + 7593),
+      ),
     );
     this.consequences = new PlayerConsequences({
       save: this.save,

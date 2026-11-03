@@ -4,6 +4,7 @@ import { CoatDirt } from '../CoatDirt';
 import { setRabbitAction, type RabbitAction, type RabbitRig } from '../Models';
 import type { SaveData } from '../types';
 import type { FamilyLifecycle } from './FamilyLifecycle';
+import { AnimalRestraint } from '../animals/AnimalRestraint';
 
 interface Context {
   save: SaveData;
@@ -31,6 +32,8 @@ export class FamilyGrooming {
       if (partner && rig) {
         this.clean(partner, rig, partner.id);
         if (dialog?.type === 'mate') this.context.ui.showDialog({ ...dialog, partner });
+        else if (dialog?.type === 'partner' && dialog.partner.id === partner.id)
+          this.context.ui.showDialog({ ...dialog, partner });
       }
     } else if (dialog?.type === 'kit') {
       const child = this.context.save.kits.find(
@@ -45,8 +48,16 @@ export class FamilyGrooming {
     return true;
   }
 
-  private clean(data: { dirtiness?: number; name: string }, rig: RabbitRig, phase: number): void {
+  private clean(
+    data: { dirtiness?: number; name: string; health?: number; alive?: boolean },
+    rig: RabbitRig,
+    phase: number,
+  ): void {
     const p = this.context.save.player;
+    if (data.alive === false || (data.health ?? 100) <= 0 || AnimalRestraint.active(rig.root)) {
+      this.context.toast('Сейчас этого члена семьи нельзя почистить.');
+      return;
+    }
     if (
       Math.hypot(rig.root.position.x - p.x, rig.root.position.y - p.y, rig.root.position.z - p.z) >
       3
@@ -65,6 +76,7 @@ export class FamilyGrooming {
     data.dirtiness = 0;
     p.energy -= 3;
     CoatDirt.update(rig, 0);
+    rig.root.userData.careUntil = this.context.elapsed() + 2;
     setRabbitAction(rig, 'groom', this.context.elapsed() + phase, 2);
     this.context.playAction('groom', 2);
     this.context.persist();

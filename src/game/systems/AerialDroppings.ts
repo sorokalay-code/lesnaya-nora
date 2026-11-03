@@ -33,7 +33,7 @@ export class AerialDroppings {
       drop.y -= drop.speed * dt;
       const ground = this.floorAt(drop.x, drop.z, drop.y);
       if (drop.y <= ground) {
-        this.waste.spawn('bird', drop.x, ground, drop.z);
+        this.waste.spawn('bird', drop.x, ground, drop.z, 1, 'wild');
         this.drops.splice(i, 1);
       }
     }

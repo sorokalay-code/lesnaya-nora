@@ -5,6 +5,8 @@ import type { Excavation } from '../Excavation';
 import { HawkCarry, type CarryPhase } from '../animals/HawkCarry';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { HawkVictims, type HawkPopulation, type HawkVictim } from './HawkVictims';
+import { HawkTargeting } from './HawkTargeting';
+import { HAWK_HUNT } from '../animals/HawkProfile';
 
 export interface AirliftView {
   phase: CarryPhase;
@@ -19,6 +21,7 @@ interface Context extends HawkPopulation {
   impactSound?: () => void;
 }
 interface Hunt {
+  until: number;
   victim: HawkVictim;
   carry?: HawkCarry;
   phase?: CarryPhase;
@@ -27,6 +30,7 @@ interface Hunt {
 /** Координирует соколов и реальные жертвы: во время захвата автономный ИИ и управление не двигают добычу. */
 export class HawkHunting {
   private readonly sources: HawkVictims;
+  private readonly targeting = new HawkTargeting();
   private readonly hunts = new Map<Hawk, Hunt>();
   private readonly searches = new WeakMap<Hawk, number>();
 
@@ -93,13 +97,14 @@ export class HawkHunting {
         if (step.landed) {
           hunt.victim.hurt(Math.min(65, Math.max(0, step.fallHeight - 1.2) * 5.5) * 0.8);
           if (hunt.victim.player) this.context.impactSound?.();
-          this.context.toast(
-            hunt.victim.player
-              ? 'Сокол бросил тебя! Падение отняло здоровье. Ищи укрытие.'
-              : hunt.victim.alive()
-                ? 'Сокол бросил добычу с высоты.'
-                : hunt.victim.name + ' не пережил падение.',
-          );
+          if (hunt.victim.related)
+            this.context.toast(
+              hunt.victim.player
+                ? 'Сокол бросил тебя! Падение отняло здоровье. Ищи укрытие.'
+                : hunt.victim.alive()
+                  ? hunt.victim.name + ' пережил падение. Проверь здоровье члена семьи.'
+                  : hunt.victim.name + ' не пережил падение.',
+            );
           this.release(hawk, hunt);
         }
         continue;
@@ -109,32 +114,29 @@ export class HawkHunting {
         hawk.update(dt, time, 0, 0, false, (x, z) => this.context.world.heightAt(x, z));
         continue;
       }
-      if (
+      const abandoned =
         hunt &&
-        (!this.available(hunt.victim) ||
-          (!hawk.isDiving(time) &&
-            Math.hypot(hunt.victim.root.position.x - hawk.x, hunt.victim.root.position.z - hawk.z) >
-              22))
-      ) {
+        (Math.hypot(hunt.victim.root.position.x - hawk.x, hunt.victim.root.position.z - hawk.z) >
+          HAWK_HUNT.disengageRadius ||
+          (!hawk.isDiving(time) && time > hunt.until));
+      if (hunt && (!this.available(hunt.victim) || abandoned)) {
+        const pausePursuit = abandoned && hunt.victim.player;
+        hawk.cancelDive();
         this.hunts.delete(hawk);
         hunt = undefined;
+        if (pausePursuit) this.searches.set(hawk, time + HAWK_HUNT.retrySeconds);
       }
-      if (!hunt && time >= (this.searches.get(hawk) ?? 0)) {
-        this.searches.set(hawk, time + 0.6);
-        let victim: HawkVictim | undefined,
-          best = Infinity;
-        for (const candidate of this.sources.all()) {
-          const distance = Math.hypot(
-            candidate.root.position.x - hawk.x,
-            candidate.root.position.z - hawk.z,
-          );
-          if (distance < 18 && distance < best && this.available(candidate)) {
-            victim = candidate;
-            best = distance;
-          }
-        }
-        if (victim) {
-          hunt = { victim };
+      if (!hawk.isDiving(time) && hawk.readyToHunt && time >= (this.searches.get(hawk) ?? 0)) {
+        this.searches.set(hawk, time + HAWK_HUNT.searchSeconds);
+        const victim = this.targeting.choose(this.sources.all(), hawk, (v) => this.available(v));
+        if (
+          victim &&
+          (!hunt ||
+            (victim.root !== hunt.victim.root &&
+              this.targeting.score(victim, hawk) <
+                this.targeting.score(hunt.victim, hawk) * HAWK_HUNT.retargetRatio))
+        ) {
+          hunt = { victim, until: time + HAWK_HUNT.pursuitSeconds };
           this.hunts.set(hawk, hunt);
         }
       }
@@ -153,11 +155,12 @@ export class HawkHunting {
         AnimalRestraint.hold(hunt.victim.root);
         hunt.carry = new HawkCarry(start, hawk.root.rotation.y, hunt.victim.bodyHeight);
         if (hunt.victim.player) this.context.resetInput?.();
-        this.context.toast(
-          hunt.victim.player
-            ? 'Сокол схватил тебя и поднимает в воздух! Действовать нельзя.'
-            : 'Сокол схватил маленькое животное.',
-        );
+        if (hunt.victim.related)
+          this.context.toast(
+            hunt.victim.player
+              ? 'Сокол схватил тебя и поднимает в воздух! Действовать нельзя.'
+              : 'Сокол схватил члена семьи: ' + hunt.victim.name + '!',
+          );
       }
     }
   }

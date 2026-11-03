@@ -19,7 +19,13 @@ export class ConversationNavigation {
 
   static allows(data: DialogViewModel, page: string): page is ConversationPage {
     const pages: Record<SocialDialog['type'], readonly ConversationPage[]> = {
-      partner: ['overview', 'talk', 'profile', 'relationship'],
+      partner: [
+        'overview',
+        'talk',
+        'profile',
+        'relationship',
+        ...(data.type === 'partner' && data.paired ? ['care' as const] : []),
+      ],
       mate: ['overview', 'talk', 'profile', 'commands', 'care', 'chat'],
       kit: [
         'overview',

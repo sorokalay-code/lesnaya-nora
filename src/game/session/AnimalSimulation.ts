@@ -224,7 +224,8 @@ export class AnimalSimulation {
 
   private updateEcology(dt: number, time: number): void {
     const p = this.context.save.player;
-    for (const event of this.context.ecology.update(
+    // Чужие стычки продолжают симулироваться, но не создают семейные уведомления и записи журнала.
+    this.context.ecology.update(
       dt,
       time,
       this.context.save.clock,
@@ -233,17 +234,7 @@ export class AnimalSimulation {
       this.context.groundAt,
       this.context.predators,
       this.context.combatAllowed?.() ?? true,
-    )) {
-      if (Math.hypot(event.x - p.x, event.z - p.z) > 19 || event.kind === 'arrival') continue;
-
-      if (event.kind === 'hunt')
-        this.context.toast(`Хищник поймал ${event.subject}. Лес живёт по своим законам.`);
-      else if (event.kind === 'defend')
-        this.context.toast(
-          `${event.subject[0].toUpperCase() + event.subject.slice(1)} дал отпор хищнику!`,
-        );
-      else this.context.toast('Хищники столкнулись из-за охотничьей территории.');
-    }
+    );
   }
 
   private grazeRabbits(dt: number, time: number): void {

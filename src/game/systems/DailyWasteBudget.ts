@@ -1,7 +1,7 @@
 import { Random } from '../Random';
 import type { SaveData } from '../types';
 
-/** Ограничивает автоматические отходы одним случаем за игровой день с сохранением лимита. */
+/** Ограничивает отходы одним случаем за день; необязательный дневной шанс тоже сохраняет пропуск. */
 export class DailyWasteBudget {
   private readonly due = new Map<string, { day: number; clock: number }>();
   private currentDay = -1;
@@ -11,7 +11,7 @@ export class DailyWasteBudget {
     private readonly rng: Random,
   ) {}
 
-  ready(key: string): boolean {
+  ready(key: string, chance = 1): boolean {
     const day = Math.floor(this.save.clock / 1440);
     const history = (this.save.animalWasteDays ??= {});
     if (this.currentDay !== day) {
@@ -29,6 +29,7 @@ export class DailyWasteBudget {
     }
     if (this.save.clock < due.clock) return false;
     history[key] = day;
-    return true;
+    // Пропущенный день тоже записан: частый обход и перезагрузка не перебрасывают шанс.
+    return chance >= 1 || this.rng.chance(chance);
   }
 }

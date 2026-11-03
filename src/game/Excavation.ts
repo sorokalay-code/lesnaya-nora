@@ -18,6 +18,8 @@ export class Excavation {
   private readonly mesher: CaveMesher;
   private edges: Array<[DigNode, DigNode]> = [];
   private neighbors = new Map<DigNode, DigNode[]>();
+  private roamingRevision = -1;
+  private readonly roamingAreas = new Map<DigNode, readonly DigNode[]>();
   private roots: Array<{ node: DigNode; mesh: THREE.Mesh }> = [];
   private lastRootRefresh = 0;
   private light = new THREE.PointLight(0xffe3b6, 4.5, 12);
@@ -49,6 +51,38 @@ export class Excavation {
 
   get revision(): number {
     return this.save.excavation.length;
+  }
+
+  /** Пол всей связной подземной области; наружные участки и другие несвязанные раскопы исключены. */
+  roamingFloors(from: DigNode): readonly DigNode[] {
+    if (!this.isSheltered(from.x, from.y, from.z)) return [];
+    const anchor = this.nearestNode(from.x, from.y, from.z);
+    if (!anchor) return [];
+    if (this.roamingRevision !== this.revision) {
+      this.roamingRevision = this.revision;
+      this.roamingAreas.clear();
+    }
+    const cached = this.roamingAreas.get(anchor);
+    if (cached) return cached;
+
+    const queue = [anchor],
+      visited = new Set([anchor]),
+      floors: DigNode[] = [];
+    for (let i = 0; i < queue.length; i++) {
+      const node = queue[i],
+        floor = { x: node.x, y: node.y - 0.95, z: node.z };
+      if (!this.isSheltered(floor.x, floor.y, floor.z)) continue;
+      floors.push(floor);
+      for (const next of this.neighbors.get(node) ?? []) {
+        if (visited.has(next)) continue;
+        const y = next.y - 0.95;
+        if (!this.isSheltered(next.x, y, next.z)) continue;
+        visited.add(next);
+        queue.push(next);
+      }
+    }
+    for (const node of visited) this.roamingAreas.set(node, floors);
+    return floors;
   }
 
   private depth(node: DigNode): number {

@@ -38,6 +38,7 @@ export class KitMovement {
     }
     if (
       rig.root.userData.conversing ||
+      Number(rig.root.userData.careUntil ?? 0) > time ||
       (rig.root.userData.action === 'defecate' &&
         Number(rig.root.userData.actionUntil) > time + kit.id)
     ) {

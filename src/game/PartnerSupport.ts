@@ -2,7 +2,8 @@ import { RabbitActor, type GroundHeight } from './animals';
 import { AnimalRestraint } from './animals/AnimalRestraint';
 import { Excavation } from './Excavation';
 import { GroundItems, type GroundPickup } from './GroundItems';
-import { setRabbitAction } from './Models';
+import { animateRabbit, setRabbitAction } from './Models';
+import type { PartnerCare } from './PartnerCare';
 import { Random } from './Random';
 import { RABBIT_BODY } from './RabbitBody';
 import { FOOD, type SaveData, type StashData } from './types';
@@ -17,6 +18,7 @@ export class PartnerSupport {
   private target?: ForageTarget;
   private nextSearch = 0;
   private nextFur = 0;
+  private domesticUntil = 0;
 
   constructor(
     private readonly save: SaveData,
@@ -24,6 +26,7 @@ export class PartnerSupport {
     private readonly earth: Excavation,
     private readonly items: GroundItems,
     private readonly rng: Random,
+    private readonly homeLife?: PartnerCare,
   ) {}
 
   familyStash(): StashData | undefined {
@@ -49,6 +52,10 @@ export class PartnerSupport {
     groundAt: GroundHeight,
   ): PartnerEvent | undefined {
     if (AnimalRestraint.active(actor.root)) return;
+    if (Number(actor.root.userData.careUntil ?? 0) > time) {
+      animateRabbit(actor.rig, time + actor.data.id, false, false, dt);
+      return;
+    }
     if (actor.rig.root.userData.conversing === true) {
       actor.navigateMate(dt, time, this.save.player, this.earth, groundAt);
       return;
@@ -64,6 +71,21 @@ export class PartnerSupport {
       }
     }
     const cargo = (this.save.partnerCargo ??= { grass: 0, twigs: 0, fur: 0 });
+    const unloaded = !cargo.food && !cargo.grass && !cargo.twigs && !cargo.fur;
+    if (
+      this.homeLife?.update(
+        actor,
+        home,
+        dt,
+        time,
+        groundAt,
+        command === 'home' ||
+          (command === 'forage' &&
+            unloaded &&
+            (time < this.domesticUntil || this.homeLife.hasHouseWork(actor.data.id))),
+      )
+    )
+      return;
     if (command === 'follow') {
       actor.navigateMate(
         dt,
@@ -116,6 +138,7 @@ export class PartnerSupport {
         }
 
       this.save.partnerCargo = { grass: 0, twigs: 0, fur: 0 };
+      this.domesticUntil = time + this.rng.range(12, 20);
       return { kind: 'delivered', text: `Партнёр принёс в тайник ${delivered.join(' и ')}.` };
     }
 
@@ -154,7 +177,9 @@ export class PartnerSupport {
     }
 
     if (!this.target) {
-      actor.navigateMate(dt, time, home, this.earth, groundAt);
+      const handled = this.homeLife?.update(actor, home, dt, time, groundAt, true);
+      if (this.homeLife?.busy) return;
+      if (!handled) actor.navigateMate(dt, time, home, this.earth, groundAt);
       if (time >= this.nextFur && Math.hypot(actor.data.x - home.x, actor.data.z - home.z) < 3) {
         this.nextFur = time + 65;
         cargo.fur = 1;

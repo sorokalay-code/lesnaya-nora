@@ -1,6 +1,7 @@
 import type { GroundHeight } from './animals';
 import type { Excavation } from './Excavation';
 import { Random } from './Random';
+import { BurrowRoaming } from './BurrowRoaming';
 import type { KitData } from './types';
 
 type Point = { x: number; y: number; z: number };
@@ -8,9 +9,12 @@ type Point = { x: number; y: number; z: number };
 /** Выбирает отдельные достижимые цели крольчат в выкопанных ходах и на поверхности. */
 
 export class KitWander {
-  private readonly targets = new Map<number, { point: Point; until: number }>();
+  private readonly tunnels: BurrowRoaming;
+  private readonly targets = new Map<number, { point: Point; until: number; revision: number }>();
 
-  constructor(private readonly rng: Random) {}
+  constructor(private readonly rng: Random) {
+    this.tunnels = new BurrowRoaming(rng);
+  }
 
   target(
     kit: KitData,
@@ -20,8 +24,29 @@ export class KitWander {
     groundAt: GroundHeight,
   ): Point {
     const current = { x: kit.x ?? home.x, y: kit.y ?? home.y, z: kit.z ?? home.z };
+    if (!kit.independent) {
+      const target = this.tunnels.target(
+        kit.id,
+        current,
+        home,
+        time,
+        earth,
+        kit.age < 0.7 ? 0.55 : 1.2,
+      );
+      if (target) return target;
+    }
     const previous = this.targets.get(kit.id);
-    if (previous && time < previous.until) return previous.point;
+    if (
+      previous &&
+      time < previous.until &&
+      previous.revision === earth.revision &&
+      Math.hypot(
+        current.x - previous.point.x,
+        current.y - previous.point.y,
+        current.z - previous.point.z,
+      ) > 0.45
+    )
+      return previous.point;
 
     let point = home;
     for (let attempt = 0; attempt < 16; attempt++) {
@@ -47,11 +72,16 @@ export class KitWander {
       break;
     }
 
-    this.targets.set(kit.id, { point, until: time + this.rng.range(3, 8) });
+    this.targets.set(kit.id, {
+      point,
+      until: time + this.rng.range(3, 8),
+      revision: earth.revision,
+    });
     return point;
   }
 
   forget(id: number): void {
     this.targets.delete(id);
+    this.tunnels.forget(id);
   }
 }

@@ -50,6 +50,7 @@ export class RabbitFactory {
       metabolism: this.rng.int(1, 5),
       coldResistance: this.rng.int(1, 5),
       stability: this.rng.int(1, 5),
+      cleanliness: this.rng.int(1, 5),
       anatomy: { legs: 4, ears: 2, eyes: 2, fangs: this.rng.chance(0.035) },
     };
     if (genes.anatomy.fangs) genes.eyeColor = 'red';

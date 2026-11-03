@@ -52,8 +52,15 @@ export class GeneticsPresenter {
         'Экономность питания: ' + genes.metabolism + '/5',
         'Защита от холода: ' + genes.coldResistance + '/5',
         'Генетическая устойчивость: ' + genes.stability + '/5',
+        'Чистоплотность: ' + GeneticTraits.cleanliness(genes) + '/5',
       ],
       effects: [
+        GeneticTraits.cleanliness(genes) === 1
+          ? 'Под управлением ИИ не вылизывается и не убирает за семьёй'
+          : 'Самостоятельный уход под управлением ИИ: ' +
+            ['', '', 'редко', 'регулярно', 'часто', 'очень часто'][
+              GeneticTraits.cleanliness(genes)
+            ],
         'Хвост: ' + RabbitFeatures.tail(genes).label,
         'Глаза: ' +
           RabbitFeatures.eyes(genes).label +

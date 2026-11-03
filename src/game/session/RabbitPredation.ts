@@ -22,6 +22,7 @@ interface Context {
   toast: (text: string) => void;
 }
 type Hunter = {
+  related: boolean;
   phase: number;
   rig: RabbitRig;
   genes: Genes;
@@ -43,6 +44,7 @@ export class RabbitPredation {
       this.hunt(
         {
           rig: actor.rig,
+          related: actor.data.id === this.context.save.mateId,
           phase: actor.data.id,
           genes: actor.data.genes,
           x: actor.x,
@@ -61,6 +63,7 @@ export class RabbitPredation {
       this.hunt(
         {
           rig,
+          related: true,
           phase: kit.id,
           genes: kit.genes,
           x: kit.x ?? kit.homeX,
@@ -128,7 +131,8 @@ export class RabbitPredation {
       this.context.attackSound?.({ kind: 'fanged-rabbit', phase: 'strike', x, y, z, time });
       if (prey) {
         prey.health = Math.max(0, prey.health - 14);
-        if (!prey.alive) this.context.toast('Клыкастый кролик поймал лесную добычу.');
+        if (!prey.alive && hunter.related)
+          this.context.toast('Кролик твоей линии поймал лесную добычу.');
       } else this.context.consequences.predatorAttack('fanged-rabbit');
     }
   }

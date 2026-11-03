@@ -57,10 +57,12 @@ export function RabbitConversationView({
         </div>
       </>
     );
-  if (mate && page === 'care')
+  if ((mate || (data.type === 'partner' && data.paired)) && page === 'care')
     return (
       <>
-        <p className="conversation-note">Для ухода нужно быть рядом с партнёром.</p>
+        <p className="conversation-note">
+          Почистить партнёра можно в любом месте. Подойди к нему на 3 метра или ближе.
+        </p>
         <div className="dialog-choices">
           {button(
             'mate-groom',
@@ -181,6 +183,9 @@ export function RabbitConversationView({
             {mate && <span>Твой партнёр</span>}
           </div>
           <div className="conversation-grid">
+            {data.type === 'partner' &&
+              data.paired &&
+              link('care', '✧', 'Уход', 'Почистить шерсть здесь, рядом с тобой')}
             {mate ? (
               <>
                 {link('commands', '➜', 'Приказы', 'Следовать, ждать, приносить припасы')}

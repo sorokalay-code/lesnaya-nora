@@ -80,10 +80,11 @@ export class AnimalWasteSystem {
         rabbit.data.id,
         1,
         rabbit.rig,
+        rabbit.data.id === this.context.save.mateId,
       );
     }
     for (const member of this.context.families)
-      this.emit(`family:${member.data.id}`, member.root.position, time, 0, 0.8, member.rig);
+      this.emit(`family:${member.data.id}`, member.root.position, time, 0, 0.8, member.rig, false);
     for (const animal of this.context.wildlife)
       if (animal.alive && !AnimalRestraint.active(animal.root))
         this.emit(
@@ -103,7 +104,7 @@ export class AnimalWasteSystem {
           0.8,
         );
     for (const [index, bird] of this.context.hawks.entries()) {
-      if (bird.alive && this.budget.ready(`bird:${index}`))
+      if (bird.alive && this.budget.ready(`bird:${index}`, 0.7))
         this.aerial.release(bird.x, bird.root.position.y, bird.z);
     }
   }
@@ -115,15 +116,18 @@ export class AnimalWasteSystem {
     phase: number,
     size: number,
     rig?: RabbitRig,
+    family = false,
   ): void {
     if (rig && AnimalRestraint.active(rig.root)) return;
-    if (!this.budget.ready(key)) return;
+    const related = family || key.startsWith('kit:');
+    if (!this.budget.ready(key, related ? 1 : 0.7)) return;
     this.context.waste.spawn(
       this.rng.chance(0.2) ? 'urine' : 'pellets',
       position.x,
       position.y,
       position.z,
       size,
+      related ? 'family' : 'wild',
     );
     if (rig && !rig.root.userData.conversing) setRabbitAction(rig, 'defecate', time + phase, 1.2);
   }

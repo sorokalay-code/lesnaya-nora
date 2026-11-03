@@ -2,6 +2,7 @@ import type { Genes } from '../types';
 import { NEUTRAL_RABBIT_SHAPE } from './RabbitConformation';
 
 export const DEFAULT_GENES: Genes = {
+  cleanliness: 3,
   tailType: 'fluffy',
   eyeShape: 'round',
   earType: 'upright',
@@ -24,6 +25,10 @@ export const DEFAULT_GENES: Genes = {
 
 /** Единые эффекты генов для движения, потребностей, урона и интерфейса. Здоровье хранится в процентах. */
 export class GeneticTraits {
+  static cleanliness(genes: Genes): number {
+    return genes.cleanliness ?? 3;
+  }
+
   static mobility(genes: Genes): number {
     if (genes.anatomy.legs === 0) return 0;
     const legs = genes.anatomy.legs;
