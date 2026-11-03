@@ -85,6 +85,11 @@ export class InteractionController {
     this.dialogAnimal = undefined;
   }
 
+  dispose(): void {
+    this.clearSelection();
+    this.focus.dispose();
+  }
+
   openPartner(p: PartnerTraits, line?: string): void {
     const actor = this.context.rabbits.find((r) => r.data.id === p.id);
     if ((p.health ?? 100) <= 0 || (actor && AnimalRestraint.active(actor.root))) return;
@@ -102,6 +107,7 @@ export class InteractionController {
       paired: this.context.save.mateId === p.id,
       question: this.rabbitDialogue.question(p),
     });
+    this.update(0);
   }
 
   openMatePanel(): void {
@@ -128,6 +134,7 @@ export class InteractionController {
       command: this.context.save.mateCommand ?? 'forage',
       messages: this.context.save.mateMessages ?? [],
     });
+    this.update(0);
   }
 
   close(): void {
@@ -344,6 +351,7 @@ export class InteractionController {
       line,
       genetics: GeneticsPresenter.build(kit.genes, kit.lineage),
     });
+    this.update(0);
   }
 
   childAction(action: string): void {
@@ -410,6 +418,7 @@ export class InteractionController {
       conversation: this.forest.view(animal),
       line,
     });
+    this.update(0);
   }
 
   animalAction(action: string): void {

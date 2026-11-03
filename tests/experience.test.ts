@@ -14,6 +14,7 @@ import { Terrain } from '../src/game/Terrain';
 import { WorldBoundary } from '../src/game/WorldBoundary';
 import { FullscreenController } from '../src/game/input/FullscreenController';
 import { createUIStore } from '../src/ui/store';
+import type { DialogViewModel } from '../src/ui/types';
 import { loadModels } from './model-fixture';
 import type { Excavation } from '../src/game/Excavation';
 import type { ViewCamera } from '../src/game/ViewCamera';
@@ -163,11 +164,22 @@ test('forming a pair does not generate a nest or consume nest materials', () => 
   partner.trust = 100;
   partner.preference = 'bond';
   const before = structuredClone(save.materials);
+  const uiStore = createUIStore(() => {});
   const context = {
     save,
     rabbits: [],
     view: { unlock() {} },
-    ui: { showDialog() {}, closeDialog() {} },
+    ui: {
+      get state() {
+        return uiStore.getState();
+      },
+      showDialog(dialog: DialogViewModel) {
+        uiStore.setState({ dialog });
+      },
+      closeDialog() {
+        uiStore.setState({ dialog: undefined });
+      },
+    },
     sound: { play() {} },
     playAction() {},
     familyStash: () => undefined,

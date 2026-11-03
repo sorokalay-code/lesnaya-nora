@@ -230,6 +230,7 @@ export class Game {
       worldConfig: structuredClone(this.save.worldConfig ?? defaultWorldConfig()),
     });
     this.attackSounds?.dispose();
+    this.interactions?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
     this.lighting.reset();
