@@ -58,3 +58,39 @@ test('snake and hawk GLB files include attack clips', () => {
   assert.ok(ModelAssets.shared.create('snake').clips.has('attack'));
   assert.ok(ModelAssets.shared.create('hawk').clips.has('strike'));
 });
+
+test('both rabbit LODs keep articulated hind legs without pale spheres on their flanks', () => {
+  const model = ModelAssets.shared.create('rabbit');
+  const point = new THREE.Vector3();
+  for (const variant of model.variants ?? [model]) {
+    variant.root.updateMatrixWorld(true);
+    for (const side of ['L', 'R']) {
+      assert.ok(variant.root.getObjectByName('PawB' + side));
+      assert.ok(variant.root.getObjectByName('UpperB' + side));
+      assert.ok(variant.root.getObjectByName('FootB' + side));
+    }
+    // Светлый мех допустим на животе, ступнях и хвосте, но не поверх боков задних лап.
+    // Проверяем экспортированную геометрию: при объединении мешей имена деталей исчезают.
+    variant.root.traverse((object) => {
+      if (
+        !(object instanceof THREE.Mesh) ||
+        !(object.material instanceof THREE.MeshStandardMaterial) ||
+        object.material.name !== 'fur_light'
+      )
+        return;
+
+      const positions = object.geometry.getAttribute('position');
+      for (let index = 0; index < positions.count; index++) {
+        point.fromBufferAttribute(positions, index).applyMatrix4(object.matrixWorld);
+        const onRearFlank =
+          Math.abs(point.x) > 0.33 &&
+          point.y > 0.35 &&
+          point.y < 0.8 &&
+          point.z > 0.15 &&
+          point.z < 0.55;
+        assert.equal(onRearFlank, false, `${object.name}: светлый выступ сбоку задней лапы`);
+      }
+    });
+    for (const clip of ['hop', 'run', 'jump', 'swim']) assert.ok(variant.clips.has(clip));
+  }
+});

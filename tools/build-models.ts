@@ -178,8 +178,6 @@ function rabbit() {
   ell(visual, fur(), 'Body', [0, 0.52, 0.08], [0.41, 0.35, 0.59]);
   ell(visual, pale(), 'Belly', [0, 0.31, -0.08], [0.29, 0.14, 0.4]);
   ell(visual, fur(), 'Shoulders', [0, 0.59, -0.33], [0.32, 0.29, 0.28]);
-  for (const side of [-1, 1])
-    ell(visual, pale(), `Haunch${side}`, [side * 0.31, 0.51, 0.38], [0.2, 0.24, 0.25]);
   const head = group(visual, 'Head', 0, 0.72, -0.45);
   ell(head, fur(), 'Skull', [0, 0, 0], [0.32, 0.3, 0.31]);
   ell(head, pale(), 'Muzzle', [0, -0.1, -0.27], [0.2, 0.13, 0.18]);
