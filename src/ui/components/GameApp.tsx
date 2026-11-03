@@ -3,6 +3,9 @@ import { JournalLog } from './JournalLog';
 import { WebNotice } from './WebNotice';
 import { trapDialogFocus } from './DialogKeyboard';
 import { ActionMenu } from './ActionMenu';
+import { GameMenu } from './GameMenu';
+import { MobileUtilities } from './MobileUtilities';
+import { EventPanel } from './EventPanel';
 import { MobileControls } from './MobileControls';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -36,7 +39,10 @@ export function GameApp({ store }: { store: UIStore }) {
         <Overlay />
         <Performance />
         <MobileControls store={store} />
+        <MobileUtilities store={store} />
         <ActionMenu store={store} />
+        <GameMenu store={store} />
+        <EventPanel store={store} />
       </div>
     </UIContext.Provider>
   );
@@ -72,6 +78,7 @@ function Toolbar() {
             {fullscreen ? '⤢ Свернуть' : '⛶ Полный экран'}
           </button>
           <button onClick={() => dispatch('menu')}>☰ Меню · Esc</button>
+          <button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</button>
         </div>
       </div>
       <div className="family-avatars">
@@ -240,8 +247,6 @@ function Panels() {
     dispatch = useUI((state) => state.dispatch),
     dialog = useUI((state) => state.dialog),
     journal = useUI((state) => state.journal),
-    settings = useUI((state) => state.settings),
-    showControls = useUI((state) => state.showControls),
     message = useUI((state) => state.message),
     focus = useUI((state) => state.focus);
   const panel = useRef<HTMLDivElement>(null);
@@ -348,17 +353,6 @@ function Panels() {
           </>
         )}
       </div>
-      <div className={`settings-panel ${settings ? '' : 'hidden'}`}>
-        <div className="journal-head">
-          <h2>Настройки</h2>
-          <button aria-label="Закрыть" onClick={() => dispatch('settings')}>
-            ×
-          </button>
-        </div>
-        <button className="setting-row" onClick={() => dispatch('toggle-controls')}>
-          {showControls ? '☑' : '☐'} Показывать подсказку управления
-        </button>
-      </div>
     </>
   );
 }
@@ -419,9 +413,12 @@ function Toasts() {
   const store = useUIStore(),
     toasts = useUI((state) => state.toasts);
   const trapped = useUI((state) => !!state.hud?.web);
+  const touch = useUI((state) => state.touch);
+  const overlay = useUI((state) => state.overlay);
+  if (touch && !overlay) return null;
   return (
     <div className={trapped ? 'toast-box web-toasts' : 'toast-box'}>
-      {toasts.map((toast) => (
+      {(touch ? toasts.slice(-1) : toasts).map((toast) => (
         <Toast
           key={toast.id}
           text={toast.text}
@@ -489,7 +486,7 @@ function Overlay() {
             )}
           </div>
           <div className="start-foot">
-            Генерируемый мир · наследование генов · смена сезонов · семейная жизнь
+            Случайная крольчиха и её гены · возможны врождённые дефекты
           </div>
         </div>
       ) : overlay?.type === 'loading' ? (

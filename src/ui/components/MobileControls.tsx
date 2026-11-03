@@ -9,13 +9,16 @@ export function MobileControls({ store }: { store: UIStore }) {
   const portrait = useStore(store, (s) => s.portrait);
   const hidden = useStore(
     store,
-    (s) => !s.hud || !!(s.overlay || s.dialog || s.journal || s.settings || s.familyOpen),
+    (s) =>
+      !s.hud ||
+      !!(s.overlay || s.dialog || s.journal || s.gameMenu || s.eventsOpen || s.familyOpen),
   );
   const open = useStore(store, (s) => s.actionMenuOpen);
   const bindings = useStore(store, (s) => s.touchBindings);
   const first = useStore(store, (s) => s.firstPerson);
   const web = useStore(store, (s) => s.hud?.web);
   const dispatch = useStore(store, (s) => s.dispatch);
+  const showControls = useStore(store, (s) => s.showControls);
 
   if (!touch) return null;
   if (portrait)
@@ -49,9 +52,9 @@ export function MobileControls({ store }: { store: UIStore }) {
           </>
         )}
         <button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</button>
-        <button onClick={() => dispatch('menu')}>Действия ☰</button>
+        <button onClick={() => dispatch('world-actions')}>Действия ✦</button>
       </div>
-      <span className="touch-look-hint">Свайп по миру — осмотреться</span>
+      {showControls && <span className="touch-look-hint">Свайп по миру — осмотреться</span>}
     </div>
   );
 }

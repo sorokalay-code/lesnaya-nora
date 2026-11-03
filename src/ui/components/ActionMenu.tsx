@@ -40,19 +40,9 @@ const groups: { title: string; actions: [string, string, string?][] }[] = [
       ['bark', 'Грызть кору', 'H'],
     ],
   },
-  {
-    title: 'Игра',
-    actions: [
-      ['save', 'Сохранить', 'F5'],
-      ['settings', 'Настройки'],
-      ['controls-help', 'Управление'],
-      ['sound', 'Звук'],
-      ['fullscreen', 'Полный экран'],
-    ],
-  },
 ];
 
-/** Единая точка доступа к действиям с клавиатурными подсказками и контекстом ближайшего убежища. */
+/** Отдельная панель действий персонажа: забота, семья, припасы и ближайшее убежище. */
 export function ActionMenu({ store }: { store: UIStore }) {
   const open = useStore(store, (s) => s.actionMenuOpen),
     overlay = useStore(store, (s) => s.overlay);
@@ -81,10 +71,14 @@ export function ActionMenu({ store }: { store: UIStore }) {
       >
         <header>
           <div>
-            <h2 id="actions-title">Меню · пауза</h2>
-            {!touch && <small>Esc / Ё — вернуться · Tab — перейти к следующей кнопке</small>}
+            <h2 id="actions-title">Действия в мире</h2>
+            <small>
+              {touch
+                ? 'Игра на паузе, пока выбираешь действие'
+                : 'Ё / Esc — закрыть · Tab — перейти к следующей кнопке'}
+            </small>
           </div>
-          <button onClick={() => dispatch('close')}>Продолжить игру ×</button>
+          <button onClick={() => dispatch('close')}>Закрыть действия ×</button>
         </header>
         {groups.map((group) => (
           <section className="action-group" key={group.title}>

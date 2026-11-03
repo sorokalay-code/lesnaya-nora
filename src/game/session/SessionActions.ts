@@ -11,6 +11,7 @@ import { SessionQueries } from './SessionQueries';
 import type { FamilyGrooming } from './FamilyGrooming';
 import type { SpiderEncounter } from './SpiderEncounter';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
+import { SessionMenus } from './SessionMenus';
 
 interface Context {
   web: SpiderEncounter;
@@ -36,15 +37,14 @@ interface Context {
 
 /** Маршрутизирует команды UI и устройств к предметным сервисам текущей сессии. */
 export class SessionActions {
-  constructor(private readonly context: Context) {}
+  private readonly menus: SessionMenus;
+
+  constructor(private readonly context: Context) {
+    this.menus = new SessionMenus(context);
+  }
 
   showMenu(): void {
-    this.context.resetInput();
-    this.context.refreshHud();
-    this.context.view.unlock();
-    this.context.interactions.clearSelection();
-    this.context.ui.closePanels();
-    this.context.ui.store.setState({ actionMenuOpen: true });
+    this.menus.showGame();
   }
 
   execute(action: string): void {
@@ -67,11 +67,7 @@ export class SessionActions {
     }
     if (action === 'close' && this.context.ui.state.dialog?.type === 'remove')
       action = 'cancel-remove';
-    if (action === 'menu') {
-      if (this.context.ui.state.actionMenuOpen) this.context.interactions.close();
-      else this.showMenu();
-      return;
-    }
+    if (this.menus.execute(action)) return;
     const fromMenu = this.context.ui.state.actionMenuOpen;
     if (fromMenu) this.context.ui.closePanels();
     try {
@@ -86,11 +82,6 @@ export class SessionActions {
     if (this.context.grooming.execute(action)) return;
     this.context.sound.unlock();
     if (this.context.shelters.execute(action)) return;
-    if (action === 'controls-help') {
-      this.context.view.unlock();
-      this.context.ui.showDialog({ type: 'help' });
-      return;
-    }
     if (action === 'save') {
       this.context.persist(true);
       return;
@@ -98,6 +89,7 @@ export class SessionActions {
 
     if (action === 'sound') {
       this.context.sound.muted = !this.context.sound.muted;
+      this.context.ui.store.setState({ soundMuted: this.context.sound.muted });
       this.context.toast(this.context.sound.muted ? 'Звук выключен' : 'Звук включён');
       return;
     }
@@ -161,12 +153,6 @@ export class SessionActions {
         return;
       }
       this.context.ui.store.setState({ familyOpen: true });
-      return;
-    }
-
-    if (action === 'settings') {
-      this.context.view.unlock();
-      this.context.ui.toggleSettings();
       return;
     }
 

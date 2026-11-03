@@ -14,6 +14,7 @@ import type {
 } from '../game/types';
 
 export type UIAction = (action: string, value?: string | number) => void;
+export type GameMenuPage = 'main' | 'settings' | 'new-game' | 'controls';
 export interface PromptPart {
   key?: string;
   text: string;

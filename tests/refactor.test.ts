@@ -234,9 +234,9 @@ test('family lifecycle creates kit actors and feeding updates their persisted st
 test('Zustand stores isolate sessions and keep message drafts while HUD state changes', () => {
   const first = createUIStore(() => {}),
     second = createUIStore(() => {});
-  first.setState({ message: 'Жди меня у гнезда', settings: true });
+  first.setState({ message: 'Жди меня у гнезда', gameMenu: 'settings' });
   first.setState({ firstPerson: true });
   assert.equal(first.getState().message, 'Жди меня у гнезда');
   assert.equal(second.getState().message, '');
-  assert.equal(second.getState().settings, false);
+  assert.equal(second.getState().gameMenu, undefined);
 });

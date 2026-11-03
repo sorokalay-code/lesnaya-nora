@@ -98,6 +98,7 @@ export class DesktopInput implements InputController {
       event.code,
       {
         playing: this.playing,
+        gameMenu: ui.state.gameMenu,
         dialogOpen: !!ui.state.dialog,
         confirmationOpen: ui.state.dialog?.type === 'remove',
         panelsOpen: ui.panelsOpen,

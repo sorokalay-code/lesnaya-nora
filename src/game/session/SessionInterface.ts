@@ -93,10 +93,15 @@ export class SessionInterface {
     try {
       this.context.saves.store(this.context.save);
       if (notify) {
+        this.context.ui.store.setState({ saveNotice: 'Игра сохранена в этом браузере.' });
         this.context.sound.play('save');
         this.context.toast('Игра сохранена в этом браузере.');
       }
     } catch {
+      if (notify)
+        this.context.ui.store.setState({
+          saveNotice: 'Не удалось сохранить игру: хранилище недоступно.',
+        });
       if (notify) this.context.toast('Не удалось сохранить игру: хранилище браузера недоступно.');
     }
   }

@@ -22,10 +22,10 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
       return store.getState();
     },
     get panelsOpen() {
-      return store.getState().actionMenuOpen;
+      return !!store.getState().gameMenu;
     },
     get simulationPaused() {
-      return store.getState().actionMenuOpen;
+      return !!store.getState().gameMenu;
     },
   };
   const view = {
@@ -50,13 +50,14 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     setDigHeld() {},
     closePanels() {
       closed++;
-      store.setState({ actionMenuOpen: false });
+      store.setState({ gameMenu: undefined });
     },
     action(action: string) {
       if (action === 'menu') {
         opened++;
-        store.setState({ actionMenuOpen: !store.getState().actionMenuOpen });
+        store.setState({ gameMenu: store.getState().gameMenu ? undefined : 'main' });
       }
+      if (action === 'controls-help') store.setState({ gameMenu: 'controls' });
     },
   } as unknown as InputContext;
   let input: DesktopInput | undefined;
@@ -90,11 +91,11 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     key('Escape');
     assert.equal(ui.panelsOpen, true);
     key('F1');
-    assert.equal(ui.panelsOpen, false);
+    assert.equal(store.getState().gameMenu, 'controls');
     input.dispose();
     input = undefined;
     key('Escape');
-    assert.equal(ui.panelsOpen, false);
+    assert.equal(store.getState().gameMenu, 'controls');
   } finally {
     input?.dispose();
     names.forEach((name, index) => {

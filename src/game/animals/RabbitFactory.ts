@@ -20,6 +20,10 @@ const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
 export class RabbitFactory {
   constructor(private readonly rng: Random) {}
 
+  founderGenes(): Genes {
+    return new GenomeInheritance(this.rng).founder(this.genes());
+  }
+
   genes(): Genes {
     const genes: Genes = {
       coat: this.rng.pick(coats),

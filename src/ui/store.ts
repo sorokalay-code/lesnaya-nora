@@ -6,9 +6,16 @@ import type {
   JournalViewModel,
   OverlayViewModel,
   UIAction,
+  GameMenuPage,
 } from './types';
 
 export interface UIState {
+  gameMenu?: GameMenuPage;
+  soundMuted: boolean;
+  saveNotice?: string;
+  eventsOpen: boolean;
+  events: string[];
+  unreadEvents: number;
   fullscreen: boolean;
   fullscreenAvailable: boolean;
   familyOpen: boolean;
@@ -22,7 +29,6 @@ export interface UIState {
   dialog?: DialogViewModel;
   journal?: JournalViewModel;
   overlay?: OverlayViewModel;
-  settings: boolean;
   showControls: boolean;
   firstPerson: boolean;
   startSeason: number;
@@ -44,7 +50,10 @@ export function createUIStore(dispatch: UIAction) {
     background: false,
     actionMenuOpen: false,
     statusOpen: false,
-    settings: false,
+    soundMuted: false,
+    eventsOpen: false,
+    events: [],
+    unreadEvents: 0,
     showControls: true,
     firstPerson: false,
     startSeason: 0,
@@ -61,7 +70,8 @@ export function blockingPanelOpen(state: UIState): boolean {
   return !!(
     state.dialog ||
     state.journal ||
-    state.settings ||
+    state.gameMenu ||
+    state.eventsOpen ||
     state.actionMenuOpen ||
     state.familyOpen
   );
@@ -75,6 +85,8 @@ export function socialDialogOpen(state: UIState): boolean {
 export function simulationPaused(state: UIState): boolean {
   return (
     state.familyOpen ||
+    !!state.gameMenu ||
+    state.eventsOpen ||
     state.dialog?.type === 'remove' ||
     state.dialog?.type === 'help' ||
     state.actionMenuOpen ||
@@ -84,7 +96,6 @@ export function simulationPaused(state: UIState): boolean {
       !!(
         (state.dialog && !socialDialogOpen(state)) ||
         state.journal ||
-        state.settings ||
         state.actionMenuOpen ||
         state.familyOpen
       ))

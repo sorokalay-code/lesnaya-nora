@@ -213,6 +213,8 @@ export class Game {
   }
 
   private setupWorld(): void {
+    this.ui.setEvents(this.save.messages);
+    this.ui.store.setState({ saveNotice: undefined });
     this.attackSounds?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
@@ -571,12 +573,7 @@ export class Game {
 
   private render(): void {
     const p = this.save.player;
-    this.view.setLookEnabled(
-      !this.ui.state.overlay &&
-        !this.ui.state.dialog &&
-        !this.ui.state.journal &&
-        !this.ui.state.settings,
-    );
+    this.view.setLookEnabled(!this.ui.state.overlay && !this.ui.panelsOpen);
     const digging =
       this.player.root.userData.action === 'dig' &&
       ((this.player.root.userData.actionUntil as number | undefined) ?? 0) > this.runtime.elapsed;
@@ -624,7 +621,10 @@ export class Game {
   }
 
   private toast(message: string): void {
-    if (this.save) EventJournal.append(this.save, message);
+    if (this.save) {
+      EventJournal.append(this.save, message);
+      this.ui.setEvents(this.save.messages, true);
+    }
 
     this.ui.toast(message);
   }

@@ -8,6 +8,7 @@ import { Random } from '../src/game/Random';
 import { World } from '../src/game/World';
 import { RabbitActor, RabbitFactory } from '../src/game/animals';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 import { PlayerConsequences } from '../src/game/session/PlayerConsequences';
 import { SceneDecorations } from '../src/game/session/SceneDecorations';
 import { SceneLighting } from '../src/game/session/SceneLighting';
@@ -63,6 +64,7 @@ test('calendar crosses a season boundary once and includes local terrain tempera
 
 test('consequences preserve snake damage, poison and bounded vitality', () => {
   const context = fixture();
+  context.save.player.genes = { ...DEFAULT_GENES, anatomy: { ...DEFAULT_GENES.anatomy } };
   const consequences = new PlayerConsequences({
     ...context,
     waste: new WasteSystem(context.scene, context.save, () => 0),

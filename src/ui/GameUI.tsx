@@ -52,14 +52,16 @@ export class GameUI {
   }
 
   showOverlay(overlay?: OverlayViewModel) {
-    this.store.setState({ overlay, actionMenuOpen: false, statusOpen: false, familyOpen: false });
+    this.closePanels();
+    this.store.setState({ overlay, statusOpen: false });
   }
 
   showDialog(dialog: DialogViewModel, focus: 'dialog' | 'message' = 'dialog') {
     this.store.setState({
       dialog: structuredClone(dialog),
       journal: undefined,
-      settings: false,
+      gameMenu: undefined,
+      eventsOpen: false,
       statusOpen: false,
       familyOpen: false,
       actionMenuOpen: false,
@@ -72,24 +74,35 @@ export class GameUI {
   }
 
   showJournal(journal: JournalViewModel) {
-    this.store.setState({ journal: structuredClone(journal), dialog: undefined, settings: false });
+    this.store.setState({
+      journal: structuredClone(journal),
+      dialog: undefined,
+      gameMenu: undefined,
+      eventsOpen: false,
+      familyOpen: false,
+      actionMenuOpen: false,
+    });
   }
 
   closeJournal() {
     this.store.setState({ journal: undefined });
   }
 
-  toggleSettings() {
-    this.store.setState({ settings: !this.state.settings, dialog: undefined, journal: undefined });
+  setEvents(events: readonly string[], notify = false) {
+    this.store.setState({
+      events: events.slice(-100),
+      unreadEvents:
+        notify && !this.state.eventsOpen ? Math.min(99, this.state.unreadEvents + 1) : 0,
+    });
   }
 
   closePanels() {
     this.store.setState({
       dialog: undefined,
       journal: undefined,
-      settings: false,
+      gameMenu: undefined,
+      eventsOpen: false,
       actionMenuOpen: false,
-      statusOpen: false,
       familyOpen: false,
     });
   }

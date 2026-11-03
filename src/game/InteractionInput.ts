@@ -1,4 +1,7 @@
+import type { GameMenuPage } from '../ui/types';
+
 export interface InteractionContext {
+  gameMenu?: GameMenuPage;
   playing: boolean;
   dialogOpen: boolean;
   panelsOpen: boolean;
@@ -14,6 +17,7 @@ export class InteractionInput {
   action(code: string, context: InteractionContext, composing = false): string | undefined {
     if (!context.playing) return;
 
+    if (code === 'Escape' && context.gameMenu && context.gameMenu !== 'main') return 'menu-back';
     if (code === 'Escape')
       return context.confirmationOpen
         ? 'cancel-remove'
@@ -22,10 +26,12 @@ export class InteractionInput {
           : 'menu';
 
     if (context.confirmationOpen) return;
-    if (!context.editable && (code === 'Backquote' || code === 'F1')) return 'menu';
-
     if (context.editable)
       return code === 'Enter' && context.mateMenuOpen && !composing ? 'mate-send' : undefined;
+
+    if (context.gameMenu) return code === 'F1' ? 'controls-help' : undefined;
+    if (code === 'Backquote') return 'world-actions';
+    if (code === 'F1') return 'controls-help';
 
     if (code === 'KeyI') return 'status-panel';
 

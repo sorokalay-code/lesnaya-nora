@@ -8,6 +8,7 @@ import { EnvironmentController } from '../src/game/session/EnvironmentController
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { RabbitFactory, PlayerRabbit } from '../src/game/animals';
 import { Random } from '../src/game/Random';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 import { Soundscape } from '../src/game/Audio';
 import { Terrain } from '../src/game/Terrain';
 import { WorldBoundary } from '../src/game/WorldBoundary';
@@ -42,8 +43,9 @@ test('jump follows a complete forward arc with invariant distance across frame r
 });
 
 test('player jump spends energy, moves the persisted position and cannot cross a wall', () => {
-  const save = saveGame(),
-    player = new PlayerRabbit(save.player);
+  const save = saveGame();
+  save.player.genes = { ...DEFAULT_GENES, anatomy: { ...DEFAULT_GENES.anatomy } };
+  const player = new PlayerRabbit(save.player);
   const earth = {
     isSheltered: () => false,
     canMoveTo: (_x: number, z: number) => z >= -2,

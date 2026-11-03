@@ -1,13 +1,14 @@
 import { RabbitFactory } from '../animals';
 import { type SaveData } from '../types';
-import { DEFAULT_GENES } from '../genetics/GeneticTraits';
 import { Genealogy } from '../genetics/Genealogy';
-import { RabbitConformation } from '../genetics/RabbitConformation';
+import { Random, hash2 } from '../Random';
 
 /** Создаёт начальное сохранение; не обращается к сцене, DOM и хранилищу браузера. */
 export class NewGameFactory {
   static create(seed: number, seasonIndex: number, factory: RabbitFactory): SaveData {
     const startDay = 1 + Math.max(0, Math.min(3, seasonIndex)) * 30;
+    // Перемешанный отдельный seed даёт разные фенотипы и не сдвигает генерацию соседей.
+    const founderSeed = Math.floor(hash2(seed, seed, 11939) * 0xffffffff);
     return {
       version: 4,
       seed,
@@ -17,11 +18,7 @@ export class NewGameFactory {
         x: 0,
         y: 0,
         z: 0,
-        genes: {
-          ...DEFAULT_GENES,
-          anatomy: { ...DEFAULT_GENES.anatomy },
-          shape: { ...RabbitConformation.shape(DEFAULT_GENES) },
-        },
+        genes: new RabbitFactory(new Random(founderSeed)).founderGenes(),
         lineage: Genealogy.founder('player:' + seed),
         hunger: 85,
         thirst: 85,

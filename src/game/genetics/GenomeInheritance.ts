@@ -4,9 +4,22 @@ import type { Anatomy } from './types';
 import { RabbitConformation } from './RabbitConformation';
 import { EAR_TYPES, EYE_SHAPES } from './RabbitFeatures';
 
-/** Наследует независимые признаки; устойчивость и близкое родство определяют риск игровых мутаций. */
+/** Формирует геном основателя и наследует признаки потомства; устойчивость и родство задают риск мутаций. */
 export class GenomeInheritance {
   constructor(private readonly rng: Random) {}
+
+  founder(base: Genes): Genes {
+    const genes = {
+      ...base,
+      anatomy: { ...base.anatomy },
+      shape: { ...RabbitConformation.shape(base) },
+    };
+    // У основателя нет вымышленных родителей: риск задаёт собственная устойчивость генома.
+    const risk = 0.08 + (5 - genes.stability) * 0.04;
+    if (this.rng.chance(risk)) this.mutate(genes);
+    if (genes.anatomy.fangs) genes.eyeColor = 'red';
+    return genes;
+  }
 
   static risk(mother: Genes, father: Genes, related = false): number {
     return Math.min(

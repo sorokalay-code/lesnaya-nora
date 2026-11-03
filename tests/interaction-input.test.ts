@@ -52,9 +52,12 @@ test('menu shortcuts preserve chat text and confirmation Escape only cancels rem
   assert.equal(input.action('KeyI', game), 'status-panel');
   assert.equal(input.action('KeyI', menu), 'status-panel');
   assert.equal(input.action('KeyI', { ...menu, editable: true }), undefined);
-  for (const key of ['Backquote', 'F1']) {
-    assert.equal(input.action(key, game), 'menu');
-    assert.equal(input.action(key, menu), 'menu');
+  for (const [key, action] of [
+    ['Backquote', 'world-actions'],
+    ['F1', 'controls-help'],
+  ]) {
+    assert.equal(input.action(key, game), action);
+    assert.equal(input.action(key, menu), action);
     assert.equal(input.action(key, { ...menu, editable: true }), undefined);
   }
   const confirmation = { ...menu, mateMenuOpen: false, confirmationOpen: true };

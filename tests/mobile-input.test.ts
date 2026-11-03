@@ -24,13 +24,13 @@ test('input composite resets and disposes every device controller', () => {
   assert.deepEqual(calls, ['desktop:reset', 'touch:reset', 'desktop:dispose', 'touch:dispose']);
 });
 
-test('mobile menus and rotation pause simulation without changing desktop menu behavior', () => {
+test('game settings pause both control modes and rotation pauses the touch session', () => {
   const store = createUIStore(() => {});
-  store.setState({ settings: true });
-  assert.equal(simulationPaused(store.getState()), false);
+  store.setState({ gameMenu: 'settings' });
+  assert.equal(simulationPaused(store.getState()), true);
   store.setState({ touch: true });
   assert.equal(simulationPaused(store.getState()), true);
-  store.setState({ settings: false, actionMenuOpen: true });
+  store.setState({ gameMenu: undefined, actionMenuOpen: true });
   assert.equal(simulationPaused(store.getState()), true);
   store.setState({ actionMenuOpen: false, portrait: true });
   assert.equal(simulationPaused(store.getState()), true);
