@@ -61,12 +61,13 @@ export class NewGameFactory {
       excavation: [],
       gnawedRoots: {},
       kits: [],
-      partners: factory.partners(worldConfig.creatures.rabbit).map((partner) => ({
-        ...partner,
-        x: partner.x * scale,
-        z: partner.z * scale,
-        familySize: Math.min(partner.familySize, worldConfig.neighborFamilySize),
-      })),
+      partners: factory
+        .partners(worldConfig.creatures.rabbit, worldConfig.neighborFamilySize)
+        .map((partner) => ({
+          ...partner,
+          x: partner.x * scale,
+          z: partner.z * scale,
+        })),
       harvested: [],
       pregnancy: null,
       mateCommand: 'forage',

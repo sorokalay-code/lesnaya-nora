@@ -36,6 +36,7 @@ export interface UIState {
   firstPerson: boolean;
   startSeason: number;
   worldConfig: WorldConfig;
+  worldSettingsExpanded: boolean;
   message: string;
   focus: { target: 'dialog' | 'message'; revision: number };
   toasts: { id: number; text: string }[];
@@ -63,6 +64,7 @@ export function createUIStore(dispatch: UIAction) {
     firstPerson: false,
     startSeason: 0,
     worldConfig: defaultWorldConfig(),
+    worldSettingsExpanded: false,
     message: '',
     focus: { target: 'dialog', revision: 0 },
     toasts: [],

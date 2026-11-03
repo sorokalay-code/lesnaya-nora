@@ -43,7 +43,8 @@ export class WorldBoundary {
       ];
     };
     // Внутреннее кольцо повторяет каждый метровый узел края мира; дальние кольца редкие.
-    const rings = [edge, edge + 12, edge + 35, edge + 70, edge + 130, 330];
+    // Внешние кольца должны идти наружу и у пользовательских карт шире прежних 300 метров.
+    const rings = [edge, edge + 12, edge + 35, edge + 70, edge + 130, Math.max(330, edge + 200)];
     const segments = edge * 8;
     for (const radius of rings)
       for (let i = 0; i < segments; i++) {
@@ -81,7 +82,7 @@ export class WorldBoundary {
     const transform = new THREE.Object3D();
     for (let i = 0; i < treeCount; i++) {
       const side = i % 4,
-        along = random.range(-175, 175),
+        along = random.range(-edge - 65, edge + 65),
         depth = random.range(edge + 3, edge + 65);
       const x = side < 2 ? (side === 0 ? depth : -depth) : along;
       const z = side >= 2 ? (side === 2 ? depth : -depth) : along;

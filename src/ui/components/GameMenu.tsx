@@ -6,7 +6,7 @@ import { FullscreenButton } from './FullscreenButton';
 import { trapDialogFocus } from './DialogKeyboard';
 import { NewGameForm } from './NewGameForm';
 
-/** Меню паузы содержит только управление сессией, настройки и подтверждение новой истории. */
+/** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
 export function GameMenu({ store }: { store: UIStore }) {
   const page = useStore(store, (s) => s.gameMenu);
   const dispatch = useStore(store, (s) => s.dispatch);

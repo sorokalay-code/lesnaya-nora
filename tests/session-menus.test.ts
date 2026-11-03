@@ -203,7 +203,8 @@ test('pause menu contains session controls and action panel contains only world 
   assert.doesNotMatch(world, /Сохранить|Настройки|Полный экран/);
   store.setState({ actionMenuOpen: false, gameMenu: 'new-game' });
   const confirmation = renderToStaticMarkup(createElement(GameMenu, { store }));
-  assert.match(confirmation, /Начальный сезон/);
+  assert.match(confirmation, /Настройки мира/);
+  assert.doesNotMatch(confirmation, /Начальный сезон/);
   assert.match(confirmation, /единственное сохранение/);
   assert.match(confirmation, /data-cancel-new/);
 });

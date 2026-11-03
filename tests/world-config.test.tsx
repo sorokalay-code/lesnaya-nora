@@ -7,6 +7,7 @@ import {
   defaultWorldConfig,
   SEASONS,
   validWorldConfig,
+  WORLD_LIMITS,
   type WorldConfig,
 } from '../src/game/WorldConfig';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
@@ -192,11 +193,12 @@ test('save round trip preserves configured terrain, plants, populations and cale
   });
   try {
     const config = emptyConfig();
+    config.size = 83;
     config.food = 0.4;
-    config.water = 1.8;
+    config.water = 5;
     config.vegetation = 0.4;
     config.biome = 'forest';
-    config.seasonLengths.Зима = 8;
+    config.seasonLengths.Зима = 365;
     config.creatures.deer = 3;
     const f = fixture(config);
     f.population.ecology.capture();
@@ -205,14 +207,14 @@ test('save round trip preserves configured terrain, plants, populations and cale
     const loaded = repository.load();
     const restored = new World(new THREE.Scene(), loaded.seed, loaded);
     assert.deepEqual(loaded.worldConfig, config);
-    assert.equal(restored.size, 70);
+    assert.equal(restored.size, 83);
     assert.deepEqual(restored.treeLocations, f.world.treeLocations);
     assert.deepEqual(
       restored.resources.map(({ id, x, z, kind }) => ({ id, x, z, kind })),
       f.world.resources.map(({ id, x, z, kind }) => ({ id, x, z, kind })),
     );
     assert.deepEqual(restored.terrain.water.bodies, f.world.terrain.water.bodies);
-    assert.equal(new MapPresenter().build(restored, loaded).size, 70);
+    assert.equal(new MapPresenter().build(restored, loaded).size, 83);
     assert.ok(restored.resources.length > 0);
     stored = JSON.stringify({ ...f.save, worldConfig: { ...config, size: 'huge' } });
     assert.throws(() => repository.load(), /настройки мира/);
@@ -227,11 +229,13 @@ test('save round trip preserves configured terrain, plants, populations and cale
 
 test('form exposes every species, native bounds, independent seasons and replacement notice', () => {
   const store = createUIStore(() => {});
+  store.getInitialState = store.getState;
+  store.setState({ worldSettingsExpanded: true });
   const html = renderToStaticMarkup(<NewGameForm store={store} replacesStory />);
   for (const { label } of CREATURE_OPTIONS) assert.ok(html.includes(label));
   for (const season of SEASONS) assert.ok(html.includes(`${season}, игровых дней`));
   assert.match(html, /type="submit"/);
-  assert.match(html, /min="1" max="120"/);
+  assert.match(html, /min="1" max="365"/);
   assert.match(html, /единственное сохранение/);
   assert.ok(
     !renderToStaticMarkup(<NewGameForm store={store} replacesStory={false} />).includes(
@@ -240,8 +244,52 @@ test('form exposes every species, native bounds, independent seasons and replace
   );
 });
 
+test('new history can start above the collapsed settings without hidden fields in the focus order', () => {
+  const store = createUIStore(() => {});
+  const html = renderToStaticMarkup(<NewGameForm store={store} replacesStory />);
+  assert.match(html, /<details class="world-settings">/);
+  assert.ok(html.indexOf('Начать новую игру') < html.indexOf('<details'));
+  assert.ok(html.indexOf('единственное сохранение') < html.indexOf('Начать новую игру'));
+  assert.doesNotMatch(html, /<input|<select|<fieldset/);
+  assert.equal(store.getState().worldSettingsExpanded, false);
+});
+
+test('expanded ranges create a custom world, longer seasons and larger neighbor families', () => {
+  const config = defaultWorldConfig();
+  config.size = 217;
+  config.water = 5;
+  config.vegetation = 5;
+  config.food = 5;
+  config.neighborFamilySize = 10;
+  for (const season of SEASONS) config.seasonLengths[season] = 365;
+  for (const { kind, max } of CREATURE_OPTIONS) config.creatures[kind] = max;
+  const save = NewGameFactory.create(31415, 3, new RabbitFactory(new Random(31468)), config);
+  assert.deepEqual(save.worldConfig, config);
+  assert.equal(save.day, 1096);
+  assert.equal(save.partners.length, 120);
+  assert.ok(save.partners.some((partner) => partner.familySize > 5));
+  assert.ok(save.partners.every((partner) => partner.familySize <= 10));
+  for (const invalid of [
+    { ...config, size: WORLD_LIMITS.size.max + 1 },
+    { ...config, size: WORLD_LIMITS.size.min - 1 },
+    { ...config, size: 100.5 },
+    { ...config, water: 5.1 },
+    { ...config, vegetation: 5.1 },
+    { ...config, food: 5.1 },
+    { ...config, neighborFamilySize: 11 },
+    { ...config, creatures: { ...config.creatures, rabbit: 121 } },
+    { ...config, seasonLengths: { ...config.seasonLengths, Весна: 366 } },
+  ]) {
+    assert.equal(validWorldConfig(invalid), false);
+    assert.throws(
+      () => NewGameFactory.create(1, 0, new RabbitFactory(new Random(1)), invalid),
+      /настройки/,
+    );
+  }
+});
+
 test('small and large maps preserve metre terrain sampling and player movement at their actual edge', () => {
-  for (const size of [70, 150]) {
+  for (const size of [WORLD_LIMITS.size.min, WORLD_LIMITS.size.max]) {
     const config = emptyConfig();
     config.size = size;
     config.water = 0;
@@ -281,5 +329,25 @@ test('small and large maps preserve metre terrain sampling and player movement a
       Math.abs(f.world.heightAt(x, z) - (h00 + (h10 - h00) * (x - ix) + (h11 - h10) * (z - iz))) <
         0.00001,
     );
+    // Все треугольники дальнего ландшафта обращены вверх: внешнее кольцо большой карты
+    // не должно заворачиваться внутрь и накладываться на предыдущие кольца.
+    const boundary = f.scene.getObjectByName('distant-forest')!;
+    const distantGround = boundary.children.find(
+      (object): object is THREE.Mesh =>
+        object instanceof THREE.Mesh && !(object instanceof THREE.InstancedMesh),
+    )!.geometry;
+    const distantPositions = distantGround.getAttribute('position');
+    const indices = distantGround.getIndex()!;
+    for (let index = 0; index < indices.count; index += 3) {
+      const a = indices.getX(index);
+      const b = indices.getX(index + 1);
+      const c = indices.getX(index + 2);
+      const cross =
+        (distantPositions.getX(b) - distantPositions.getX(a)) *
+          (distantPositions.getZ(c) - distantPositions.getZ(a)) -
+        (distantPositions.getZ(b) - distantPositions.getZ(a)) *
+          (distantPositions.getX(c) - distantPositions.getX(a));
+      assert.ok(cross < 0);
+    }
   }
 });

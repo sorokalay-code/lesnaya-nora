@@ -57,7 +57,7 @@ export class RabbitFactory {
     return genes;
   }
 
-  partners(count: number): PartnerTraits[] {
+  partners(count: number, maxFamilySize = 5): PartnerTraits[] {
     const out: PartnerTraits[] = [];
     for (let i = 0; i < count; i++) {
       const a = this.rng.range(0, Math.PI * 2),
@@ -72,7 +72,7 @@ export class RabbitFactory {
         preference: this.rng.pick(['speed', 'vitality', 'rare-coat', 'bond'] as const),
         temperament: this.rng.pick(['смелый', 'заботливый', 'осторожный', 'любопытный'] as const),
         trust: this.rng.int(0, 18),
-        familySize: this.rng.int(0, 5),
+        familySize: this.rng.int(0, maxFamilySize),
       });
       if (out[i].genes.anatomy.fangs) out[i].familySize = 0;
     }
