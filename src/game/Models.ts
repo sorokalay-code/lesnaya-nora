@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ModelAssets, type ModelInstance } from './ModelAssets';
 import { COAT_COLORS, type Genes, type PredatorKind } from './types';
+import { RabbitAppearance } from './genetics/RabbitAppearance';
 
 export interface RabbitRig extends ModelInstance {
   leftEar: THREE.Object3D;
@@ -39,6 +40,7 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
     if (object.name === 'EarL' || object.name === 'EarR')
       object.scale.y = genes.ear * (baby ? 0.78 : 1);
   });
+  RabbitAppearance.apply(model, genes);
   return Object.assign(model, { leftEar, rightEar });
 }
 
@@ -57,8 +59,10 @@ export function animateRabbit(
   const jumping = r.root.userData.jumping === true;
   const clip = jumping ? 'hop' : (action ?? (moving ? (frightened ? 'run' : 'hop') : 'idle'));
   ModelAssets.shared.play(r, clip, dt, jumping ? 1.7 : frightened ? 1.2 : 1);
+  RabbitAppearance.animate(r);
   r.root.position.y = (r.root.userData.baseY as number | undefined) ?? r.root.position.y;
   r.root.position.y += (r.root.userData.jumpHeight as number | undefined) ?? 0;
+  if (r.root.userData.legCount === 0) r.root.position.y -= 0.2 * r.root.scale.x;
   r.root.rotation.x = (r.root.userData.jumpPitch as number | undefined) ?? 0;
   const lean = moving && !action ? ((r.root.userData.turnLean as number | undefined) ?? 0) : 0;
   r.root.rotation.z += (lean - r.root.rotation.z) * (1 - Math.exp(-dt * 10));

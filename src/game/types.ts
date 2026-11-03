@@ -1,4 +1,5 @@
 import type { WildlifeKind } from './animals/types';
+import type { Anatomy, Lineage } from './genetics/types';
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
@@ -13,9 +14,19 @@ export interface Genes {
   speed: number;
   vitality: number;
   size: number;
+  pattern: 'solid' | 'spotted' | 'piebald';
+  secondaryCoat: Genes['coat'];
+  eyeColor: 'brown' | 'amber' | 'blue' | 'green' | 'red';
+  endurance: number;
+  immunity: number;
+  metabolism: number;
+  coldResistance: number;
+  stability: number;
+  anatomy: Anatomy;
 }
 
 export interface PartnerTraits {
+  lineage?: Lineage;
   dirtiness?: number;
   y?: number;
   lastConversationAt?: number;
@@ -31,6 +42,7 @@ export interface PartnerTraits {
 }
 
 export interface KitData {
+  lineage?: Lineage;
   dirtiness?: number;
   nextMealAt?: number;
   id: number;
@@ -97,11 +109,12 @@ export interface SaveData {
   wildlife?: WildlifeData[];
   nextWildlifeId?: number;
   discoveries?: { x: number; z: number; label: string }[];
-  version: 3;
+  version: 4;
   seed: number;
   clock: number;
   day: number;
   player: {
+    lineage?: Lineage;
     x: number;
     y: number;
     z: number;

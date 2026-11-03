@@ -28,13 +28,21 @@ import type { World } from '../src/game/World';
 import type { GameUI } from '../src/ui/GameUI';
 import { createUIStore } from '../src/ui/store';
 import { loadModels } from './model-fixture';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
 function fixture() {
-  const genes = { coat: 'cream' as const, ear: 1, speed: 3, vitality: 4, size: 1 };
+  const genes = {
+    ...DEFAULT_GENES,
+    coat: 'cream' as const,
+    ear: 1,
+    speed: 3,
+    vitality: 4,
+    size: 1,
+  };
   const save: SaveData = {
-    version: 3,
+    version: 4,
     seed: 14,
     clock: 420,
     day: 1,
@@ -206,6 +214,10 @@ test('family lifecycle creates kit actors and feeding updates their persisted st
   const { save, family } = fixture();
   family.birth();
   assert.ok(save.kits.length >= 2);
+  assert.equal(save.kits[0].lineage?.generation, 2);
+  assert.equal(save.kits[0].lineage?.ancestors.length, 2);
+  assert.equal(save.stats.generations, 2);
+  assert.notEqual(save.kits[0].genes.anatomy, save.player.genes.anatomy);
   assert.equal(family.actors.size, save.kits.length);
   const kit = save.kits[0],
     actor = family.actors.get(kit.id)!;

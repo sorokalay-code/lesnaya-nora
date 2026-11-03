@@ -1,4 +1,6 @@
 import { KitMovement } from './KitMovement';
+import { Genealogy } from '../genetics/Genealogy';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 import * as THREE from 'three';
 import { RabbitFactory, RabbitKit } from '../animals';
 import type { Soundscape } from '../Audio';
@@ -131,18 +133,28 @@ export class FamilyLifecycle {
       }
 
       if (kit.age < 3) {
-        kit.hunger = clamp(kit.hunger - dt * 0.08, 0, 100);
+        kit.hunger = clamp(kit.hunger - dt * 0.08 * GeneticTraits.metabolism(kit.genes), 0, 100);
         const nest = this.context.save.nests.find((n) => n.id === kit.nestId);
-        if (!nest && this.context.temperature() < 9)
-          kit.health = clamp(kit.health - dt * 0.17 * 0.8, 0, 100);
-        else if (
-          nest &&
-          !this.context.earth.isSheltered(nest.x, nest.y, nest.z) &&
-          this.context.temperature() < 0
-        )
-          kit.health = clamp(kit.health - dt * 0.055 * 0.8, 0, 100);
+        const temperature = this.context.temperature() + GeneticTraits.coldProtection(kit.genes);
+        if (!nest && temperature < 9)
+          kit.health = clamp(
+            kit.health - (dt * 0.17 * 0.8) / GeneticTraits.resilience(kit.genes),
+            0,
+            100,
+          );
+        else if (nest && !this.context.earth.isSheltered(nest.x, nest.y, nest.z) && temperature < 0)
+          kit.health = clamp(
+            kit.health - (dt * 0.055 * 0.8) / GeneticTraits.resilience(kit.genes),
+            0,
+            100,
+          );
 
-        if (kit.hunger < 12) kit.health = clamp(kit.health - dt * 0.2 * 0.8, 0, 100);
+        if (kit.hunger < 12)
+          kit.health = clamp(
+            kit.health - (dt * 0.2 * 0.8) / GeneticTraits.resilience(kit.genes),
+            0,
+            100,
+          );
         else if (kit.hunger > 65) kit.health = clamp(kit.health + dt * 0.04, 0, 100);
 
         if (kit.health <= 0) {
@@ -191,7 +203,20 @@ export class FamilyLifecycle {
       const kit: KitData = {
         id,
         name,
-        genes: this.context.genetics.inherit(this.context.save.player.genes, father.genes),
+        genes: this.context.genetics.inherit(
+          this.context.save.player.genes,
+          father.genes,
+          Genealogy.related(this.context.save.player.lineage, father.lineage),
+        ),
+        lineage: Genealogy.child('child:' + this.context.save.seed + ':' + id, [
+          {
+            name: 'Мама',
+            lineage:
+              this.context.save.player.lineage ??
+              Genealogy.founder('player:' + this.context.save.seed),
+          },
+          { name: father.name, lineage: father.lineage ?? Genealogy.founder('wild:' + father.id) },
+        ]),
         age: 0,
         hunger: 85,
         health: 100,
@@ -206,6 +231,10 @@ export class FamilyLifecycle {
         alive: true,
       };
       this.context.save.kits.push(kit);
+      this.context.save.stats.generations = Math.max(
+        this.context.save.stats.generations,
+        kit.lineage?.generation ?? 1,
+      );
       this.add(kit);
     }
 

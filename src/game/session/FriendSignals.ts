@@ -1,6 +1,8 @@
 import type { ForestAnimal, Predator } from '../animals';
 import { animalNames } from '../animals/names';
 import { FRIENDSHIP_TRUST } from '../Friendship';
+import { GeneticTraits } from '../genetics/GeneticTraits';
+import type { Genes } from '../types';
 
 /** Друзья поблизости замечают наземных хищников; предупреждения ограничены по частоте. */
 export class FriendSignals {
@@ -8,7 +10,7 @@ export class FriendSignals {
 
   update(
     time: number,
-    player: { x: number; y: number; z: number; hidden: boolean },
+    player: { x: number; y: number; z: number; hidden: boolean; genes?: Genes },
     animals: readonly ForestAnimal[],
     predators: readonly Predator[],
     toast: (line: string) => void,
@@ -29,11 +31,12 @@ export class FriendSignals {
       }
     }
     if (time < this.nextWarning) return;
+    const hearing = player.genes ? GeneticTraits.hearing(player.genes) : 1;
     const friend = animals.find(
       (animal) =>
         animal.alive &&
         animal.trust >= FRIENDSHIP_TRUST &&
-        Math.hypot(animal.x - player.x, animal.z - player.z) < 18,
+        Math.hypot(animal.x - player.x, animal.z - player.z) < 18 * hearing,
     );
     if (!friend) return;
     const threat = predators.find(

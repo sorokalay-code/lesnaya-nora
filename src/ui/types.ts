@@ -2,6 +2,7 @@ import type { WildlifeKind } from '../game/animals';
 import type { ConversationTurn } from '../game/session/ForestConversation';
 import type { DialogQuestion } from '../game/session/RabbitConversation';
 import type { WebView } from '../game/session/SpiderEncounter';
+import type { GeneticsView } from './presenters/GeneticsPresenter';
 import type {
   FoodKind,
   KitData,
@@ -45,7 +46,7 @@ export interface HudView {
   prompt: PromptPart[];
 }
 
-export type DialogViewModel =
+export type DialogViewModel = (
   | { type: 'help' }
   | { type: 'remove'; kind: 'stash' | 'nest'; items: number }
   | { type: 'self'; player: SaveData['player']; pregnant: boolean }
@@ -74,7 +75,8 @@ export type DialogViewModel =
       inventory: SaveData['inventory'];
       materials: SaveData['materials'];
       stored: Partial<Record<FoodKind, number>>;
-    };
+    }
+) & { genetics?: GeneticsView };
 
 export interface MapViewModel {
   colors: string[];

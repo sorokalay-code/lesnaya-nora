@@ -17,10 +17,11 @@ import type { PartnerTraits, SaveData } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
 import { DialogView } from '../src/ui/components/Dialogs';
 import { loadModels } from './model-fixture';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
-const genes = { coat: 'cream' as const, ear: 1, speed: 3, vitality: 3, size: 1 };
+const genes = { ...DEFAULT_GENES, coat: 'cream' as const, ear: 1, speed: 3, vitality: 3, size: 1 };
 const partner: PartnerTraits = {
   id: 1,
   name: 'Пушок',
@@ -34,7 +35,7 @@ const partner: PartnerTraits = {
 };
 function save(): SaveData {
   return {
-    version: 3,
+    version: 4,
     seed: 14,
     clock: 420,
     day: 1,

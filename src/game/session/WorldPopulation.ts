@@ -12,6 +12,7 @@ import {
   RabbitActor,
   RabbitFactory,
   Spider,
+  AnimalFactory,
 } from '../animals';
 import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
@@ -33,7 +34,7 @@ export class WorldPopulation {
     markPartner: (actor: RabbitActor, active: boolean) => void;
   }) {
     this.rabbits = context.save.partners.map((p) => {
-      const actor = new RabbitActor(p, context.rng);
+      const actor = AnimalFactory.rabbit(p, context.rng);
       actor.rig.root.position.y = p.y ?? context.world.heightAt(p.x, p.z);
       actor.rig.root.userData.baseY = actor.rig.root.position.y;
       context.scene.add(actor.rig.root);
@@ -42,11 +43,12 @@ export class WorldPopulation {
     });
     this.families = [];
     for (const partner of context.save.partners.slice()) {
+      if (partner.genes.anatomy.fangs) continue;
       const familyFactory = new RabbitFactory(
         new Random(context.save.seed + 900 + partner.id * 71),
       );
       for (let i = 0; i < partner.familySize; i++) {
-        const genes = familyFactory.genes();
+        const genes = familyFactory.inherit(partner.genes, familyFactory.genes());
         const young = i < Math.floor(partner.familySize / 2);
         if (
           !young &&
@@ -55,7 +57,7 @@ export class WorldPopulation {
           continue;
         const member = new FamilyMember(partner, genes, i, young);
         if (!young) {
-          const actor = new RabbitActor(member.data, context.rng);
+          const actor = AnimalFactory.rabbit(member.data, context.rng);
           actor.moveTo(member.x, member.z, context.world.heightAt(member.x, member.z));
           ModelAssets.shared.release(member.root);
           context.save.partners.push(member.data);
@@ -100,12 +102,21 @@ export class WorldPopulation {
       attempt++
     ) {
       const tree = spiderRandom.pick(treeCandidates);
-      const x = tree.x + 1.6,
-        z = tree.z + 1.3;
+      const second = treeCandidates
+        .filter((candidate) => {
+          const distance = Math.hypot(candidate.x - tree.x, candidate.z - tree.z);
+          return distance > 3 && distance < 10;
+        })
+        .sort(
+          (a, b) => Math.hypot(a.x - tree.x, a.z - tree.z) - Math.hypot(b.x - tree.x, b.z - tree.z),
+        )[0];
+      if (!second) continue;
+      const x = tree.x,
+        z = tree.z;
       if (spiderHomes.some((home) => Math.hypot(home.x - x, home.z - z) < 16)) continue;
       spiderHomes.push({ x, z });
       const spider = new Spider(x, z, spiderRandom);
-      spider.root.position.y = context.world.heightAt(x, z);
+      spider.configureHabitat(tree, second, (x, z) => context.world.heightAt(x, z));
       this.predators.push(spider);
       context.scene.add(spider.root);
     }

@@ -16,9 +16,9 @@ export class WebEscape {
     this.elapsed += dt;
   }
 
-  press(): boolean {
-    if (this.elapsed - this.lastPress < 0.09) return false;
-    this.lastPress = this.elapsed;
+  press(inputSeconds = this.elapsed): boolean {
+    if (inputSeconds - this.lastPress < 0.09) return false;
+    this.lastPress = inputSeconds;
     this.hits++;
     return this.hits >= WebEscape.required;
   }

@@ -136,7 +136,12 @@ export class AnimalWasteSystem {
         this.context.family.rigs.get(kit.id),
       );
     }
-    for (const rabbit of this.context.rabbits)
+    for (const rabbit of this.context.rabbits) {
+      if (rabbit.data.id !== this.context.save.mateId) {
+        CoatDirt.update(rabbit.rig, 0);
+        delete rabbit.data.dirtiness;
+        continue;
+      }
       this.soil(
         dt,
         rabbit.data,
@@ -147,6 +152,7 @@ export class AnimalWasteSystem {
         },
         rabbit.rig,
       );
+    }
   }
 
   private soil(

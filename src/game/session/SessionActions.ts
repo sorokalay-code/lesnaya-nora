@@ -10,6 +10,7 @@ import { InventoryController } from './InventoryController';
 import { SessionQueries } from './SessionQueries';
 import type { FamilyGrooming } from './FamilyGrooming';
 import type { SpiderEncounter } from './SpiderEncounter';
+import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 
 interface Context {
   web: SpiderEncounter;
@@ -106,6 +107,10 @@ export class SessionActions {
       this.context.ui.closeJournal();
       this.context.ui.showDialog({
         type: 'self',
+        genetics: GeneticsPresenter.build(
+          this.context.save.player.genes,
+          this.context.save.player.lineage,
+        ),
         player: this.context.save.player,
         pregnant: !!this.context.save.pregnancy,
       });

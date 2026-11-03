@@ -336,7 +336,9 @@ function encounter() {
   save.player.z = save.player.y = 0;
   save.player.hidden = false;
   const lines: string[] = [];
+  let inputSeconds = 0;
   const traps = new SpiderEncounter({
+    inputClock: () => (inputSeconds += 0.12),
     scene,
     save,
     player,
@@ -369,7 +371,7 @@ test('web gives a grace period, pauses for conversations and calls its spider on
     spider.update(0.1, 18.2, 0.8, 0, false, true, () => 0),
     false,
   );
-  assert.equal(lines.filter((line) => line.includes('бежит')).length, 1);
+  assert.equal(lines.filter((line) => line.includes('приближается')).length, 1);
 });
 
 test('escaping breaks the web for four game hours and dead owners release the player', () => {

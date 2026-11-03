@@ -6,6 +6,7 @@ import type { Excavation } from '../Excavation';
 import type { SaveData } from '../types';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 interface CollisionContext {
   playerHeading?: () => number;
   save: SaveData;
@@ -89,9 +90,10 @@ export class AnimalCollisionSystem {
         radius: RABBIT_BODY.radius * root.scale.x,
         halfLength: RABBIT_BODY.halfLength * root.scale.x,
         heading: root.rotation.y,
-        mass: 1,
+        mass: GeneticTraits.mobility(actor.data.genes) === 0 ? Infinity : 1,
         sheltered,
         moveTo: (x, z) => {
+          if (GeneticTraits.mobility(actor.data.genes) === 0) return false;
           if (!valid(x, z, y, sheltered)) return false;
           actor.moveTo(x, z, this.context.earth.floorAt(x, z, y));
           return true;
@@ -109,7 +111,7 @@ export class AnimalCollisionSystem {
         radius: RABBIT_BODY.radius * root.scale.x,
         halfLength: RABBIT_BODY.halfLength * root.scale.x,
         heading: root.rotation.y,
-        mass: 1,
+        mass: GeneticTraits.mobility(member.data.genes) === 0 ? Infinity : 1,
         sheltered: false,
         moveTo: (x, z) => {
           if (!valid(x, z, y, false)) return false;
@@ -137,6 +139,7 @@ export class AnimalCollisionSystem {
           mass: 0.55,
           sheltered,
           moveTo: (x, z) => {
+            if (GeneticTraits.mobility(kit.genes) === 0) return false;
             if (!valid(x, z, y, sheltered)) return false;
             kit.x = x;
             kit.z = z;
@@ -157,9 +160,13 @@ export class AnimalCollisionSystem {
         y,
         z: predator.z,
         radius,
-        mass: predator.profile.mass,
+        mass:
+          y - this.context.world.heightAt(predator.x, predator.z) > 0.15
+            ? Infinity
+            : predator.profile.mass,
         sheltered,
         moveTo: (x, z) => {
+          if (y - this.context.world.heightAt(predator.x, predator.z) > 0.15) return false;
           if (!valid(x, z, y, sheltered)) return false;
           predator.moveTo(
             x,

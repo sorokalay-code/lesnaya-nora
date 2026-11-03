@@ -1,5 +1,7 @@
 import { Random } from '../Random';
 import type { Genes, PartnerTraits } from '../types';
+import { GenomeInheritance } from '../genetics/GenomeInheritance';
+import { Genealogy } from '../genetics/Genealogy';
 const names = [
   'Листик',
   'Тимофей',
@@ -18,13 +20,24 @@ export class RabbitFactory {
   constructor(private readonly rng: Random) {}
 
   genes(): Genes {
-    return {
+    const genes: Genes = {
       coat: this.rng.pick(coats),
       ear: this.rng.range(0.75, 1.28),
       speed: this.rng.int(1, 5),
       vitality: this.rng.int(1, 5),
       size: this.rng.range(0.88, 1.13),
+      pattern: this.rng.pick(['solid', 'solid', 'spotted', 'piebald'] as const),
+      secondaryCoat: this.rng.pick(coats),
+      eyeColor: this.rng.pick(['brown', 'amber', 'blue', 'green'] as const),
+      endurance: this.rng.int(1, 5),
+      immunity: this.rng.int(1, 5),
+      metabolism: this.rng.int(1, 5),
+      coldResistance: this.rng.int(1, 5),
+      stability: this.rng.int(1, 5),
+      anatomy: { legs: 4, ears: 2, eyes: 2, fangs: this.rng.chance(0.035) },
     };
+    if (genes.anatomy.fangs) genes.eyeColor = 'red';
+    return genes;
   }
 
   partners(count: number): PartnerTraits[] {
@@ -34,6 +47,7 @@ export class RabbitFactory {
         d = this.rng.range(15, 72);
       out.push({
         id: i,
+        lineage: Genealogy.founder('wild:' + i),
         name: this.rng.pick(names),
         x: Math.cos(a) * d,
         z: Math.sin(a) * d,
@@ -43,34 +57,14 @@ export class RabbitFactory {
         trust: this.rng.int(0, 18),
         familySize: this.rng.int(0, 5),
       });
+      if (out[i].genes.anatomy.fangs) out[i].familySize = 0;
     }
 
     return out;
   }
 
-  inherit(mother: Genes, father: Genes): Genes {
-    return {
-      coat: this.rng.chance(0.5) ? mother.coat : father.coat,
-      ear: Math.max(
-        0.65,
-        Math.min(1.4, (mother.ear + father.ear) / 2 + this.rng.range(-0.13, 0.13)),
-      ),
-      speed: Math.max(
-        1,
-        Math.min(5, Math.round((mother.speed + father.speed) / 2 + this.rng.range(-1.1, 1.1))),
-      ),
-      vitality: Math.max(
-        1,
-        Math.min(
-          5,
-          Math.round((mother.vitality + father.vitality) / 2 + this.rng.range(-1.1, 1.1)),
-        ),
-      ),
-      size: Math.max(
-        0.8,
-        Math.min(1.2, (mother.size + father.size) / 2 + this.rng.range(-0.09, 0.09)),
-      ),
-    };
+  inherit(mother: Genes, father: Genes, related = false): Genes {
+    return new GenomeInheritance(this.rng).inherit(mother, father, related);
   }
 }
 export function partnerScore(p: PartnerTraits, genes: Genes): number {

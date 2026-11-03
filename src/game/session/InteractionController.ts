@@ -12,6 +12,8 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 import { ConversationFocus } from './ConversationFocus';
 import { ForestConversation } from './ForestConversation';
 import { RabbitConversation } from './RabbitConversation';
+import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface InteractionContext {
   save: SaveData;
@@ -87,6 +89,7 @@ export class InteractionController {
     this.context.view.unlock();
     this.context.ui.showDialog({
       type: 'partner',
+      genetics: GeneticsPresenter.build(p.genes, p.lineage, this.context.save.player),
       partner: p,
       score: this.compatibility(p),
       line,
@@ -109,6 +112,7 @@ export class InteractionController {
     this.context.view.unlock();
     this.context.ui.showDialog({
       type: 'mate',
+      genetics: GeneticsPresenter.build(mate.genes, mate.lineage, this.context.save.player),
       partner: mate,
       command: this.context.save.mateCommand ?? 'forage',
       messages: this.context.save.mateMessages ?? [],
@@ -266,6 +270,13 @@ export class InteractionController {
     }
 
     if (action === 'court') {
+      if (p.genes.anatomy.fangs) {
+        this.openPartner(
+          p,
+          'Мои клыки изменили меня. Я живу один и охочусь; семью создавать не буду.',
+        );
+        return;
+      }
       if (this.context.save.mateId !== undefined && this.context.save.mateId !== p.id) {
         this.openPartner(p, 'Сначала реши, что делать с нынешним партнёром.');
         return;
@@ -312,12 +323,21 @@ export class InteractionController {
     this.dialogPartner = undefined;
     this.dialogAnimal = undefined;
     this.context.view.unlock();
-    this.context.ui.showDialog({ type: 'kit', kit, line });
+    this.context.ui.showDialog({
+      type: 'kit',
+      kit,
+      line,
+      genetics: GeneticsPresenter.build(kit.genes, kit.lineage),
+    });
   }
 
   childAction(action: string): void {
     const kit = this.dialogKit;
     if (!kit) return;
+    if (action === 'child-follow' && GeneticTraits.mobility(kit.genes) === 0) {
+      this.openKit(kit, 'Мама, без лап я не могу идти. Побудь рядом и помоги мне с едой.');
+      return;
+    }
 
     if (kit.independent) {
       this.openKit(

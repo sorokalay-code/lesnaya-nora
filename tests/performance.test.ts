@@ -7,9 +7,10 @@ import { ResourceInstances } from '../src/game/ResourceInstances';
 import type { Resource } from '../src/game/World';
 import { WorldChunks } from '../src/game/WorldChunks';
 import { loadModels } from './model-fixture';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
-const genes = { coat: 'cream' as const, ear: 1, speed: 3, vitality: 3, size: 1 };
+const genes = { ...DEFAULT_GENES, coat: 'cream' as const, ear: 1, speed: 3, vitality: 3, size: 1 };
 function stats(root: THREE.Object3D) {
   let meshes = 0,
     triangles = 0;

@@ -460,6 +460,7 @@ export class Game {
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
     this.animals = new AnimalSimulation({
+      family: this.family,
       animalWaste: new AnimalWasteSystem({
         scene: this.scene,
         save: this.save,

@@ -4,6 +4,8 @@ import { Random } from '../Random';
 import type { Genes, PartnerTraits } from '../types';
 import { Rabbit } from './Rabbit';
 import type { GroundHeight } from './types';
+import { Genealogy } from '../genetics/Genealogy';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 /** Член чужой семьи выбирает собственные цели рядом с домом, не привязываясь к орбите родителя. */
 export class FamilyMember extends Rabbit {
   readonly data: PartnerTraits;
@@ -43,6 +45,9 @@ export class FamilyMember extends Rabbit {
       temperament: parent.temperament,
       trust: 5,
       familySize: 0,
+      lineage: Genealogy.child('family:' + parent.id + ':' + index, [
+        { name: parent.name, lineage: parent.lineage ?? Genealogy.founder('wild:' + parent.id) },
+      ]),
     };
   }
 
@@ -66,9 +71,12 @@ export class FamilyMember extends Rabbit {
     const dx = this.targetX - this.x,
       dz = this.targetZ - this.z,
       distance = Math.hypot(dx, dz),
-      moving = !this.resting && distance > 0.3;
+      moving = !this.resting && distance > 0.3 && GeneticTraits.mobility(this.data.genes) > 0;
     if (moving) {
-      const step = Math.min(distance, dt * (this.index % 2 ? 1.1 : 1.45));
+      const step = Math.min(
+        distance,
+        dt * (this.index % 2 ? 1.1 : 1.45) * GeneticTraits.mobility(this.data.genes),
+      );
       this.x += (dx / distance) * step;
       this.z += (dz / distance) * step;
       this.rig.root.rotation.y = Math.atan2(-dx, -dz);

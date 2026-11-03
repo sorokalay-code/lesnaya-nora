@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { MODEL_NAMES, ModelAssets } from '../src/game/ModelAssets';
 import { animateRabbit, createRabbit, setRabbitAction } from '../src/game/Models';
 import { loadModels } from './model-fixture';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
@@ -38,7 +39,7 @@ test('every creature and family prop loads from a GLB with mesh geometry', () =>
 });
 
 test('rabbit instances have independent coat materials and animated digging paws', () => {
-  const base = { ear: 1, speed: 3, vitality: 3, size: 1 };
+  const base = { ...DEFAULT_GENES, ear: 1, speed: 3, vitality: 3, size: 1 };
   const cream = createRabbit({ ...base, coat: 'cream' }),
     black = createRabbit({ ...base, coat: 'black' });
   const a = cream.root.getObjectByName('Body') as THREE.Mesh;

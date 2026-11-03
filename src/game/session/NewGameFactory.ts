@@ -1,12 +1,14 @@
 import { RabbitFactory } from '../animals';
 import { type SaveData } from '../types';
+import { DEFAULT_GENES } from '../genetics/GeneticTraits';
+import { Genealogy } from '../genetics/Genealogy';
 
 /** Создаёт начальное сохранение; не обращается к сцене, DOM и хранилищу браузера. */
 export class NewGameFactory {
   static create(seed: number, seasonIndex: number, factory: RabbitFactory): SaveData {
     const startDay = 1 + Math.max(0, Math.min(3, seasonIndex)) * 30;
     return {
-      version: 3,
+      version: 4,
       seed,
       clock: (startDay - 1) * 1440 + 7 * 60,
       day: startDay,
@@ -14,7 +16,8 @@ export class NewGameFactory {
         x: 0,
         y: 0,
         z: 0,
-        genes: { coat: 'cream', ear: 1.1, speed: 3, vitality: 4, size: 1 },
+        genes: { ...DEFAULT_GENES, anatomy: { ...DEFAULT_GENES.anatomy } },
+        lineage: Genealogy.founder('player:' + seed),
         hunger: 85,
         thirst: 85,
         bodyTemp: 38.5,

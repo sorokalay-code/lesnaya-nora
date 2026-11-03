@@ -46,6 +46,21 @@ export abstract class Predator extends Animal<PredatorKind> {
     return true;
   }
 
+  get canMelee(): boolean {
+    return true;
+  }
+
+  protected specialApproach(
+    _dt: number,
+    _time: number,
+    _chasing: boolean,
+    _groundAt: GroundHeight,
+    _player: { x: number; z: number },
+    _playerSize: number,
+  ): boolean | undefined {
+    return undefined;
+  }
+
   enterTunnel(x: number, y: number, z: number): void {
     this.tunnelPosition = { x, y, z };
     this.x = x;
@@ -131,6 +146,16 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.targetX = Math.max(-95, Math.min(95, this.x + this.rng.range(-14, 14)));
       this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
     }
+
+    const special = this.specialApproach(
+      dt,
+      time,
+      hunting || chasingPrey,
+      groundAt,
+      { x: px, z: pz },
+      playerSize,
+    );
+    if (special !== undefined) return special;
 
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
     const speed =

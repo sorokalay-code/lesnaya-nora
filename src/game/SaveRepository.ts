@@ -1,9 +1,10 @@
 import type { SaveData } from './types';
+import { GenomeValidation } from './genetics/GenomeValidation';
 
 /** Хранит и проверяет актуальный формат сохранения без миграций старых версий. */
 
 export class SaveRepository {
-  constructor(private readonly key = 'lesnaya-nora-save-v3') {}
+  constructor(private readonly key = 'lesnaya-nora-save-v4') {}
 
   exists(): boolean {
     try {
@@ -23,7 +24,7 @@ export class SaveRepository {
 
     const data = JSON.parse(raw) as SaveData;
     if (
-      data.version !== 3 ||
+      data.version !== 4 ||
       !Number.isFinite(data.seed) ||
       !Number.isFinite(data.player?.y) ||
       !Array.isArray(data.excavation) ||
@@ -34,6 +35,13 @@ export class SaveRepository {
       !Array.isArray(data.drops)
     )
       throw new Error('Сохранение повреждено или создано в старой версии игры');
+
+    if (
+      !GenomeValidation.valid(data.player.genes) ||
+      !data.partners.every((partner) => partner && GenomeValidation.valid(partner.genes)) ||
+      !data.kits.every((kit) => kit && GenomeValidation.valid(kit.genes))
+    )
+      throw new Error('Сохранение содержит неполные или повреждённые гены. Начни новую историю.');
 
     return data;
   }

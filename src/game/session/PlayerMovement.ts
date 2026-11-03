@@ -1,4 +1,5 @@
 import { JumpMotion } from './JumpMotion';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 import type { PlayerRabbit } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
@@ -34,7 +35,8 @@ export class PlayerMovement {
     if (
       this.jump.active ||
       elapsed < this.nextJumpAt ||
-      p.energy < 9 ||
+      p.energy < 9 * GeneticTraits.energyCost(p.genes) ||
+      !GeneticTraits.canJump(p.genes) ||
       this.sheltered ||
       ((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed
     )
@@ -45,7 +47,7 @@ export class PlayerMovement {
     };
     if (!this.jump.start(direction.x, direction.z)) return false;
     this.nextJumpAt = elapsed + 1.05;
-    p.energy -= 9;
+    p.energy -= 9 * GeneticTraits.energyCost(p.genes);
     this.sound.play('hop');
     return true;
   }
@@ -78,7 +80,7 @@ export class PlayerMovement {
 
   move(dt: number, elapsed: number, blocked: boolean): boolean {
     const p = this.player.data;
-    if (blocked) return false;
+    if (blocked || GeneticTraits.mobility(p.genes) === 0) return false;
 
     if (this.jump.active) return this.advanceJump(dt);
 
@@ -106,7 +108,11 @@ export class PlayerMovement {
     const dx = fx * forward - fz * right;
     const dz = fz * forward + fx * right;
     const sprint = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && p.energy > 8;
-    const speed = (sprint ? 9.2 : 4.5) * (0.82 + p.genes.speed * 0.06) * (p.energy < 15 ? 0.75 : 1);
+    const speed =
+      (sprint ? 9.2 : 4.5) *
+      (0.82 + p.genes.speed * 0.06) *
+      (p.energy < 15 ? 0.75 : 1) *
+      GeneticTraits.mobility(p.genes);
     const desired = Math.atan2(-dx, -dz);
     const turn = Math.atan2(
       Math.sin(desired - this.player.rig.root.rotation.y),

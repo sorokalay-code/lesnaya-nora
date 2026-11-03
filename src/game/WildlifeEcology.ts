@@ -147,6 +147,7 @@ export class WildlifeEcology {
                   p.alive &&
                   !p.underground &&
                   p.kind !== predator.kind &&
+                  Math.abs(p.root.position.y - predator.root.position.y) < 1.5 &&
                   Math.hypot(p.x - predator.x, p.z - predator.z) < 9,
               )
               .sort(
@@ -217,12 +218,14 @@ export class WildlifeEcology {
         !predator.alive ||
         predator.underground ||
         predator.huntingPlayer ||
-        predator.attackCooldown > 0
+        predator.attackCooldown > 0 ||
+        !predator.canMelee
       )
         continue;
 
       const victim = this.preyTargets.get(predator)?.target;
       if (!victim || !victim.alive) continue;
+      if (Math.abs(victim.root.position.y - predator.root.position.y) > 1.5) continue;
 
       const reach = predator.profile.preyReach;
       if (Math.hypot(victim.x - predator.x, victim.z - predator.z) > reach) continue;

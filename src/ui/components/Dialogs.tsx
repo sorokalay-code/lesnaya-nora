@@ -1,5 +1,6 @@
 import { FOOD, type FoodKind } from '../../game/types';
 import { ControlGuide } from './ControlGuide';
+import { GeneticsPanel } from './GeneticsPanel';
 import type { DialogViewModel, UIAction } from '../types';
 
 import type { ReactNode } from 'react';
@@ -114,6 +115,7 @@ export function DialogView({
       return (
         <>
           <Heading eyebrow="МОЯ КРОЛЬЧИХА" title="Твоя история" onAction={onAction} />
+          <GeneticsPanel data={data.genetics} />
           <p className="dialog-meta">
             Окрас: {coatName(data.player.genes.coat)} · возраст {data.player.age.toFixed(1)} игровых
             дней
@@ -147,6 +149,7 @@ export function DialogView({
       return (
         <>
           <Heading eyebrow="МОЯ СЕМЬЯ" title={data.partner.name} onAction={onAction} />
+          <GeneticsPanel data={data.genetics} />
           <p className="dialog-shortcuts">
             1–4 — приказы · Enter — написать · Esc — вернуться в лес
           </p>
@@ -214,6 +217,7 @@ export function DialogView({
       return (
         <>
           <Heading eyebrow="ЛЕСНОЙ РАЗГОВОР" title={p.name} onAction={onAction} />
+          <GeneticsPanel data={data.genetics} />
           <p className="speech">
             «
             {data.line ??
@@ -267,6 +271,7 @@ export function DialogView({
       return (
         <>
           <Heading eyebrow="МОЯ СЕМЬЯ" title={data.kit.name} onAction={onAction} />
+          <GeneticsPanel data={data.genetics} />
           <p className="speech">
             «
             {data.line ??

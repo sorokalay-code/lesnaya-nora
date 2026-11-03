@@ -1,5 +1,7 @@
 import { Random } from '../Random';
-import type { PredatorKind } from '../types';
+import type { PartnerTraits, PredatorKind } from '../types';
+import { RabbitActor } from './RabbitActor';
+import { FangedRabbit } from './FangedRabbit';
 import { Bear } from './Bear';
 import { Beaver } from './Beaver';
 import { Deer } from './Deer';
@@ -41,6 +43,10 @@ export class AnimalFactory {
 
   static predator(kind: PredatorKind, x: number, z: number, rng: Random): Predator {
     return new this.predators[kind](x, z, rng);
+  }
+
+  static rabbit(data: PartnerTraits, rng: Random): RabbitActor {
+    return data.genes.anatomy.fangs ? new FangedRabbit(data, rng) : new RabbitActor(data, rng);
   }
 
   static forest(kind: WildlifeKind, x: number, z: number, rng: Random): ForestAnimal {

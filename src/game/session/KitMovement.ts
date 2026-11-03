@@ -5,6 +5,7 @@ import { animateRabbit, setRabbitAction, type RabbitRig } from '../Models';
 import type { DigNode, KitData, SaveData } from '../types';
 import type { World } from '../World';
 import { KitFeeding } from './KitFeeding';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 
 interface Context {
   save: SaveData;
@@ -26,6 +27,10 @@ export class KitMovement {
   }
 
   update(kit: KitData, rig: RabbitRig, time: number, dt: number): void {
+    if (rig.root.userData.hunting && !rig.root.userData.conversing) {
+      animateRabbit(rig, time + kit.id, !!rig.root.userData.huntMoving, true, dt);
+      return;
+    }
     if (
       rig.root.userData.conversing ||
       (rig.root.userData.action === 'defecate' &&
@@ -85,7 +90,7 @@ export class KitMovement {
       this.context.earth,
       dt,
       time,
-      speed,
+      speed * GeneticTraits.mobility(kit.genes) * (0.7 + kit.genes.speed * 0.1),
       stop,
     );
     if (moving) {

@@ -3,7 +3,13 @@ import type { RabbitRig } from './Models';
 
 type CoatState = {
   step: number;
-  materials: { material: THREE.MeshStandardMaterial; color: THREE.Color; roughness: number }[];
+  materials: {
+    material: THREE.MeshStandardMaterial;
+    color: THREE.Color;
+    roughness: number;
+    secondary?: THREE.Color;
+    originalSecondary?: THREE.Color;
+  }[];
   spots: THREE.InstancedMesh[];
 };
 
@@ -23,9 +29,10 @@ export class CoatDirt {
     state.step = step;
     const mud = new THREE.Color(0x695235),
       amount = step / 100;
-    for (const { material, color, roughness } of state.materials) {
+    for (const { material, color, roughness, secondary, originalSecondary } of state.materials) {
       material.color.copy(color).lerp(mud, amount * 0.7);
       material.roughness = roughness + (1 - roughness) * amount;
+      if (secondary && originalSecondary) secondary.copy(originalSecondary).lerp(mud, amount * 0.7);
     }
     for (const spots of state.spots) {
       spots.visible = step > 0;
@@ -78,6 +85,14 @@ export class CoatDirt {
         material,
         color: material.color.clone(),
         roughness: material.roughness,
+        secondary:
+          material.userData.geneSecondary instanceof THREE.Color
+            ? material.userData.geneSecondary
+            : undefined,
+        originalSecondary:
+          material.userData.geneSecondary instanceof THREE.Color
+            ? material.userData.geneSecondary.clone()
+            : undefined,
       })),
       spots,
     };

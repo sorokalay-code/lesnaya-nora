@@ -12,6 +12,8 @@ import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
 import { FriendSignals } from './FriendSignals';
 import type { AnimalWasteSystem } from './AnimalWasteSystem';
+import { RabbitPredation } from './RabbitPredation';
+import type { FamilyLifecycle } from './FamilyLifecycle';
 
 import type { PlayerConsequences } from './PlayerConsequences';
 export interface AnimalState {
@@ -19,6 +21,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  family?: FamilyLifecycle;
   animalWaste?: AnimalWasteSystem;
   combatAllowed?: () => boolean;
   save: SaveData;
@@ -45,9 +48,14 @@ interface Context {
 /** Обновляет поведение животных, семейную поддержку, охоту и видимость существ. */
 export class AnimalSimulation {
   private readonly friends = new FriendSignals();
-  constructor(private readonly context: Context) {}
+  private readonly rabbitPredation: RabbitPredation;
+
+  constructor(private readonly context: Context) {
+    this.rabbitPredation = new RabbitPredation(context);
+  }
 
   update(dt: number, time: number, night: boolean): number {
+    this.rabbitPredation.update(dt, time);
     this.updateRabbits(dt, time);
     this.positionMatingPair(time);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
@@ -114,6 +122,7 @@ export class AnimalSimulation {
     const p = this.context.save.player;
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
+      if (!predator.alive) continue;
       const combat = this.context.combatAllowed?.() ?? true;
       const prey = combat
         ? this.context.ecology.targetFor(predator, this.context.predators, time)
@@ -191,7 +200,11 @@ export class AnimalSimulation {
 
   private grazeRabbits(dt: number, time: number): void {
     for (const rabbit of this.context.rabbits)
-      if (!rabbit.rig.root.userData.conversing && this.context.rng.chance(dt * 0.025)) {
+      if (
+        !rabbit.solitary &&
+        !rabbit.rig.root.userData.conversing &&
+        this.context.rng.chance(dt * 0.025)
+      ) {
         const food = this.context.world.nearestResource(rabbit.data.x, rabbit.data.z, 1.2);
         if (food && food.kind !== 'toadstool') {
           this.context.world.harvest(food, this.context.save.clock);

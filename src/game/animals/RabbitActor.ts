@@ -6,6 +6,7 @@ import type { PartnerTraits } from '../types';
 import { Rabbit } from './Rabbit';
 import { GroundNavigator } from '../GroundNavigator';
 import type { GroundHeight } from './types';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
   private wanderAngle = 0;
@@ -17,6 +18,10 @@ export class RabbitActor extends Rabbit {
   private mateForageUntil = 0;
   private mateForageTarget?: { x: number; z: number };
   private readonly navigator = new GroundNavigator();
+
+  get solitary(): boolean {
+    return false;
+  }
 
   constructor(
     readonly data: PartnerTraits,
@@ -60,6 +65,7 @@ export class RabbitActor extends Rabbit {
   ): void {
     if (
       this.rig.root.userData.conversing === true ||
+      GeneticTraits.mobility(this.data.genes) === 0 ||
       (this.rig.root.userData.action === 'defecate' &&
         Number(this.rig.root.userData.actionUntil) > time + this.data.id)
     ) {
@@ -78,7 +84,7 @@ export class RabbitActor extends Rabbit {
       earth,
       dt,
       time,
-      speed,
+      speed * GeneticTraits.mobility(this.data.genes),
       stopDistance,
     );
     if (moving) {
@@ -163,8 +169,13 @@ export class RabbitActor extends Rabbit {
   }
 
   update(dt: number, time: number, playerX: number, playerZ: number, groundAt: GroundHeight): void {
+    if (this.rig.root.userData.hunting && !this.rig.root.userData.conversing) {
+      animateRabbit(this.rig, time + this.data.id, !!this.rig.root.userData.huntMoving, true, dt);
+      return;
+    }
     if (
       this.rig.root.userData.conversing === true ||
+      GeneticTraits.mobility(this.data.genes) === 0 ||
       (this.rig.root.userData.action === 'defecate' &&
         Number(this.rig.root.userData.actionUntil) > time + this.data.id)
     ) {
@@ -199,9 +210,19 @@ export class RabbitActor extends Rabbit {
     if (moving) {
       const direction = Math.atan2(this.targetX - this.data.x, this.targetZ - this.data.z);
       const nx =
-        this.data.x + Math.sin(direction) * dt * (this.activity === 'explore' ? 1.4 : 0.75);
+        this.data.x +
+        Math.sin(direction) *
+          dt *
+          (this.activity === 'explore' ? 1.4 : 0.75) *
+          GeneticTraits.mobility(this.data.genes) *
+          (0.7 + this.data.genes.speed * 0.1);
       const nz =
-        this.data.z + Math.cos(direction) * dt * (this.activity === 'explore' ? 1.4 : 0.75);
+        this.data.z +
+        Math.cos(direction) *
+          dt *
+          (this.activity === 'explore' ? 1.4 : 0.75) *
+          GeneticTraits.mobility(this.data.genes) *
+          (0.7 + this.data.genes.speed * 0.1);
       if (Math.hypot(nx, nz) < 95) {
         this.data.x = nx;
         this.data.z = nz;

@@ -9,6 +9,7 @@ import type { ViewCamera } from '../ViewCamera';
 import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { SessionQueries } from './SessionQueries';
+import { GeneticTraits } from '../genetics/GeneticTraits';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface EnvironmentContext {
   waste: WasteSystem;
@@ -177,7 +178,13 @@ export class EnvironmentController {
 
     if (this.context.elapsed() < this.nextDigAt) return;
 
-    if (p.energy < 8) {
+    const cost = 8 * GeneticTraits.energyCost(p.genes);
+    if (p.genes.anatomy.legs === 0) {
+      this.nextDigAt = this.context.elapsed() + 1;
+      this.context.toast('Без лап копать не получится.');
+      return;
+    }
+    if (p.energy < cost) {
       this.nextDigAt = this.context.elapsed() + 1;
       this.context.toast(
         'Мало сил. Постой спокойно: через 4 секунды силы начнут восстанавливаться.',
@@ -207,7 +214,7 @@ export class EnvironmentController {
 
     this.nextDigAt = this.context.elapsed() + 1.15;
 
-    p.energy -= 8;
+    p.energy -= cost;
     this.context.playAction('dig', 1.15);
     this.context.sound.play('dig');
     this.context.toast(result.reason);

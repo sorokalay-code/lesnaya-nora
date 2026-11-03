@@ -5,6 +5,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRockModel, createSpiderModel, spiderClips, spiderLowClips } from './art/WildAssets';
+import { createLynxModel, lynxPounceClip } from './art/LynxAsset';
+import { createRabbitEye } from './art/RabbitEye';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -172,14 +174,8 @@ function rabbit() {
   ell(head, pale(), 'Muzzle', [0, -0.1, -0.27], [0.2, 0.13, 0.18]);
   for (const side of [-1, 1]) {
     ell(head, pale(), `Cheek${side}`, [side * 0.16, -0.12, -0.22], [0.14, 0.1, 0.13]);
-    ell(
-      head,
-      eye,
-      `Eye${side < 0 ? 'L' : 'R'}`,
-      [side * 0.255, 0.065, -0.17],
-      [0.05, 0.063, 0.037],
-    );
-    mini(head, shine, `Glint${side}`, [side * 0.264 - 0.015, 0.084, -0.202], [0.015, 0.018, 0.009]);
+    const eyeGroup = group(head, side < 0 ? 'EyeL' : 'EyeR', side * 0.255, 0.065, -0.17);
+    eyeGroup.add(createRabbitEye(sphere.parameters.widthSegments <= 8));
     const ear = group(head, side < 0 ? 'EarL' : 'EarR', side * 0.18, 0.18, 0.07);
     ell(ear, fur(), `EarOuter${side}`, [0, 0.34, 0], [0.112, 0.41, 0.067], [0, 0, side * -0.08]);
     ell(
@@ -193,6 +189,18 @@ function rabbit() {
     mini(ear, pale(), `EarTip${side}`, [0, 0.72, 0.008], [0.07, 0.06, 0.045]);
   }
   mini(head, pink, 'Nose', [0, -0.075, -0.382], [0.064, 0.047, 0.04]);
+  const fangs = group(head, 'Fangs');
+  for (const side of [-1, 1]) {
+    const fang = mesh(
+      fangs,
+      new THREE.ConeGeometry(1, 1, 5),
+      pale(),
+      'Fang',
+      [side * 0.1, -0.23, -0.43],
+      [0.04, 0.23, 0.04],
+    );
+    fang.rotation.z = Math.PI;
+  }
   curve(
     head,
     dark,
@@ -1443,7 +1451,7 @@ const models = {
   fox: () => quadruped('fox'),
   wolf: () => quadruped('wolf'),
   dog: () => quadruped('dog'),
-  lynx: () => quadruped('lynx'),
+  lynx: () => createLynxModel(),
   weasel: () => quadruped('weasel'),
   bear: () => quadruped('bear'),
   snake,
@@ -1546,7 +1554,7 @@ for (const [name, build] of Object.entries(models)) {
       : name === 'rabbit'
         ? rabbitClips()
         : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-          ? quadrupedClips(name)
+          ? [...quadrupedClips(name), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
           : name === 'snake'
             ? snakeClips()
             : name === 'hawk'
@@ -1568,7 +1576,12 @@ for (const [name, build] of Object.entries(models)) {
   if (creatures.has(name)) {
     sphere = new THREE.SphereGeometry(1, 8, 5);
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
-    const distant = name === 'spider' ? createSpiderModel(true) : build();
+    const distant =
+      name === 'spider'
+        ? createSpiderModel(true)
+        : name === 'lynx'
+          ? createLynxModel(true)
+          : build();
     mergeParts(distant, name === 'spider');
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,

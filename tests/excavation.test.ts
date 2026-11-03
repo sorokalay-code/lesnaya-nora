@@ -11,12 +11,13 @@ import { Terrain } from '../src/game/Terrain';
 import type { SaveData } from '../src/game/types';
 import { World } from '../src/game/World';
 import { loadModels } from './model-fixture';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
 function fixture(): SaveData {
   return {
-    version: 3,
+    version: 4,
     seed: 9,
     clock: 420,
     day: 1,
@@ -28,7 +29,7 @@ function fixture(): SaveData {
       x: 0,
       y: 0,
       z: 0,
-      genes: { coat: 'cream', ear: 1, speed: 3, vitality: 3, size: 1 },
+      genes: { ...DEFAULT_GENES, coat: 'cream', ear: 1, speed: 3, vitality: 3, size: 1 },
       hunger: 90,
       thirst: 90,
       bodyTemp: 38,
@@ -238,7 +239,7 @@ test('new saves never load the previous save key', () => {
     assert.equal(repository.exists(), false);
     repository.store(fixture());
     assert.equal(repository.exists(), true);
-    assert.equal(repository.load().version, 3);
+    assert.equal(repository.load().version, 4);
   } finally {
     (globalThis as unknown as { localStorage?: unknown }).localStorage = previous;
   }
@@ -246,7 +247,7 @@ test('new saves never load the previous save key', () => {
 
 test('version-two saves are rejected without migration', () => {
   const old = { ...fixture(), version: 2 };
-  const values = new Map([['lesnaya-nora-save-v3', JSON.stringify(old)]]);
+  const values = new Map([['lesnaya-nora-save-v4', JSON.stringify(old)]]);
   const previous = (globalThis as unknown as { localStorage?: unknown }).localStorage;
   (globalThis as unknown as { localStorage: unknown }).localStorage = {
     getItem: (key: string) => values.get(key) ?? null,

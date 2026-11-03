@@ -11,6 +11,32 @@
   border: 1px solid #acba8a55;
   border-radius: 10px;
 }
+.genetics-panel {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #acba8a55;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.genetics-panel summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.genetics-panel ul,
+.genetics-panel ol {
+  padding-left: 20px;
+}
+.genetics-panel li {
+  margin: 5px 0;
+}
+.genetics-panel small {
+  color: #c3cbb3;
+}
+.genetic-risk {
+  border-left: 3px solid #d4a778;
+  padding-left: 8px;
+}
 .journal-log summary {
   cursor: pointer;
   font-weight: bold;
