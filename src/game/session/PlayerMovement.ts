@@ -1,4 +1,5 @@
 import { JumpMotion } from './JumpMotion';
+import { playableWorldLimit } from '../WorldConfig';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import type { PlayerRabbit } from '../animals';
@@ -18,6 +19,7 @@ export class PlayerMovement {
   private readonly jump = new JumpMotion();
   private nextJumpAt = 0;
   private readonly water?: WaterNavigation;
+  private readonly movementLimit: number;
 
   constructor(
     private readonly player: PlayerRabbit,
@@ -31,9 +33,10 @@ export class PlayerMovement {
       y: number,
       heading: number,
     ) => boolean = () => true,
-    terrain?: WaterTerrain,
+    terrain?: WaterTerrain & { readonly size?: number },
   ) {
     if (terrain) this.water = new WaterNavigation(terrain);
+    this.movementLimit = playableWorldLimit(terrain?.size);
   }
 
   private get sheltered(): boolean {
@@ -76,8 +79,8 @@ export class PlayerMovement {
     // Малые шаги не позволяют рывку перескочить проверку стен тоннеля или границы карты.
     const steps = Math.max(1, Math.ceil(Math.hypot(step.x, step.z) / 0.18));
     for (let i = 0; i < steps; i++) {
-      const x = clamp(p.x + step.x / steps, -103, 103),
-        z = clamp(p.z + step.z / steps, -103, 103);
+      const x = clamp(p.x + step.x / steps, -this.movementLimit, this.movementLimit),
+        z = clamp(p.z + step.z / steps, -this.movementLimit, this.movementLimit);
       if (
         this.earth.canMoveTo(x, p.z, p.y, this.sheltered) &&
         this.canOccupy(x, p.z, p.y, this.player.root.rotation.y)
@@ -146,8 +149,12 @@ export class PlayerMovement {
       facingZ = -Math.cos(this.player.rig.root.rotation.y);
     const swimming = !this.sheltered && !!this.water?.swimming(p.x, p.z);
     const speedScale = swimming ? RABBIT_SWIM_SPEED / speed : this.sheltered ? 0.68 : 1;
-    const nx = clamp(p.x + facingX * speed * dt * speedScale, -103, 103),
-      nz = clamp(p.z + facingZ * speed * dt * speedScale, -103, 103);
+    const nx = clamp(
+        p.x + facingX * speed * dt * speedScale,
+        -this.movementLimit,
+        this.movementLimit,
+      ),
+      nz = clamp(p.z + facingZ * speed * dt * speedScale, -this.movementLimit, this.movementLimit);
     if (
       this.earth.canMoveTo(nx, p.z, p.y, this.sheltered) &&
       this.canOccupy(nx, p.z, p.y, this.player.root.rotation.y)

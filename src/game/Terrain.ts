@@ -6,8 +6,12 @@ import { WaterMap } from './WaterMap';
 export class Terrain {
   readonly water: WaterMap;
 
-  constructor(private readonly seed: number) {
-    this.water = new WaterMap((x, z) => this.naturalHeightAt(x, z));
+  constructor(
+    private readonly seed: number,
+    private readonly scale = 1,
+    water = 1,
+  ) {
+    this.water = new WaterMap((x, z) => this.naturalHeightAt(x, z), scale, water);
   }
 
   heightAt(x: number, z: number): number {
@@ -15,6 +19,8 @@ export class Terrain {
   }
 
   private naturalHeightAt(x: number, z: number): number {
+    x /= this.scale;
+    z /= this.scale;
     const broad = (smoothNoise(x / 38, z / 38, this.seed + 211) - 0.5) * 9;
     const ridges = (smoothNoise(x / 18, z / 18, this.seed + 251) - 0.5) * 3.2;
     const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * 0.7;

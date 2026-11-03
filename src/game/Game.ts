@@ -49,6 +49,7 @@ import { WorldCalendar } from './session/WorldCalendar';
 import { WorldPopulation } from './session/WorldPopulation';
 import { FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './systems';
 import { type SaveData } from './types';
+import { validWorldConfig, defaultWorldConfig } from './WorldConfig';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
@@ -174,6 +175,12 @@ export class Game {
   }
 
   private async newGame(): Promise<void> {
+    if (this.ui.state.overlay?.type === 'loading') return;
+    if (!validWorldConfig(this.ui.state.worldConfig)) {
+      this.toast('Проверь настройки нового мира.');
+      return;
+    }
+    const worldConfig = structuredClone(this.ui.state.worldConfig);
     const seed = Math.floor(Math.random() * 2_147_483_647);
     const seasonIndex = this.ui.state.startSeason;
     this.rng = new Random(seed + 53);
@@ -187,10 +194,11 @@ export class Game {
       return;
     }
 
-    this.save = NewGameFactory.create(seed, seasonIndex, this.factory);
+    this.save = NewGameFactory.create(seed, seasonIndex, this.factory, worldConfig);
     this.setupWorld();
     this.ui.showOverlay();
     this.running = true;
+    this.sessionUI.persist(false);
     this.sound.unlock();
     this.view.lock();
     this.toast('Исследуй лес, копай землю лапами и найди партнёра.');
@@ -217,14 +225,17 @@ export class Game {
 
   private setupWorld(): void {
     this.ui.setEvents(this.save.messages);
-    this.ui.store.setState({ saveNotice: undefined });
+    this.ui.store.setState({
+      saveNotice: undefined,
+      worldConfig: structuredClone(this.save.worldConfig ?? defaultWorldConfig()),
+    });
     this.attackSounds?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
     this.lighting.reset();
     this.world = new World(this.scene, this.save.seed, this.save);
     this.world.setRain();
-    this.seasons = new SeasonSystem(this.save.seed);
+    this.seasons = new SeasonSystem(this.save.seed, this.save.worldConfig?.seasonLengths);
     this.survival = new SurvivalSystem(this.save, this.rng);
     this.store = new FoodStore(this.save);
     this.traffic = new ExcavationTraffic(this.rng);
@@ -645,6 +656,16 @@ export class Game {
   }
 
   private action(action: string): void {
+    if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
+      if (action === 'new-game-menu') {
+        this.ui.store.setState({ gameMenu: 'new-game' });
+        return;
+      }
+      if (action === 'menu-back') {
+        this.ui.store.setState({ gameMenu: undefined });
+        return;
+      }
+    }
     if (action === 'fullscreen') {
       void this.fullscreen.toggle();
       return;

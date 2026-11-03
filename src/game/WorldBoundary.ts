@@ -26,6 +26,7 @@ export class WorldBoundary {
     seed: number,
     edge = 110,
     biomeAt: (x: number, z: number) => Biome = () => 'forest',
+    vegetation = 1,
   ) {
     this.root.name = 'distant-forest';
     const positions: number[] = [];
@@ -74,10 +75,11 @@ export class WorldBoundary {
     groundMesh.updateMatrixWorld();
     this.root.add(groundMesh);
     const groundRay = new THREE.Raycaster();
-    const trees = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), this.leaves, 160);
+    const treeCount = Math.round(160 * vegetation);
+    const trees = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), this.leaves, treeCount);
     const random = new Random(seed + 514);
     const transform = new THREE.Object3D();
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < treeCount; i++) {
       const side = i % 4,
         along = random.range(-175, 175),
         depth = random.range(edge + 3, edge + 65);

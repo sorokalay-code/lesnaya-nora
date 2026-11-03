@@ -9,6 +9,7 @@ import type { World } from '../World';
 import type { Excavation } from '../Excavation';
 import type { DigNode } from '../types';
 import { HawkVictims, type HawkPopulation, type HawkVictim } from './HawkVictims';
+import { defaultWorldConfig } from '../WorldConfig';
 
 interface WaterActor extends HawkVictim {
   swimSpeed: number;
@@ -39,7 +40,9 @@ export class WaterSimulation {
     const river = context.world.terrain.water.bodies.find((body) => body.kind === 'river');
     if (river) {
       const rng = new Random(context.save.seed + 55781);
-      for (const point of river.points.slice(1, 4)) {
+      const count = (context.save.worldConfig ?? defaultWorldConfig()).creatures.pike;
+      for (let index = 0; index < count; index++) {
+        const point = river.points[1 + (index % (river.points.length - 1))];
         const pike = AnimalFactory.pike(point.x, point.z, river, rng);
         pike.update(0, 0, context.world);
         this.pikes.push(pike);

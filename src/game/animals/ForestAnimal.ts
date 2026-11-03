@@ -175,8 +175,16 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
       const step = dt * this.speed * (fleeing ? 2 : 1);
       this.surfaceStep(
-        THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97),
-        THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97),
+        THREE.MathUtils.clamp(
+          this.x + Math.sin(angle) * step,
+          -this.movementLimit,
+          this.movementLimit,
+        ),
+        THREE.MathUtils.clamp(
+          this.z + Math.cos(angle) * step,
+          -this.movementLimit,
+          this.movementLimit,
+        ),
         dt,
         groundAt,
       );

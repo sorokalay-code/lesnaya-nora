@@ -17,6 +17,7 @@ import {
 import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
+import { defaultWorldConfig } from '../WorldConfig';
 
 /** Создаёт стартовую популяцию с сохранением порядка генерации случайных значений. */
 export class WorldPopulation {
@@ -34,10 +35,13 @@ export class WorldPopulation {
     rng: Random;
     markPartner: (actor: RabbitActor, active: boolean) => void;
   }) {
+    const config = context.save.worldConfig ?? defaultWorldConfig();
+    const scale = config.size / 110;
     this.rabbits = context.save.partners
       .filter((p) => (p.health ?? 100) > 0)
       .map((p) => {
         const actor = AnimalFactory.rabbit(p, context.rng);
+        actor.useWorldBounds(config.size);
         actor.rig.root.position.y = p.y ?? context.world.heightAt(p.x, p.z);
         actor.rig.root.userData.baseY = actor.rig.root.position.y;
         context.scene.add(actor.rig.root);
@@ -60,11 +64,12 @@ export class WorldPopulation {
           context.save.partners.some((saved) => saved.id === 100000 + partner.id * 100 + i)
         )
           continue;
-        const member = new FamilyMember(partner, genes, i, young);
+        const member = new FamilyMember(partner, genes, i, young, undefined, config.size);
         member.health = health;
         member.data.health = health;
         if (!young) {
           const actor = AnimalFactory.rabbit(member.data, context.rng);
+          actor.useWorldBounds(config.size);
           actor.moveTo(member.x, member.z, context.world.heightAt(member.x, member.z));
           ModelAssets.shared.release(member.root);
           context.save.partners.push(member.data);
@@ -83,13 +88,29 @@ export class WorldPopulation {
     }
 
     this.predators = [];
+    const groundKinds: PredatorKind[] = ['dog', 'bear', 'snake', 'lynx', 'weasel', 'wolf', 'fox'];
+    const remaining = { ...config.creatures };
+    const kinds: PredatorKind[] = [];
+    // Сначала сохраняем прежний порядок: дефолты и старые v4 получают прежний поток RNG.
     for (let i = 0; i < 22; i++) {
+      const kind = this.predatorKind(i);
+      if (remaining[kind] > 0) {
+        kinds.push(kind);
+        remaining[kind]--;
+      }
+    }
+    for (const kind of groundKinds) for (let i = 0; i < remaining[kind]; i++) kinds.push(kind);
+
+    for (const [i, kind] of kinds.entries()) {
       const a = context.rng.range(0, Math.PI * 2),
         d = context.rng.range(27, 82);
-      const x = i === 0 ? 34 : i === 1 ? -35 : Math.cos(a) * d;
-      const z = i === 0 ? 31 : i === 1 ? 29 : Math.sin(a) * d;
-      const kind = this.predatorKind(i);
+      const x =
+        (i === 0 && kind === 'dog' ? 34 : i === 1 && kind === 'dog' ? -35 : Math.cos(a) * d) *
+        scale;
+      const z =
+        (i === 0 && kind === 'dog' ? 31 : i === 1 && kind === 'dog' ? 29 : Math.sin(a) * d) * scale;
       const predator = createPredatorActor(kind, x, z, context.rng);
+      predator.useWorldBounds(config.size);
       predator.root.position.y = context.world.heightAt(x, z);
       this.predators.push(predator);
       context.scene.add(predator.root);
@@ -99,13 +120,13 @@ export class WorldPopulation {
     const treeCandidates = (context.world.treeLocations ?? []).filter(
       (tree) =>
         Math.hypot(tree.x, tree.z) > 20 &&
-        Math.hypot(tree.x, tree.z) < 85 &&
+        Math.hypot(tree.x, tree.z) < 85 * scale &&
         context.world.biomeAt(tree.x, tree.z) === 'forest',
     );
     const spiderHomes: { x: number; z: number }[] = [];
     for (
       let attempt = 0;
-      attempt < 50 && spiderHomes.length < 3 && treeCandidates.length;
+      attempt < 200 && spiderHomes.length < config.creatures.spider && treeCandidates.length;
       attempt++
     ) {
       const tree = spiderRandom.pick(treeCandidates);
@@ -131,7 +152,9 @@ export class WorldPopulation {
       jumperHomes: { x: number; z: number }[] = [];
     for (
       let attempt = 0;
-      attempt < 50 && jumperHomes.length < 2 && treeCandidates.length;
+      attempt < 200 &&
+      jumperHomes.length < config.creatures['jumping-spider'] &&
+      treeCandidates.length;
       attempt++
     ) {
       const tree = jumperRandom.pick(treeCandidates);
@@ -145,16 +168,41 @@ export class WorldPopulation {
         z = tree.z + 0.8;
       jumperHomes.push({ x, z });
       const jumper = createPredatorActor('jumping-spider', x, z, jumperRandom);
+      jumper.useWorldBounds(config.size);
       jumper.root.position.y = context.world.heightAt(x, z);
       this.predators.push(jumper);
       context.scene.add(jumper.root);
     }
+    // Без деревьев пауки остаются наземными: настройка растительности не отменяет выбранный вид.
+    for (const kind of ['spider', 'jumping-spider'] as const) {
+      const rng = kind === 'spider' ? spiderRandom : jumperRandom;
+      const present = this.predators.filter((animal) => animal.kind === kind).length;
+      for (let i = present; i < config.creatures[kind]; i++) {
+        const angle = rng.range(0, Math.PI * 2);
+        const distance = rng.range(22, 80) * scale;
+        const actor = AnimalFactory.predator(
+          kind,
+          Math.cos(angle) * distance,
+          Math.sin(angle) * distance,
+          rng,
+        );
+        actor.useWorldBounds(config.size);
+        actor.root.position.y = context.world.heightAt(actor.x, actor.z);
+        this.predators.push(actor);
+        context.scene.add(actor.root);
+      }
+    }
     this.ecology = new WildlifeEcology(context.scene, context.world, context.rng, context.save);
     this.ecology.populate();
     this.wildlife = this.ecology.animals;
-    this.hawks = [[32, -30]].map(
-      ([x, z]) => new Hawk(x, z, context.rng, AnimalAppearance.seeded('hawk', x, z)),
-    );
+    this.hawks = Array.from({ length: config.creatures.hawk }, (_, index) => {
+      const angle = index * 2.4;
+      const x = (index === 0 ? 32 : Math.cos(angle) * 60) * scale;
+      const z = (index === 0 ? -30 : Math.sin(angle) * 60) * scale;
+      const hawk = new Hawk(x, z, context.rng, AnimalAppearance.seeded('hawk', x, z));
+      hawk.useWorldBounds(config.size);
+      return hawk;
+    });
     for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
   }
 

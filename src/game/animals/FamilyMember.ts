@@ -23,18 +23,21 @@ export class FamilyMember extends Rabbit {
     private readonly index: number,
     readonly young: boolean,
     private readonly rng = new Random(parent.id * 97 + index * 31 + 1),
+    worldSize = 110,
   ) {
     super({ x: parent.x, z: parent.z }, genes, young);
+    this.useWorldBounds(worldSize);
+    const homeLimit = (worldSize * 90) / 110;
     const angle = parent.id * 1.7 + index * 2.4,
       radius = 4 + index * 2.1;
     this.homeX =
       this.x =
       this.targetX =
-        THREE.MathUtils.clamp(parent.x + Math.cos(angle) * radius, -90, 90);
+        THREE.MathUtils.clamp(parent.x + Math.cos(angle) * radius, -homeLimit, homeLimit);
     this.homeZ =
       this.z =
       this.targetZ =
-        THREE.MathUtils.clamp(parent.z + Math.sin(angle) * radius, -90, 90);
+        THREE.MathUtils.clamp(parent.z + Math.sin(angle) * radius, -homeLimit, homeLimit);
     const names = ['Шелест', 'Черныш', 'Листик', 'Сумрак', 'Орешек', 'Клевер', 'Пушок', 'Шорох'];
     this.data = {
       id: 100000 + parent.id * 100 + index,

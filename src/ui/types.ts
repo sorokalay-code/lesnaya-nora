@@ -91,6 +91,7 @@ export type DialogViewModel = (
 ) & { genetics?: GeneticsView };
 
 export interface MapViewModel {
+  size: number;
   colors: string[];
   landmarks: { x: number; z: number; label: string }[];
   openings: { x: number; z: number }[];

@@ -128,8 +128,8 @@ export class Hawk extends Animal<'hawk'> {
         Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 3
       ) {
         this.nextTurn = time + this.rng.range(7, 15);
-        this.targetX = this.rng.range(-85, 85);
-        this.targetZ = this.rng.range(-85, 85);
+        this.targetX = (this.rng.range(-this.movementLimit, this.movementLimit) * 85) / 97;
+        this.targetZ = (this.rng.range(-this.movementLimit, this.movementLimit) * 85) / 97;
       }
 
       const heading = Math.atan2(this.targetX - this.x, this.targetZ - this.z);

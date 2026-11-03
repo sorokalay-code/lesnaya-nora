@@ -2,16 +2,28 @@ import { RabbitFactory } from '../animals';
 import { type SaveData } from '../types';
 import { Genealogy } from '../genetics/Genealogy';
 import { Random, hash2 } from '../Random';
+import { defaultWorldConfig, validWorldConfig, type WorldConfig } from '../WorldConfig';
+import { SeasonSystem } from '../systems/SeasonSystem';
 
 /** Создаёт начальное сохранение; не обращается к сцене, DOM и хранилищу браузера. */
 export class NewGameFactory {
-  static create(seed: number, seasonIndex: number, factory: RabbitFactory): SaveData {
-    const startDay = 1 + Math.max(0, Math.min(3, seasonIndex)) * 30;
+  static create(
+    seed: number,
+    seasonIndex: number,
+    factory: RabbitFactory,
+    config: WorldConfig = defaultWorldConfig(),
+  ): SaveData {
+    if (!validWorldConfig(config)) throw new Error('Проверь настройки нового мира.');
+
+    const worldConfig = structuredClone(config);
+    const scale = worldConfig.size / 110;
+    const startDay = new SeasonSystem(seed, worldConfig.seasonLengths).startDay(seasonIndex);
     // Перемешанный отдельный seed даёт разные фенотипы и не сдвигает генерацию соседей.
     const founderSeed = Math.floor(hash2(seed, seed, 11939) * 0xffffffff);
     return {
       version: 4,
       seed,
+      worldConfig,
       clock: (startDay - 1) * 1440 + 7 * 60,
       day: startDay,
       player: {
@@ -49,7 +61,12 @@ export class NewGameFactory {
       excavation: [],
       gnawedRoots: {},
       kits: [],
-      partners: factory.partners(16),
+      partners: factory.partners(worldConfig.creatures.rabbit).map((partner) => ({
+        ...partner,
+        x: partner.x * scale,
+        z: partner.z * scale,
+        familySize: Math.min(partner.familySize, worldConfig.neighborFamilySize),
+      })),
       harvested: [],
       pregnancy: null,
       mateCommand: 'forage',

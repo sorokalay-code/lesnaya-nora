@@ -387,7 +387,7 @@ function WorldMap({ data }: { data: MapViewModel }) {
   useEffect(() => {
     const ctx = canvas.current?.getContext('2d');
     if (!ctx) return;
-    const position = (n: number) => (n / 220 + 0.5) * 420;
+    const position = (n: number) => (n / (data.size * 2) + 0.5) * 420;
     data.colors.forEach((color, index) => {
       ctx.fillStyle = color;
       ctx.fillRect((index % 60) * 7, Math.floor(index / 60) * 7, 7, 7);
@@ -471,9 +471,7 @@ function Toast({ text, remove }: { text: string; remove: () => void }) {
 }
 
 function Overlay() {
-  const store = useUIStore(),
-    overlay = useUI((state) => state.overlay),
-    season = useUI((state) => state.startSeason),
+  const overlay = useUI((state) => state.overlay),
     dispatch = useUI((state) => state.dispatch);
   return (
     <div className={`overlay ${overlay ? '' : 'hidden'}`}>
@@ -488,20 +486,8 @@ function Overlay() {
           <p>
             Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.
           </p>
-          <label className="start-season">
-            Начать с сезона{' '}
-            <select
-              value={season}
-              onChange={(event) => store.setState({ startSeason: Number(event.target.value) })}
-            >
-              <option value={0}>Весна — много травы</option>
-              <option value={1}>Лето — тепло и изобилие</option>
-              <option value={2}>Осень — пора запасать</option>
-              <option value={3}>Зима — суровое выживание</option>
-            </select>
-          </label>
           <div className="start-actions">
-            <button className="primary" onClick={() => dispatch('new')}>
+            <button className="primary" onClick={() => dispatch('new-game-menu')}>
               Новая история <span>→</span>
             </button>
             {overlay.hasSave && (
@@ -528,7 +514,7 @@ function Overlay() {
             {overlay.grown} из них.
           </p>
           <div className="dialog-actions">
-            <button className="primary" onClick={() => dispatch('new')}>
+            <button className="primary" onClick={() => dispatch('new-game-menu')}>
               Начать новую историю
             </button>
             <button onClick={() => dispatch('load')}>Вернуться к сохранению</button>

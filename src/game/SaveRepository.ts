@@ -1,3 +1,4 @@
+import { defaultWorldConfig, validWorldConfig } from './WorldConfig';
 import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
 
@@ -59,6 +60,11 @@ export class SaveRepository {
     )
       throw new Error('Сохранение содержит повреждённое состояние семейной линии.');
 
+    if (data.worldConfig !== undefined && !validWorldConfig(data.worldConfig))
+      throw new Error('Сохранение содержит повреждённые настройки мира.');
+
+    // У существующих сохранений v4 мир был фиксированным; его параметры совпадают с дефолтами.
+    data.worldConfig ??= defaultWorldConfig();
     return data;
   }
 }

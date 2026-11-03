@@ -1,6 +1,7 @@
 import type { WildlifeKind } from './animals/types';
 import type { Anatomy, Lineage, RabbitShape, EyeShape, EarType, TailType } from './genetics/types';
 import type { AppearanceTraits } from './AnimalAppearance';
+import type { WorldConfig } from './WorldConfig';
 
 export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
@@ -117,6 +118,7 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
   animalWasteDays?: Record<string, number>;
   webCooldowns?: Record<string, number>;

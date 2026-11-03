@@ -121,8 +121,16 @@ export class FamilyLifecycle {
         this.rigs.set(kit.id, adult);
         this.context.scene.add(adult.root);
         const angle = kit.id * 2.4;
-        kit.homeX = clamp(kit.homeX + Math.cos(angle) * 22, -90, 90);
-        kit.homeZ = clamp(kit.homeZ + Math.sin(angle) * 22, -90, 90);
+        kit.homeX = clamp(
+          kit.homeX + Math.cos(angle) * 22,
+          (-this.context.world.size * 90) / 110,
+          (this.context.world.size * 90) / 110,
+        );
+        kit.homeZ = clamp(
+          kit.homeZ + Math.sin(angle) * 22,
+          (-this.context.world.size * 90) / 110,
+          (this.context.world.size * 90) / 110,
+        );
         kit.homeY = this.context.world.heightAt(kit.homeX, kit.homeZ);
         kit.nestId = undefined;
         this.context.sound.play('baby');

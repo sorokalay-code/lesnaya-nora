@@ -176,8 +176,14 @@ export abstract class Predator extends Animal<PredatorKind> {
       Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 1
     ) {
       this.nextTarget = time + this.rng.range(4, 10);
-      this.targetX = Math.max(-95, Math.min(95, this.x + this.rng.range(-14, 14)));
-      this.targetZ = Math.max(-95, Math.min(95, this.z + this.rng.range(-14, 14)));
+      this.targetX = Math.max(
+        -this.movementLimit,
+        Math.min(this.movementLimit, this.x + this.rng.range(-14, 14)),
+      );
+      this.targetZ = Math.max(
+        -this.movementLimit,
+        Math.min(this.movementLimit, this.z + this.rng.range(-14, 14)),
+      );
     }
 
     const blockedByWater =
@@ -203,8 +209,16 @@ export abstract class Predator extends Animal<PredatorKind> {
         : this.profile.walkSpeed;
     const step = Math.min(speed * dt, Math.hypot(this.targetX - this.x, this.targetZ - this.z));
     this.surfaceStep(
-      THREE.MathUtils.clamp(this.x + Math.sin(angle) * step, -97, 97),
-      THREE.MathUtils.clamp(this.z + Math.cos(angle) * step, -97, 97),
+      THREE.MathUtils.clamp(
+        this.x + Math.sin(angle) * step,
+        -this.movementLimit,
+        this.movementLimit,
+      ),
+      THREE.MathUtils.clamp(
+        this.z + Math.cos(angle) * step,
+        -this.movementLimit,
+        this.movementLimit,
+      ),
       dt,
       groundAt,
     );

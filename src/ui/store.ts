@@ -1,5 +1,6 @@
 import type { TouchBindings } from '../game/input/MobileInput';
 import type { ConversationPage } from './ConversationNavigation';
+import { defaultWorldConfig, type WorldConfig } from '../game/WorldConfig';
 import { createStore } from 'zustand/vanilla';
 import type {
   DialogViewModel,
@@ -34,6 +35,7 @@ export interface UIState {
   showControls: boolean;
   firstPerson: boolean;
   startSeason: number;
+  worldConfig: WorldConfig;
   message: string;
   focus: { target: 'dialog' | 'message'; revision: number };
   toasts: { id: number; text: string }[];
@@ -60,6 +62,7 @@ export function createUIStore(dispatch: UIAction) {
     showControls: true,
     firstPerson: false,
     startSeason: 0,
+    worldConfig: defaultWorldConfig(),
     message: '',
     focus: { target: 'dialog', revision: 0 },
     toasts: [],

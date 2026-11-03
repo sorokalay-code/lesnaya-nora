@@ -11,6 +11,7 @@ import { Random } from './Random';
 import { World, type Resource } from './World';
 import type { SaveData } from './types';
 import { AnimalRestraint } from './animals/AnimalRestraint';
+import { defaultWorldConfig } from './WorldConfig';
 
 type Target = ForestAnimal | Predator;
 export type WildlifeEvent = {
@@ -49,6 +50,7 @@ export class WildlifeEcology {
       for (const data of this.save.wildlife) {
         const animal = createForestAnimal(data.kind, data.x, data.z, this.rng, data.appearance);
         animal.socialId = data.id;
+        animal.useWorldBounds(this.save.worldConfig?.size ?? 110);
         animal.social = { ...data.social };
         animal.health = Math.max(0, Math.min(animal.maxHealth, data.health));
         animal.root.position.y = this.world.heightAt(data.x, data.z);
@@ -57,15 +59,9 @@ export class WildlifeEcology {
       }
       return;
     }
-    for (const [kind, count] of [
-      ['deer', 6],
-      ['squirrel', 9],
-      ['hedgehog', 8],
-      ['beaver', 5],
-      ['moose', 3],
-      ['boar', 4],
-    ] as [WildlifeKind, number][])
-      for (let i = 0; i < count; i++) this.spawn(kind, 0, 0, true);
+    const counts = (this.save?.worldConfig ?? defaultWorldConfig()).creatures;
+    for (const kind of ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'] as const)
+      for (let i = 0; i < counts[kind]; i++) this.spawn(kind, 0, 0, true);
   }
 
   private spawn(
@@ -74,6 +70,8 @@ export class WildlifeEcology {
     pz: number,
     initial = false,
   ): ForestAnimal | undefined {
+    const size = this.save?.worldConfig?.size ?? 110;
+    const scale = size / 110;
     let x = 0,
       z = 0,
       found = false;
@@ -85,14 +83,14 @@ export class WildlifeEcology {
         x = pond.x + Math.sin(a) * d;
         z = pond.z + Math.cos(a) * d;
       } else {
-        x = this.rng.range(-90, 90);
-        z = this.rng.range(-90, 90);
+        x = this.rng.range(-90, 90) * scale;
+        z = this.rng.range(-90, 90) * scale;
       }
 
       const biome = this.world.biomeAt(x, z);
       if (
-        Math.abs(x) > 97 ||
-        Math.abs(z) > 97 ||
+        Math.abs(x) > 97 * scale ||
+        Math.abs(z) > 97 * scale ||
         Math.hypot(x - px, z - pz) < (initial ? 9 : 26) ||
         biome === 'garden'
       )
@@ -104,9 +102,21 @@ export class WildlifeEcology {
       break;
     }
 
+    // При преобладании лугов или огородов лес может отсутствовать. Стартовые животные
+    // используют свободную сушу, а не исчезают вопреки выбранной численности.
+    if (!found && initial) {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        x = this.rng.range(-90, 90) * scale;
+        z = this.rng.range(-90, 90) * scale;
+        if (Math.hypot(x, z) < 9 || this.world.nearWater(x, z, 1)) continue;
+        found = true;
+        break;
+      }
+    }
     if (!found) return;
 
     const animal = createForestAnimal(kind, x, z, this.rng);
+    animal.useWorldBounds(size);
     animal.socialId = this.save ? (this.save.nextWildlifeId ??= 1) : this.animals.length + 1;
     if (this.save) this.save.nextWildlifeId = animal.socialId + 1;
     animal.root.position.set(x, this.world.heightAt(x, z), z);
@@ -284,8 +294,9 @@ export class WildlifeEcology {
 
     if (time >= this.nextSpawn) {
       this.nextSpawn = time + this.rng.range(24, 42);
-      if (this.animals.length < 35) {
-        const kind = this.rng.pick([
+      const counts = (this.save?.worldConfig ?? defaultWorldConfig()).creatures;
+      const candidates = (
+        [
           'deer',
           'deer',
           'squirrel',
@@ -294,7 +305,12 @@ export class WildlifeEcology {
           'beaver',
           'moose',
           'boar',
-        ] as WildlifeKind[]);
+        ] as WildlifeKind[]
+      ).filter(
+        (kind) => this.animals.filter((animal) => animal.kind === kind).length < counts[kind],
+      );
+      if (candidates.length) {
+        const kind = this.rng.pick(candidates);
         const animal = this.spawn(kind, px, pz);
         if (animal)
           events.push({ kind: 'arrival', x: animal.x, z: animal.z, subject: names[kind] });

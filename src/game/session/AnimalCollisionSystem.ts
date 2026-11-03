@@ -9,6 +9,7 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { RabbitConformation } from '../genetics/RabbitConformation';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
+import { playableWorldLimit } from '../WorldConfig';
 interface CollisionContext {
   playerRestrained?: () => boolean;
   playerHeading?: () => number;
@@ -67,8 +68,11 @@ export class AnimalCollisionSystem {
     const p = this.context.save.player,
       bodies: PhysicalBody[] = [];
     const shape = RabbitConformation.shape(p.genes);
+    const limit = playableWorldLimit(this.context.world.size);
     const valid = (x: number, z: number, y: number, sheltered: boolean) =>
-      Math.abs(x) < 103 && Math.abs(z) < 103 && this.context.earth.canMoveTo(x, z, y, sheltered);
+      Math.abs(x) < limit &&
+      Math.abs(z) < limit &&
+      this.context.earth.canMoveTo(x, z, y, sheltered);
     if (!this.context.playerRestrained?.())
       bodies.push({
         id: 0,

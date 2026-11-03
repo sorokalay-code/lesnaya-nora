@@ -1,11 +1,39 @@
 import { hash2 } from '../Random';
 import { type FoodKind, type Season, type Weather } from '../types';
+import { defaultWorldConfig, SEASONS, type SeasonLengths } from '../WorldConfig';
 /** Определяет сезон, погоду, температуру и доступность растительной пищи по игровому календарю. */
 export class SeasonSystem {
-  constructor(private readonly seed: number) {}
+  private readonly yearLength: number;
+
+  constructor(
+    private readonly seed: number,
+    private readonly lengths: SeasonLengths = defaultWorldConfig().seasonLengths,
+  ) {
+    this.yearLength = SEASONS.reduce((days, season) => days + lengths[season], 0);
+  }
+
+  startDay(seasonIndex: number): number {
+    const index = Number.isFinite(seasonIndex)
+      ? Math.max(0, Math.min(3, Math.floor(seasonIndex)))
+      : 0;
+    return 1 + SEASONS.slice(0, index).reduce((days, season) => days + this.lengths[season], 0);
+  }
+
+  private period(day: number): number {
+    const elapsed = Math.max(0, Math.floor(day) - 1);
+    let remaining = elapsed % this.yearLength;
+    for (let index = 0; index < SEASONS.length; index++) {
+      const season = SEASONS[index];
+      if (remaining < this.lengths[season])
+        return Math.floor(elapsed / this.yearLength) * 4 + index;
+
+      remaining -= this.lengths[season];
+    }
+    return 0;
+  }
 
   name(day: number): Season {
-    return (['Весна', 'Лето', 'Осень', 'Зима'] as const)[Math.floor((day - 1) / 30) % 4];
+    return SEASONS[this.period(day) % 4];
   }
 
   temperature(day: number, clock: number, weather: Weather): number {
@@ -34,7 +62,7 @@ export class SeasonSystem {
           : season === 'Лето'
             ? 0.93
             : 0.82;
-    return hash2(id, Math.floor((day - 1) / 30), this.seed + 499) < chance;
+    return hash2(id, this.period(day), this.seed + 499) < chance;
   }
 
   predatorActivity(day: number): number {

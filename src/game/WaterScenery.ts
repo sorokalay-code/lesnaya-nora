@@ -10,7 +10,12 @@ interface Vertex {
 
 /** Рисует плоскую воду, обрезанную по треугольникам настоящего дна, и общие береговые детали. */
 export class WaterScenery {
-  constructor(map: WaterMap, heightAt: (x: number, z: number) => number, chunks: WorldChunks) {
+  constructor(
+    map: WaterMap,
+    heightAt: (x: number, z: number) => number,
+    chunks: WorldChunks,
+    vegetation = 1,
+  ) {
     const material = new THREE.MeshStandardMaterial({
       color: 0x509e9a,
       roughness: 0.23,
@@ -50,8 +55,8 @@ export class WaterScenery {
       }
       geometry.dispose();
       for (const point of body.points)
-        for (let i = 0; i < 16; i++) {
-          const angle = (i * Math.PI) / 8;
+        for (let i = 0; i < Math.round(16 * vegetation); i++) {
+          const angle = (i * Math.PI) / (8 * vegetation);
           const x = point.x + Math.cos(angle) * (body.radius + 0.45),
             z = point.z + Math.sin(angle) * (body.radius + 0.45);
           if (map.sample(x, z, heightAt(x, z))) continue;
@@ -60,7 +65,7 @@ export class WaterScenery {
           reed.scale.y = 0.7 + (i % 4) * 0.2;
           chunks.add(reed, x, z);
         }
-      for (let i = 0; i < body.points.length * 4; i++) {
+      for (let i = 0; i < Math.round(body.points.length * 4 * vegetation); i++) {
         const point = body.points[i % body.points.length],
           angle = i * 2.4;
         const x = point.x + Math.cos(angle) * body.radius * 0.65,

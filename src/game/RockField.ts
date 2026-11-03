@@ -12,13 +12,14 @@ export class RockField {
     chunks: WorldChunks,
     heightAt: (x: number, z: number) => number,
     canPlace: (x: number, z: number) => boolean,
+    worldScale = 1,
   ) {
     const rng = new Random(seed + 18743),
       batches = new Map<string, Rock[]>();
     const kinds: ModelName[] = ['rock_granite', 'rock_moss', 'rock_slate'];
-    for (let i = 0; i < 180; i++) {
-      const x = rng.range(-100, 100),
-        z = rng.range(-100, 100);
+    for (let i = 0; i < Math.round(180 * worldScale ** 2); i++) {
+      const x = rng.range(-100, 100) * worldScale,
+        z = rng.range(-100, 100) * worldScale;
       if (Math.hypot(x, z) < 9 || !canPlace(x, z)) continue;
       const scale = rng.range(0.3, 1.5),
         kind = rng.pick(kinds);

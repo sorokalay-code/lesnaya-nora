@@ -22,7 +22,11 @@ const smooth = (t: number) => {
 export class WaterMap {
   readonly bodies: readonly WaterBody[];
 
-  constructor(naturalHeight: (x: number, z: number) => number) {
+  constructor(naturalHeight: (x: number, z: number) => number, scale = 1, amount = 1) {
+    if (amount === 0) {
+      this.bodies = [];
+      return;
+    }
     const definitions = [
       {
         id: 'meadow-pond',
@@ -59,6 +63,12 @@ export class WaterMap {
         depth: 2.1,
       },
     ];
+    // Масштабируем расположение вместе с картой, количество воды — шириной водоёмов.
+    // Квадратный корень сохраняет близкую к линейной зависимость площади прудов от настройки.
+    for (const body of definitions) {
+      body.points = body.points.map(({ x, z }) => ({ x: x * scale, z: z * scale }));
+      body.radius *= scale * Math.sqrt(amount);
+    }
     const levels = definitions.map((body) => {
       let level = Infinity;
       for (const point of body.points)

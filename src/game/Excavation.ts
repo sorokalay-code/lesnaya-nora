@@ -1,3 +1,4 @@
+import { playableWorldLimit } from './WorldConfig';
 import * as THREE from 'three';
 import { CaveMesher } from './CaveMesher';
 import type { DigNode, SaveData } from './types';
@@ -335,7 +336,9 @@ export class Excavation {
 
     const node = aimed.node;
     let reason = '';
-    if (Math.abs(node.x) > 103 || Math.abs(node.z) > 103) reason = 'Здесь край исследуемого леса.';
+    const limit = playableWorldLimit(this.world.size);
+    if (Math.abs(node.x) > limit || Math.abs(node.z) > limit)
+      reason = 'Здесь край исследуемого леса.';
     else if (this.depth(node) > this.maxDepth) reason = 'Глубже 50 м копать нельзя.';
     else if (
       this.save.excavation.some(

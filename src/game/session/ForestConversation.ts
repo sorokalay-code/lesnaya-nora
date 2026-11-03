@@ -3,6 +3,7 @@ import { animalNames } from '../animals/names';
 import { FOOD, type FoodKind, type SaveData } from '../types';
 import type { World } from '../World';
 import { FRIENDSHIP_TRUST } from '../Friendship';
+import { SeasonSystem } from '../systems/SeasonSystem';
 
 export interface ConversationTurn {
   question?: string;
@@ -22,10 +23,14 @@ const interests = {
 
 /** Ветвящиеся разговоры, просьбы и польза дружбы; награды ограничены игровым временем. */
 export class ForestConversation {
+  private readonly seasons: SeasonSystem;
+
   constructor(
     private readonly save: SaveData,
     private readonly world: World,
-  ) {}
+  ) {
+    this.seasons = new SeasonSystem(save.seed, save.worldConfig?.seasonLengths);
+  }
 
   view(animal: ForestAnimal): ConversationTurn {
     const question = animal.social.request ? interests[animal.kind] : undefined;
@@ -93,7 +98,7 @@ export class ForestConversation {
       ? 'Я поранился и сейчас берегу силы. Спасибо, что остановилась рядом.'
       : this.save.weather === 'rain'
         ? 'Дождь смывает запахи. После него так хорошо пахнут молодые побеги! А как поживает твоя семья?'
-        : Math.floor(((this.save.day - 1) % 120) / 30) === 3
+        : this.seasons.name(this.save.day) === 'Зима'
           ? 'Зимой особенно ценю тех, кто делится запасами. Твоя семья подготовилась к холодам?'
           : `${animalNames[animal.kind]} тихо приветствует тебя. Сегодня ищу еду и спокойное место для отдыха. Как хорошо встретить знакомого!`;
   }

@@ -12,6 +12,7 @@ import { GardenCrops } from './GardenCrops';
 import { RockField } from './RockField';
 import { WaterScenery } from './WaterScenery';
 import type { WaterSample } from './WaterMap';
+import { defaultWorldConfig, type WorldConfig } from './WorldConfig';
 
 export interface Resource {
   id: number;
@@ -60,7 +61,9 @@ function blob(
 
 /** Создаёт процедурный мир и управляет ресурсами, погодой, сезонами и декорациями. */
 export class World {
-  readonly size = 110;
+  readonly size: number;
+  readonly config: WorldConfig;
+  readonly scale: number;
   readonly scene: THREE.Scene;
   readonly resources: Resource[] = [];
   readonly waterSources: { x: number; z: number }[] = [];
@@ -111,11 +114,24 @@ export class World {
   ) {
     this.scene = scene;
     this.seed = seed;
+    this.config = save?.worldConfig ?? defaultWorldConfig();
+    this.size = this.config.size;
+    this.scale = this.size / 110;
+    for (const landmark of this.landmarks) {
+      landmark.x *= this.scale;
+      landmark.z *= this.scale;
+    }
     this.rng = new Random(seed);
-    this.seasons = new SeasonSystem(seed);
+    this.seasons = new SeasonSystem(seed, this.config.seasonLengths);
     this.chunks = new WorldChunks(scene);
-    this.terrain = new Terrain(seed);
-    this.boundary = new WorldBoundary(this.terrain, seed, this.size, (x, z) => this.biomeAt(x, z));
+    this.terrain = new Terrain(seed, this.scale, this.config.water);
+    this.boundary = new WorldBoundary(
+      this.terrain,
+      seed,
+      this.size,
+      (x, z) => this.biomeAt(x, z),
+      this.config.vegetation,
+    );
     this.scene.add(this.boundary.root);
     this.exposedSoil.map = ModelAssets.shared.soil ?? null;
     for (const [id, time] of Object.entries(save?.gnawedRoots ?? {}))
@@ -123,13 +139,19 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
-    new WaterScenery(this.terrain.water, (x, z) => this.heightAt(x, z), this.chunks);
+    new WaterScenery(
+      this.terrain.water,
+      (x, z) => this.heightAt(x, z),
+      this.chunks,
+      this.config.vegetation,
+    );
     for (const body of this.terrain.water.bodies) this.waterSources.push(...body.points);
     new RockField(
       seed,
       this.chunks,
       (x, z) => this.heightAt(x, z),
       (x, z) => this.biomeAt(x, z) !== 'garden' && !this.nearWater(x, z, 3),
+      this.scale,
     );
     this.buildResources();
     this.resourceInstances = new ResourceInstances(this.resources, this.chunks, (root) =>
@@ -239,6 +261,8 @@ export class World {
   }
 
   biomeAt(x: number, z: number): Biome {
+    x /= this.scale;
+    z /= this.scale;
     if (Math.hypot(x - 34, z - 31) < 15 || Math.hypot(x + 35, z - 29) < 12) return 'garden';
 
     if (Math.hypot(x + 31, z + 25) < 19 && smoothNoise(x / 12, z / 12, this.seed + 78) > 0.25)
@@ -249,6 +273,9 @@ export class World {
     const n =
       smoothNoise(x / 19, z / 19, this.seed) * 0.7 +
       smoothNoise(x / 8, z / 8, this.seed + 19) * 0.3;
+    // Родная поляна и два огорода остаются ориентирами при любом преобладающем биоме.
+    if (this.config.biome !== 'mixed') return n > 0.3 ? this.config.biome : 'meadow';
+
     return n > 0.53 ? 'forest' : 'meadow';
   }
 
@@ -258,7 +285,7 @@ export class World {
       uvs: number[] = [],
       indices: number[] = [];
     const color = new THREE.Color();
-    const n = 220,
+    const n = this.size * 2,
       step = (this.size * 2) / n;
     for (let z = 0; z < n; z++)
       for (let x = 0; x < n; x++) {
@@ -413,9 +440,9 @@ export class World {
   }
 
   private buildDecorations(): void {
-    for (let i = 0; i < 580; i++) {
-      const x = this.rng.range(-105, 105),
-        z = this.rng.range(-105, 105),
+    for (let i = 0; i < Math.round(580 * this.scale ** 2 * this.config.vegetation); i++) {
+      const x = this.rng.range(-105, 105) * this.scale,
+        z = this.rng.range(-105, 105) * this.scale,
         biome = this.biomeAt(x, z);
       if (Math.hypot(x, z) < 6) continue;
 
@@ -456,8 +483,8 @@ export class World {
       }
     }
 
-    this.makeGarden(34, 31, 16);
-    this.makeGarden(-35, 29, 13);
+    this.makeGarden(34 * this.scale, 31 * this.scale, 16 * this.scale);
+    this.makeGarden(-35 * this.scale, 29 * this.scale, 13 * this.scale);
     this.makeSmallDetails();
     this.makeButterflies();
     this.makeBoundary();
@@ -486,18 +513,21 @@ export class World {
     const grassGeo = new THREE.ConeGeometry(0.12, 0.6, 3),
       stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
     this.grassMaterial = mat(0x88b66d);
-    const grass = new THREE.InstancedMesh(grassGeo, this.grassMaterial, 2200);
+    const vegetation = this.scale ** 2 * this.config.vegetation;
+    const grassCount = Math.round(2200 * vegetation);
+    const flowerCount = Math.round(620 * vegetation);
+    const grass = new THREE.InstancedMesh(grassGeo, this.grassMaterial, grassCount);
     const stones = new THREE.InstancedMesh(stoneGeo, mat(0x9a9b89), 370);
     const flowers = new THREE.InstancedMesh(
       new THREE.IcosahedronGeometry(0.075, 0),
       mat(0xf4d7aa),
-      620,
+      flowerCount,
     );
     const dummy = new THREE.Object3D();
     const color = new THREE.Color();
-    for (let i = 0; i < 2200; i++) {
-      const x = this.rng.range(-102, 102),
-        z = this.rng.range(-102, 102);
+    for (let i = 0; i < grassCount; i++) {
+      const x = this.rng.range(-102, 102) * this.scale,
+        z = this.rng.range(-102, 102) * this.scale;
       dummy.position.set(x, this.heightAt(x, z) + 0.25, z);
       dummy.rotation.y = this.rng.range(0, Math.PI * 2);
       dummy.scale.setScalar(this.rng.range(0.65, 1.4));
@@ -518,8 +548,8 @@ export class World {
     }
 
     for (let i = 0; i < 370; i++) {
-      const sx = this.rng.range(-101, 101),
-        sz = this.rng.range(-101, 101);
+      const sx = this.rng.range(-101, 101) * this.scale,
+        sz = this.rng.range(-101, 101) * this.scale;
       dummy.position.set(sx, this.heightAt(sx, sz) + 0.12, sz);
       dummy.rotation.y = this.rng.range(0, 6.28);
       dummy.scale.setScalar(this.rng.range(0.6, 2.5));
@@ -527,9 +557,9 @@ export class World {
       stones.setMatrixAt(i, dummy.matrix);
     }
 
-    for (let i = 0; i < 620; i++) {
-      const x = this.rng.range(-102, 102),
-        z = this.rng.range(-102, 102);
+    for (let i = 0; i < flowerCount; i++) {
+      const x = this.rng.range(-102, 102) * this.scale,
+        z = this.rng.range(-102, 102) * this.scale;
       dummy.position.set(x, this.heightAt(x, z) + 0.47, z);
       dummy.rotation.y = 0;
       dummy.scale.setScalar(this.rng.range(0.8, 1.6));
@@ -543,9 +573,9 @@ export class World {
     this.scene.add(grass, stones, flowers);
     const logMat = mat(0x6e5541),
       moss = mat(0x63875c);
-    for (let i = 0; i < 65; i++) {
-      const x = this.rng.range(-98, 98),
-        z = this.rng.range(-98, 98);
+    for (let i = 0; i < Math.round(65 * vegetation); i++) {
+      const x = this.rng.range(-98, 98) * this.scale,
+        z = this.rng.range(-98, 98) * this.scale;
       if (
         this.biomeAt(x, z) === 'garden' ||
         Math.hypot(x, z) < 12 ||
@@ -576,13 +606,9 @@ export class World {
 
   private makeButterflies(): void {
     const wingGeo = new THREE.SphereGeometry(1, 8, 6);
-    for (let i = 0; i < 38; i++) {
-      const x = this.rng.range(-95, 95),
-        z = this.rng.range(-95, 95);
-      if (this.biomeAt(x, z) === 'swamp') continue;
-
+    const add = (x: number, z: number, phase: number, rng: Random) => {
       const root = new THREE.Group(),
-        wingMat = mat(this.rng.pick([0xe9c17d, 0xd6b5d5, 0xe6e2a0, 0xa8d1d1]));
+        wingMat = mat(rng.pick([0xe9c17d, 0xd6b5d5, 0xe6e2a0, 0xa8d1d1]));
       for (const side of [-1, 1]) {
         const wing = new THREE.Mesh(wingGeo, wingMat);
         wing.position.set(side * 0.12, 0, 0);
@@ -592,7 +618,20 @@ export class World {
 
       root.position.set(x, this.heightAt(x, z) + 0.9, z);
       this.chunks.add(root, x, z, true);
-      this.butterflies.push({ mesh: root, x, z, phase: i * 2.37 });
+      this.butterflies.push({ mesh: root, x, z, phase });
+    };
+    for (let i = 0; i < this.config.creatures.butterfly; i++) {
+      const x = this.rng.range(-95, 95) * this.scale;
+      const z = this.rng.range(-95, 95) * this.scale;
+      if (this.biomeAt(x, z) === 'swamp') continue;
+      add(x, z, i * 2.37, this.rng);
+    }
+    // Заполняем недостающих отдельно: прежний поток генерации растений и их id не сдвигается.
+    const extra = new Random(this.seed + 66071);
+    while (this.butterflies.length < this.config.creatures.butterfly) {
+      const x = extra.range(-95, 95) * this.scale;
+      const z = extra.range(-95, 95) * this.scale;
+      add(x, z, this.butterflies.length * 2.37, extra);
     }
   }
 
@@ -683,9 +722,9 @@ export class World {
       this.chunks.add(mesh, x, z);
       this.resources.push({ id: id++, x, z, kind, mesh, available: true, regrowAt: 0 });
     };
-    for (let i = 0; i < 1050; i++) {
-      const x = this.rng.range(-100, 100),
-        z = this.rng.range(-100, 100);
+    for (let i = 0; i < Math.round(1050 * this.scale ** 2 * this.config.food); i++) {
+      const x = this.rng.range(-100, 100) * this.scale,
+        z = this.rng.range(-100, 100) * this.scale;
       const biome = this.biomeAt(x, z);
       const kind: FoodKind =
         biome === 'garden'
@@ -697,7 +736,7 @@ export class World {
               : this.rng.pick(['clover', 'clover', 'bitterleaf', 'berries']);
       add(x, z, kind);
     }
-    GardenCrops.plant(add);
+    GardenCrops.plant(add, this.scale, this.config.food);
   }
 
   fertilize(x: number, z: number, clock: number): void {

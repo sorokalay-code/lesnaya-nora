@@ -9,6 +9,11 @@ export interface AnimalPosition {
 /** Базовая сущность животного: единые координаты, здоровье и физическое перемещение. */
 export abstract class Animal<K extends string = string> {
   protected waterNavigation?: WaterNavigation;
+  protected movementLimit = 97;
+
+  useWorldBounds(size: number): void {
+    this.movementLimit = (size * 97) / 110;
+  }
 
   useWater(navigation: WaterNavigation): void {
     this.waterNavigation = navigation;
@@ -20,6 +25,8 @@ export abstract class Animal<K extends string = string> {
     dt: number,
     groundAt: (x: number, z: number) => number,
   ): void {
+    x = Math.max(-this.movementLimit, Math.min(this.movementLimit, x));
+    z = Math.max(-this.movementLimit, Math.min(this.movementLimit, z));
     const water = this.waterNavigation;
     if (water) {
       if (!this.swimSpeed) {

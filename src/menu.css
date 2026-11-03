@@ -86,6 +86,95 @@
 .new-game-warning {
   color: #f0c0a6;
 }
+.touch-menu.game-menu.world-config-menu {
+  width: min(760px, calc(100% - 24px));
+  overscroll-behavior: contain;
+}
+.world-config fieldset {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #b5c59355;
+  border-radius: 12px;
+}
+.world-config legend {
+  padding: 0 7px;
+  color: #e4dfb4;
+  font-size: 14px;
+  font-weight: 600;
+}
+.world-config label {
+  margin: 10px 0;
+  min-width: 0;
+}
+.world-config input[type='number'] {
+  width: 76px;
+  min-height: 40px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  border: 1px solid #b5c59388;
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+  background: #214738;
+  color: #f3f0df;
+}
+.world-config input:invalid {
+  border-color: #f0a78c;
+}
+.world-config input:disabled {
+  opacity: 0.45;
+}
+.world-config select {
+  max-width: 65%;
+  min-width: 0;
+}
+.world-config .config-hint {
+  color: #bbcbb6;
+  font-size: 11px;
+}
+.world-config .config-range {
+  display: block;
+  margin: 16px 0;
+}
+.config-range span {
+  display: flex;
+  justify-content: space-between;
+}
+.config-range input {
+  width: 100%;
+  min-height: 28px;
+  margin: 4px 0;
+  accent-color: #c0cd8b;
+}
+.creature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+.world-config .creature-input {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #254435;
+}
+.world-config .config-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  margin-top: 14px;
+}
+@media (max-width: 540px) {
+  .world-config .creature-grid {
+    grid-template-columns: 1fr;
+  }
+  .world-config fieldset {
+    padding: 10px;
+  }
+  .world-config label {
+    gap: 8px;
+  }
+  .world-config .config-actions {
+    grid-template-columns: 1fr !important;
+  }
+}
 .event-panel {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));

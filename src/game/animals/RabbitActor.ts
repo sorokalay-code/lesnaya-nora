@@ -100,8 +100,8 @@ export class RabbitActor extends Rabbit {
     if (moving) {
       const dx = point.x - from.x,
         dz = point.z - from.z;
-      this.data.x = THREE.MathUtils.clamp(point.x, -97, 97);
-      this.data.z = THREE.MathUtils.clamp(point.z, -97, 97);
+      this.data.x = THREE.MathUtils.clamp(point.x, -this.movementLimit, this.movementLimit);
+      this.data.z = THREE.MathUtils.clamp(point.z, -this.movementLimit, this.movementLimit);
       const desired = Math.atan2(-dx, -dz);
       const turn = Math.atan2(
         Math.sin(desired - this.rig.root.rotation.y),
@@ -238,7 +238,7 @@ export class RabbitActor extends Rabbit {
           (this.activity === 'explore' ? 1.4 : 0.75) *
           GeneticTraits.mobility(this.data.genes) *
           (0.7 + this.data.genes.speed * 0.1);
-      if (Math.hypot(nx, nz) < 95) {
+      if (Math.hypot(nx, nz) < (this.movementLimit * 95) / 97) {
         this.data.x = nx;
         this.data.z = nz;
       }

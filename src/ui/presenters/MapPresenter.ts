@@ -10,11 +10,12 @@ export class MapPresenter {
       for (let x = 0; x < 60; x++)
         colors.push(
           { forest: '#426e51', meadow: '#88a969', swamp: '#5d8c80', garden: '#b69b66' }[
-            world.biomeAt((x / 60 - 0.5) * 220, (y / 60 - 0.5) * 220)
+            world.biomeAt((x / 60 - 0.5) * world.size * 2, (y / 60 - 0.5) * world.size * 2)
           ],
         );
 
     return {
+      size: world.size,
       colors,
       landmarks: [...world.landmarks, ...(save.discoveries ?? [])].map(({ x, z, label }) => ({
         x,
