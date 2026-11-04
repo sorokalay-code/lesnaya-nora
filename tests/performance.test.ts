@@ -6,6 +6,7 @@ import { animateRabbit, createRabbit, setRabbitAction } from '../src/game/Models
 import { ResourceInstances } from '../src/game/ResourceInstances';
 import { World, type Resource } from '../src/game/World';
 import { isEvergreen, isTreeSpecies, TREE_SPECIES } from '../src/game/TreeSpecies';
+import { isShrubSpecies, SHRUB_SPECIES } from '../src/game/ShrubSpecies';
 import { SeasonSystem } from '../src/game/systems';
 import { WorldChunks } from '../src/game/WorldChunks';
 import { loadModels } from './model-fixture';
@@ -46,32 +47,35 @@ test('oak leaf cards retain a seasonal crown with an alpha cutout material', () 
   assert.ok(material.alphaTest > 0);
   assert.equal(material.side, THREE.DoubleSide);
 });
-test('all ten tree crowns are cutout meshes and only evergreens keep their crowns in winter', () => {
+test('forest trees and shrubs use cutout crowns and only evergreens keep their crowns in winter', () => {
   const scene = new THREE.Scene();
   const world = new World(scene, 31415);
   const day = new SeasonSystem(31415).startDay(3);
   world.update((day - 1) * 1440, 0, 'clear', day, 0, 0);
   const seen = new Set<string>();
   scene.traverse((object) => {
-    if (!isTreeSpecies(object.name)) return;
+    const species = object.name;
+    if (!isTreeSpecies(species) && !isShrubSpecies(species)) return;
     const crown = object.getObjectByName('Foliage');
     if (!crown) return;
     seen.add(object.name);
-    const bark = crown.parent?.children.find(
-      (child): child is THREE.Mesh =>
-        child instanceof THREE.Mesh && child.material.name === `bark_${object.name}_texture`,
-    );
-    assert.ok(bark);
-    const uv = bark.geometry.getAttribute('uv');
-    assert.ok(uv && Array.from({ length: uv.count }, (_, i) => uv.getY(i)).some((v) => v > 2));
+    if (isTreeSpecies(species)) {
+      const bark = crown.parent?.children.find(
+        (child): child is THREE.Mesh =>
+          child instanceof THREE.Mesh && child.material.name === `bark_${species}_texture`,
+      );
+      assert.ok(bark);
+      const uv = bark.geometry.getAttribute('uv');
+      assert.ok(uv && Array.from({ length: uv.count }, (_, i) => uv.getY(i)).some((v) => v > 2));
+    }
     const metrics = stats(crown);
     assert.equal(metrics.meshes, 1);
     assert.ok(metrics.triangles <= 150);
     const [material] = metrics.materials;
     assert.ok(material instanceof THREE.MeshStandardMaterial && material.alphaTest > 0);
-    assert.equal(crown.visible, isEvergreen(object.name));
+    assert.equal(crown.visible, isEvergreen(species) || species === 'juniper');
   });
-  assert.deepEqual([...seen].sort(), [...TREE_SPECIES].sort());
+  assert.deepEqual([...seen].sort(), [...TREE_SPECIES, ...SHRUB_SPECIES].sort());
 });
 test('rabbit LOD preserves actions and ear genes with fewer triangles at distance', () => {
   const rabbit = createRabbit({ ...genes, ear: 1.2 }),

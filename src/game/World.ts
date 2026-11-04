@@ -1,3 +1,4 @@
+import { isShrubSpecies } from './ShrubSpecies';
 import { BROADLEAF_TREES, isEvergreen, NEEDLE_TREES } from './TreeSpecies';
 import { SeasonalGround } from './SeasonalGround';
 import { caveMaterial } from './CaveMaterial';
@@ -384,15 +385,28 @@ export class World {
         this.trackFoliage(g);
         this.chunks.add(g, x, z);
       } else if (this.rng.chance(0.65)) {
+        const shrubs =
+          biome === 'swamp'
+            ? (['bush', 'viburnum', 'spiraea'] as const)
+            : biome === 'forest'
+              ? (['bush', 'hazel', 'viburnum', 'juniper'] as const)
+              : (['bush', 'dogrose', 'spiraea', 'juniper'] as const);
+        const shrubIndex = Math.floor(
+          hash2(Math.floor(x * 100), Math.floor(z * 100), this.seed + 917) * shrubs.length,
+        );
         const kind = this.rng.chance(0.34)
           ? 'fern'
           : biome === 'swamp' && this.rng.chance(0.5)
             ? 'reed'
-            : 'bush';
+            : shrubs[shrubIndex];
         const g = ModelAssets.shared.create(kind).root;
         g.position.set(x, this.heightAt(x, z), z);
         g.scale.setScalar(this.rng.range(0.75, 1.25));
         g.rotation.y = this.rng.range(0, Math.PI * 2);
+        if (isShrubSpecies(kind) && kind !== 'juniper') {
+          const crown = g.getObjectByName('Foliage');
+          if (crown) this.deciduousCrowns.push(crown);
+        }
         this.trackFoliage(g);
         this.chunks.add(g, x, z);
       }
@@ -730,7 +744,8 @@ export class World {
 
     this.foliageMaterials.forEach((base, material) => {
       material.color.copy(base);
-      const evergreen = isEvergreen(material.name.replace(/^leaf_/, '').replace(/_cards$/, ''));
+      const species = material.name.replace(/^leaf_/, '').replace(/_cards$/, '');
+      const evergreen = isEvergreen(species) || species === 'juniper';
       if (!evergreen && season === 'Осень') material.color.lerp(new THREE.Color(0xb88146), 0.6);
 
       if (!evergreen && season === 'Зима') material.color.lerp(new THREE.Color(0x8f9b88), 0.55);

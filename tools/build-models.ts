@@ -1,3 +1,5 @@
+import { isShrubSpecies, SHRUB_SPECIES } from '../src/game/ShrubSpecies';
+import { createShrubModel, shrubFoliagePixels, SHRUB_TEXTURE_SIZE } from './art/ShrubAssets';
 import {
   createTreeTrunk,
   treeBarkMaterial,
@@ -1425,6 +1427,11 @@ for (const species of TREE_SPECIES) {
   writeTreeTexture(`${species}-foliage`, OAK_FOLIAGE_SIZE, foliage);
   writeTreeTexture(`${species}-bark`, TREE_BARK_SIZE, treeBarkPixels(species));
 }
+for (const species of SHRUB_SPECIES) {
+  if (!requested.size || requested.has(species)) {
+    writeTreeTexture(`${species}-foliage`, SHRUB_TEXTURE_SIZE, shrubFoliagePixels(species));
+  }
+}
 const models = {
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
@@ -1466,6 +1473,11 @@ const models = {
   fern,
   reed,
   bush,
+  hazel: () => createShrubModel('hazel'),
+  dogrose: () => createShrubModel('dogrose'),
+  viburnum: () => createShrubModel('viburnum'),
+  juniper: () => createShrubModel('juniper'),
+  spiraea: () => createShrubModel('spiraea'),
   carrot: () => foodPlant('carrot'),
   cabbage: () => foodPlant('cabbage'),
   mushroom: () => foodPlant('mushroom'),
@@ -1562,7 +1574,7 @@ for (const [name, build] of Object.entries(models)) {
                   ? peacefulClips(name, model)
                   : [];
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
-  mergeParts(model, !creatures.has(name) && !isTreeSpecies(name));
+  mergeParts(model, !creatures.has(name) && !isTreeSpecies(name) && !isShrubSpecies(name));
   const buffer = (await new GLTFExporter().parseAsync(model, {
     binary: true,
     animations,

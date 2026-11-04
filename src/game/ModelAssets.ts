@@ -1,3 +1,4 @@
+import { SHRUB_SPECIES } from './ShrubSpecies';
 import { isTreeSpecies, TREE_SPECIES } from './TreeSpecies';
 import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
@@ -13,6 +14,7 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
 const TEXTURE_NAMES = [
   'fur',
   'leaf',
+  ...SHRUB_SPECIES.map((species) => `${species}-foliage`),
   ...TREE_SPECIES.flatMap((species) => [`${species}-foliage`, `${species}-bark`]),
   ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
     `ground-${season}`,
@@ -52,6 +54,7 @@ export const MODEL_NAMES = [
   'fern',
   'reed',
   'bush',
+  ...SHRUB_SPECIES,
   'carrot',
   'cabbage',
   'mushroom',
