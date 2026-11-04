@@ -24,6 +24,7 @@ export interface HudView {
   familyCount?: number;
   lineageMembers?: { id: number; name: string; relationship: string; generation: number }[];
   airlift?: import('../game/session/HawkHunting').AirliftView;
+  rabbitChase?: import('../game/session/RabbitReproductiveThreat').RabbitChaseView;
   web?: WebView;
   nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
   status: string;

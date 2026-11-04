@@ -17,6 +17,7 @@ interface Context extends HawkPopulation {
   earth: Pick<Excavation, 'isSheltered' | 'floorAt'>;
   resetInput?: () => void;
   canGrabPlayer?: () => boolean;
+  protectPlayer?: (time: number) => boolean;
   toast: (text: string) => void;
   impactSound?: () => void;
 }
@@ -145,6 +146,12 @@ export class HawkHunting {
         this.context.world.heightAt(x, z),
       );
       if (grabbed && hunt && this.available(hunt.victim)) {
+        if (hunt.victim.player && this.context.protectPlayer?.(time)) {
+          hawk.cancelDive();
+          this.hunts.delete(hawk);
+          this.searches.set(hawk, time + HAWK_HUNT.retrySeconds);
+          continue;
+        }
         const start = {
           x: hunt.victim.root.position.x,
           y:

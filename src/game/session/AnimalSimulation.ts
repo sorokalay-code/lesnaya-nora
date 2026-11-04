@@ -12,6 +12,8 @@ import { SeasonSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
 import { FriendSignals } from './FriendSignals';
+import { FriendDefense } from './FriendDefense';
+import { FriendMarks } from './FriendMarks';
 import type { AnimalWasteSystem } from './AnimalWasteSystem';
 import type { AttackListener } from '../audio/AttackCue';
 import { RabbitPredation } from './RabbitPredation';
@@ -66,16 +68,32 @@ interface Context {
 export class AnimalSimulation {
   private readonly hawkHunting: HawkHunting;
   private readonly friends = new FriendSignals();
+  private readonly friendDefense: FriendDefense;
+  private readonly friendMarks?: FriendMarks;
   private readonly rabbitPredation: RabbitPredation;
   private readonly ambience?: AnimalAmbience;
   private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
 
   constructor(private readonly context: Context) {
-    this.reproductiveThreat = new RabbitReproductiveThreat(context.save);
-    this.hawkHunting = new HawkHunting(context);
+    this.friendDefense = new FriendDefense(context.wildlife, context.toast);
+    if (context.world.scene) this.friendMarks = new FriendMarks(context.world.scene);
+    this.reproductiveThreat = new RabbitReproductiveThreat(context.save, {
+      sheltered: (point) => context.earth.isSheltered(point.x, point.y, point.z),
+      floorAt: (x, z, y) => context.earth.floorAt(x, z, y),
+      waterDepthAt: (x, z) => context.world.waterAt?.(x, z)?.depth ?? 0,
+    });
+    this.hawkHunting = new HawkHunting({
+      ...context,
+      protectPlayer: (time) => this.friendDefense.interruptStrike(context.save.player, time, false),
+    });
     this.rabbitPredation = new RabbitPredation(context);
-    if (typeof context.world.waterAt === 'function') this.water = new WaterSimulation(context);
+    if (typeof context.world.waterAt === 'function')
+      this.water = new WaterSimulation({
+        ...context,
+        protectPlayer: (time) =>
+          this.friendDefense.interruptStrike(context.save.player, time, true),
+      });
     if (context.ambientSound)
       this.ambience = new AnimalAmbience({
         sources: new AnimalVoiceSources(context),
@@ -96,31 +114,42 @@ export class AnimalSimulation {
     this.water?.resetTargets();
   }
 
+  dispose(): void {
+    this.friendMarks?.dispose();
+  }
+
   get airliftView() {
     return this.hawkHunting.playerView;
   }
 
+  get rabbitChaseView() {
+    return this.reproductiveThreat.view;
+  }
+
   update(dt: number, time: number, night: boolean): number {
-    this.rabbitPredation.update(dt, time);
+    const pursuing = this.reproductiveThreat.actor;
+    const attack = this.reproductiveThreat.update(
+      dt,
+      time,
+      this.context.rabbits,
+      (this.context.combatAllowed?.() ?? true) &&
+        !this.context.state.mating &&
+        (this.context.canGrabPlayer?.() ?? true) &&
+        !AnimalRestraint.active(this.context.player.root),
+    );
+    if (attack) this.context.toast(attack);
+    this.rabbitPredation.update(dt, time, this.reproductiveThreat.actor ?? pursuing);
     this.updateRabbits(dt, time);
     this.positionMatingPair(time);
-    const p = this.context.save.player;
-    if (
-      (this.context.combatAllowed?.() ?? true) &&
-      !this.context.state.mating &&
-      !AnimalRestraint.active(this.context.player.root)
-    ) {
-      const attack = this.reproductiveThreat.update(
-        time,
-        this.context.rabbits,
-        this.context.earth.isSheltered(p.x, p.y, p.z),
-      );
-      if (attack) this.context.toast(attack);
-    }
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
     const closestThreat = this.updatePredators(dt, time, night);
     this.updateUndergroundTraffic(dt, time, night);
+    this.friendDefense.updateEscorts(
+      this.context.save.player,
+      this.context.save.clock,
+      this.sheltered,
+    );
     this.updateEcology(dt, time);
     this.context.collisions.resolve(this.context.state.mating?.fatherId);
     this.water?.update(dt, time, this.context.combatAllowed?.() ?? true);
@@ -133,6 +162,7 @@ export class AnimalSimulation {
     this.removeDeadRabbits();
     this.context.remains?.update();
     this.updateVisibility();
+    this.friendMarks?.update(this.context.wildlife, this.context.save.player, time);
     this.ambience?.update(time, night);
     this.friends.update(
       time,
@@ -148,6 +178,7 @@ export class AnimalSimulation {
   private updateRabbits(dt: number, time: number): void {
     const p = this.context.save.player;
     for (const rabbit of this.context.rabbits) {
+      if (rabbit === this.reproductiveThreat.actor) continue;
       if (rabbit.data.id === this.context.save.mateId) {
         const event = this.context.partnerSupport.update(rabbit, dt, time, this.context.groundAt);
         if (
@@ -195,31 +226,31 @@ export class AnimalSimulation {
 
   private updatePredators(dt: number, time: number, night: boolean): number {
     const p = this.context.save.player;
+    const combat = this.context.combatAllowed?.() ?? true;
+    const canDefend = combat && !this.sheltered;
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
       if (!predator.alive) continue;
-      const combat = this.context.combatAllowed?.() ?? true;
       const prey = combat
         ? this.context.ecology.targetFor(predator, this.context.predators, time)
         : undefined;
-      if (
-        predator.update(
-          dt,
-          time,
-          p.x,
-          p.z,
-          p.hidden || !combat || AnimalRestraint.active(this.context.player.root),
-          !night,
-          this.context.groundAt,
-          p.dirtiness / 100,
-          this.context.seasons.predatorActivity(this.context.save.day),
-          prey,
-          p.genes.size,
-        )
-      )
-        this.context.consequences.predatorAttack(predator.kind);
+      const strike = predator.update(
+        dt,
+        time,
+        p.x,
+        p.z,
+        p.hidden || !combat || AnimalRestraint.active(this.context.player.root),
+        !night,
+        this.context.groundAt,
+        p.dirtiness / 100,
+        this.context.seasons.predatorActivity(this.context.save.day),
+        prey,
+        p.genes.size,
+      );
+      const repelled = canDefend && this.friendDefense.repel(predator, p, time);
+      if (strike && !repelled) this.context.consequences.predatorAttack(predator.kind);
 
-      if (combat) this.context.consequences.threatenKits(predator, time);
+      if (combat && !repelled) this.context.consequences.threatenKits(predator, time);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     return closestThreat;
@@ -268,6 +299,7 @@ export class AnimalSimulation {
     for (const rabbit of this.context.rabbits)
       if (
         !rabbit.solitary &&
+        rabbit !== this.reproductiveThreat.actor &&
         !AnimalRestraint.active(rabbit.root) &&
         !rabbit.rig.root.userData.conversing &&
         this.context.rng.chance(dt * 0.025)

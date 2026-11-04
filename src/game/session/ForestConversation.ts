@@ -2,12 +2,13 @@ import type { ForestAnimal } from '../animals';
 import { animalNames } from '../animals/names';
 import { FOOD, type FoodKind, type SaveData } from '../types';
 import type { World } from '../World';
-import { FRIENDSHIP_TRUST } from '../Friendship';
+import { FRIEND_ESCORT_MINUTES, FRIENDSHIP_TRUST } from '../Friendship';
 import { SeasonSystem } from '../systems/SeasonSystem';
 
 export interface ConversationTurn {
   question?: string;
   choices: { action: string; label: string }[];
+  friendChoices?: { action: string; label: string }[];
   relationship: string;
   benefit: string;
 }
@@ -23,6 +24,23 @@ const interests = {
   squirrel: 'Я собираю припасы. Поделишься клевером или морковкой?',
   hedgehog: 'После долгой прогулки я проголодался. У тебя есть безопасное угощение?',
   beaver: 'Чиню дом у воды. Не найдётся ли у тебя лишней веточки?',
+};
+
+const friendStories: Record<ForestAnimal['kind'], string> = {
+  bear: 'Когда я был маленьким, мама водила меня к малиннику. До сих пор нахожу дорогу туда по запаху.',
+  duck: 'Первый раз я переплыла реку за мамой. Теперь в сильное течение не лезу, жду у тихого берега.',
+  mouse: 'Я прячу семена возле старых корней. Весной из забытых запасов вырастают новые травы.',
+  fish: 'У поворота реки всегда прохладнее. Летом я прячусь там в тени корней.',
+  boar: 'Когда земля промокнет после дождя, я нахожу под листьями самые вкусные корни.',
+  deer: 'На рассвете я знаю тропу, где почти не слышно шагов. Веду по ней малышей к воде.',
+  moose:
+    'Люблю первые тёплые дни у болота: новые побеги там появляются раньше, чем на сухой опушке.',
+  squirrel:
+    'В прошлом году я так хорошо спрятала орех, что его нашла только весной. Он уже пустил росток.',
+  hedgehog:
+    'Как-то я переждал грозу под корягой. С тех пор проверяю сухие укрытия до того, как хлынет дождь.',
+  beaver:
+    'Свою первую плотину я строил из кривых веток. Она потекла, зато я понял, куда класть самые тяжёлые.',
 };
 
 /** Ветвящиеся разговоры, просьбы и польза дружбы; награды ограничены игровым временем. */
@@ -56,11 +74,31 @@ export class ForestConversation {
     return {
       question,
       choices,
+      friendChoices:
+        animal.trust >= FRIENDSHIP_TRUST
+          ? [
+              { action: 'animal-friend-family', label: 'Рассказать о семье' },
+              { action: 'animal-friend-story', label: 'Попросить рассказать о себе' },
+              ...(animal.kind === 'fish'
+                ? []
+                : [
+                    {
+                      action: 'animal-friend-escort',
+                      label:
+                        (animal.social.escortUntil ?? 0) > this.save.clock
+                          ? 'Отпустить друга'
+                          : 'Попросить проводить',
+                    },
+                  ]),
+            ]
+          : undefined,
       relationship:
         animal.trust >= FRIENDSHIP_TRUST ? 'Друг' : animal.trust >= 25 ? 'Знакомый' : 'Незнакомец',
       benefit:
         animal.trust >= FRIENDSHIP_TRUST
-          ? 'Друг предупредит о близком хищнике и поделится припасом раз в игровой день.'
+          ? animal.kind === 'fish'
+            ? 'Друг поделится припасом раз в игровой день.'
+            : 'Друг предупредит об опасности, может отогнать хищника и поделится припасом раз в игровой день.'
           : animal.trust >= 25
             ? 'Знакомый может отметить съедобные растения на карте. Дружба — при 100 доверия.'
             : 'Узнавайте друг друга: беседы, уважительные ответы и угощения повышают доверие.',
@@ -68,6 +106,7 @@ export class ForestConversation {
   }
 
   respond(animal: ForestAnimal, action: string): string {
+    if (action.startsWith('animal-friend-')) return this.friendReply(animal, action);
     if (action === 'animal-question') {
       animal.social.request = animal.kind === 'deer' || animal.kind === 'moose' ? 'quiet' : 'food';
       return 'Хорошо, давай познакомимся поближе. У меня тоже есть вопрос к тебе.';
@@ -105,6 +144,27 @@ export class ForestConversation {
         : this.seasons.name(this.save.day) === 'Зима'
           ? 'Зимой особенно ценю тех, кто делится запасами. Твоя семья подготовилась к холодам?'
           : `${animalNames[animal.kind]} тихо приветствует тебя. Сегодня ищу еду и спокойное место для отдыха. Как хорошо встретить знакомого!`;
+  }
+
+  private friendReply(animal: ForestAnimal, action: string): string {
+    if (animal.trust < FRIENDSHIP_TRUST) return 'Давай сначала узнаем друг друга получше.';
+    if (action === 'animal-friend-escort') {
+      if (animal.kind === 'fish') return 'Мне нужно оставаться в воде. Увидимся у берега!';
+      if ((animal.social.escortUntil ?? 0) > this.save.clock) {
+        animal.social.escortUntil = undefined;
+        animal.followFriend();
+        return 'Хорошо, дальше ты сама. До встречи!';
+      }
+      animal.social.escortUntil = this.save.clock + FRIEND_ESCORT_MINUTES;
+      return 'Пойдём вместе. Следующие шесть игровых часов я буду держаться рядом, если ты не уйдёшь слишком далеко.';
+    }
+    if (action === 'animal-friend-family') {
+      const young = this.save.kits.filter((kit) => kit.alive && kit.health > 0 && kit.age < 3);
+      if (young.length)
+        return `Рад слышать про твоих малышей: ${young.map((kit) => kit.name).join(', ')}. Пусть растут в тепле. Если тебе нужна помощь, я рядом.`;
+      return 'Спасибо, что поделилась. Иногда приятно поговорить о доме и о тех, кто тебе дорог.';
+    }
+    return friendStories[animal.kind];
   }
 
   private bond(animal: ForestAnimal, amount: number): boolean {

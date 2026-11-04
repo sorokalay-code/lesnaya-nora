@@ -12,6 +12,8 @@ interface Context {
   earth: Excavation;
 }
 
+const NEST_VISUAL_SCALE = 1.18;
+
 /** Создаёт гнёзда, тайники и отметку партнёра в общей сцене. */
 export class SceneDecorations {
   private readonly nestMeshes = new Map<number, THREE.Group>();
@@ -23,6 +25,7 @@ export class SceneDecorations {
 
   addNest(n: NestData): void {
     const mesh = makeNest();
+    mesh.scale.set(NEST_VISUAL_SCALE, 1, NEST_VISUAL_SCALE);
     this.placements.set(mesh, n);
     this.place(mesh, n);
     this.nestMeshes.set(n.id, mesh);

@@ -3,6 +3,7 @@ import { ControlGuide } from './ControlGuide';
 import { JournalLog } from './JournalLog';
 import { WebNotice } from './WebNotice';
 import { AirliftNotice } from './AirliftNotice';
+import { RabbitChaseNotice } from './RabbitChaseNotice';
 import { ActionMenu } from './ActionMenu';
 import { GameMenu } from './GameMenu';
 import { MobileUtilities } from './MobileUtilities';
@@ -127,6 +128,7 @@ function Hud() {
     <>
       <WebNotice web={hud.web} touch={touch} />
       <AirliftNotice view={hud.airlift} />
+      {!hud.web && !hud.airlift && <RabbitChaseNotice view={hud.rabbitChase} />}
       <div className={`kit-progress ${familyOpen ? '' : 'hidden'}`}>
         {pregnancy}
         <b>РОСТ КРОЛЬЧАТ</b>

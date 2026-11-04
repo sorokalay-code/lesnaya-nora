@@ -1,53 +1,175 @@
 import { Random } from '../Random';
-import type { SaveData } from '../types';
+import type { DigNode, SaveData } from '../types';
 import type { RabbitActor } from '../animals/RabbitActor';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
+import { GeneticTraits } from '../genetics/GeneticTraits';
+import { animateRabbit } from '../Models';
+import { SWIM_DEPTH } from '../WaterNavigation';
 
-const CHECK_INTERVAL_SECONDS = 12;
-const CONTACT_DISTANCE = 1.25;
-const MUTANT_ATTACK_CHANCE = 0.07;
-const FANGED_ATTACK_CHANCE = 0.18;
+const CHASE = {
+  checkSeconds: 4,
+  warningSeconds: 0.8,
+  durationSeconds: 8,
+  recoverySeconds: 18,
+  detectionRange: 8,
+  escapeRange: 13,
+  contactRange: 1.25,
+  mutantChance: 0.2,
+  fangedChance: 0.4,
+} as const;
 
-/** Проверяет редкое нападение при близком контакте и сохраняет отцовство без сцен случки. */
+interface ChaseTerrain {
+  sheltered: (point: DigNode) => boolean;
+  floorAt: (x: number, z: number, y: number) => number;
+  waterDepthAt: (x: number, z: number) => number;
+}
+
+export interface RabbitChaseView {
+  name: string;
+  phase: 'warning' | 'chase';
+}
+
+interface Pursuit {
+  actor: RabbitActor;
+  startsAt: number;
+  endsAt: number;
+}
+
+/** Ведёт одну погоню за крольчихой и записывает отцовство при контакте. */
 export class RabbitReproductiveThreat {
   private readonly rng: Random;
   private nextCheck = 0;
+  private pursuit?: Pursuit;
+  private time = 0;
 
-  constructor(private readonly save: SaveData) {
+  constructor(
+    private readonly save: SaveData,
+    private readonly terrain: ChaseTerrain,
+  ) {
     this.rng = new Random(save.seed + 63491);
   }
 
+  get actor(): RabbitActor | undefined {
+    return this.pursuit?.actor;
+  }
+
+  get view(): RabbitChaseView | undefined {
+    if (!this.pursuit) return;
+    return {
+      name: this.pursuit.actor.data.name,
+      phase: this.time < this.pursuit.startsAt ? 'warning' : 'chase',
+    };
+  }
+
   update(
+    dt: number,
     time: number,
     actors: readonly RabbitActor[],
-    playerSheltered: boolean,
+    allowed: boolean,
   ): string | undefined {
-    if (time < this.nextCheck || this.save.pregnancy) return;
-    this.nextCheck = time + CHECK_INTERVAL_SECONDS;
+    this.time = time;
     const player = this.save.player;
-    if (player.health <= 0 || playerSheltered) return;
-
-    for (const actor of actors) {
-      const father = actor.data;
-      const anatomy = father.genes.anatomy;
-      const mutation =
-        anatomy.fangs || anatomy.legs !== 4 || anatomy.ears !== 2 || anatomy.eyes !== 2;
-      if (
-        !mutation ||
-        !actor.alive ||
-        actor.root.userData.conversing ||
-        AnimalRestraint.active(actor.root)
-      )
-        continue;
-      if (
-        Math.hypot(actor.x - player.x, actor.root.position.y - player.y, actor.z - player.z) >
-        CONTACT_DISTANCE
-      )
-        continue;
-      if (!this.rng.chance(anatomy.fangs ? FANGED_ATTACK_CHANCE : MUTANT_ATTACK_CHANCE)) continue;
-
-      this.save.pregnancy = { fatherId: father.id, progress: 0, trauma: true };
-      return `Крол ${father.name} напал на крольчиху. Она забеременела от него. Риск отклонений у потомства повышен.`;
+    if (
+      !allowed ||
+      this.save.pregnancy ||
+      player.health <= 0 ||
+      player.hidden ||
+      this.terrain.sheltered(player) ||
+      this.inDeepWater(player.x, player.z)
+    ) {
+      if (this.pursuit) this.finish(time);
+      return;
     }
+
+    if (!this.pursuit) {
+      if (time < this.nextCheck) return;
+      this.nextCheck = time + CHASE.checkSeconds;
+      this.start(time, actors);
+    }
+
+    const pursuit = this.pursuit;
+    if (!pursuit) return;
+    const { actor, startsAt, endsAt } = pursuit;
+    const distance = Math.hypot(actor.x - player.x, actor.z - player.z);
+    if (time >= endsAt || distance > CHASE.escapeRange || !this.canPursue(actor)) {
+      this.finish(time);
+      return;
+    }
+
+    const dx = player.x - actor.x;
+    const dz = player.z - actor.z;
+    if (distance > 0.01) actor.root.rotation.y = Math.atan2(-dx, -dz);
+    if (time < startsAt) {
+      animateRabbit(actor.rig, time + actor.data.id, false, false, dt);
+      return;
+    }
+
+    const baseY = actor.data.y ?? actor.root.position.y;
+    const speed = (3.3 + actor.data.genes.speed * 0.3) * GeneticTraits.mobility(actor.data.genes);
+    const step = Math.min(Math.max(0, distance - CHASE.contactRange * 0.8), speed * dt);
+    const x = actor.x + (dx / (distance || 1)) * step;
+    const z = actor.z + (dz / (distance || 1)) * step;
+    const y = this.terrain.floorAt(x, z, baseY);
+    const canStep =
+      step > 0 &&
+      Math.abs(y - baseY) <= 0.5 &&
+      !this.terrain.sheltered({ x, y, z }) &&
+      !this.inDeepWater(x, z);
+    if (canStep) actor.moveTo(x, z, y);
+    animateRabbit(actor.rig, time + actor.data.id, canStep, true, dt);
+
+    if (
+      Math.hypot(actor.x - player.x, (actor.data.y ?? baseY) - player.y, actor.z - player.z) >
+      CHASE.contactRange
+    )
+      return;
+
+    this.save.pregnancy = { fatherId: actor.data.id, progress: 0, trauma: true };
+    this.finish(time);
+    return `Крол ${actor.data.name} напал на крольчиху. Она забеременела от него. Риск отклонений у потомства повышен.`;
+  }
+
+  private start(time: number, actors: readonly RabbitActor[]): void {
+    const player = this.save.player;
+    for (const actor of actors) {
+      const { anatomy } = actor.data.genes;
+      if (!anatomy.fangs && anatomy.legs === 4 && anatomy.ears === 2 && anatomy.eyes === 2)
+        continue;
+      if (
+        Math.hypot(actor.x - player.x, actor.z - player.z) > CHASE.detectionRange ||
+        Math.abs(actor.root.position.y - player.y) > 1.5 ||
+        !this.canPursue(actor)
+      )
+        continue;
+      if (!this.rng.chance(anatomy.fangs ? CHASE.fangedChance : CHASE.mutantChance)) continue;
+
+      const startsAt = time + CHASE.warningSeconds;
+      this.pursuit = { actor, startsAt, endsAt: startsAt + CHASE.durationSeconds };
+      return;
+    }
+  }
+
+  private canPursue(actor: RabbitActor): boolean {
+    return (
+      actor.alive &&
+      !actor.root.userData.conversing &&
+      !AnimalRestraint.active(actor.root) &&
+      GeneticTraits.mobility(actor.data.genes) > 0 &&
+      !this.terrain.sheltered({
+        x: actor.x,
+        y: actor.data.y ?? actor.root.position.y,
+        z: actor.z,
+      }) &&
+      !this.inDeepWater(actor.x, actor.z)
+    );
+  }
+
+  private inDeepWater(x: number, z: number): boolean {
+    return this.terrain.waterDepthAt(x, z) > SWIM_DEPTH;
+  }
+
+  private finish(time: number): void {
+    this.pursuit = undefined;
+    this.nextCheck = time + CHASE.recoverySeconds;
   }
 }

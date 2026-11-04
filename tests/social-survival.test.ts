@@ -15,6 +15,8 @@ import { ForestConversation } from '../src/game/session/ForestConversation';
 import { RabbitConversation } from '../src/game/session/RabbitConversation';
 import { ConversationFocus } from '../src/game/session/ConversationFocus';
 import { FriendSignals } from '../src/game/session/FriendSignals';
+import { FriendDefense } from '../src/game/session/FriendDefense';
+import { FriendMarks } from '../src/game/session/FriendMarks';
 import { AnimalSimulation } from '../src/game/session/AnimalSimulation';
 import { AnimalCollisionSystem } from '../src/game/session/AnimalCollisionSystem';
 import { WildlifeEcology } from '../src/game/WildlifeEcology';
@@ -265,6 +267,47 @@ test('nearby friends warn of a real predator with a cooldown', () => {
   assert.equal(lines.filter((line) => line.includes('хищник')).length, 1);
 });
 
+test('друг предлагает личные разговоры, следует по просьбе и отмечается над моделью', () => {
+  const save = game();
+  Object.assign(save.player, { x: 0, y: 0, z: 0, hidden: false });
+  const friend = createForestAnimal('deer', 6, 0, new Random(1));
+  const dialogue = new ForestConversation(save, world());
+  const scene = new THREE.Scene();
+  scene.add(friend.root);
+  const marks = new FriendMarks(scene);
+  const group = scene.getObjectByName('friend-marks')!;
+  assert.equal(dialogue.view(friend).friendChoices, undefined);
+  dialogue.respond(friend, 'animal-friend-escort');
+  assert.equal(friend.social.escortUntil, undefined);
+  marks.update([friend], save.player, 1);
+  assert.equal(group.children.length, 0);
+
+  friend.trust = 100;
+  const choices = dialogue.view(friend).friendChoices ?? [];
+  assert.equal(choices.length, 3);
+  assert.notEqual(
+    dialogue.respond(friend, 'animal-friend-family'),
+    dialogue.respond(friend, 'animal-friend-story'),
+  );
+  dialogue.respond(friend, 'animal-friend-escort');
+  const escort = new FriendDefense([friend], () => {});
+  escort.updateEscorts(save.player, save.clock, false);
+  friend.update(0.25, 1, () => 0, []);
+  assert.ok(friend.x < 6);
+  assert.equal(dialogue.view(friend).friendChoices?.at(-1)?.label, 'Отпустить друга');
+  marks.update([friend], save.player, 2);
+  const marker = group.children[0];
+  assert.equal(marker.position.x, friend.root.position.x);
+  assert.ok(marker.position.y > new THREE.Box3().setFromObject(friend.root).max.y);
+  dialogue.respond(friend, 'animal-friend-escort');
+  assert.equal(friend.social.escortUntil, undefined);
+  friend.health = 0;
+  marks.update([friend], save.player, 3);
+  assert.equal(group.children.length, 0);
+  marks.dispose();
+  assert.equal(group.parent, null);
+});
+
 test('animal simulation prevents surface attacks during conversation and resumes them afterwards', () => {
   const save = game(),
     rng = new Random(2),
@@ -283,7 +326,7 @@ test('animal simulation prevents surface attacks during conversation and resumes
     predators: [fox],
     rabbits: [],
     families: [],
-    wildlife: [],
+    wildlife: ecology.animals,
     hawks: [],
     player: { root: new THREE.Group() },
     state: {},
@@ -307,6 +350,17 @@ test('animal simulation prevents surface attacks during conversation and resumes
   combat = true;
   simulation.update(0.05, 1.05, true);
   assert.equal(hits, 1);
+
+  const friend = createForestAnimal('moose', 1.2, 0, rng);
+  friend.trust = 100;
+  ecology.animals.push(friend);
+  const attackingFox = createPredatorActor('fox', 0.4, 0, rng);
+  context.predators.splice(0, 1, attackingFox);
+  simulation.update(0.05, 1.1, true);
+  assert.equal(hits, 1, 'друг не дал лисе укусить крольчиху');
+  assert.ok(attackingFox.health < attackingFox.maxHealth);
+  simulation.update(0.05, 1.15, true);
+  assert.equal(attackingFox.huntingPlayer, false, 'лиса отступает после защиты');
 });
 
 test('a fox can bite at the front capsule boundary of a large rabbit', () => {

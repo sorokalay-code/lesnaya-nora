@@ -32,6 +32,8 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private eatingUntil = 0;
   private nextGraze = 0;
   private greeting?: { x: number; z: number; until: number };
+  private guard?: { target: { x: number; z: number }; until: number };
+  private escort?: { x: number; z: number };
 
   protected constructor(
     kind: WildlifeKind,
@@ -88,6 +90,15 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.greeting = { x: player.x, z: player.z, until: time + 1.6 };
   }
 
+  guardAgainst(target: { x: number; z: number }, time: number): void {
+    if (this.guard?.target === target) this.guard.until = time + 0.25;
+    else this.guard = { target, until: time + 0.25 };
+  }
+
+  followFriend(player?: { x: number; z: number }): void {
+    this.escort = player;
+  }
+
   receiveAttack(damage: number, time: number, attacker: { x: number; z: number }): number {
     this.health = Math.max(0, this.health - damage);
     if (!this.alive) return 0;
@@ -115,7 +126,9 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       ModelAssets.shared.play(this.model, 'idle', dt);
       return false;
     }
+    const guard = this.guard && time < this.guard.until ? this.guard.target : undefined;
     if (
+      !guard &&
       this.greeting &&
       time < this.greeting.until &&
       !threats.some((threat) => Math.hypot(threat.x - this.x, threat.z - this.z) < 6)
@@ -136,7 +149,12 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     }
 
     const danger = threats.find((p) => Math.hypot(p.x - this.x, p.z - this.z) < 6);
-    if (danger) {
+    const escort = this.escort;
+    const escortDistance = escort ? Math.hypot(escort.x - this.x, escort.z - this.z) : 0;
+    if (guard) {
+      this.targetX = guard.x;
+      this.targetZ = guard.z;
+    } else if (danger) {
       if (time < this.fightingUntil) {
         this.targetX = danger.x;
         this.targetZ = danger.z;
@@ -146,7 +164,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
         this.targetZ = this.z + Math.cos(away) * this.range;
         this.fleeingUntil = time + 2.2;
       }
-    } else if (food && time > this.fleeingUntil) {
+    } else if (escort && escortDistance > 2.6) {
+      this.targetX = escort.x;
+      this.targetZ = escort.z;
+    } else if (food && !escort && time > this.fleeingUntil) {
       this.targetX = food.x;
       this.targetZ = food.z;
     } else if (
@@ -160,20 +181,29 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       this.targetZ = this.z + Math.cos(angle) * distance;
     }
 
-    const fleeing = time < this.fleeingUntil;
-    const grazing = !!food && !danger && Math.hypot(food.x - this.x, food.z - this.z) < 1.3;
+    const fleeing = !guard && time < this.fleeingUntil;
+    const rushing = !!guard || fleeing || escortDistance > 4;
+    const grazing =
+      !guard && !escort && !!food && !danger && Math.hypot(food.x - this.x, food.z - this.z) < 1.3;
     if (grazing && time >= this.nextGraze) {
       this.nextGraze = time + this.rng.range(6, 11);
       this.eatingUntil = time + 1.6;
     }
 
     const moving =
-      !grazing &&
-      time > this.eatingUntil &&
-      (fleeing || !!food || Math.sin(time * 0.47 + this.root.id) > -0.55);
+      !!guard ||
+      fleeing ||
+      escortDistance > 2.6 ||
+      (!escort &&
+        !grazing &&
+        time > this.eatingUntil &&
+        (!!food || Math.sin(time * 0.47 + this.root.id) > -0.55));
     if (moving) {
       const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-      const step = dt * this.speed * (fleeing ? 2 : 1);
+      const step = Math.min(
+        Math.hypot(this.targetX - this.x, this.targetZ - this.z),
+        dt * this.speed * (rushing ? 2 : 1),
+      );
       this.surfaceStep(
         THREE.MathUtils.clamp(
           this.x + Math.sin(angle) * step,
@@ -199,11 +229,11 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     if (!moving) this.surfaceStep(this.x, this.z, dt, groundAt);
     ModelAssets.shared.play(
       this.model,
-      time < this.eatingUntil ? 'graze' : moving ? (fleeing ? 'run' : 'walk') : 'idle',
+      moving ? (rushing ? 'run' : 'walk') : time < this.eatingUntil ? 'graze' : 'idle',
       dt,
       moving
         ? THREE.MathUtils.clamp(
-            (this.speed * (fleeing ? 2 : 1)) / (fleeing ? 3.1 : 1.1) / this.appearance.size,
+            (this.speed * (rushing ? 2 : 1)) / (rushing ? 3.1 : 1.1) / this.appearance.size,
             0.65,
             1.8,
           )

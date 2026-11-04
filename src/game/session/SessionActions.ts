@@ -252,6 +252,9 @@ export class SessionActions {
         'animal-answer-later',
         'animal-help',
         'animal-danger',
+        'animal-friend-family',
+        'animal-friend-story',
+        'animal-friend-escort',
       ].includes(action)
     ) {
       this.context.interactions.animalAction(action);

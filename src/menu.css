@@ -331,19 +331,8 @@
   left: var(--ui-center);
   transform: translateX(calc(-1 * var(--ui-center)));
   width: min(350px, 42vw);
-  padding: var(--ui-space-12);
-  box-sizing: border-box;
-  border: 1px solid #e1caaa99;
-  border-radius: var(--ui-radius-panel);
-  background: #352c29ed;
-  color: #f5e9d2;
   z-index: 75;
-  text-align: center;
   pointer-events: none;
-}
-.web-notice p {
-  font-size: 12px;
-  margin: var(--ui-space-7) var(--ui-space-0);
 }
 .web-notice progress {
   width: 100%;
@@ -354,7 +343,7 @@
   margin-top: var(--ui-space-5);
   font-size: 11px;
 }
-.touch-ui .web-notice {
+.touch-ui .web-notice.ui-notice {
   top: var(--ui-offset-94);
   width: min(300px, 36vw);
   padding: var(--ui-space-9);

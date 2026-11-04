@@ -19,6 +19,9 @@
   --ui-danger-hover: #a45144;
   --ui-danger-border: #eaa291;
   --ui-danger-text: #fff3ed;
+  --ui-notice-border: #e1caaa99;
+  --ui-notice-bg: #352c29ed;
+  --ui-notice-text: #f5e9d2;
   --ui-invalid: #f0a78c;
   --ui-scroll-thumb: #799f86;
   --ui-scroll-track: #203f34;

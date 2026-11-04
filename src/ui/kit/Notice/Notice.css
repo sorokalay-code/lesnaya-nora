@@ -1,0 +1,14 @@
+.ui-notice {
+  padding: var(--ui-space-12);
+  box-sizing: border-box;
+  border: 1px solid var(--ui-notice-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-notice-bg);
+  color: var(--ui-notice-text);
+  text-align: center;
+}
+
+.ui-notice p {
+  font-size: 12px;
+  margin: var(--ui-space-7) var(--ui-space-0);
+}

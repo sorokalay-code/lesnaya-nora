@@ -17,6 +17,7 @@ import type { WebView } from './SpiderEncounter';
 interface Context {
   canSave?: () => boolean;
   airliftView?: () => import('./HawkHunting').AirliftView | undefined;
+  rabbitChaseView?: () => import('./RabbitReproductiveThreat').RabbitChaseView | undefined;
   webView?: () => WebView | undefined;
   captureWildlife?: () => void;
   save: SaveData;
@@ -63,6 +64,7 @@ export class SessionInterface {
     );
     hud.web = this.context.webView?.();
     hud.airlift = this.context.airliftView?.();
+    hud.rabbitChase = this.context.rabbitChaseView?.();
     if (hud.airlift) hud.prompt = [];
     if (hud.web) hud.prompt = [{ key: 'E', text: 'Многократно нажимай, чтобы вырваться' }];
     this.context.ui.setHud(hud);

@@ -71,6 +71,7 @@ export function ForestConversationView({
             {button('animal-food', data.kind === 'beaver' ? 'Подарить веточку' : 'Угостить едой')}
             {button('animal-help', 'Попросить припас у друга')}
             {button('animal-path', 'Покажи место с едой на карте')}
+            {data.conversation?.friendChoices?.map((choice) => button(choice.action, choice.label))}
           </div>
         </>
       ) : (
@@ -95,7 +96,7 @@ export function ForestConversationView({
               page="relationship"
               icon="♡"
               title="Дружба и помощь"
-              description="Подарки, припасы и места на карте"
+              description="Подарки, помощь и разговоры по душам"
               onAction={onAction}
             />
             <SectionLink

@@ -38,8 +38,12 @@ export class RabbitPredation {
 
   constructor(private readonly context: Context) {}
 
-  update(dt: number, time: number): void {
+  update(dt: number, time: number, pursuing?: RabbitActor): void {
     for (const actor of this.context.rabbits) {
+      if (actor === pursuing) {
+        actor.root.userData.hunting = false;
+        continue;
+      }
       if (!actor.solitary || !actor.alive || AnimalRestraint.active(actor.root)) continue;
       this.hunt(
         {

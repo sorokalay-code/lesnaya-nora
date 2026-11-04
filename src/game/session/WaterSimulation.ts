@@ -17,6 +17,7 @@ interface WaterActor extends HawkVictim {
   rabbit?: boolean;
 }
 interface Context extends HawkPopulation {
+  protectPlayer?: (time: number) => boolean;
   world: World;
   earth: Excavation;
   toast: (line: string) => void;
@@ -92,8 +93,10 @@ export class WaterSimulation {
       const candidate = this.targets.get(pike);
       const prey = combat && candidate && this.available(candidate) ? candidate : undefined;
       if (pike.update(dt, time, this.context.world, prey?.root.position) && prey) {
-        if (prey.player) this.context.consequences.predatorAttack('pike');
-        else {
+        if (prey.player) {
+          if (this.context.protectPlayer?.(time)) this.targets.delete(pike);
+          else this.context.consequences.predatorAttack('pike');
+        } else {
           prey.hurt(11.2);
           if (prey.related)
             this.context.toast('Щука укусила ' + prey.name + '! Уведи семью на берег.');

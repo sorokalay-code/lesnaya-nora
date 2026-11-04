@@ -257,13 +257,37 @@ test('беременность после нападения видна вмес
   save.mateId = save.partners[0].id;
   const rng = new Random(12);
   const actor = AnimalFactory.rabbit(father, rng);
-  const threat = new RabbitReproductiveThreat(save);
+  let sheltered = true;
+  const threat = new RabbitReproductiveThreat(save, {
+    sheltered: (point) => point === save.player && sheltered,
+    floorAt: (_x, _z, y) => y,
+    waterDepthAt: () => 0,
+  });
   const player = save.player;
-  actor.moveTo(player.x, player.z, player.y);
-  assert.equal(threat.update(0, [actor], true), undefined);
+  actor.moveTo(player.x + 5, player.z, player.y);
+  assert.equal(threat.update(0.1, 0, [actor], true), undefined);
+  assert.equal(threat.view, undefined);
   assert.equal(save.pregnancy, null);
-  for (let time = 12; time <= 1200 && !save.pregnancy; time += 12)
-    threat.update(time, [actor], false);
+
+  sheltered = false;
+  let time = 0;
+  while (time < 400 && !threat.view) threat.update(0.1, (time += 0.1), [actor], true);
+  assert.deepEqual(threat.view, { name: father.name, phase: 'warning' });
+  assert.equal(actor.x, player.x + 5);
+  assert.equal(save.pregnancy, null);
+  sheltered = true;
+  threat.update(0.1, (time += 0.1), [actor], true);
+  assert.equal(threat.view, undefined);
+  assert.equal(save.pregnancy, null);
+
+  sheltered = false;
+  let ran = false;
+  for (let frame = 0; frame < 4000 && !save.pregnancy; frame++) {
+    threat.update(0.1, (time += 0.1), [actor], true);
+    if (threat.view?.phase === 'chase' && actor.x < player.x + 5) ran = true;
+  }
+  assert.ok(ran);
+  assert.equal(threat.view, undefined);
   assert.deepEqual(save.pregnancy, { fatherId: father.id, progress: 0, trauma: true });
   const careEarth = { isSheltered: () => true } as Excavation;
   const care = new FamilyCare(save, careEarth);

@@ -5,5 +5,6 @@ export { FieldGroup } from './FieldGroup/FieldGroup';
 export { FieldLabel } from './FieldLabel/FieldLabel';
 export { Input } from './Input/Input';
 export { Meter } from './Meter/Meter';
+export { Notice } from './Notice/Notice';
 export { Progress } from './Progress/Progress';
 export { Select } from './Select/Select';

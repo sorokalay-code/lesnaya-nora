@@ -195,6 +195,7 @@ export interface WasteData {
 }
 
 export interface WildlifeSocial {
+  escortUntil?: number;
   lastGreetingAt?: number;
   trust: number;
   lastBondAt?: number;
