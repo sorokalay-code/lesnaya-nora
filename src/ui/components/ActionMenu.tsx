@@ -1,7 +1,7 @@
+import { Button, Dialog } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
-import { trapDialogFocus } from './DialogKeyboard';
 
 const groups: { title: string; actions: [string, string, string?][] }[] = [
   {
@@ -61,13 +61,11 @@ export function ActionMenu({ store }: { store: UIStore }) {
         if (event.target === event.currentTarget) dispatch('close');
       }}
     >
-      <section
+      <Dialog
         ref={panel}
         className="touch-menu action-menu"
-        role="dialog"
-        aria-modal="true"
+
         aria-labelledby="actions-title"
-        onKeyDown={trapDialogFocus}
       >
         <header>
           <div>
@@ -78,17 +76,17 @@ export function ActionMenu({ store }: { store: UIStore }) {
                 : 'Ё / Esc — закрыть · Tab — перейти к следующей кнопке'}
             </small>
           </div>
-          <button onClick={() => dispatch('close')}>Закрыть действия ×</button>
+          <Button onClick={() => dispatch('close')}>Закрыть действия ×</Button>
         </header>
         {groups.map((group) => (
           <section className="action-group" key={group.title}>
             <h3>{group.title}</h3>
             <div>
               {group.actions.map(([action, label, key]) => (
-                <button key={action} onClick={() => dispatch(action)}>
+                <Button key={action} onClick={() => dispatch(action)}>
                   {label}
                   {key && !touch && <kbd>{key}</kbd>}
-                </button>
+                </Button>
               ))}
             </div>
           </section>
@@ -97,19 +95,19 @@ export function ActionMenu({ store }: { store: UIStore }) {
           <h3>Убежище рядом</h3>
           <p>Подойди к складу или гнезду, чтобы разобрать его.</p>
           <div>
-            <button disabled={!shelter?.stash} onClick={() => dispatch('remove-stash')}>
+            <Button disabled={!shelter?.stash} onClick={() => dispatch('remove-stash')}>
               Разобрать склад
               {shelter?.stash && <small>Внутри {shelter.stash.items} предметов</small>}
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={!shelter?.nest || shelter.nest.occupied}
               onClick={() => dispatch('remove-nest')}
             >
               Разобрать гнездо{shelter?.nest?.occupied && <small>Сначала уведи малышей</small>}
-            </button>
+            </Button>
           </div>
         </section>
-      </section>
+      </Dialog>
     </div>
   );
 }

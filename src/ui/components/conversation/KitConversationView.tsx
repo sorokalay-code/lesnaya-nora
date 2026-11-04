@@ -2,7 +2,8 @@ import type { UIAction } from '../../types';
 import type { ConversationPage, SocialDialog } from '../../ConversationNavigation';
 import { RabbitFamily } from '../../../game/session/RabbitFamily';
 import { GeneticsPanel } from '../GeneticsPanel';
-import { ConversationButton as Button, SectionLink } from './ConversationLayout';
+import { ActionButton } from '../ActionButton';
+import { SectionLink } from './ConversationLayout';
 
 /** Показывает уход за малышом, взрослые беседы и отдельное подтверждение передачи управления. */
 export function KitConversationView({
@@ -18,9 +19,9 @@ export function KitConversationView({
     young = kit.age < 3,
     female = RabbitFamily.sex(kit) === 'female';
   const button = (action: string, label: string, primary = false) => (
-    <Button key={action} {...{ action, onAction, primary }}>
+    <ActionButton key={action} {...{ action, onAction, primary }}>
       {label}
-    </Button>
+    </ActionButton>
   );
   if (page === 'profile') return <GeneticsPanel data={data.genetics} expanded />;
   if (page === 'succession')
@@ -43,14 +44,14 @@ export function KitConversationView({
           <p className="conversation-warning">{data.succession.reason}</p>
         )}
         <div className="dialog-choices">
-          <Button
+          <ActionButton
             action="lineage-switch"
             onAction={onAction}
             primary
             disabled={!data.succession?.available}
           >
             Начать её историю
-          </Button>
+          </ActionButton>
           {button('dialog-back', 'Остаться текущей героиней')}
         </div>
       </>

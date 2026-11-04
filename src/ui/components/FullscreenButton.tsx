@@ -1,3 +1,4 @@
+import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 
@@ -14,7 +15,7 @@ export function FullscreenButton({
   const dispatch = useStore(store, (s) => s.dispatch);
   const label = fullscreen ? 'Свернуть полный экран' : 'Развернуть на весь экран';
   return (
-    <button
+    <Button
       type="button"
       className={compact ? 'fullscreen-quick' : ''}
       title={available ? label : 'Полный экран недоступен в этом браузере'}
@@ -25,6 +26,6 @@ export function FullscreenButton({
     >
       {fullscreen ? '⤢' : '⛶'}
       {!compact && <span>{label}</span>}
-    </button>
+    </Button>
   );
 }

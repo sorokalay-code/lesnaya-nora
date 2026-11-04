@@ -1,0 +1,23 @@
+/* Наследуется всеми прокручиваемыми панелями, включая вложенные списки. */
+#app {
+  scrollbar-color: var(--ui-scroll-thumb) var(--ui-scroll-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  #app ::-webkit-scrollbar {
+    width: var(--ui-scroll-size);
+    height: var(--ui-scroll-size);
+  }
+  #app ::-webkit-scrollbar-track,
+  #app ::-webkit-scrollbar-corner {
+    background: var(--ui-scroll-track);
+  }
+  #app ::-webkit-scrollbar-thumb {
+    border: 2px solid var(--ui-scroll-track);
+    border-radius: var(--ui-radius-pill);
+    background: var(--ui-scroll-thumb);
+  }
+  #app ::-webkit-scrollbar-thumb:hover {
+    background: var(--ui-scroll-hover);
+  }
+}

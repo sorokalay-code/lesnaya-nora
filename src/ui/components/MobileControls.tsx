@@ -1,3 +1,4 @@
+import { Button } from '../kit';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { useStore } from 'zustand';
 import type { TouchBindings } from '../../game/input/MobileInput';
@@ -40,20 +41,20 @@ export function MobileControls({ store }: { store: UIStore }) {
       <Joystick bindings={bindings} />
       <div className="touch-actions">
         <HoldButton label="Бег" onHold={bindings.sprint} />
-        <button disabled={!!web} onClick={() => dispatch('hop')}>
+        <Button disabled={!!web} onClick={() => dispatch('hop')}>
           Прыжок
-        </button>
-        <button className="touch-primary" onClick={() => dispatch(web ? 'struggle' : 'interact')}>
+        </Button>
+        <Button className="touch-primary" onClick={() => dispatch(web ? 'struggle' : 'interact')}>
           {web ? 'Вырваться' : 'Общаться / взять'}
-        </button>
+        </Button>
         {first && !web && (
           <>
             <HoldButton label="Копать" onHold={bindings.dig} />
-            <button onClick={() => dispatch('dig-down')}>Копать вниз</button>
+            <Button onClick={() => dispatch('dig-down')}>Копать вниз</Button>
           </>
         )}
-        <button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</button>
-        <button onClick={() => dispatch('world-actions')}>Действия ✦</button>
+        <Button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</Button>
+        <Button onClick={() => dispatch('world-actions')}>Действия ✦</Button>
       </div>
       {showControls && <span className="touch-look-hint">Свайп по миру — осмотреться</span>}
     </div>
@@ -63,7 +64,7 @@ export function MobileControls({ store }: { store: UIStore }) {
 function HoldButton({ label, onHold }: { label: string; onHold: (held: boolean) => void }) {
   useEffect(() => () => onHold(false), [onHold]);
   return (
-    <button
+    <Button
       onPointerDown={(e) => {
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -74,7 +75,7 @@ function HoldButton({ label, onHold }: { label: string; onHold: (held: boolean) 
       onLostPointerCapture={() => onHold(false)}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 

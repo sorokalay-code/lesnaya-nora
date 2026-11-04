@@ -1,3 +1,4 @@
+import { Button, Disclosure } from '../kit';
 import { useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useStore } from 'zustand';
@@ -38,23 +39,25 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
         </p>
       )}
       <div className="game-menu-options config-actions">
-        <button type="button" data-cancel-new onClick={() => dispatch('menu-back')}>
+        <Button type="button" data-cancel-new onClick={() => dispatch('menu-back')}>
           Отмена
-        </button>
-        <button type="submit" className={replacesStory ? 'danger-button' : 'primary'}>
+        </Button>
+        <Button type="submit" variant={replacesStory ? 'danger' : 'primary'}>
           Начать новую игру
-        </button>
+        </Button>
       </div>
-      <details
+      <Disclosure
         className="world-settings"
         open={expanded}
         onToggle={(event) => store.setState({ worldSettingsExpanded: event.currentTarget.open })}
+        summary={
+          <>
+            Настройки мира <small>Размер, существа, природа и сезоны</small>
+          </>
+        }
       >
-        <summary>
-          Настройки мира <small>Размер, существа, природа и сезоны</small>
-        </summary>
         {expanded && <WorldSettings store={store} />}
-      </details>
+      </Disclosure>
     </form>
   );
 }

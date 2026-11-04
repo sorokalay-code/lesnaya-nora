@@ -6,10 +6,10 @@
   top: 82px;
   left: 16px;
   z-index: 70;
-  min-height: 40px;
+  min-height: var(--ui-control-height);
   padding: 9px 12px;
   border: 1px solid #acba8a70;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   background: #173a2eea;
   color: #f0efd9;
   font: inherit;
@@ -71,7 +71,7 @@
   right: 16px;
 }
 .avatar-chip {
-  min-height: 40px;
+  min-height: var(--ui-control-height);
   padding: 5px 9px;
 }
 .avatar-chip small {
@@ -124,7 +124,7 @@
 .touch-ui .family-toggle {
   top: 44px;
   left: 218px;
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 .touch-ui .status-toggle {
   width: 190px;

@@ -1,6 +1,4 @@
 .dialog-panel.conversation-panel {
-  scrollbar-width: thin;
-  scrollbar-color: #799f86 #203f34;
   overscroll-behavior: contain;
   padding: 0;
   width: min(430px, calc(100% - 32px));
@@ -108,7 +106,7 @@
   margin-bottom: 14px;
 }
 .conversation-badges span {
-  border-radius: 8px;
+  border-radius: var(--ui-radius-control);
   padding: 4px 8px;
   background: #abcdb918;
   color: #dce9d7;
@@ -169,11 +167,6 @@
   background: #bdd3b324;
   border-color: #d9e6be8c;
 }
-.conversation button:focus-visible,
-.lineage-member:focus-visible {
-  outline: 3px solid #efd494;
-  outline-offset: 3px;
-}
 .conversation-note,
 .conversation .dialog-meta {
   color: #c4d6c6;
@@ -194,13 +187,8 @@
   color: #f0f3e5;
   font-size: 13px;
 }
-.conversation .dialog-choices button:hover {
+.conversation .dialog-choices button:where([data-variant='neutral']):hover {
   background: #c9ddc725;
-}
-.conversation .dialog-choices button.primary {
-  background: #cfda9e;
-  color: #243d2c;
-  border-color: #e2e9c3;
 }
 .conversation .dialog-choices button:disabled {
   opacity: 0.4;
@@ -218,7 +206,7 @@
 }
 .conversation .genetics-panel {
   margin: 0;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   background: #10251e40;
   padding: 12px;
   font-size: 12px;
@@ -238,7 +226,7 @@
   max-height: 220px;
   margin: 0 0 12px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   background: #10292080;
 }
 .conversation-input-label {
@@ -278,7 +266,7 @@
   padding: 12px;
   background: #c6744921;
   border: 1px solid #ddba7959;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   color: #ffe2bb;
 }
 .conversation-danger button {
@@ -293,7 +281,7 @@
   margin-top: 8px;
   padding: 10px;
   text-align: left;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   background: #c9dca91a;
   color: #e8eddc;
 }

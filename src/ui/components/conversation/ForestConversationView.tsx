@@ -1,6 +1,7 @@
 import type { UIAction } from '../../types';
 import type { ConversationPage, SocialDialog } from '../../ConversationNavigation';
-import { ConversationButton as Button, SectionLink } from './ConversationLayout';
+import { ActionButton } from '../ActionButton';
+import { SectionLink } from './ConversationLayout';
 import type { WildlifeKind } from '../../../game/animals';
 
 const greetings: Record<WildlifeKind, string> = {
@@ -23,9 +24,9 @@ export function ForestConversationView({
   onAction: UIAction;
 }) {
   const button = (action: string, label: string) => (
-    <Button key={action} {...{ action, onAction }}>
+    <ActionButton key={action} {...{ action, onAction }}>
       {label}
-    </Button>
+    </ActionButton>
   );
   return (
     <>

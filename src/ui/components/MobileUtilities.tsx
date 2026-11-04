@@ -1,3 +1,4 @@
+import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { FullscreenButton } from './FullscreenButton';
@@ -13,15 +14,15 @@ export function MobileUtilities({ store }: { store: UIStore }) {
   return (
     <div className="mobile-utilities" aria-label="Быстрые кнопки игры">
       {playing && (
-        <button onClick={() => dispatch('events-panel')}>
+        <Button onClick={() => dispatch('events-panel')}>
           События{unread > 0 && <b>{unread}</b>}
-        </button>
+        </Button>
       )}
       <FullscreenButton store={store} compact />
       {playing && (
-        <button aria-label="Меню игры" onClick={() => dispatch('menu')}>
+        <Button aria-label="Меню игры" onClick={() => dispatch('menu')}>
           ☰
-        </button>
+        </Button>
       )}
     </div>
   );

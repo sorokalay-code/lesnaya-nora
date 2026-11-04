@@ -1,31 +1,7 @@
+import { Button } from '../../kit';
 import type { ReactNode } from 'react';
 import type { UIAction } from '../../types';
 import type { ConversationPage } from '../../ConversationNavigation';
-
-export function ConversationButton({
-  action,
-  children,
-  onAction,
-  primary = false,
-  disabled = false,
-}: {
-  action: string;
-  children: ReactNode;
-  onAction: UIAction;
-  primary?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      className={primary ? 'primary' : ''}
-      data-action={action}
-      disabled={disabled}
-      onClick={() => onAction(action)}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function SectionLink({
   page,
@@ -41,7 +17,7 @@ export function SectionLink({
   onAction: UIAction;
 }) {
   return (
-    <button
+    <Button
       className={'conversation-link tone-' + page}
       onClick={() => onAction('dialog-page:' + page)}
     >
@@ -53,7 +29,7 @@ export function SectionLink({
         <small>{description}</small>
       </span>
       <span aria-hidden="true">›</span>
-    </button>
+    </Button>
   );
 }
 
@@ -94,17 +70,17 @@ export function ConversationLayout({
               <h2>{title}</h2>
             </div>
           </div>
-          <button
+          <Button
             className="conversation-close"
             aria-label="Закончить разговор"
             onClick={() => onAction('close')}
           >
             ×
-          </button>
+          </Button>
         </header>
         <nav className="conversation-breadcrumb" aria-label="Раздел общения">
           {page !== 'overview' ? (
-            <button onClick={() => onAction('dialog-back')}>← Назад</button>
+            <Button onClick={() => onAction('dialog-back')}>← Назад</Button>
           ) : (
             <span>Выбери тему</span>
           )}

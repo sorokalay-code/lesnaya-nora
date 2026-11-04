@@ -1,9 +1,10 @@
+import { Button } from '../kit';
 import { FOOD, type FoodKind } from '../../game/types';
 import { ControlGuide } from './ControlGuide';
 import { GeneticsPanel } from './GeneticsPanel';
 import type { DialogViewModel, UIAction } from '../types';
 
-import type { ReactNode } from 'react';
+import { ActionButton } from './ActionButton';
 import { ConversationView } from './conversation/ConversationView';
 import type { ConversationPage } from '../ConversationNavigation';
 const coatName = (coat: string) =>
@@ -11,31 +12,6 @@ const coatName = (coat: string) =>
     coat
   ] ?? coat;
 const fmt = Math.round;
-
-function Choice({
-  action,
-  children,
-  onAction,
-  primary = false,
-  pressed,
-}: {
-  action: string;
-  children: ReactNode;
-  onAction: UIAction;
-  primary?: boolean;
-  pressed?: boolean;
-}) {
-  return (
-    <button
-      className={primary ? 'primary' : ''}
-      data-action={action}
-      aria-pressed={pressed}
-      onClick={() => onAction(action)}
-    >
-      {children}
-    </button>
-  );
-}
 
 function Heading({
   eyebrow,
@@ -52,9 +28,9 @@ function Heading({
         <div className="eyebrow">{eyebrow}</div>
         <h2>{title}</h2>
       </div>
-      <button aria-label="Закрыть" onClick={() => onAction('close')}>
+      <Button aria-label="Закрыть" onClick={() => onAction('close')}>
         ×
-      </button>
+      </Button>
     </div>
   );
 }
@@ -81,9 +57,9 @@ export function DialogView({
   )
     return <ConversationView {...{ data, page, onAction, message, onMessage }} />;
   const choice = (action: string, label: string, primary = false) => (
-    <Choice key={action} action={action} primary={primary} onAction={onAction}>
+    <ActionButton key={action} action={action} primary={primary} onAction={onAction}>
       {label}
-    </Choice>
+    </ActionButton>
   );
   switch (data.type) {
     case 'help':
@@ -111,13 +87,13 @@ export function DialogView({
           </p>
           <div className="dialog-actions">
             {choice('cancel-remove', 'Отмена — вернуться в меню')}
-            <button
-              className="danger-button"
+            <Button
+              variant="danger"
               data-action="confirm-remove"
               onClick={() => onAction('confirm-remove')}
             >
               Разобрать навсегда
-            </button>
+            </Button>
           </div>
         </>
       );

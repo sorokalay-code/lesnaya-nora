@@ -1,8 +1,8 @@
+import { Button, Dialog } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { JournalLog } from './JournalLog';
-import { trapDialogFocus } from './DialogKeyboard';
 
 /** Компактная история вместо всплывающей стопки сообщений; записи хранятся независимо от уведомлений. */
 export function EventPanel({ store }: { store: UIStore }) {
@@ -21,23 +21,21 @@ export function EventPanel({ store }: { store: UIStore }) {
         if (e.target === e.currentTarget) dispatch('close');
       }}
     >
-      <section
+      <Dialog
         ref={panel}
-        role="dialog"
-        aria-modal="true"
+
         aria-labelledby="events-title"
         className="event-panel"
-        onKeyDown={trapDialogFocus}
       >
         <header>
           <h2 id="events-title">События</h2>
-          <button aria-label="Закрыть события" onClick={() => dispatch('close')}>
+          <Button aria-label="Закрыть события" onClick={() => dispatch('close')}>
             ×
-          </button>
+          </Button>
         </header>
         <small>Игра на паузе · последние 100 записей</small>
         <JournalLog entries={events} />
-      </section>
+      </Dialog>
     </div>
   );
 }

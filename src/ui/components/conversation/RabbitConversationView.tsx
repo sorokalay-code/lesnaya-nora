@@ -1,7 +1,9 @@
+import { Button, FieldLabel, Input } from '../../kit';
 import type { UIAction } from '../../types';
 import type { ConversationPage, SocialDialog } from '../../ConversationNavigation';
 import { GeneticsPanel } from '../GeneticsPanel';
-import { ConversationButton as Button, SectionLink } from './ConversationLayout';
+import { ActionButton } from '../ActionButton';
+import { SectionLink } from './ConversationLayout';
 
 type RabbitDialog = Extract<SocialDialog, { type: 'partner' | 'mate' }>;
 
@@ -22,9 +24,9 @@ export function RabbitConversationView({
   const p = data.partner,
     mate = data.type === 'mate';
   const button = (action: string, label: string, primary = false) => (
-    <Button key={action} action={action} onAction={onAction} primary={primary}>
+    <ActionButton key={action} action={action} onAction={onAction} primary={primary}>
       {label}
-    </Button>
+    </ActionButton>
   );
   const link = (page: ConversationPage, icon: string, title: string, description: string) => (
     <SectionLink key={page} {...{ page, icon, title, description, onAction }} />
@@ -43,16 +45,16 @@ export function RabbitConversationView({
               ['home', 'Вернись домой'],
             ] as const
           ).map(([command, label], i) => (
-            <button
+            <Button
               key={command}
               data-action={'mate-command:' + command}
               aria-pressed={data.command === command}
-              className={data.command === command ? 'primary' : ''}
+              variant={data.command === command ? 'primary' : undefined}
               onClick={() => onAction('mate-command:' + command)}
             >
               <kbd>{i + 1}</kbd> {label}
               {data.command === command ? ' · сейчас' : ''}
-            </button>
+            </Button>
           ))}
         </div>
       </>
@@ -88,10 +90,10 @@ export function RabbitConversationView({
             onAction('mate-send');
           }}
         >
-          <label className="conversation-input-label" htmlFor="mate-message">
+          <FieldLabel className="conversation-input-label" htmlFor="mate-message">
             Твоё сообщение
-          </label>
-          <input
+          </FieldLabel>
+          <Input
             id="mate-message"
             className="mate-message"
             value={message}
@@ -101,9 +103,9 @@ export function RabbitConversationView({
             aria-label="Сообщение партнёру"
           />
           <div className="dialog-choices">
-            <button type="submit" data-action="mate-send">
+            <Button type="submit" data-action="mate-send">
               Передать сообщение ↵ Enter
-            </button>
+            </Button>
           </div>
         </form>
       </>

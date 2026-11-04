@@ -145,17 +145,10 @@
 .dialog-choices button:hover {
   background: rgba(245, 247, 226, 0.17);
 }
-.dialog-choices button.primary {
-  background: #e5dda7;
-  color: #293e2d;
-}
-.dialog-choices button.primary:hover {
-  background: #f2eaba;
-}
 .temperature {
   margin-top: 11px;
   padding: 8px 0 0;
-  border-top: 1px solid rgba(238, 242, 220, 0.15);
+  border-top: 1px solid var(--ui-divider);
   color: #dde8d3;
   font-size: 10px;
 }
@@ -179,7 +172,6 @@
 .hud {
   max-height: calc(100% - 185px);
   overflow: auto;
-  scrollbar-width: thin;
 }
 .prompt {
   max-width: calc(100% - 40px);
@@ -275,7 +267,7 @@
   flex: none;
 }
 .avatar-chip.paired {
-  border-color: #f1d479;
+  border-color: var(--ui-focus);
   box-shadow: 0 0 0 2px rgba(241, 212, 121, 0.14);
 }
 .avatar-chip:hover {
@@ -322,17 +314,8 @@
   margin-top: 5px;
 }
 .kit-growth-meter {
-  height: 5px;
+  --ui-meter-height: 5px;
   margin-top: 7px;
-  border-radius: 8px;
-  background: #1a3324;
-  overflow: hidden;
-}
-.kit-growth-meter i {
-  display: block;
-  height: 100%;
-  border-radius: 8px;
-  background: #e9cc79;
 }
 .mate-message {
   width: 100%;
@@ -421,11 +404,6 @@
   font: 11px monospace;
   opacity: 0.8;
 }
-.dialog-choices button:focus-visible,
-.mate-message:focus-visible {
-  outline: 2px solid #f1d479;
-  outline-offset: 2px;
-}
 .performance-panel {
   position: absolute;
   top: 70px;
@@ -435,7 +413,7 @@
   background: #10291ee8;
   color: #e8f4d8;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--ui-radius-control);
   pointer-events: none;
   font: 12px monospace;
 }

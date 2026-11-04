@@ -1,9 +1,9 @@
+import { Button, Dialog } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { ControlGuide } from './ControlGuide';
 import { FullscreenButton } from './FullscreenButton';
-import { trapDialogFocus } from './DialogKeyboard';
 import { NewGameForm } from './NewGameForm';
 
 /** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
@@ -37,14 +37,12 @@ export function GameMenu({ store }: { store: UIStore }) {
   };
   return (
     <div className="menu-backdrop">
-      <section
+      <Dialog
         ref={panel}
-        role="dialog"
-        aria-modal="true"
+
         aria-labelledby="game-menu-title"
         className={`touch-menu game-menu ${page === 'new-game' ? 'world-config-menu' : ''}`}
         onKeyDown={(event) => {
-          trapDialogFocus(event);
           if (event.key === 'Escape' && overlay && overlay.type !== 'loading') {
             event.preventDefault();
             dispatch('menu-back');
@@ -56,23 +54,23 @@ export function GameMenu({ store }: { store: UIStore }) {
             <small>ЛЕСНАЯ НОРА · {overlay?.type === 'start' ? 'СОЗДАНИЕ МИРА' : 'ПАУЗА'}</small>
             <h2 id="game-menu-title">{titles[page]}</h2>
           </div>
-          <button
+          <Button
             data-cancel-new={page === 'new-game' ? true : undefined}
             onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}
           >
             {page === 'main' ? 'Продолжить игру' : '← Назад'}
-          </button>
+          </Button>
         </header>
         {page === 'main' && (
           <div className="game-menu-options">
-            <button className="primary" onClick={() => dispatch('save')}>
+            <Button variant="primary" onClick={() => dispatch('save')}>
               Сохранить игру <kbd>F5</kbd>
-            </button>
-            <button onClick={() => dispatch('new-game-menu')}>Новая игра</button>
-            <button onClick={() => dispatch('settings')}>Настройки</button>
-            <button onClick={() => dispatch('controls-help')}>
+            </Button>
+            <Button onClick={() => dispatch('new-game-menu')}>Новая игра</Button>
+            <Button onClick={() => dispatch('settings')}>Настройки</Button>
+            <Button onClick={() => dispatch('controls-help')}>
               Управление <kbd>F1</kbd>
-            </button>
+            </Button>
             {notice && (
               <p role="status" className="save-notice">
                 {notice}
@@ -87,12 +85,12 @@ export function GameMenu({ store }: { store: UIStore }) {
         )}
         {page === 'settings' && (
           <div className="game-menu-options">
-            <button aria-pressed={!muted} onClick={() => dispatch('sound')}>
+            <Button aria-pressed={!muted} onClick={() => dispatch('sound')}>
               {muted ? '☐' : '☑'} Звуки мира
-            </button>
-            <button aria-pressed={controls} onClick={() => dispatch('toggle-controls')}>
+            </Button>
+            <Button aria-pressed={controls} onClick={() => dispatch('toggle-controls')}>
               {controls ? '☑' : '☐'} Подсказка управления
-            </button>
+            </Button>
             <FullscreenButton store={store} />
           </div>
         )}
@@ -100,7 +98,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         {page === 'new-game' && (
           <NewGameForm store={store} replacesStory={overlay?.type !== 'start' || overlay.hasSave} />
         )}
-      </section>
+      </Dialog>
     </div>
   );
 }

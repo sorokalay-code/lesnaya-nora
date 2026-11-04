@@ -9,13 +9,6 @@ body,
 .game-canvas {
   touch-action: none;
 }
-button {
-  touch-action: manipulation;
-}
-button:focus-visible {
-  outline: 2px solid #f1d479;
-  outline-offset: 3px;
-}
 .status-toggle {
   display: none;
 }
@@ -98,8 +91,8 @@ button:focus-visible {
 }
 .touch-actions button,
 .touch-menu button {
-  min-height: 44px;
-  border-radius: 12px;
+  min-height: var(--ui-target-height);
+  border-radius: var(--ui-radius-panel);
   border: 1px solid #b6c49a66;
   color: #f0efdf;
   background: #193c30e8;
@@ -171,7 +164,7 @@ button:focus-visible {
   right: max(12px, env(safe-area-inset-right));
 }
 .touch-ui .avatar-chip {
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 .touch-ui .avatar-chip small {
   display: none;
@@ -182,7 +175,7 @@ button:focus-visible {
   top: 44px;
   left: max(12px, env(safe-area-inset-left));
   padding: 10px;
-  min-height: 44px;
+  min-height: var(--ui-target-height);
   border-radius: 10px;
   color: #f4efda;
   background: #17392de8;
@@ -243,7 +236,7 @@ button:focus-visible {
 .touch-ui .dialog-panel button,
 .touch-ui .journal button,
 .touch-ui .settings-panel button {
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 .touch-ui input {
   font-size: 16px;
@@ -275,7 +268,7 @@ button:focus-visible {
   display: none;
 }
 .touch-ui .start-actions button {
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 @media (max-height: 420px) and (pointer: coarse) {
   .touch-actions {
@@ -283,7 +276,7 @@ button:focus-visible {
     gap: 5px;
   }
   .touch-actions button {
-    min-height: 40px;
+    min-height: var(--ui-control-height);
     padding: 7px;
   }
   .touch-joystick {

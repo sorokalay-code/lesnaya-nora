@@ -1,3 +1,4 @@
+import { Disclosure } from '../kit';
 import type { GeneticsView } from '../presenters/GeneticsPresenter';
 
 /** Раскрываемая карточка генов и известных предков не загромождает обычный разговор. */
@@ -9,14 +10,9 @@ export function GeneticsPanel({
   expanded?: boolean;
 }) {
   if (!data) return null;
-  const Container = expanded ? 'section' : 'details';
-  return (
-    <Container className="genetics-panel">
-      {expanded ? (
-        <h3>Гены и родословная · поколение {data.generation}</h3>
-      ) : (
-        <summary>Гены и родословная · поколение {data.generation}</summary>
-      )}
+  const title = `Гены и родословная · поколение ${data.generation}`;
+  const content = (
+    <>
       <p>{data.appearance}</p>
       <div className="gene-list">
         {data.ratings.map((value) => (
@@ -57,6 +53,16 @@ export function GeneticsPanel({
       <small>
         Здесь действуют игровые правила наследования. Взросление само по себе не меняет поколение.
       </small>
-    </Container>
+    </>
+  );
+  return expanded ? (
+    <section className="genetics-panel">
+      <h3>{title}</h3>
+      {content}
+    </section>
+  ) : (
+    <Disclosure className="genetics-panel" summary={title}>
+      {content}
+    </Disclosure>
   );
 }

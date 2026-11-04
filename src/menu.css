@@ -3,7 +3,7 @@
   position: absolute;
   inset: 0;
   z-index: 150;
-  background: #071a12aa;
+  background: var(--ui-backdrop);
 }
 .touch-menu.game-menu {
   inset: 50% auto auto 50%;
@@ -18,7 +18,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #132f25;
+  background: var(--ui-surface);
   display: flex;
   gap: 14px;
   align-items: center;
@@ -49,7 +49,7 @@
   justify-content: space-between;
   gap: 10px;
   text-align: left;
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 .game-menu kbd {
   opacity: 0.7;
@@ -75,14 +75,6 @@
   justify-content: space-between;
   gap: 16px;
 }
-.new-game-options select {
-  font: inherit;
-  color: #f3f0df;
-  background: #214738;
-  padding: 9px;
-  border: 1px solid #b5c59388;
-  border-radius: 8px;
-}
 .new-game-warning {
   color: #f0c0a6;
 }
@@ -90,58 +82,31 @@
   width: min(760px, calc(100% - 24px));
   overscroll-behavior: contain;
 }
-.world-config fieldset {
-  min-width: 0;
-  margin: 18px 0;
-  padding: 14px;
-  border: 1px solid #b5c59355;
-  border-radius: 12px;
-}
-.world-config legend {
-  padding: 0 7px;
-  color: #e4dfb4;
-  font-size: 14px;
-  font-weight: 600;
-}
 .world-config label {
   margin: 10px 0;
   min-width: 0;
 }
-.world-config input[type='number'] {
+.world-config [data-ui-field][type='number'] {
   width: 76px;
-  min-height: 40px;
-  box-sizing: border-box;
   flex-shrink: 0;
-  border: 1px solid #b5c59388;
-  border-radius: 8px;
-  padding: 8px;
-  font: inherit;
-  background: #214738;
-  color: #f3f0df;
-}
-.world-config input:invalid {
-  border-color: #f0a78c;
-}
-.world-config input:disabled {
-  opacity: 0.45;
 }
 .world-config select {
   max-width: 65%;
   min-width: 0;
 }
 .world-config .config-hint {
-  color: #bbcbb6;
+  color: var(--ui-text-muted);
   font-size: 11px;
 }
 .world-config .remains-option {
   justify-content: flex-start;
   gap: 10px;
-  min-height: 44px;
+  min-height: var(--ui-target-height);
 }
 .remains-option input {
   width: 20px;
   height: 20px;
-  accent-color: #c0cd8b;
+  accent-color: var(--ui-accent);
 }
 .world-config .config-range {
   display: block;
@@ -155,7 +120,7 @@
   width: 100%;
   min-height: 28px;
   margin: 4px 0;
-  accent-color: #c0cd8b;
+  accent-color: var(--ui-accent);
 }
 .creature-grid {
   display: grid;
@@ -164,8 +129,8 @@
 }
 .world-config .creature-input {
   padding: 7px 10px;
-  border-radius: 8px;
-  background: #254435;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface-raised);
 }
 .world-config .config-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -179,8 +144,8 @@
   padding: 14px;
   border: 1px solid #b5c59366;
   border-radius: 10px;
-  color: #e4dfb4;
-  background: #254435;
+  color: var(--ui-text-accent);
+  background: var(--ui-surface-raised);
   font-size: 14px;
   font-weight: 600;
 }
@@ -189,7 +154,7 @@
   margin-top: 6px;
   font-size: 11px;
   font-weight: 400;
-  color: #bbcbb6;
+  color: var(--ui-text-muted);
 }
 .world-size-presets {
   display: grid;
@@ -202,11 +167,11 @@
   display: block;
   margin-top: 4px;
   font-size: 10px;
-  color: #bbcbb6;
+  color: var(--ui-text-muted);
 }
 .world-size-presets button[aria-pressed='true'] {
-  border-color: #c0cd8b;
-  background: #415d3e;
+  border-color: var(--ui-accent);
+  background: var(--ui-selection);
 }
 .world-config .world-size-input {
   width: 100px;
@@ -256,9 +221,9 @@
 }
 .event-panel header button {
   min-width: 44px;
-  min-height: 44px;
+  min-height: var(--ui-target-height);
   background: #244d3d;
-  color: #f3f0df;
+  color: var(--ui-field-text);
   border: 1px solid #b5c59366;
   border-radius: 10px;
 }
@@ -293,7 +258,7 @@
   font-size: 11px;
 }
 .mobile-utilities button b {
-  color: #f1d479;
+  color: var(--ui-focus);
 }
 .mobile-utilities button:disabled {
   opacity: 0.4;
@@ -369,7 +334,7 @@
   padding: 12px;
   box-sizing: border-box;
   border: 1px solid #e1caaa99;
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   background: #352c29ed;
   color: #f5e9d2;
   z-index: 75;
@@ -442,7 +407,7 @@
 .action-menu header {
   position: sticky;
   top: -20px;
-  background: #132f25;
+  background: var(--ui-surface);
   padding: 10px 0;
   z-index: 1;
 }
@@ -509,15 +474,6 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-}
-.danger-button {
-  background: #8d3e33 !important;
-  border: 1px solid #eaa291 !important;
-  color: #fff3ed !important;
-  min-height: 44px;
-  border-radius: 8px;
-  padding: 12px;
-  cursor: pointer;
 }
 @media (pointer: coarse) {
   .action-menu header small {

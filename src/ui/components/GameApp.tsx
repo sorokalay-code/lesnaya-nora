@@ -1,8 +1,8 @@
+import { Button, Dialog, Disclosure, Meter } from '../kit';
 import { ControlGuide } from './ControlGuide';
 import { JournalLog } from './JournalLog';
 import { WebNotice } from './WebNotice';
 import { AirliftNotice } from './AirliftNotice';
-import { trapDialogFocus } from './DialogKeyboard';
 import { ActionMenu } from './ActionMenu';
 import { GameMenu } from './GameMenu';
 import { MobileUtilities } from './MobileUtilities';
@@ -70,26 +70,26 @@ function Toolbar() {
           ))}
         </div>
         <div className="top-actions">
-          <button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</button>
-          <button
+          <Button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</Button>
+          <Button
             disabled={!fullscreenAvailable}
             onClick={() => dispatch('fullscreen')}
             title="Полноэкранный режим"
           >
             {fullscreen ? '⤢ Свернуть' : '⛶ Полный экран'}
-          </button>
-          <button onClick={() => dispatch('menu')}>☰ Меню · Esc</button>
-          <button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</button>
+          </Button>
+          <Button onClick={() => dispatch('menu')}>☰ Меню · Esc</Button>
+          <Button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</Button>
         </div>
       </div>
       <div className="family-avatars">
-        <button className="avatar-chip" onClick={() => dispatch('self-profile')}>
+        <Button className="avatar-chip" onClick={() => dispatch('self-profile')}>
           <span className="avatar-face">🐰</span>
           <span>
             {hud?.playerName ?? 'Ты'} <small>крольчиха</small>
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
           className={`avatar-chip ${hud?.mate ? 'paired' : ''}`}
           title="Tab — партнёр: команды и сообщения"
           onClick={() => dispatch('mate-panel')}
@@ -99,7 +99,7 @@ function Toolbar() {
             {hud?.mate?.name ?? 'Партнёр'}
             <small>Tab · {hud?.mate ? 'команды и чат' : 'пока не найден'}</small>
           </span>
-        </button>
+        </Button>
       </div>
       <div className={`dig-reticle ${first ? '' : 'hidden'}`} aria-hidden="true">
         ✦
@@ -131,9 +131,7 @@ function Hud() {
                 {kit.progress}% · до взросления {kit.daysLeft} дн.
               </small>
             </span>
-            <div className="kit-growth-meter">
-              <i style={{ width: `${kit.progress}%` }} />
-            </div>
+            <Meter className="kit-growth-meter" label={`Рост: ${kit.name}`} value={kit.progress} />
             <small>
               Сытость {Math.round(kit.hunger)}% · {kit.care}
             </small>
@@ -144,7 +142,7 @@ function Hud() {
             <h3>Продолжить линию</h3>
             <p>Выбери взрослую крольчиху, чтобы посмотреть гены или играть за неё.</p>
             {hud.lineageMembers.map((member) => (
-              <button
+              <Button
                 className="lineage-member"
                 key={member.id}
                 onClick={() => dispatch('family-member:' + member.id)}
@@ -153,12 +151,12 @@ function Hud() {
                 <small>
                   {member.relationship} · поколение {member.generation} ›
                 </small>
-              </button>
+              </Button>
             ))}
           </>
         )}
       </div>
-      <button
+      <Button
         className="status-toggle"
         title="I — свернуть или развернуть состояние без паузы"
         aria-expanded={expanded}
@@ -186,14 +184,14 @@ function Hud() {
           Состояние {!touch && <kbd>I</kbd>} {hud.birthWarning ? ' ⚠ Роды!' : ''}{' '}
           {expanded ? '▴' : '▾'}
         </small>
-      </button>
-      <button
+      </Button>
+      <Button
         className="family-toggle"
         aria-expanded={familyOpen}
         onClick={() => dispatch('family-panel')}
       >
         🐇 Семья · {hud.familyCount ?? hud.young.length} {familyOpen ? '×' : '▾'}
-      </button>
+      </Button>
       <div className="hud">
         <div className="status-card">
           <div className="card-heading">
@@ -204,9 +202,12 @@ function Hud() {
               <span>
                 {bar.icon} {bar.label}
               </span>
-              <div className="meter">
-                <i style={{ width: `${Math.round(bar.value)}%`, background: bar.color }} />
-              </div>
+              <Meter
+                className="meter"
+                label={bar.label}
+                value={Math.round(bar.value)}
+                color={bar.color}
+              />
               <b>{Math.round(bar.value)}</b>
             </div>
           ))}
@@ -270,7 +271,7 @@ function Panels() {
     message = useUI((state) => state.message),
     page = useUI((state) => state.conversationPage),
     focus = useUI((state) => state.focus);
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     if (!dialog) return;
 
@@ -289,13 +290,11 @@ function Panels() {
   return (
     <>
       {dialog?.type === 'remove' && <div className="confirmation-backdrop" />}
-      <div
+      <Dialog
         ref={panel}
         tabIndex={-1}
         id="dialog"
-        role="dialog"
-        aria-modal="true"
-        onKeyDown={trapDialogFocus}
+
         aria-label="Общение"
         className={`dialog-panel ${dialog && ['animal', 'partner', 'mate', 'kit'].includes(dialog.type) ? 'conversation-panel' : ''} ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog ? '' : 'hidden'}`}
       >
@@ -308,18 +307,18 @@ function Panels() {
             onMessage={(value) => store.setState({ message: value })}
           />
         )}
-      </div>
+      </Dialog>
       <div className={`journal ${journal ? '' : 'hidden'}`}>
         {journal && (
           <>
             <div className="journal-head">
               <h2>{journal.mode === 'map' ? 'Карта леса' : 'Лесной дневник'}</h2>
-              <button
+              <Button
                 aria-label="Закрыть"
                 onClick={() => dispatch(journal.mode === 'map' ? 'map' : 'journal')}
               >
                 ×
-              </button>
+              </Button>
             </div>
             {journal.mode === 'map' ? (
               <WorldMap data={journal.map} />
@@ -427,10 +426,12 @@ function WorldMap({ data }: { data: MapViewModel }) {
 function Controls() {
   const visible = useUI((state) => state.showControls);
   return (
-    <details className={`controls controls-hint ${visible ? '' : 'hidden'}`}>
-      <summary>Управление ⌨</summary>
+    <Disclosure
+      className={`controls controls-hint ${visible ? '' : 'hidden'}`}
+      summary="Управление ⌨"
+    >
       <ControlGuide />
-    </details>
+    </Disclosure>
   );
 }
 
@@ -487,13 +488,13 @@ function Overlay() {
             Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.
           </p>
           <div className="start-actions">
-            <button className="primary" onClick={() => dispatch('new-game-menu')}>
+            <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
               Новая история <span>→</span>
-            </button>
+            </Button>
             {overlay.hasSave && (
-              <button className="secondary" onClick={() => dispatch('load')}>
+              <Button className="secondary" onClick={() => dispatch('load')}>
                 Продолжить сохранение
-              </button>
+              </Button>
             )}
           </div>
           <div className="start-foot">
@@ -514,10 +515,10 @@ function Overlay() {
             {overlay.grown} из них.
           </p>
           <div className="dialog-actions">
-            <button className="primary" onClick={() => dispatch('new-game-menu')}>
+            <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
               Начать новую историю
-            </button>
-            <button onClick={() => dispatch('load')}>Вернуться к сохранению</button>
+            </Button>
+            <Button onClick={() => dispatch('load')}>Вернуться к сохранению</Button>
           </div>
         </div>
       ) : null}
