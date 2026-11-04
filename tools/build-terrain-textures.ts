@@ -134,7 +134,7 @@ function atlas(
 ): void {
   const columns = count > 16 ? 8 : 4;
   const width = cell * columns;
-  const height = cell * 4;
+  const height = cell * Math.max(4, Math.ceil(count / columns));
   const pixels = Buffer.alloc(width * height * 4);
   const interior = cell - padding * 2;
   for (let variant = 0; variant < count; variant++) {
@@ -176,9 +176,13 @@ for (const [season, profile] of profiles.entries()) {
   atlas(
     `cover-${profile.name}`,
     64,
-    (variant) => (variant < 10 ? plant(profile, variant, season) : forestLitter(variant - 10)),
+    (variant) => {
+      if (variant < 10) return plant(profile, variant, season);
+      if (variant < 30) return forestLitter(variant - 10);
+      return plant(profiles[1], variant - 30, 1, true);
+    },
     0,
-    30,
+    35,
   );
 }
 
@@ -187,12 +191,12 @@ png('soil-summer', 128, 128, terrain(52, [227, 203, 165], [157, 132, 100], 320, 
 png('soil-autumn', 128, 128, terrain(53, [206, 177, 145], [121, 92, 64], 240, 5));
 png('soil-winter', 128, 128, terrain(54, [211, 211, 210], [142, 145, 154], 105, 6));
 
-function plant(profile: Profile, variant: number, season: number): Buffer {
+function plant(profile: Profile, variant: number, season: number, tall = false): Buffer {
   const side = 64;
   const pixels = Buffer.alloc(side * side * 4);
-  const rng = new Random(415 + variant * 13 + season * 137);
+  const rng = new Random(415 + variant * 13 + season * 137 + (tall ? 440 : 0));
   const winter = profile.name === 'winter';
-  const fern = variant >= 4 && variant < 7;
+  const fern = !tall && variant >= 4 && variant < 7;
   const flower = variant >= 7;
   const dot = (cx: number, cy: number, rx: number, ry: number, color: RGB) => {
     for (let y = Math.max(2, Math.floor(cy - ry)); y < Math.min(62, cy + ry); y++) {
@@ -206,12 +210,18 @@ function plant(profile: Profile, variant: number, season: number): Buffer {
     }
   };
 
-  const stems = winter ? 2 + (variant % 4) : fern || flower ? 3 + (variant % 3) : 8 + variant * 2;
+  const stems = tall
+    ? 6 + variant
+    : winter
+      ? 2 + (variant % 4)
+      : fern || flower
+        ? 3 + (variant % 3)
+        : 8 + variant * 2;
   const heightScale = [0.82, 1, 0.78, 0.69][season];
   for (let i = 0; i < stems; i++) {
     const start = rng.range(22, 42),
       tip = rng.range(7, 57);
-    const height = rng.range(23, 52) * heightScale;
+    const height = (tall ? rng.range(35, 54) : rng.range(23, 52)) * heightScale;
     const shade = rng.range(-17, 17);
     const [r, g, b] = profile.stem;
     const stem: RGB = [r + shade, g + shade, b + shade];
@@ -219,12 +229,25 @@ function plant(profile: Profile, variant: number, season: number): Buffer {
       const t = j / height;
       const x = start + (tip - start) * t * t;
       const y = 61 - j;
-      const width = winter ? 0.85 : fern || flower ? 1.35 : 0.7 + 2.4 * (1 - t);
+      const width = tall
+        ? 0.85 + (1.8 + variant * 0.25) * (1 - t)
+        : winter
+          ? 0.85
+          : fern || flower
+            ? 1.35
+            : 0.7 + 2.4 * (1 - t);
       dot(x, y, width, 1.8, stem);
       if (!winter && (fern || flower) && j % (fern ? 5 : 12) === 4 && t < 0.9) {
         const leaf = (fern ? 6 : 4) * Math.sin(t * Math.PI) + 1;
         dot(x - leaf, y + 1, leaf, 2, stem);
         dot(x + leaf, y - 1, leaf, 2, stem);
+      }
+    }
+    if (tall && variant >= 2 && i % 2 === 0) {
+      const grains = variant === 4 ? 5 : 3;
+      for (let k = 0; k < grains; k++) {
+        const color: RGB = variant === 2 ? [188, 162, 81] : [162, 151, 67];
+        dot(tip + (k % 2 ? 0.9 : -0.9), 61 - height - k * 1.65, 1.45, 2.2, color);
       }
     }
     if (flower && !winter) {

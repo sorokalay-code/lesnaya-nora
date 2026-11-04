@@ -69,6 +69,7 @@ test('decorative cover is instanced per chunk and planted on dry ground', () => 
   const transform = new THREE.Matrix4();
   const position = new THREE.Vector3();
   const litter = new Set<number>();
+  const tallGrass = new Set<number>();
   const materials = new Set<THREE.Material | THREE.Material[]>();
   let batches = 0;
   scene.traverse((object) => {
@@ -83,7 +84,11 @@ test('decorative cover is instanced per chunk and planted on dry ground', () => 
       position.setFromMatrixPosition(transform);
       assert.equal(world.waterAt(position.x, position.z), undefined);
       const mode = appearance.getZ(i);
-      if (mode > 0) litter.add(appearance.getX(i));
+      if (mode === 1 || mode === 2) litter.add(appearance.getX(i));
+      if (mode === 3) {
+        tallGrass.add(appearance.getX(i));
+        assert.ok(transform.elements[5] > 0.85);
+      }
       const offset = position.y - groundAt(position.x, position.z);
       assert.ok(Math.abs(offset - (mode === 2 ? 0.018 : -0.025)) < 0.0001);
     }
@@ -94,6 +99,10 @@ test('decorative cover is instanced per chunk and planted on dry ground', () => 
   assert.deepEqual(
     [...litter].sort((a, b) => a - b),
     Array.from({ length: 20 }, (_, i) => i + 10),
+  );
+  assert.deepEqual(
+    [...tallGrass].sort((a, b) => a - b),
+    [30, 31, 32, 33, 34],
   );
 });
 
