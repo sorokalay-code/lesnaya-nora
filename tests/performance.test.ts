@@ -9,11 +9,48 @@ import { isEvergreen, isTreeSpecies, TREE_SPECIES } from '../src/game/TreeSpecie
 import { isShrubSpecies, SHRUB_SPECIES } from '../src/game/ShrubSpecies';
 import { SeasonSystem } from '../src/game/systems';
 import { WorldChunks } from '../src/game/WorldChunks';
+import { AmbientFlight } from '../src/game/AmbientFlight';
 import { loadModels } from './model-fixture';
 import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 const genes = { ...DEFAULT_GENES, coat: 'cream' as const, ear: 1, speed: 3, vitality: 3, size: 1 };
+
+test('ambient flight keeps five variants per batch and removes insects and migrant birds in winter', () => {
+  const scene = new THREE.Scene();
+  const flight = new AmbientFlight(scene, {
+    seed: 41,
+    scale: 0.22,
+    vegetation: 5,
+    butterflies: [{ x: 0, z: 0 }],
+    heightAt: () => 0,
+    biomeAt: () => 'meadow',
+    nearWater: () => true,
+  });
+  const insects = scene.getObjectByName('ambient-insects');
+  const birds = scene.getObjectByName('ambient-birds');
+  assert.ok(insects instanceof THREE.InstancedMesh && birds instanceof THREE.InstancedMesh);
+  assert.equal(scene.children.length, 2);
+  const colors = (mesh: THREE.InstancedMesh) => {
+    const color = new THREE.Color();
+    return new Set(
+      Array.from({ length: mesh.count }, (_, i) => {
+        mesh.getColorAt(i, color);
+        return color.getHex();
+      }),
+    );
+  };
+  flight.update(0, 0, 0, 'Лето');
+  assert.equal(colors(insects).size, 5);
+  assert.equal(colors(birds).size, 5);
+  const summerBirds = birds.count;
+  flight.update(0, 0, 0, 'Зима');
+  assert.equal(insects.count, 0);
+  assert.equal(insects.visible, false);
+  assert.ok(birds.count > 0 && birds.count < summerBirds);
+  assert.ok(!colors(birds).has(0x6885bc) && !colors(birds).has(0xf0a068));
+});
+
 function stats(root: THREE.Object3D) {
   let meshes = 0,
     triangles = 0;

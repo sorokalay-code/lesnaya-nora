@@ -1,3 +1,4 @@
+import { AmbientFlight, type FlightAnchor } from './AmbientFlight';
 import { isShrubSpecies } from './ShrubSpecies';
 import { BROADLEAF_TREES, isEvergreen, NEEDLE_TREES } from './TreeSpecies';
 import { SeasonalGround } from './SeasonalGround';
@@ -103,7 +104,7 @@ export class World {
   readonly soilMaterial = caveMaterial();
   private rng: Random;
   private rain?: THREE.Points;
-  private butterflies: { mesh: THREE.Group; x: number; z: number; phase: number }[] = [];
+  private readonly ambientFlight: AmbientFlight;
   private heightCache = new Map<string, number>();
 
   constructor(
@@ -138,6 +139,8 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
+    this.ambientFlight = this.makeAmbientFlight();
+    this.makeBoundary();
     this.updateSeason(save?.day ?? 1, save?.clock ?? 0);
     new WaterScenery(
       this.terrain.water,
@@ -415,8 +418,6 @@ export class World {
     this.makeGarden(34 * this.scale, 31 * this.scale, 16 * this.scale);
     this.makeGarden(-35 * this.scale, 29 * this.scale, 13 * this.scale);
     this.makeSmallDetails();
-    this.makeButterflies();
-    this.makeBoundary();
   }
 
   private trackFoliage(root: THREE.Object3D): void {
@@ -515,35 +516,33 @@ export class World {
     }
   }
 
-  private makeButterflies(): void {
-    const wingGeo = new THREE.SphereGeometry(1, 8, 6);
-    const add = (x: number, z: number, phase: number, rng: Random) => {
-      const root = new THREE.Group(),
-        wingMat = mat(rng.pick([0xe9c17d, 0xd6b5d5, 0xe6e2a0, 0xa8d1d1]));
-      for (const side of [-1, 1]) {
-        const wing = new THREE.Mesh(wingGeo, wingMat);
-        wing.position.set(side * 0.12, 0, 0);
-        wing.scale.set(0.15, 0.025, 0.1);
-        root.add(wing);
-      }
-
-      root.position.set(x, this.heightAt(x, z) + 0.9, z);
-      this.chunks.add(root, x, z, true);
-      this.butterflies.push({ mesh: root, x, z, phase });
-    };
+  private makeAmbientFlight(): AmbientFlight {
+    const butterflies: FlightAnchor[] = [];
     for (let i = 0; i < this.config.creatures.butterfly; i++) {
       const x = this.rng.range(-95, 95) * this.scale;
       const z = this.rng.range(-95, 95) * this.scale;
       if (this.biomeAt(x, z) === 'swamp') continue;
-      add(x, z, i * 2.37, this.rng);
+
+      // Этот шаг раньше выбирал цвет бабочки. Сохраняем последовательность генерации ресурсов.
+      this.rng.next();
+      butterflies.push({ x, z });
     }
-    // Заполняем недостающих отдельно: прежний поток генерации растений и их id не сдвигается.
     const extra = new Random(this.seed + 66071);
-    while (this.butterflies.length < this.config.creatures.butterfly) {
+    while (butterflies.length < this.config.creatures.butterfly) {
       const x = extra.range(-95, 95) * this.scale;
       const z = extra.range(-95, 95) * this.scale;
-      add(x, z, this.butterflies.length * 2.37, extra);
+      extra.next();
+      butterflies.push({ x, z });
     }
+    return new AmbientFlight(this.scene, {
+      seed: this.seed,
+      scale: this.scale,
+      vegetation: this.config.vegetation,
+      butterflies,
+      heightAt: (x, z) => this.heightAt(x, z),
+      biomeAt: (x, z) => this.biomeAt(x, z),
+      nearWater: (x, z) => this.nearWater(x, z, 8),
+    });
   }
 
   private makeGarden(x: number, z: number, r: number): void {
@@ -720,15 +719,7 @@ export class World {
     if (this.scene.fog instanceof THREE.FogExp2)
       this.scene.fog.density = weather === 'mist' ? 0.026 : weather === 'rain' ? 0.017 : 0.012;
 
-    for (const b of this.butterflies) {
-      const bx = b.x + Math.sin(time * 0.7 + b.phase) * 1.5,
-        bz = b.z + Math.cos(time * 0.5 + b.phase) * 1.1;
-      b.mesh.position.set(bx, this.heightAt(bx, bz) + 0.8 + Math.sin(time * 2 + b.phase) * 0.2, bz);
-      b.mesh.rotation.y = time * 0.5 + b.phase;
-      b.mesh.children.forEach((wing, i) => {
-        wing.rotation.z = (i === 0 ? -1 : 1) * Math.sin(time * 19 + b.phase) * 0.55;
-      });
-    }
+    this.ambientFlight.update(time, px, pz, this.seasons.name(day));
   }
 
   private updateSeason(day: number, clock: number): void {
