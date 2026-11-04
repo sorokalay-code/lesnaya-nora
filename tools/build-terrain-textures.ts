@@ -1,3 +1,4 @@
+import { forestLitter } from './art/ForestLitter';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
 import { Random } from '../src/game/Random';
@@ -124,26 +125,34 @@ const profiles = [
 
 type Profile = (typeof profiles)[number];
 
-function atlas(name: string, cell: number, sample: (variant: number) => Buffer, padding = 0): void {
-  const side = cell * 4;
-  const pixels = Buffer.alloc(side * side * 4);
+function atlas(
+  name: string,
+  cell: number,
+  sample: (variant: number) => Buffer,
+  padding = 0,
+  count = 10,
+): void {
+  const columns = count > 16 ? 8 : 4;
+  const width = cell * columns;
+  const height = cell * 4;
+  const pixels = Buffer.alloc(width * height * 4);
   const interior = cell - padding * 2;
-  for (let variant = 0; variant < 10; variant++) {
+  for (let variant = 0; variant < count; variant++) {
     const tile = sample(variant);
-    const originX = (variant % 4) * cell;
-    const originY = Math.floor(variant / 4) * cell;
+    const originX = (variant % columns) * cell;
+    const originY = Math.floor(variant / columns) * cell;
     for (let y = 0; y < cell; y++) {
       for (let x = 0; x < cell; x++) {
         const source =
           (((y - padding + interior) % interior) * interior +
             ((x - padding + interior) % interior)) *
           4;
-        const dest = ((originY + y) * side + originX + x) * 4;
+        const dest = ((originY + y) * width + originX + x) * 4;
         tile.copy(pixels, dest, source, source + 4);
       }
     }
   }
-  png(name, side, side, pixels);
+  png(name, width, height, pixels);
 }
 
 for (const [season, profile] of profiles.entries()) {
@@ -164,7 +173,13 @@ for (const [season, profile] of profiles.entries()) {
     },
     8,
   );
-  atlas(`cover-${profile.name}`, 64, (variant) => plant(profile, variant, season));
+  atlas(
+    `cover-${profile.name}`,
+    64,
+    (variant) => (variant < 10 ? plant(profile, variant, season) : forestLitter(variant - 10)),
+    0,
+    30,
+  );
 }
 
 png('soil-spring', 128, 128, terrain(51, [197, 177, 148], [102, 88, 68], 170, 4));

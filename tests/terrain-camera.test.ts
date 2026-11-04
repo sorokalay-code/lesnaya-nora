@@ -68,21 +68,33 @@ test('season transitions replace the terrain and soil maps while keeping the sam
 test('decorative cover is instanced per chunk and planted on dry ground', () => {
   const transform = new THREE.Matrix4();
   const position = new THREE.Vector3();
+  const litter = new Set<number>();
+  const materials = new Set<THREE.Material | THREE.Material[]>();
   let batches = 0;
   scene.traverse((object) => {
     if (object.name !== 'billboard-ground-cover') return;
     assert.ok(object instanceof THREE.InstancedMesh);
     assert.ok(object.parent?.name.startsWith('chunk-'));
     assert.equal(object.geometry.index?.count, 6);
+    materials.add(object.material);
+    const appearance = object.geometry.getAttribute('plantAppearance');
     for (let i = 0; i < object.count; i++) {
       object.getMatrixAt(i, transform);
       position.setFromMatrixPosition(transform);
       assert.equal(world.waterAt(position.x, position.z), undefined);
-      assert.ok(Math.abs(position.y + 0.025 - groundAt(position.x, position.z)) < 0.0001);
+      const mode = appearance.getZ(i);
+      if (mode > 0) litter.add(appearance.getX(i));
+      const offset = position.y - groundAt(position.x, position.z);
+      assert.ok(Math.abs(offset - (mode === 2 ? 0.018 : -0.025)) < 0.0001);
     }
     batches++;
   });
   assert.ok(batches > 1);
+  assert.equal(materials.size, 1);
+  assert.deepEqual(
+    [...litter].sort((a, b) => a - b),
+    Array.from({ length: 20 }, (_, i) => i + 10),
+  );
 });
 
 test('gameplay height follows the exact triangles of the rendered terrain', () => {
