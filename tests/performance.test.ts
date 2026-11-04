@@ -33,6 +33,17 @@ test('fern stays within the vegetation budget and static props have no mixer', (
   assert.equal(fern.mixer, undefined);
   assert.ok(stats(ModelAssets.shared.create('oak').root).meshes <= 8);
 });
+test('oak leaf cards retain a seasonal crown with an alpha cutout material', () => {
+  const oak = ModelAssets.shared.create('oak').root;
+  const crown = oak.getObjectByName('Foliage');
+  assert.ok(crown && oak.getObjectByName('Litter'));
+  assert.ok(stats(crown).triangles <= 70);
+  assert.equal(stats(crown).meshes, 1);
+  const [material] = stats(crown).materials;
+  assert.ok(material instanceof THREE.MeshStandardMaterial);
+  assert.ok(material.alphaTest > 0);
+  assert.equal(material.side, THREE.DoubleSide);
+});
 test('rabbit LOD preserves actions and ear genes with fewer triangles at distance', () => {
   const rabbit = createRabbit({ ...genes, ear: 1.2 }),
     scene = new THREE.Scene();

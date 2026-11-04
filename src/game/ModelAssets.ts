@@ -12,6 +12,7 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
 const TEXTURE_NAMES = [
   'fur',
   'leaf',
+  'oak-foliage',
   ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
     `ground-${season}`,
     `cover-${season}`,
@@ -184,6 +185,7 @@ export class ModelAssets {
   private prepare(glb: GLTF): void {
     const fur = this.textures.get('fur');
     const leaf = this.textures.get('leaf');
+    const oakFoliage = this.textures.get('oak-foliage');
     this.clipMaps.set(glb, new Map(glb.animations.map((clip) => [clip.name, clip])));
     glb.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -198,7 +200,8 @@ export class ModelAssets {
 
         if (material.name.startsWith('fur_') && fur) material.map = fur;
 
-        if (material.name.startsWith('leaf_') && leaf) material.map = leaf;
+        if (material.name === 'leaf_oak_cards' && oakFoliage) material.map = oakFoliage;
+        else if (material.name.startsWith('leaf_') && leaf) material.map = leaf;
       }
     });
   }

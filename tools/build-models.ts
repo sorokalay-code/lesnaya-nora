@@ -1,3 +1,4 @@
+import { oakFoliagePixels, OAK_FOLIAGE_SIZE } from './art/OakFoliage';
 // Offline art pipeline. The game only loads the exported GLB files.
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
@@ -790,8 +791,27 @@ function oak() {
   const root = group(new THREE.Group(), 'oak'),
     bark = mat('bark', 0x735940),
     branch = mat('bark_dark', 0x624934);
-  const leaf1 = mat('leaf_oak', 0x518553),
-    leaf2 = mat('leaf_oak_dark', 0x426e46);
+  const leaves = new THREE.MeshStandardMaterial({
+    name: 'leaf_oak_cards',
+    color: 0x6e9b60,
+    roughness: 1,
+    alphaTest: 0.48,
+    side: THREE.DoubleSide,
+  });
+  const card = new THREE.PlaneGeometry(1, 1);
+  const cluster = (crown: THREE.Group, center: VectorTuple, size: number, phase: number) => {
+    for (let i = 0; i < 3; i++) {
+      mesh(
+        crown,
+        card,
+        leaves,
+        'OakLeafCard',
+        center,
+        [size, size * 0.88, 1],
+        [i === 0 ? 0.15 : i === 1 ? 0.78 : -0.63, phase + (i * Math.PI) / 3, phase * 0.45],
+      );
+    }
+  };
   stick(root, bark, 'Trunk', [0, 0, 0], [0, 5.9, 0], 0.44);
   for (let i = 0; i < 7; i++)
     stick(
@@ -803,30 +823,14 @@ function oak() {
       0.035,
     );
   const crown = group(root, 'Foliage');
-  ell(crown, leaf1, 'Canopy', [0, 7.2, 0], [2.12, 1.55, 2.04]);
+  cluster(crown, [0, 7.65, 0], 3.4, 0.4);
+  cluster(crown, [0.25, 7.1, 0.25], 3.5, 1.1);
   for (let i = 0; i < 9; i++) {
     const a = i * 2.4,
       x = Math.cos(a) * 1.38,
       z = Math.sin(a) * 1.34;
     stick(root, bark, `Branch${i}`, [0, 4.8, 0], [x, 6.45, z], 0.115);
-    ell(
-      crown,
-      i % 3 ? leaf1 : leaf2,
-      `LeafCloud${i}`,
-      [x, 6.72 + (i % 3) * 0.23, z],
-      [1.02, 0.89, 1.0],
-    );
-  }
-  for (let i = 0; i < 24; i++) {
-    const a = i * 2.399,
-      r = 1.1 + (i % 4) * 0.31;
-    mini(
-      crown,
-      i % 3 ? leaf1 : leaf2,
-      `LeafCluster${i}`,
-      [Math.cos(a) * r, 7.1 + Math.sin(i * 3) * 0.52, Math.sin(a) * r],
-      [0.27, 0.13, 0.18],
-    );
+    cluster(crown, [x, 6.78 + (i % 3) * 0.28, z], 2.6, a);
   }
   const litter = group(root, 'Litter');
   for (let i = 0; i < 18; i++) {
@@ -1408,6 +1412,29 @@ function terrainTexture(name, soil = false) {
     ]),
   );
 }
+function oakTexture(): void {
+  const size = OAK_FOLIAGE_SIZE;
+  const pixels = oakFoliagePixels();
+  const stride = size * 4;
+  const rows = Buffer.alloc((stride + 1) * size);
+  for (let y = 0; y < size; y++)
+    pixels.copy(rows, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
+
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 6;
+  writeFileSync(
+    'public/textures/oak-foliage.png',
+    Buffer.concat([
+      Buffer.from('89504e470d0a1a0a', 'hex'),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(rows)),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
+  );
+}
 mkdirSync('public/models', { recursive: true });
 mkdirSync('public/textures', { recursive: true });
 const requested = new Set(process.argv.slice(2).filter((name) => name !== '--'));
@@ -1417,6 +1444,7 @@ if (!requested.size) {
   terrainTexture('ground');
   terrainTexture('soil', true);
 }
+if (!requested.size || requested.has('oak')) oakTexture();
 const models = {
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
