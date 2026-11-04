@@ -4,7 +4,9 @@ import * as THREE from 'three';
 import { MODEL_NAMES, ModelAssets } from '../src/game/ModelAssets';
 import { animateRabbit, createRabbit, setRabbitAction } from '../src/game/Models';
 import { ResourceInstances } from '../src/game/ResourceInstances';
-import type { Resource } from '../src/game/World';
+import { World, type Resource } from '../src/game/World';
+import { isEvergreen, isTreeSpecies, TREE_SPECIES } from '../src/game/TreeSpecies';
+import { SeasonSystem } from '../src/game/systems';
 import { WorldChunks } from '../src/game/WorldChunks';
 import { loadModels } from './model-fixture';
 import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
@@ -43,6 +45,26 @@ test('oak leaf cards retain a seasonal crown with an alpha cutout material', () 
   assert.ok(material instanceof THREE.MeshStandardMaterial);
   assert.ok(material.alphaTest > 0);
   assert.equal(material.side, THREE.DoubleSide);
+});
+test('all ten tree crowns are cutout meshes and only evergreens keep their crowns in winter', () => {
+  const scene = new THREE.Scene();
+  const world = new World(scene, 31415);
+  const day = new SeasonSystem(31415).startDay(3);
+  world.update((day - 1) * 1440, 0, 'clear', day, 0, 0);
+  const seen = new Set<string>();
+  scene.traverse((object) => {
+    if (!isTreeSpecies(object.name)) return;
+    const crown = object.getObjectByName('Foliage');
+    if (!crown) return;
+    seen.add(object.name);
+    const metrics = stats(crown);
+    assert.equal(metrics.meshes, 1);
+    assert.ok(metrics.triangles <= 150);
+    const [material] = metrics.materials;
+    assert.ok(material instanceof THREE.MeshStandardMaterial && material.alphaTest > 0);
+    assert.equal(crown.visible, isEvergreen(object.name));
+  });
+  assert.deepEqual([...seen].sort(), [...TREE_SPECIES].sort());
 });
 test('rabbit LOD preserves actions and ear genes with fewer triangles at distance', () => {
   const rabbit = createRabbit({ ...genes, ear: 1.2 }),

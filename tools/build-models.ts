@@ -1,3 +1,5 @@
+import { createTreeModel, treeFoliagePixels } from './art/TreeAssets';
+import { isTreeSpecies, TREE_SPECIES } from '../src/game/TreeSpecies';
 import { oakFoliagePixels, OAK_FOLIAGE_SIZE } from './art/OakFoliage';
 // Offline art pipeline. The game only loads the exported GLB files.
 import * as THREE from 'three';
@@ -847,30 +849,6 @@ function oak() {
   }
   return root;
 }
-function pineTree() {
-  const root = group(new THREE.Group(), 'pine'),
-    bark = mat('bark', 0x6a5540),
-    needles = mat('leaf_pine', 0x3a664b);
-  stick(root, bark, 'Trunk', [0, 0, 0], [0, 8.7, 0], 0.36);
-  for (let ring = 0; ring < 5; ring++) {
-    const y = 4.5 + ring * 0.91,
-      r = 2.2 - ring * 0.29;
-    tip(root, needles, `NeedleTier${ring}`, [0, y, 0], [r, 2.8, r]);
-    for (let b = 0; b < 5; b++) {
-      const a = (b * Math.PI * 2) / 5 + ring * 0.23;
-      stick(
-        root,
-        bark,
-        `Branch${ring}_${b}`,
-        [0, y - 0.3, 0],
-        [Math.cos(a) * r * 0.72, y - 0.75, Math.sin(a) * r * 0.72],
-        0.065,
-      );
-    }
-  }
-  tip(root, needles, 'Crown', [0, 8.85, 0], [0.65, 1.6, 0.65]);
-  return root;
-}
 function fern() {
   const root = group(new THREE.Group(), 'fern'),
     green = mat('leaf_fern', 0x4e8054);
@@ -1412,9 +1390,9 @@ function terrainTexture(name, soil = false) {
     ]),
   );
 }
-function oakTexture(): void {
+function writeTreeTexture(species: (typeof TREE_SPECIES)[number]): void {
   const size = OAK_FOLIAGE_SIZE;
-  const pixels = oakFoliagePixels();
+  const pixels = species === 'oak' ? oakFoliagePixels() : treeFoliagePixels(species);
   const stride = size * 4;
   const rows = Buffer.alloc((stride + 1) * size);
   for (let y = 0; y < size; y++)
@@ -1426,7 +1404,7 @@ function oakTexture(): void {
   header[8] = 8;
   header[9] = 6;
   writeFileSync(
-    'public/textures/oak-foliage.png',
+    `public/textures/${species}-foliage.png`,
     Buffer.concat([
       Buffer.from('89504e470d0a1a0a', 'hex'),
       chunk('IHDR', header),
@@ -1444,7 +1422,9 @@ if (!requested.size) {
   terrainTexture('ground');
   terrainTexture('soil', true);
 }
-if (!requested.size || requested.has('oak')) oakTexture();
+for (const species of TREE_SPECIES) {
+  if (!requested.size || requested.has(species)) writeTreeTexture(species);
+}
 const models = {
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
@@ -1474,7 +1454,15 @@ const models = {
   twig_bundle: twigsItem,
   fur_tuft: furItem,
   oak,
-  pine: pineTree,
+  pine: () => createTreeModel('pine'),
+  spruce: () => createTreeModel('spruce'),
+  larch: () => createTreeModel('larch'),
+  birch: () => createTreeModel('birch'),
+  maple: () => createTreeModel('maple'),
+  ash: () => createTreeModel('ash'),
+  aspen: () => createTreeModel('aspen'),
+  linden: () => createTreeModel('linden'),
+  rowan: () => createTreeModel('rowan'),
   fern,
   reed,
   bush,
@@ -1574,7 +1562,7 @@ for (const [name, build] of Object.entries(models)) {
                   ? peacefulClips(name, model)
                   : [];
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
-  mergeParts(model, !creatures.has(name) && name !== 'oak');
+  mergeParts(model, !creatures.has(name) && !isTreeSpecies(name));
   const buffer = (await new GLTFExporter().parseAsync(model, {
     binary: true,
     animations,

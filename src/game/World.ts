@@ -1,3 +1,4 @@
+import { BROADLEAF_TREES, isEvergreen, NEEDLE_TREES } from './TreeSpecies';
 import { SeasonalGround } from './SeasonalGround';
 import { caveMaterial } from './CaveMaterial';
 import { GroundCover } from './GroundCover';
@@ -7,7 +8,7 @@ import { groundColor } from './TerrainColors';
 import { WorldBoundary } from './WorldBoundary';
 import * as THREE from 'three';
 import { ModelAssets } from './ModelAssets';
-import { Random, smoothNoise } from './Random';
+import { hash2, Random, smoothNoise } from './Random';
 import { ResourceInstances } from './ResourceInstances';
 import { SeasonSystem } from './systems';
 import { Terrain } from './Terrain';
@@ -359,13 +360,17 @@ export class World {
       if (biome === 'garden' || this.terrain.water.near(x, z, 0.8)) continue;
 
       if (biome === 'forest' && this.rng.chance(0.58)) {
-        const deciduous = this.rng.chance(0.55);
-        const g = ModelAssets.shared.create(deciduous ? 'oak' : 'pine').root;
+        const pool = this.rng.chance(0.55) ? BROADLEAF_TREES : NEEDLE_TREES;
+        const index = Math.floor(
+          hash2(Math.floor(x * 100), Math.floor(z * 100), this.seed + 751) * pool.length,
+        );
+        const species = pool[index];
+        const g = ModelAssets.shared.create(species).root;
         g.position.set(x, this.heightAt(x, z), z);
         g.scale.setScalar(this.rng.range(0.7, 1.38));
         g.rotation.y = this.rng.range(0, Math.PI * 2);
         this.treeLocations.push({ x, z });
-        if (deciduous) {
+        if (!isEvergreen(species)) {
           const crown = g.getObjectByName('Foliage'),
             litter = g.getObjectByName('Litter');
           if (crown) this.deciduousCrowns.push(crown);
@@ -725,14 +730,13 @@ export class World {
 
     this.foliageMaterials.forEach((base, material) => {
       material.color.copy(base);
-      if (!material.name.includes('pine') && season === 'Осень')
-        material.color.lerp(new THREE.Color(0xb88146), 0.6);
+      const evergreen = isEvergreen(material.name.replace(/^leaf_/, '').replace(/_cards$/, ''));
+      if (!evergreen && season === 'Осень') material.color.lerp(new THREE.Color(0xb88146), 0.6);
 
-      if (!material.name.includes('pine') && season === 'Зима')
-        material.color.lerp(new THREE.Color(0x8f9b88), 0.55);
+      if (!evergreen && season === 'Зима') material.color.lerp(new THREE.Color(0x8f9b88), 0.55);
     });
-    this.deciduousCrowns.forEach((c, i) => {
-      c.visible = season !== 'Зима' || i % 7 === 0;
+    this.deciduousCrowns.forEach((c) => {
+      c.visible = season !== 'Зима';
     });
     this.fallenLeaves.forEach((c) => {
       c.visible = season === 'Осень' || season === 'Зима';

@@ -1,3 +1,4 @@
+import { isTreeSpecies, TREE_SPECIES } from './TreeSpecies';
 import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
 import * as THREE from 'three';
@@ -12,7 +13,7 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
 const TEXTURE_NAMES = [
   'fur',
   'leaf',
-  'oak-foliage',
+  ...TREE_SPECIES.map((species) => `${species}-foliage`),
   ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
     `ground-${season}`,
     `cover-${season}`,
@@ -47,8 +48,7 @@ export const MODEL_NAMES = [
   'rock_slate',
   'nest',
   'stash',
-  'oak',
-  'pine',
+  ...TREE_SPECIES,
   'fern',
   'reed',
   'bush',
@@ -185,7 +185,6 @@ export class ModelAssets {
   private prepare(glb: GLTF): void {
     const fur = this.textures.get('fur');
     const leaf = this.textures.get('leaf');
-    const oakFoliage = this.textures.get('oak-foliage');
     this.clipMaps.set(glb, new Map(glb.animations.map((clip) => [clip.name, clip])));
     glb.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -200,7 +199,9 @@ export class ModelAssets {
 
         if (material.name.startsWith('fur_') && fur) material.map = fur;
 
-        if (material.name === 'leaf_oak_cards' && oakFoliage) material.map = oakFoliage;
+        const treeCard = /^leaf_(.+)_cards$/.exec(material.name);
+        const treeTexture = treeCard && this.textures.get(`${treeCard[1]}-foliage`);
+        if (treeTexture) material.map = treeTexture;
         else if (material.name.startsWith('leaf_') && leaf) material.map = leaf;
       }
     });
@@ -237,9 +238,7 @@ export class ModelAssets {
           : materialForInstance(sourceMaterial);
         const material = Array.isArray(object.material) ? object.material[0] : object.material;
         object.castShadow =
-          glb.animations.length > 0
-            ? material.name === 'fur_base'
-            : name === 'oak' || name === 'pine';
+          glb.animations.length > 0 ? material.name === 'fur_base' : isTreeSpecies(name);
       });
       return {
         root,
