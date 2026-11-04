@@ -11,7 +11,6 @@ export class WorldBoundary {
   readonly root = new THREE.Group();
   private readonly ground = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    map: ModelAssets.shared.ground ?? null,
     roughness: 1,
     flatShading: true,
   });
@@ -100,6 +99,8 @@ export class WorldBoundary {
   setSeason(season: Season): void {
     if (this.season === season) return;
     this.season = season;
+    this.ground.map = ModelAssets.shared.groundTexture(season) ?? null;
+    this.ground.needsUpdate = true;
     const colors = this.geometry.attributes.color;
     const color = new THREE.Color();
     for (let i = 0; i < colors.count; i++) {

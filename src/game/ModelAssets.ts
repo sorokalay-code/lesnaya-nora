@@ -1,6 +1,23 @@
+import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
+
+const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
+  Весна: 'spring',
+  Лето: 'summer',
+  Осень: 'autumn',
+  Зима: 'winter',
+};
+const TEXTURE_NAMES = [
+  'fur',
+  'leaf',
+  'ground-cover',
+  ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
+    `ground-${season}`,
+    `soil-${season}`,
+  ]),
+];
 
 export const CREATURE_NAMES = [
   'pike',
@@ -74,7 +91,7 @@ export class ModelAssets {
   private readonly sharedMaterials = new Set<THREE.Material>();
   private readonly palette = new WeakMap<THREE.Material, Map<number, THREE.Material>>();
   private loading?: Promise<void>;
-  private textures: THREE.Texture[] = [];
+  private readonly textures = new Map<string, THREE.Texture>();
   private readonly frustum = new THREE.Frustum();
   private readonly projection = new THREE.Matrix4();
   private readonly cameraPosition = new THREE.Vector3();
@@ -84,15 +101,15 @@ export class ModelAssets {
     if (this.loading) return this.loading;
 
     this.loading = (async () => {
-      this.textures = await Promise.all(
-        ['fur', 'leaf', 'ground', 'soil'].map((name) =>
-          new THREE.TextureLoader().loadAsync(assetUrl(`textures/${name}.png`)),
-        ),
+      const loader = new THREE.TextureLoader();
+      await Promise.all(
+        TEXTURE_NAMES.map(async (name) => {
+          const texture = await loader.loadAsync(assetUrl(`textures/${name}.png`));
+          texture.colorSpace = THREE.SRGBColorSpace;
+          if (name !== 'ground-cover') texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          this.textures.set(name, texture);
+        }),
       );
-      for (const texture of this.textures) {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      }
 
       await Promise.all(
         MODEL_NAMES.map(async (name) => {
@@ -115,8 +132,16 @@ export class ModelAssets {
     }
   }
 
-  get ground(): THREE.Texture | undefined {
-    return this.textures[2];
+  groundTexture(season: Season): THREE.Texture | undefined {
+    return this.textures.get(`ground-${SEASON_TEXTURE_SUFFIX[season]}`);
+  }
+
+  soilTexture(season: Season): THREE.Texture | undefined {
+    return this.textures.get(`soil-${SEASON_TEXTURE_SUFFIX[season]}`);
+  }
+
+  get groundCover(): THREE.Texture | undefined {
+    return this.textures.get('ground-cover');
   }
 
   tintedMaterial(source: THREE.Material, variant: number): THREE.Material {
@@ -149,10 +174,6 @@ export class ModelAssets {
     return material;
   }
 
-  get soil(): THREE.Texture | undefined {
-    return this.textures[3];
-  }
-
   async register(name: ModelName, bytes: ArrayBuffer, low = false): Promise<void> {
     const glb = await this.loader.parseAsync(bytes, '');
     this.prepare(glb);
@@ -160,6 +181,8 @@ export class ModelAssets {
   }
 
   private prepare(glb: GLTF): void {
+    const fur = this.textures.get('fur');
+    const leaf = this.textures.get('leaf');
     this.clipMaps.set(glb, new Map(glb.animations.map((clip) => [clip.name, clip])));
     glb.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -172,9 +195,9 @@ export class ModelAssets {
         if (material.name.startsWith('leaf_'))
           material.userData.baseColor = material.color.getHex();
 
-        if (material.name.startsWith('fur_') && this.textures[0]) material.map = this.textures[0];
+        if (material.name.startsWith('fur_') && fur) material.map = fur;
 
-        if (material.name.startsWith('leaf_') && this.textures[1]) material.map = this.textures[1];
+        if (material.name.startsWith('leaf_') && leaf) material.map = leaf;
       }
     });
   }

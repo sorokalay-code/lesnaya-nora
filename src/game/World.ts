@@ -1,3 +1,5 @@
+import { caveMaterial } from './CaveMaterial';
+import { GroundCover } from './GroundCover';
 import { GroundOpenings } from './GroundOpenings';
 import type { CaveBounds } from './CaveMesher';
 import { groundColor, seasonalGroundColor } from './TerrainColors';
@@ -95,7 +97,8 @@ export class World {
   private foliageMaterials = new Map<THREE.MeshStandardMaterial, THREE.Color>();
   private deciduousCrowns: THREE.Object3D[] = [];
   private fallenLeaves: THREE.Object3D[] = [];
-  private grassMaterial?: THREE.MeshStandardMaterial;
+  private groundCover?: GroundCover;
+  readonly soilMaterial = caveMaterial();
   private rng: Random;
   private rain?: THREE.Points;
   private butterflies: { mesh: THREE.Group; x: number; z: number; phase: number }[] = [];
@@ -132,6 +135,7 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
+    this.updateSeason(save?.day ?? 1);
     new WaterScenery(
       this.terrain.water,
       (x, z) => this.heightAt(x, z),
@@ -326,12 +330,12 @@ export class World {
       geo,
       new THREE.MeshStandardMaterial({
         vertexColors: true,
-        map: ModelAssets.shared.ground ?? null,
         roughness: 1,
         side: THREE.DoubleSide,
       }),
     );
     ground.receiveShadow = true;
+    ground.name = 'world-ground';
     this.scene.add(ground);
     this.groundMesh = ground;
     this.groundOpenings = new GroundOpenings(ground, this.size, (x, z) => this.heightAt(x, z));
@@ -350,6 +354,7 @@ export class World {
 
   addGroundHole(bounds: CaveBounds, distanceAt: (x: number, y: number, z: number) => number): void {
     this.groundOpenings?.update(bounds, distanceAt);
+    this.groundCover?.clearOpening(bounds, distanceAt);
   }
 
   private buildDecorations(): void {
@@ -423,13 +428,17 @@ export class World {
   }
 
   private makeSmallDetails(): void {
-    const grassGeo = new THREE.ConeGeometry(0.12, 0.6, 3),
-      stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
-    this.grassMaterial = mat(0x88b66d);
     const vegetation = this.scale ** 2 * this.config.vegetation;
-    const grassCount = Math.round(2200 * vegetation);
     const flowerCount = Math.round(620 * vegetation);
-    const grass = new THREE.InstancedMesh(grassGeo, this.grassMaterial, grassCount);
+    this.groundCover = new GroundCover(this.chunks, this.rng, {
+      seed: this.seed,
+      scale: this.scale,
+      density: this.config.vegetation,
+      heightAt: (x, z) => this.heightAt(x, z),
+      biomeAt: (x, z) => this.biomeAt(x, z),
+      wet: (x, z) => !!this.waterAt(x, z),
+    });
+    const stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
     const stones = new THREE.InstancedMesh(stoneGeo, mat(0x9a9b89), 370);
     const flowers = new THREE.InstancedMesh(
       new THREE.IcosahedronGeometry(0.075, 0),
@@ -438,28 +447,6 @@ export class World {
     );
     const dummy = new THREE.Object3D();
     const color = new THREE.Color();
-    for (let i = 0; i < grassCount; i++) {
-      const x = this.rng.range(-102, 102) * this.scale,
-        z = this.rng.range(-102, 102) * this.scale;
-      dummy.position.set(x, this.heightAt(x, z) + 0.25, z);
-      dummy.rotation.y = this.rng.range(0, Math.PI * 2);
-      dummy.scale.setScalar(this.rng.range(0.65, 1.4));
-      dummy.updateMatrix();
-      if (this.waterAt(x, z)) dummy.scale.setScalar(0);
-      dummy.updateMatrix();
-      grass.setMatrixAt(i, dummy.matrix);
-      grass.setColorAt(
-        i,
-        color.setHex(
-          this.biomeAt(x, z) === 'swamp'
-            ? 0x76966c
-            : this.biomeAt(x, z) === 'garden'
-              ? 0x94a467
-              : 0x8bb467,
-        ),
-      );
-    }
-
     for (let i = 0; i < 370; i++) {
       const sx = this.rng.range(-101, 101) * this.scale,
         sz = this.rng.range(-101, 101) * this.scale;
@@ -483,7 +470,7 @@ export class World {
       flowers.setColorAt(i, color.setHex(this.rng.pick([0xf5e6d2, 0xeebfc5, 0xebdf8b, 0xc6b7dd])));
     }
 
-    this.scene.add(grass, stones, flowers);
+    this.scene.add(stones, flowers);
     const logMat = mat(0x6e5541),
       moss = mat(0x63875c);
     for (let i = 0; i < Math.round(65 * vegetation); i++) {
@@ -693,7 +680,6 @@ export class World {
 
   update(clock: number, time: number, weather: Weather, day: number, px: number, pz: number): void {
     this.currentDay = day;
-    this.boundary.setSeason(this.seasons.name(day));
     this.currentClock = clock;
     this.chunks.update(px, pz);
     this.updateSeason(day);
@@ -738,6 +724,14 @@ export class World {
     const season = this.seasons.name(day);
     if (season === this.displayedSeason) return;
     this.displayedSeason = season;
+    this.boundary.setSeason(season);
+    if (this.groundMesh) {
+      this.groundMesh.material.map = ModelAssets.shared.groundTexture(season) ?? null;
+      this.groundMesh.material.needsUpdate = true;
+    }
+    this.soilMaterial.map = ModelAssets.shared.soilTexture(season) ?? null;
+    this.soilMaterial.needsUpdate = true;
+    this.groundCover?.setSeason(season);
     if (this.groundColors && this.baseGroundColors) {
       const values = this.groundColors.array as Float32Array;
       const color = new THREE.Color();
@@ -770,9 +764,6 @@ export class World {
     this.fallenLeaves.forEach((c) => {
       c.visible = season === 'Осень' || season === 'Зима';
     });
-    this.grassMaterial?.color.setHex(
-      season === 'Зима' ? 0xb8c2ae : season === 'Осень' ? 0xc49d66 : 0x88b66d,
-    );
   }
 
   setRain(): void {

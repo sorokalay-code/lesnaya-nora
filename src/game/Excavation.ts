@@ -41,7 +41,7 @@ export class Excavation {
     private readonly world: World,
     private readonly save: SaveData,
   ) {
-    this.mesher = new CaveMesher(scene, (x, z) => world.heightAt(x, z));
+    this.mesher = new CaveMesher(scene, (x, z) => world.heightAt(x, z), world.soilMaterial);
     scene.add(this.group);
     this.group.add(this.light, this.marker);
     this.marker.visible = false;

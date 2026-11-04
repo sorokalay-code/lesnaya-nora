@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ModelAssets } from './ModelAssets';
 import type { DigNode } from './types';
 import { caveMaterial } from './CaveMaterial';
 
@@ -48,11 +47,11 @@ export class CaveMesher {
   private readonly chunkSize = 6;
   private readonly step = 0.25;
   private readonly fields = new Map<string, Float32Array>();
-  private readonly material = caveMaterial(ModelAssets.shared.soil);
 
   constructor(
     scene: THREE.Scene,
     private readonly surfaceAt: (x: number, z: number) => number = () => Infinity,
+    private readonly material = caveMaterial(),
   ) {
     scene.add(this.group);
   }

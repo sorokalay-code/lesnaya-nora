@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+export const WORLD_CHUNK_SIZE = 24;
+
 /** Группирует объекты в чанки и отключает работу с неподвижными трансформациями. */
 
 export class WorldChunks {
@@ -8,7 +10,7 @@ export class WorldChunks {
 
   constructor(
     private readonly scene: THREE.Scene,
-    private readonly size = 24,
+    private readonly size = WORLD_CHUNK_SIZE,
     private readonly radius = 2,
   ) {}
 

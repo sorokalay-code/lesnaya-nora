@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import type { Excavation } from '../src/game/Excavation';
-import { MODEL_NAMES } from '../src/game/ModelAssets';
+import { ModelAssets, MODEL_NAMES } from '../src/game/ModelAssets';
 import { Random } from '../src/game/Random';
 import { ViewCamera } from '../src/game/ViewCamera';
 import { World } from '../src/game/World';
@@ -17,12 +17,61 @@ import {
 } from '../src/game/animals';
 import { SeasonSystem } from '../src/game/systems';
 import { loadModels } from './model-fixture';
+import type { Season } from '../src/game/types';
 
 await loadModels(...MODEL_NAMES);
 
 const scene = new THREE.Scene();
 const world = new World(scene, 31415);
 const groundAt = (x: number, z: number) => world.heightAt(x, z);
+
+test('season transitions replace the terrain and soil maps while keeping the same ground geometry', (t) => {
+  const seasonSystem = new SeasonSystem(31415);
+  const maps = new Map<Season, { ground: THREE.Texture; soil: THREE.Texture }>();
+  for (const season of ['Весна', 'Лето', 'Осень', 'Зима'] as const) {
+    maps.set(season, { ground: new THREE.Texture(), soil: new THREE.Texture() });
+  }
+  t.mock.method(ModelAssets.shared, 'groundTexture', (season: Season) => maps.get(season)?.ground);
+  t.mock.method(ModelAssets.shared, 'soilTexture', (season: Season) => maps.get(season)?.soil);
+  const terrainScene = new THREE.Scene();
+  const terrainWorld = new World(terrainScene, 31415);
+  const ground = terrainScene.getObjectByName('world-ground');
+  assert.ok(ground instanceof THREE.Mesh && ground.material instanceof THREE.MeshStandardMaterial);
+  const geometry = ground.geometry;
+  const supportHeight = terrainWorld.heightAt(0.3, -1.7);
+  const seen = new Set<Season>();
+  for (let day = 1; day <= 365 && seen.size < maps.size; day++) {
+    const season = seasonSystem.name(day);
+    if (seen.has(season)) continue;
+    seen.add(season);
+    terrainWorld.update(420, 0, 'clear', day, 0, 0);
+    assert.equal(ground.material.map, maps.get(season)?.ground);
+    assert.equal(terrainWorld.soilMaterial.map, maps.get(season)?.soil);
+    assert.equal(ground.geometry, geometry);
+    assert.equal(terrainWorld.heightAt(0.3, -1.7), supportHeight);
+  }
+  assert.equal(seen.size, 4);
+});
+
+test('decorative cover is instanced per chunk and planted on dry ground', () => {
+  const transform = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  let batches = 0;
+  scene.traverse((object) => {
+    if (object.name !== 'billboard-ground-cover') return;
+    assert.ok(object instanceof THREE.InstancedMesh);
+    assert.ok(object.parent?.name.startsWith('chunk-'));
+    assert.equal(object.geometry.index?.count, 6);
+    for (let i = 0; i < object.count; i++) {
+      object.getMatrixAt(i, transform);
+      position.setFromMatrixPosition(transform);
+      assert.equal(world.waterAt(position.x, position.z), undefined);
+      assert.ok(Math.abs(position.y + 0.025 - groundAt(position.x, position.z)) < 0.0001);
+    }
+    batches++;
+  });
+  assert.ok(batches > 1);
+});
 
 test('gameplay height follows the exact triangles of the rendered terrain', () => {
   const ground = (world as unknown as { groundMesh: THREE.Mesh }).groundMesh;
