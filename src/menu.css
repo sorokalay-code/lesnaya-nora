@@ -1,26 +1,26 @@
 .menu-backdrop,
 .confirmation-backdrop {
   position: absolute;
-  inset: 0;
+  inset: var(--ui-space-0);
   z-index: 150;
   background: var(--ui-backdrop);
 }
 .touch-menu.game-menu {
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  width: min(510px, calc(100% - 24px));
-  max-height: calc(100dvh - 24px);
-  margin: 0;
+  inset: var(--ui-center) auto auto var(--ui-center);
+  transform: translate(calc(-1 * var(--ui-center)), calc(-1 * var(--ui-center)));
+  width: min(510px, calc(100% - var(--ui-space-24)));
+  max-height: calc(100dvh - var(--ui-space-24));
+  margin: var(--ui-space-0);
   box-sizing: border-box;
-  padding: 20px;
+  padding: var(--ui-space-20);
 }
 .game-menu header {
   position: sticky;
-  top: 0;
+  top: var(--ui-space-0);
   z-index: 1;
   background: var(--ui-surface);
   display: flex;
-  gap: 14px;
+  gap: var(--ui-space-14);
   align-items: center;
   justify-content: space-between;
 }
@@ -41,13 +41,13 @@
 .game-menu-options {
   display: grid;
   grid-template-columns: 1fr !important;
-  gap: 9px;
+  gap: var(--ui-space-9);
 }
 .game-menu-options button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--ui-space-10);
   text-align: left;
   min-height: var(--ui-target-height);
 }
@@ -62,31 +62,31 @@
 }
 .menu-footnote {
   color: #bac8b0;
-  margin-bottom: 0;
+  margin-bottom: var(--ui-space-0);
 }
 .save-notice {
   border-left: 3px solid #b5c593;
-  padding: 8px 12px;
-  margin: 0;
+  padding: var(--ui-space-8) var(--ui-space-12);
+  margin: var(--ui-space-0);
 }
 .new-game-options label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-space-16);
 }
 .new-game-warning {
   color: #f0c0a6;
 }
 .touch-menu.game-menu.world-config-menu {
-  width: min(760px, calc(100% - 24px));
+  width: min(760px, calc(100% - var(--ui-space-24)));
   overscroll-behavior: contain;
 }
 .world-config label {
-  margin: 10px 0;
+  margin: var(--ui-space-10) var(--ui-space-0);
   min-width: 0;
 }
-.world-config [data-ui-field][type='number'] {
+.world-config .ui-input[type='number'] {
   width: 76px;
   flex-shrink: 0;
 }
@@ -100,7 +100,7 @@
 }
 .world-config .remains-option {
   justify-content: flex-start;
-  gap: 10px;
+  gap: var(--ui-space-10);
   min-height: var(--ui-target-height);
 }
 .remains-option input {
@@ -110,7 +110,7 @@
 }
 .world-config .config-range {
   display: block;
-  margin: 16px 0;
+  margin: var(--ui-space-16) var(--ui-space-0);
 }
 .config-range span {
   display: flex;
@@ -119,29 +119,29 @@
 .config-range input {
   width: 100%;
   min-height: 28px;
-  margin: 4px 0;
+  margin: var(--ui-space-4) var(--ui-space-0);
   accent-color: var(--ui-accent);
 }
 .creature-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 18px;
+  gap: var(--ui-space-0) var(--ui-space-18);
 }
 .world-config .creature-input {
-  padding: 7px 10px;
+  padding: var(--ui-space-7) var(--ui-space-10);
   border-radius: var(--ui-radius-control);
   background: var(--ui-surface-raised);
 }
 .world-config .config-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  margin-top: 14px;
+  margin-top: var(--ui-space-14);
 }
 .world-settings {
-  margin-top: 20px;
+  margin-top: var(--ui-space-20);
 }
 .world-settings > summary {
   cursor: pointer;
-  padding: 14px;
+  padding: var(--ui-space-14);
   border: 1px solid #b5c59366;
   border-radius: 10px;
   color: var(--ui-text-accent);
@@ -151,7 +151,7 @@
 }
 .world-settings > summary small {
   display: block;
-  margin-top: 6px;
+  margin-top: var(--ui-space-6);
   font-size: 11px;
   font-weight: 400;
   color: var(--ui-text-muted);
@@ -159,13 +159,13 @@
 .world-size-presets {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin: 12px 0 18px;
+  gap: var(--ui-space-8);
+  margin: var(--ui-space-12) var(--ui-space-0) var(--ui-space-18);
 }
 .world-size-presets button small,
 .creature-input small {
   display: block;
-  margin-top: 4px;
+  margin-top: var(--ui-space-4);
   font-size: 10px;
   color: var(--ui-text-muted);
 }
@@ -181,10 +181,10 @@
     grid-template-columns: 1fr;
   }
   .world-config fieldset {
-    padding: 10px;
+    padding: var(--ui-space-10);
   }
   .world-config label {
-    gap: 8px;
+    gap: var(--ui-space-8);
   }
   .world-config .config-actions {
     grid-template-columns: 1fr !important;
@@ -195,13 +195,13 @@
 }
 .event-panel {
   position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
-  width: min(390px, calc(100% - 24px));
-  max-height: calc(100dvh - 24px);
+  top: max(var(--ui-space-12), env(safe-area-inset-top));
+  right: max(var(--ui-space-12), env(safe-area-inset-right));
+  width: min(390px, calc(100% - var(--ui-space-24)));
+  max-height: calc(100dvh - var(--ui-space-24));
   box-sizing: border-box;
   overflow: auto;
-  padding: 16px;
+  padding: var(--ui-space-16);
   border: 1px solid #b5c59366;
   border-radius: 14px;
   background: #132f25fa;
@@ -212,7 +212,7 @@
   justify-content: space-between;
 }
 .event-panel h2 {
-  margin: 0;
+  margin: var(--ui-space-0);
   font-size: 17px;
 }
 .event-panel > small {
@@ -228,28 +228,28 @@
   border-radius: 10px;
 }
 .event-panel .journal-log {
-  margin: 8px 0 0;
-  padding: 8px;
+  margin: var(--ui-space-8) var(--ui-space-0) var(--ui-space-0);
+  padding: var(--ui-space-8);
 }
 .event-panel .journal-log ol {
-  max-height: max(70px, calc(100dvh - 170px));
+  max-height: max(70px, calc(100dvh - var(--ui-offset-170)));
 }
 .mobile-utilities {
   position: absolute;
   z-index: 90;
-  top: max(0px, env(safe-area-inset-top));
-  right: max(8px, env(safe-area-inset-right));
+  top: max(var(--ui-space-0), env(safe-area-inset-top));
+  right: max(var(--ui-space-8), env(safe-area-inset-right));
   display: flex;
-  gap: 4px;
+  gap: var(--ui-space-4);
 }
 .mobile-utilities button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--ui-space-6);
   min-height: 42px;
   min-width: 44px;
-  padding: 5px 9px;
+  padding: var(--ui-space-5) var(--ui-space-9);
   border: 1px solid #b5c59366;
   border-radius: 10px;
   background: #173a2eed;
@@ -264,29 +264,29 @@
   opacity: 0.4;
 }
 .touch-ui .world-info {
-  max-width: calc(100vw - 220px);
+  max-width: calc(100vw - var(--ui-offset-220));
 }
 @media (max-height: 450px) {
   .touch-menu.game-menu {
-    width: min(540px, calc(100% - 24px));
-    padding: 12px 16px;
+    width: min(540px, calc(100% - var(--ui-space-24)));
+    padding: var(--ui-space-12) var(--ui-space-16);
   }
   .game-menu header {
-    margin-bottom: 8px;
+    margin-bottom: var(--ui-space-8);
   }
   .game-menu-options {
-    gap: 6px;
+    gap: var(--ui-space-6);
   }
 }
 .journal-log {
-  margin: 16px 0;
-  padding: 12px;
+  margin: var(--ui-space-16) var(--ui-space-0);
+  padding: var(--ui-space-12);
   border: 1px solid #acba8a55;
   border-radius: 10px;
 }
 .genetics-panel {
-  margin: 12px 0;
-  padding: 10px;
+  margin: var(--ui-space-12) var(--ui-space-0);
+  padding: var(--ui-space-10);
   border: 1px solid #acba8a55;
   border-radius: 10px;
   font-size: 12px;
@@ -298,40 +298,40 @@
 }
 .genetics-panel ul,
 .genetics-panel ol {
-  padding-left: 20px;
+  padding-left: var(--ui-space-20);
 }
 .genetics-panel li {
-  margin: 5px 0;
+  margin: var(--ui-space-5) var(--ui-space-0);
 }
 .genetics-panel small {
   color: #c3cbb3;
 }
 .genetic-risk {
   border-left: 3px solid #d4a778;
-  padding-left: 8px;
+  padding-left: var(--ui-space-8);
 }
 .journal-log summary {
   cursor: pointer;
   font-weight: bold;
 }
 .journal-log ol {
-  padding-left: 20px;
+  padding-left: var(--ui-space-20);
   max-height: 260px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .journal-log li {
-  margin: 8px 0;
+  margin: var(--ui-space-8) var(--ui-space-0);
   font-size: 12px;
   line-height: 1.5;
 }
 .web-notice {
   position: absolute;
-  top: 132px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: var(--ui-offset-132);
+  left: var(--ui-center);
+  transform: translateX(calc(-1 * var(--ui-center)));
   width: min(350px, 42vw);
-  padding: 12px;
+  padding: var(--ui-space-12);
   box-sizing: border-box;
   border: 1px solid #e1caaa99;
   border-radius: var(--ui-radius-panel);
@@ -343,7 +343,7 @@
 }
 .web-notice p {
   font-size: 12px;
-  margin: 7px 0;
+  margin: var(--ui-space-7) var(--ui-space-0);
 }
 .web-notice progress {
   width: 100%;
@@ -351,19 +351,19 @@
 }
 .web-notice small {
   display: block;
-  margin-top: 5px;
+  margin-top: var(--ui-space-5);
   font-size: 11px;
 }
 .touch-ui .web-notice {
-  top: 94px;
+  top: var(--ui-offset-94);
   width: min(300px, 36vw);
-  padding: 9px;
+  padding: var(--ui-space-9);
 }
 .web-toasts .toast:not(:last-child) {
   display: none;
 }
 .touch-ui .toast-box.web-toasts {
-  top: 215px;
+  top: var(--ui-offset-215);
 }
 .controls[open] {
   max-height: 48dvh;
@@ -372,15 +372,15 @@
 .control-guide {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 14px;
-  margin-top: 12px;
+  gap: var(--ui-space-8) var(--ui-space-14);
+  margin-top: var(--ui-space-12);
   width: 100%;
   box-sizing: border-box;
 }
 .control-guide .guide-row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--ui-space-8);
   min-width: 0;
   line-height: 1.5;
   font-size: 11px;
@@ -390,7 +390,7 @@
   flex-shrink: 0;
   border: 1px solid #bac8a65c;
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: var(--ui-space-2) var(--ui-space-4);
   font: 10px monospace;
 }
 .control-guide .guide-row > span {
@@ -401,41 +401,41 @@
 }
 .touch-menu.action-menu {
   max-width: 880px;
-  padding: 20px;
+  padding: var(--ui-space-20);
   overflow-y: auto;
 }
 .action-menu header {
   position: sticky;
-  top: -20px;
+  top: calc(-1 * var(--ui-space-20));
   background: var(--ui-surface);
-  padding: 10px 0;
+  padding: var(--ui-space-10) var(--ui-space-0);
   z-index: 1;
 }
 .action-menu header small {
   display: block;
   font-size: 11px;
   color: #becdb4;
-  margin-top: 6px;
+  margin-top: var(--ui-space-6);
 }
 .action-group {
-  margin: 14px 0;
+  margin: var(--ui-space-14) var(--ui-space-0);
 }
 .action-group h3 {
   font-size: 12px;
   letter-spacing: 0.08em;
   color: #d9d9af;
-  margin: 0 0 8px;
+  margin: var(--ui-space-0) var(--ui-space-0) var(--ui-space-8);
 }
 .action-group > div {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 7px;
+  gap: var(--ui-space-7);
 }
 .action-group button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--ui-space-8);
   text-align: left;
 }
 .action-group button small {
@@ -448,13 +448,13 @@
 }
 .action-group kbd {
   font: 10px monospace;
-  padding: 3px 5px;
+  padding: var(--ui-space-3) var(--ui-space-5);
   border: 1px solid #c3cea65c;
   border-radius: 4px;
 }
 .shelter-actions {
   border-top: 1px solid #acba8a40;
-  padding-top: 14px;
+  padding-top: var(--ui-space-14);
 }
 .shelter-actions p {
   font-size: 11px;
@@ -462,18 +462,18 @@
 }
 .dialog-panel.confirmation-panel {
   z-index: 180;
-  top: 50%;
-  left: 50%;
+  top: var(--ui-center);
+  left: var(--ui-center);
   right: auto;
   bottom: auto;
-  transform: translate(-50%, -50%);
-  width: min(460px, calc(100% - 32px));
-  max-height: calc(100dvh - 32px);
+  transform: translate(calc(-1 * var(--ui-center)), calc(-1 * var(--ui-center)));
+  width: min(460px, calc(100% - var(--ui-space-32)));
+  max-height: calc(100dvh - var(--ui-space-32));
 }
 .confirmation-panel .dialog-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: var(--ui-space-10);
 }
 @media (pointer: coarse) {
   .action-menu header small {

@@ -3,11 +3,11 @@
 .family-toggle {
   display: block;
   position: absolute;
-  top: 82px;
-  left: 16px;
+  top: var(--ui-offset-82);
+  left: var(--ui-space-16);
   z-index: 70;
   min-height: var(--ui-control-height);
-  padding: 9px 12px;
+  padding: var(--ui-space-9) var(--ui-space-12);
   border: 1px solid #acba8a70;
   border-radius: var(--ui-radius-panel);
   background: #173a2eea;
@@ -16,21 +16,21 @@
   font-size: 11px;
 }
 .family-toggle {
-  left: 218px;
+  left: var(--ui-offset-218);
 }
 .status-toggle {
   width: 190px;
-  padding: 5px 9px;
+  padding: var(--ui-space-5) var(--ui-space-9);
 }
 .compact-vitals {
   display: flex;
-  gap: 10px;
+  gap: var(--ui-space-10);
   justify-content: space-between;
   font-variant-numeric: tabular-nums;
 }
 .status-toggle small {
   display: block;
-  margin-top: 3px;
+  margin-top: var(--ui-space-3);
   font-size: 10px;
   color: #d7dfbd;
 }
@@ -39,10 +39,10 @@
 }
 .hud {
   display: none;
-  top: 132px;
-  left: 16px;
+  top: var(--ui-offset-132);
+  left: var(--ui-space-16);
   width: 240px;
-  max-height: calc(100dvh - 150px);
+  max-height: calc(100dvh - var(--ui-offset-150));
   overflow: auto;
   z-index: 65;
 }
@@ -50,15 +50,15 @@
   display: block;
 }
 .kit-progress:not(.hidden) {
-  top: 132px;
-  right: 16px;
+  top: var(--ui-offset-132);
+  right: var(--ui-space-16);
   width: 235px;
-  max-height: calc(100dvh - 160px);
+  max-height: calc(100dvh - var(--ui-offset-160));
 }
 .topbar {
   height: 68px;
-  gap: 18px;
-  padding: 0 16px;
+  gap: var(--ui-space-18);
+  padding: var(--ui-space-0) var(--ui-space-16);
 }
 .brand {
   font-size: 16px;
@@ -67,12 +67,12 @@
   display: none;
 }
 .family-avatars {
-  top: 78px;
-  right: 16px;
+  top: var(--ui-offset-78);
+  right: var(--ui-space-16);
 }
 .avatar-chip {
   min-height: var(--ui-control-height);
-  padding: 5px 9px;
+  padding: var(--ui-space-5) var(--ui-space-9);
 }
 .avatar-chip small {
   display: none;
@@ -81,16 +81,16 @@
   display: block;
   box-sizing: border-box;
   width: max-content;
-  max-width: min(680px, calc(100% - 24px));
+  max-width: min(680px, calc(100% - var(--ui-space-24)));
   white-space: normal;
-  padding: 9px 12px;
+  padding: var(--ui-space-9) var(--ui-space-12);
 }
 .controls[open] {
-  width: min(680px, calc(100% - 24px));
+  width: min(680px, calc(100% - var(--ui-space-24)));
 }
 .controls.controls-hint > span {
   display: block;
-  margin-top: 8px;
+  margin-top: var(--ui-space-8);
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.65;
@@ -101,7 +101,7 @@
   font-size: 11px;
 }
 .controls p {
-  margin-bottom: 0;
+  margin-bottom: var(--ui-space-0);
 }
 .touch-menu {
   max-width: 850px;
@@ -122,20 +122,20 @@
   background: #19392b;
 }
 .touch-ui .family-toggle {
-  top: 44px;
-  left: 218px;
+  top: var(--ui-space-44);
+  left: var(--ui-offset-218);
   min-height: var(--ui-target-height);
 }
 .touch-ui .status-toggle {
   width: 190px;
-  padding: 5px 9px;
+  padding: var(--ui-space-5) var(--ui-space-9);
 }
 .touch-ui .hud {
-  max-height: max(110px, calc(100dvh - 245px));
+  max-height: max(110px, calc(100dvh - var(--ui-offset-245)));
 }
 .touch-ui .family-avatars {
-  top: 44px;
-  right: max(12px, env(safe-area-inset-right));
+  top: var(--ui-space-44);
+  right: max(var(--ui-space-12), env(safe-area-inset-right));
 }
 .touch-ui .avatar-chip {
   min-width: 44px;
@@ -145,14 +145,14 @@
 }
 .touch-ui .kit-progress:not(.hidden) {
   display: block;
-  top: 94px;
-  right: 12px;
-  max-height: calc(100dvh - 110px);
+  top: var(--ui-offset-94);
+  right: var(--ui-space-12);
+  max-height: calc(100dvh - var(--ui-offset-110));
   width: min(260px, 45vw);
   z-index: 80;
 }
 .touch-ui .touch-menu {
-  max-height: calc(100dvh - 24px);
+  max-height: calc(100dvh - var(--ui-space-24));
 }
 @media (max-width: 1000px) {
   .brand {
@@ -160,6 +160,6 @@
   }
   .world-info {
     font-size: 10px;
-    gap: 6px;
+    gap: var(--ui-space-6);
   }
 }

@@ -1,5 +1,9 @@
-export { Button } from './Button';
-export { Dialog } from './Dialog';
-export { Disclosure } from './Disclosure';
-export { FieldGroup, FieldLabel, Input, Select } from './Fields';
-export { Meter, Progress } from './Progress';
+export { Button } from './Button/Button';
+export { Dialog } from './Dialog/Dialog';
+export { Disclosure } from './Disclosure/Disclosure';
+export { FieldGroup } from './FieldGroup/FieldGroup';
+export { FieldLabel } from './FieldLabel/FieldLabel';
+export { Input } from './Input/Input';
+export { Meter } from './Meter/Meter';
+export { Progress } from './Progress/Progress';
+export { Select } from './Select/Select';

@@ -1,3 +1,5 @@
+import './Button.css';
+import { withClassName } from '../classNames';
 import type { ComponentProps } from 'react';
 
 type ButtonProps = ComponentProps<'button'> & {
@@ -10,7 +12,7 @@ export function Button({ type = 'button', variant = 'neutral', className, ...pro
     <button
       {...props}
       type={type}
-      className={className ? 'ui-button ' + className : 'ui-button'}
+      className={withClassName('ui-button', className)}
       data-variant={variant}
     />
   );

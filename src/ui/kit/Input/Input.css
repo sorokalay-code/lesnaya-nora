@@ -1,0 +1,3 @@
+:where(.ui-input) {
+  accent-color: var(--ui-accent);
+}

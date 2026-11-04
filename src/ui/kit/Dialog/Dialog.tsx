@@ -1,12 +1,15 @@
+import './Dialog.css';
+import { withClassName } from '../classNames';
 import type { ComponentProps, KeyboardEvent, Ref } from 'react';
 
 type DialogProps = Omit<ComponentProps<'section'>, 'ref'> & { ref?: Ref<HTMLElement> };
 
 /** Модальная панель: семантика и цикл Tab общие, открытием и фокусом управляет экран. */
-export function Dialog({ onKeyDown, ...props }: DialogProps) {
+export function Dialog({ className, onKeyDown, ...props }: DialogProps) {
   return (
     <section
       {...props}
+      className={withClassName('ui-dialog', className)}
       role="dialog"
       aria-modal="true"
       onKeyDown={(event) => {

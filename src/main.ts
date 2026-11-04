@@ -1,6 +1,7 @@
 import { Game } from './game/Game';
 import './ui/kit/tokens.css';
-import './ui/kit/controls.css';
+import './ui/kit/spacing.css';
+import './ui/kit/focus.css';
 import './ui/kit/scrollbars.css';
 import './improvements.css';
 import './style.css';

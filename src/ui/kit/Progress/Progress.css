@@ -1,0 +1,3 @@
+:where(.ui-progress) {
+  accent-color: var(--ui-accent);
+}

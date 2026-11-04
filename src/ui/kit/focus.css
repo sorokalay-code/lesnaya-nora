@@ -1,0 +1,4 @@
+:where(.ui-button, .ui-input, .ui-select, .ui-disclosure-summary):focus-visible {
+  outline: var(--ui-focus-width) solid var(--ui-focus);
+  outline-offset: var(--ui-focus-offset);
+}

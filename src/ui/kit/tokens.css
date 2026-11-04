@@ -16,6 +16,7 @@
   --ui-primary-text: #253a2b;
   --ui-focus: #f1d479;
   --ui-danger-bg: #8d3e33;
+  --ui-danger-hover: #a45144;
   --ui-danger-border: #eaa291;
   --ui-danger-text: #fff3ed;
   --ui-invalid: #f0a78c;
@@ -38,7 +39,6 @@
   --ui-radius-pill: 999px;
   --ui-control-height: 40px;
   --ui-target-height: 44px;
-  --ui-gap: 10px;
   --ui-focus-width: 2px;
-  --ui-focus-offset: 3px;
+  --ui-focus-offset: var(--ui-space-3);
 }

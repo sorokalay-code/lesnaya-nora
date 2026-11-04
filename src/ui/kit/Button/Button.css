@@ -1,0 +1,34 @@
+:where(.ui-button) {
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  border: 1px solid var(--ui-neutral-border);
+  border-radius: var(--ui-radius-control);
+  padding: var(--ui-space-8) var(--ui-space-10);
+  background: var(--ui-neutral-bg);
+  color: var(--ui-text);
+}
+:where(.ui-button:hover:not(:disabled)) {
+  background: var(--ui-neutral-hover);
+}
+.ui-button[data-variant='primary'] {
+  background: var(--ui-primary-bg);
+  border-color: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+}
+.ui-button[data-variant='primary']:hover {
+  background: var(--ui-primary-hover);
+}
+.ui-button[data-variant='danger'] {
+  min-height: var(--ui-target-height);
+  background: var(--ui-danger-bg);
+  border-color: var(--ui-danger-border);
+  color: var(--ui-danger-text);
+}
+.ui-button[data-variant='danger']:hover {
+  background: var(--ui-danger-hover);
+}
+:where(.ui-button):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

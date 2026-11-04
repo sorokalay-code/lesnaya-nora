@@ -1,5 +1,5 @@
 import { Button } from '../kit';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useStore } from 'zustand';
 import type { TouchBindings } from '../../game/input/MobileInput';
 import type { UIStore } from '../store';
@@ -79,6 +79,8 @@ function HoldButton({ label, onHold }: { label: string; onHold: (held: boolean) 
   );
 }
 
+const JOYSTICK_TRAVEL_PX = 42;
+
 function Joystick({ bindings }: { bindings: TouchBindings }) {
   const pointer = useRef<number | undefined>(undefined);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -91,13 +93,18 @@ function Joystick({ bindings }: { bindings: TouchBindings }) {
   function move(event: PointerEvent<HTMLDivElement>) {
     if (pointer.current !== event.pointerId) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left - rect.width / 2) / 42;
-    const y = (event.clientY - rect.top - rect.height / 2) / 42;
+    const x = (event.clientX - rect.left - rect.width / 2) / JOYSTICK_TRAVEL_PX;
+    const y = (event.clientY - rect.top - rect.height / 2) / JOYSTICK_TRAVEL_PX;
     const length = Math.max(1, Math.hypot(x, y));
     const next = { x: x / length, y: y / length };
     setOffset(next);
     bindings.move(next.x, next.y);
   }
+  const knobStyle: CSSProperties & { '--joystick-x': string; '--joystick-y': string } = {
+    '--joystick-x': `${offset.x * JOYSTICK_TRAVEL_PX}px`,
+    '--joystick-y': `${offset.y * JOYSTICK_TRAVEL_PX}px`,
+  };
+
   return (
     <div
       className="touch-joystick"
@@ -115,7 +122,7 @@ function Joystick({ bindings }: { bindings: TouchBindings }) {
       onPointerCancel={release}
       onLostPointerCapture={release}
     >
-      <span style={{ transform: `translate(${offset.x * 42}px,${offset.y * 42}px)` }}>✦</span>
+      <span style={knobStyle}>✦</span>
     </div>
   );
 }

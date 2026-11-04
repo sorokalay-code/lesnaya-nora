@@ -1,0 +1,13 @@
+:where(.ui-field-group) {
+  min-width: 0;
+  margin: var(--ui-space-18) var(--ui-space-0);
+  padding: var(--ui-space-14);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-panel);
+}
+:where(.ui-field-group) > legend {
+  padding: var(--ui-space-0) var(--ui-space-7);
+  color: var(--ui-text-accent);
+  font-size: 14px;
+  font-weight: 600;
+}

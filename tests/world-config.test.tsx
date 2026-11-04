@@ -247,7 +247,11 @@ test('form exposes every species, native bounds, independent seasons and replace
 test('new history can start above the collapsed settings without hidden fields in the focus order', () => {
   const store = createUIStore(() => {});
   const html = renderToStaticMarkup(<NewGameForm store={store} replacesStory />);
-  assert.match(html, /<details class="world-settings">/);
+  const disclosure = html.match(/<details\b[^>]*>/)?.[0];
+  assert.ok(disclosure);
+  assert.match(disclosure, /\bui-disclosure\b/);
+  assert.match(disclosure, /\bworld-settings\b/);
+  assert.doesNotMatch(disclosure, /\sopen\b/);
   assert.ok(html.indexOf('Начать новую игру') < html.indexOf('<details'));
   assert.ok(html.indexOf('единственное сохранение') < html.indexOf('Начать новую игру'));
   assert.doesNotMatch(html, /<input|<select|<fieldset/);

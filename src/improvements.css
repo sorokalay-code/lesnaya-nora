@@ -1,41 +1,41 @@
 .dialog-panel {
   position: absolute;
-  top: 88px;
-  right: 24px;
-  width: min(370px, calc(100% - 48px));
-  max-height: calc(100% - 175px);
+  top: var(--ui-offset-88);
+  right: var(--ui-space-24);
+  width: min(370px, calc(100% - var(--ui-space-48)));
+  max-height: calc(100% - var(--ui-offset-175));
   overflow: auto;
-  padding: 20px;
+  padding: var(--ui-space-20);
   border: 1px solid rgba(239, 242, 213, 0.3);
   border-radius: 14px;
   background: rgba(27, 56, 38, 0.96);
-  box-shadow: 0 16px 42px rgba(7, 19, 12, 0.38);
+  box-shadow: 0 var(--ui-space-16) var(--ui-space-42) rgba(7, 19, 12, 0.38);
   backdrop-filter: blur(10px);
 }
 .settings-panel {
   position: absolute;
-  right: 22px;
-  top: 82px;
+  right: var(--ui-space-22);
+  top: var(--ui-offset-82);
   z-index: 8;
-  width: min(300px, calc(100% - 44px));
-  padding: 17px;
+  width: min(300px, calc(100% - var(--ui-space-44)));
+  padding: var(--ui-space-17);
   border: 1px solid rgba(245, 242, 216, 0.3);
   border-radius: 10px;
   background: rgba(28, 58, 39, 0.96);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 var(--ui-space-14) var(--ui-space-36) rgba(0, 0, 0, 0.25);
 }
 .settings-panel h2 {
   font:
     600 24px 'Playfair Display',
     Georgia,
     serif;
-  margin: 0;
+  margin: var(--ui-space-0);
 }
 .setting-row {
   display: block;
   width: 100%;
-  margin-top: 17px;
-  padding: 12px;
+  margin-top: var(--ui-space-17);
+  padding: var(--ui-space-12);
   border: 1px solid rgba(235, 245, 215, 0.24);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.08);
@@ -46,14 +46,14 @@
 .start-season {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  margin-top: 18px;
+  gap: var(--ui-space-7);
+  margin-top: var(--ui-space-18);
   color: #e8e7cc;
   font-size: 11px;
   letter-spacing: 0.04em;
 }
 .start-season select {
-  padding: 11px;
+  padding: var(--ui-space-11);
   border: 1px solid rgba(245, 242, 216, 0.36);
   border-radius: 7px;
   background: #334f38;
@@ -65,7 +65,7 @@
 }
 .controls {
   white-space: normal;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - var(--ui-space-24));
   line-height: 1.4;
 }
 .inventory > div {
@@ -83,14 +83,14 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--ui-space-12);
 }
 .dialog-top h2 {
   font:
     600 30px 'Playfair Display',
     Georgia,
     serif;
-  margin: 4px 0 0;
+  margin: var(--ui-space-4) var(--ui-space-0) var(--ui-space-0);
 }
 .dialog-top > button {
   width: 28px;
@@ -103,8 +103,8 @@
   font-size: 19px;
 }
 .dialog-panel .speech {
-  margin: 17px 0 11px;
-  padding: 15px;
+  margin: var(--ui-space-17) var(--ui-space-0) var(--ui-space-11);
+  padding: var(--ui-space-15);
   border-radius: 9px;
   background: #e5e2ba;
   color: #334b34;
@@ -114,26 +114,26 @@
     serif;
 }
 .dialog-meta {
-  margin: 0;
+  margin: var(--ui-space-0);
   color: #cedfcb;
   font-size: 11px;
   line-height: 1.5;
 }
 .dialog-panel .gene-list {
-  margin: 15px 0;
-  gap: 5px;
+  margin: var(--ui-space-15) var(--ui-space-0);
+  gap: var(--ui-space-5);
 }
 .dialog-panel .gene-list span {
-  padding: 7px;
+  padding: var(--ui-space-7);
   font-size: 10px;
 }
 .dialog-choices {
   display: grid;
-  gap: 6px;
+  gap: var(--ui-space-6);
 }
 .dialog-choices button {
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--ui-space-10) var(--ui-space-12);
   text-align: left;
   border: 1px solid rgba(235, 245, 215, 0.22);
   border-radius: 7px;
@@ -146,8 +146,8 @@
   background: rgba(245, 247, 226, 0.17);
 }
 .temperature {
-  margin-top: 11px;
-  padding: 8px 0 0;
+  margin-top: var(--ui-space-11);
+  padding: var(--ui-space-8) var(--ui-space-0) var(--ui-space-0);
   border-top: 1px solid var(--ui-divider);
   color: #dde8d3;
   font-size: 10px;
@@ -158,23 +158,23 @@
 }
 .inventory small {
   display: block;
-  margin-top: 9px;
+  margin-top: var(--ui-space-9);
   color: #d3dfc8;
   font-size: 10px;
   line-height: 1.5;
 }
 .status-card .stat {
-  margin: 8px 0;
+  margin: var(--ui-space-8) var(--ui-space-0);
 }
 .status-card .inventory {
-  margin-top: 12px;
+  margin-top: var(--ui-space-12);
 }
 .hud {
-  max-height: calc(100% - 185px);
+  max-height: calc(100% - var(--ui-offset-185));
   overflow: auto;
 }
 .prompt {
-  max-width: calc(100% - 40px);
+  max-width: calc(100% - var(--ui-space-40));
   text-overflow: ellipsis;
   overflow: hidden;
 }
@@ -186,25 +186,25 @@
 }
 @media (max-width: 700px) {
   .dialog-panel {
-    top: 72px;
-    right: 9px;
-    width: min(280px, calc(100% - 18px));
-    max-height: calc(100% - 155px);
-    padding: 13px;
+    top: var(--ui-offset-72);
+    right: var(--ui-space-9);
+    width: min(280px, calc(100% - var(--ui-space-18)));
+    max-height: calc(100% - var(--ui-offset-155));
+    padding: var(--ui-space-13);
   }
   .dialog-top h2 {
     font-size: 25px;
   }
   .dialog-panel .speech {
     font-size: 12px;
-    padding: 10px;
+    padding: var(--ui-space-10);
   }
   .dialog-choices button {
     font-size: 10px;
-    padding: 8px;
+    padding: var(--ui-space-8);
   }
   .hud {
-    max-height: calc(100% - 200px);
+    max-height: calc(100% - var(--ui-offset-200));
   }
   .family-card {
     display: none;
@@ -212,14 +212,14 @@
 }
 .dig-reticle {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  left: var(--ui-center);
+  top: var(--ui-center);
+  transform: translate(calc(-1 * var(--ui-center)), calc(-1 * var(--ui-center)));
   color: #fff0bb;
   font-size: 24px;
   text-shadow:
-    0 1px 7px #293824,
-    0 0 4px #293824;
+    0 var(--ui-space-1) var(--ui-space-7) #293824,
+    0 0 var(--ui-space-4) #293824;
   pointer-events: none !important;
   z-index: 2;
 }
@@ -228,18 +228,18 @@
 }
 .family-avatars {
   position: absolute;
-  top: 84px;
-  right: 24px;
+  top: var(--ui-offset-84);
+  right: var(--ui-space-24);
   display: flex;
-  gap: 7px;
+  gap: var(--ui-space-7);
   z-index: 3;
   pointer-events: auto;
 }
 .avatar-chip {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
+  gap: var(--ui-space-7);
+  padding: var(--ui-space-6) var(--ui-space-9);
   border: 1px solid rgba(235, 242, 216, 0.38);
   border-radius: 10px;
   background: rgba(30, 60, 39, 0.91);
@@ -268,42 +268,42 @@
 }
 .avatar-chip.paired {
   border-color: var(--ui-focus);
-  box-shadow: 0 0 0 2px rgba(241, 212, 121, 0.14);
+  box-shadow: 0 0 0 var(--ui-space-2) rgba(241, 212, 121, 0.14);
 }
 .avatar-chip:hover {
   background: #4d7050;
 }
 .kit-progress {
   position: absolute;
-  top: 143px;
-  right: 24px;
+  top: var(--ui-offset-143);
+  right: var(--ui-space-24);
   width: 264px;
-  max-height: calc(100% - 260px);
+  max-height: calc(100% - var(--ui-offset-260));
   overflow: auto;
   z-index: 3;
-  padding: 13px;
+  padding: var(--ui-space-13);
   border: 1px solid rgba(242, 221, 160, 0.35);
   border-radius: 11px;
   background: rgba(28, 53, 37, 0.9);
   color: #f5efdb;
   font-size: 11px;
-  box-shadow: 0 12px 28px rgba(8, 26, 12, 0.2);
+  box-shadow: 0 var(--ui-space-12) var(--ui-space-28) rgba(8, 26, 12, 0.2);
 }
 .kit-progress > b {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: var(--ui-space-8);
   font-size: 10px;
   letter-spacing: 0.15em;
   color: #f0dda6;
 }
 .kit-progress-row {
-  padding: 9px 0;
+  padding: var(--ui-space-9) var(--ui-space-0);
   border-top: 1px solid rgba(240, 232, 198, 0.15);
 }
 .kit-progress-row > span {
   display: flex;
   justify-content: space-between;
-  gap: 5px;
+  gap: var(--ui-space-5);
 }
 .kit-progress-row small {
   color: #d5dfc5;
@@ -311,16 +311,16 @@
 }
 .kit-progress-row > small {
   display: block;
-  margin-top: 5px;
+  margin-top: var(--ui-space-5);
 }
 .kit-growth-meter {
   --ui-meter-height: 5px;
-  margin-top: 7px;
+  margin-top: var(--ui-space-7);
 }
 .mate-message {
   width: 100%;
-  margin: 11px 0 6px;
-  padding: 10px;
+  margin: var(--ui-space-11) var(--ui-space-0) var(--ui-space-6);
+  padding: var(--ui-space-10);
   border: 1px solid rgba(235, 245, 215, 0.3);
   border-radius: 7px;
   background: #203b2b;
@@ -332,14 +332,14 @@
 }
 .mate-chat {
   display: grid;
-  gap: 5px;
+  gap: var(--ui-space-5);
   max-height: 140px;
   overflow: auto;
-  margin: 10px 0;
+  margin: var(--ui-space-10) var(--ui-space-0);
 }
 .mate-chat p {
-  margin: 0;
-  padding: 7px;
+  margin: var(--ui-space-0);
+  padding: var(--ui-space-7);
   border-radius: 7px;
   background: rgba(238, 245, 217, 0.08);
   font-size: 11px;
@@ -357,28 +357,28 @@
 }
 @media (max-width: 700px) {
   .family-avatars {
-    top: 70px;
-    right: 8px;
-    gap: 3px;
+    top: var(--ui-offset-70);
+    right: var(--ui-space-8);
+    gap: var(--ui-space-3);
   }
   .avatar-chip {
     min-width: 0;
-    padding: 4px;
+    padding: var(--ui-space-4);
   }
   .avatar-chip > span:last-child {
     display: none;
   }
   .kit-progress {
-    top: 112px;
-    right: 8px;
+    top: var(--ui-offset-112);
+    right: var(--ui-space-8);
     width: 190px;
-    max-height: calc(100% - 220px);
-    padding: 9px;
+    max-height: calc(100% - var(--ui-offset-220));
+    padding: var(--ui-space-9);
   }
 }
 .birth-warning {
-  margin-top: 10px;
-  padding: 8px;
+  margin-top: var(--ui-space-10);
+  padding: var(--ui-space-8);
   border-radius: 7px;
   background: rgba(214, 151, 97, 0.2);
   border: 1px solid rgba(241, 189, 129, 0.5);
@@ -387,17 +387,17 @@
   line-height: 1.4;
 }
 .dialog-shortcuts {
-  padding: 9px 0;
+  padding: var(--ui-space-9) var(--ui-space-0);
   color: #f1db9d;
   font-size: 11px;
   line-height: 1.5;
-  margin: 4px 0;
+  margin: var(--ui-space-4) var(--ui-space-0);
 }
 .dialog-choices kbd {
   display: inline-block;
   min-width: 19px;
-  margin-right: 6px;
-  padding: 2px 4px;
+  margin-right: var(--ui-space-6);
+  padding: var(--ui-space-2) var(--ui-space-4);
   border: 1px solid currentColor;
   border-radius: 4px;
   text-align: center;
@@ -406,13 +406,13 @@
 }
 .performance-panel {
   position: absolute;
-  top: 70px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: var(--ui-offset-70);
+  left: var(--ui-center);
+  transform: translateX(calc(-1 * var(--ui-center)));
   z-index: 1000;
   background: #10291ee8;
   color: #e8f4d8;
-  padding: 10px 14px;
+  padding: var(--ui-space-10) var(--ui-space-14);
   border-radius: var(--ui-radius-control);
   pointer-events: none;
   font: 12px monospace;

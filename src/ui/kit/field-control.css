@@ -1,0 +1,19 @@
+:where(.ui-input, .ui-select) {
+  font: inherit;
+}
+:where(.ui-select, .ui-input:not([type='range'], [type='checkbox'])) {
+  min-height: var(--ui-control-height);
+  padding: var(--ui-space-8);
+  border: 1px solid var(--ui-field-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-field-bg);
+  color: var(--ui-field-text);
+  color-scheme: dark;
+}
+:where(.ui-input, .ui-select):disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+:is(.ui-input, .ui-select):invalid {
+  border-color: var(--ui-invalid);
+}

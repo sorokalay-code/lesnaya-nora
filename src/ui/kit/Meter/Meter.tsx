@@ -1,9 +1,5 @@
-import type { ComponentProps } from 'react';
-
-export function Progress(props: ComponentProps<'progress'>) {
-  return <progress {...props} />;
-}
-
+import './Meter.css';
+import { withClassName } from '../classNames';
 export function Meter({
   label,
   value,
@@ -18,7 +14,7 @@ export function Meter({
   const percent = Math.max(0, Math.min(100, value));
   return (
     <div
-      className={className ? 'ui-meter ' + className : 'ui-meter'}
+      className={withClassName('ui-meter', className)}
       role="meter"
       aria-label={label}
       aria-valuemin={0}

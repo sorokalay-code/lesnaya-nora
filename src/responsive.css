@@ -15,7 +15,7 @@ body,
 .dialog-panel,
 .journal,
 .settings-panel {
-  max-height: calc(100dvh - 100px);
+  max-height: calc(100dvh - var(--ui-offset-100));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -24,14 +24,14 @@ body,
 }
 .orientation-guard {
   position: fixed;
-  inset: 0;
+  inset: var(--ui-space-0);
   z-index: 10000;
   background: #142c22;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px;
+  padding: var(--ui-space-28);
   text-align: center;
   pointer-events: auto;
 }
@@ -50,15 +50,15 @@ body,
 }
 .touch-controls {
   position: absolute;
-  inset: 0;
+  inset: var(--ui-space-0);
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
 }
 .touch-joystick {
   position: absolute;
-  left: max(20px, env(safe-area-inset-left));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  left: max(var(--ui-space-20), env(safe-area-inset-left));
+  bottom: max(var(--ui-space-20), env(safe-area-inset-bottom));
   width: 116px;
   height: 116px;
   border: 1px solid #dee8c96b;
@@ -70,6 +70,7 @@ body,
   touch-action: none;
 }
 .touch-joystick span {
+  transform: translate(var(--joystick-x), var(--joystick-y));
   display: grid;
   place-items: center;
   width: 48px;
@@ -77,15 +78,15 @@ body,
   border-radius: 50%;
   background: #d7ddb49c;
   color: #163728;
-  box-shadow: 0 3px 18px #0004;
+  box-shadow: 0 var(--ui-space-3) var(--ui-space-18) #0004;
 }
 .touch-actions {
   position: absolute;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
+  right: max(var(--ui-space-14), env(safe-area-inset-right));
+  bottom: max(var(--ui-space-14), env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: repeat(2, minmax(78px, 1fr));
-  gap: 7px;
+  gap: var(--ui-space-7);
   width: 220px;
   pointer-events: auto;
 }
@@ -96,7 +97,7 @@ body,
   border: 1px solid #b6c49a66;
   color: #f0efdf;
   background: #193c30e8;
-  padding: 9px;
+  padding: var(--ui-space-9);
   font: inherit;
   font-size: 12px;
   touch-action: none;
@@ -110,44 +111,46 @@ body,
 }
 .touch-look-hint {
   position: absolute;
-  bottom: max(15px, env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: max(var(--ui-space-15), env(safe-area-inset-bottom));
+  left: var(--ui-center);
+  transform: translateX(calc(-1 * var(--ui-center)));
   font-size: 10px;
   opacity: 0.7;
   white-space: nowrap;
 }
 .touch-menu {
   position: absolute;
-  inset: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
-    max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  inset: max(var(--ui-space-12), env(safe-area-inset-top))
+    max(var(--ui-space-14), env(safe-area-inset-right))
+    max(var(--ui-space-12), env(safe-area-inset-bottom))
+    max(var(--ui-space-14), env(safe-area-inset-left));
   z-index: 120;
   background: #132f25f5;
   border: 1px solid #e4dfa349;
   border-radius: 18px;
-  padding: 16px;
+  padding: var(--ui-space-16);
   overflow-y: auto;
 }
 .touch-menu header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: var(--ui-space-16);
+  margin-bottom: var(--ui-space-12);
 }
 .touch-menu h2 {
-  margin: 0;
+  margin: var(--ui-space-0);
   font-size: 18px;
 }
 .touch-menu > div {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
+  gap: var(--ui-space-8);
 }
 .touch-ui .topbar {
   height: 42px;
-  padding: 0 max(12px, env(safe-area-inset-left));
-  gap: 8px;
+  padding: var(--ui-space-0) max(var(--ui-space-12), env(safe-area-inset-left));
+  gap: var(--ui-space-8);
 }
 .touch-ui .brand,
 .touch-ui .top-actions,
@@ -157,11 +160,11 @@ body,
 .touch-ui .world-info {
   font-size: 10px;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--ui-space-4);
 }
 .touch-ui .family-avatars {
-  top: 44px;
-  right: max(12px, env(safe-area-inset-right));
+  top: var(--ui-space-44);
+  right: max(var(--ui-space-12), env(safe-area-inset-right));
 }
 .touch-ui .avatar-chip {
   min-height: var(--ui-target-height);
@@ -172,9 +175,9 @@ body,
 .touch-ui .status-toggle {
   display: block;
   position: absolute;
-  top: 44px;
-  left: max(12px, env(safe-area-inset-left));
-  padding: 10px;
+  top: var(--ui-space-44);
+  left: max(var(--ui-space-12), env(safe-area-inset-left));
+  padding: var(--ui-space-10);
   min-height: var(--ui-target-height);
   border-radius: 10px;
   color: #f4efda;
@@ -185,10 +188,10 @@ body,
 }
 .touch-ui .hud {
   display: none;
-  top: 94px;
-  left: max(12px, env(safe-area-inset-left));
+  top: var(--ui-offset-94);
+  left: max(var(--ui-space-12), env(safe-area-inset-left));
   width: 245px;
-  max-height: calc(100dvh - 114px);
+  max-height: calc(100dvh - var(--ui-offset-114));
   overflow: auto;
   z-index: 80;
 }
@@ -199,39 +202,39 @@ body,
   display: none;
 }
 .touch-ui .prompt {
-  bottom: 30px;
-  left: 150px;
-  right: 248px;
+  bottom: var(--ui-space-30);
+  left: var(--ui-offset-150);
+  right: var(--ui-offset-248);
   max-width: none;
   transform: none;
   width: auto;
   font-size: 10px;
-  padding: 7px;
+  padding: var(--ui-space-7);
   pointer-events: none;
 }
 .touch-ui .prompt kbd {
   display: none;
 }
 .touch-ui .toast-box {
-  top: 100px;
+  top: var(--ui-offset-100);
   bottom: auto;
-  left: 50%;
+  left: var(--ui-center);
   right: auto;
-  transform: translateX(-50%);
+  transform: translateX(calc(-1 * var(--ui-center)));
   width: min(300px, 45vw);
   pointer-events: none;
 }
 .touch-ui .dialog-panel,
 .touch-ui .journal,
 .touch-ui .settings-panel {
-  top: 8px;
-  bottom: 8px;
-  right: max(8px, env(safe-area-inset-right));
+  top: var(--ui-space-8);
+  bottom: var(--ui-space-8);
+  right: max(var(--ui-space-8), env(safe-area-inset-right));
   left: auto;
-  width: min(480px, calc(100% - 16px));
-  max-height: calc(100dvh - 16px);
+  width: min(480px, calc(100% - var(--ui-space-16)));
+  max-height: calc(100dvh - var(--ui-space-16));
   z-index: 100;
-  padding: 16px;
+  padding: var(--ui-space-16);
 }
 .touch-ui .dialog-panel button,
 .touch-ui .journal button,
@@ -247,19 +250,19 @@ body,
 .touch-ui .overlay {
   z-index: 150;
   overflow: auto;
-  padding: 10px;
+  padding: var(--ui-space-10);
 }
 .touch-ui .start-card {
-  max-height: calc(100dvh - 20px);
+  max-height: calc(100dvh - var(--ui-space-20));
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--ui-space-20);
 }
 .touch-ui .start-card h1 {
   font-size: 38px;
-  margin: 8px 0;
+  margin: var(--ui-space-8) var(--ui-space-0);
 }
 .touch-ui .start-card p {
-  margin: 8px 0;
+  margin: var(--ui-space-8) var(--ui-space-0);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -273,11 +276,11 @@ body,
 @media (max-height: 420px) and (pointer: coarse) {
   .touch-actions {
     width: 204px;
-    gap: 5px;
+    gap: var(--ui-space-5);
   }
   .touch-actions button {
     min-height: var(--ui-control-height);
-    padding: 7px;
+    padding: var(--ui-space-7);
   }
   .touch-joystick {
     width: 100px;
@@ -295,10 +298,10 @@ body,
     font-size: 14px;
   }
   .topbar {
-    gap: 10px;
-    padding: 0 14px;
+    gap: var(--ui-space-10);
+    padding: var(--ui-space-0) var(--ui-space-14);
   }
   .top-actions button {
-    padding: 7px;
+    padding: var(--ui-space-7);
   }
 }
