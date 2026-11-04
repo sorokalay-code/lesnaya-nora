@@ -25,6 +25,18 @@ const scene = new THREE.Scene();
 const world = new World(scene, 31415);
 const groundAt = (x: number, z: number) => world.heightAt(x, z);
 
+test('the visual transition approaches the next season even for a one-day season', () => {
+  const calendar = new SeasonSystem(1, { Весна: 1, Лето: 4, Осень: 1, Зима: 1 });
+  assert.equal(calendar.visualBlend(1, 720).mix, 0);
+  const springEvening = calendar.visualBlend(1, 1200);
+  assert.equal(springEvening.next, 'Лето');
+  assert.ok(Math.abs(springEvening.mix - 0.5) < 1e-9);
+  assert.ok(calendar.visualBlend(1, 1439).mix > 0.99);
+  assert.equal(calendar.visualBlend(2, 1440).current, 'Лето');
+  assert.equal(calendar.visualBlend(2, 1440).mix, 0);
+  assert.equal(calendar.visualBlend(7, 7 * 1440 - 1).next, 'Весна');
+});
+
 test('season transitions replace the terrain and soil maps while keeping the same ground geometry', (t) => {
   const seasonSystem = new SeasonSystem(31415);
   const maps = new Map<Season, { ground: THREE.Texture; soil: THREE.Texture }>();

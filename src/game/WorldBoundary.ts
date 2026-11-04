@@ -1,5 +1,4 @@
-import { ModelAssets } from './ModelAssets';
-import { groundColor, seasonalGroundColor } from './TerrainColors';
+import { groundColor } from './TerrainColors';
 import type { Biome } from './types';
 import * as THREE from 'three';
 import { smoothNoise, Random } from './Random';
@@ -9,15 +8,9 @@ import type { Season } from './types';
 /** Декоративное продолжение леса за игровой границей: холмы и дешёвые силуэты деревьев. */
 export class WorldBoundary {
   readonly root = new THREE.Group();
-  private readonly ground = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    flatShading: true,
-  });
   private readonly leaves = new THREE.MeshStandardMaterial({ color: 0x345e47, roughness: 1 });
 
   private readonly geometry = new THREE.BufferGeometry();
-  private readonly baseColors: number[] = [];
   private season?: Season;
 
   constructor(
@@ -26,9 +19,15 @@ export class WorldBoundary {
     edge = 110,
     biomeAt: (x: number, z: number) => Biome = () => 'forest',
     vegetation = 1,
+    ground = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 1,
+      flatShading: true,
+    }),
   ) {
     this.root.name = 'distant-forest';
     const positions: number[] = [];
+    const colors: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
     const color = new THREE.Color();
@@ -56,7 +55,7 @@ export class WorldBoundary {
         positions.push(...point(x, z));
         uvs.push(x / 7, z / 7);
         groundColor(color, x, z, seed, biomeAt(x, z));
-        this.baseColors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
       }
     for (let ring = 0; ring < rings.length - 1; ring++)
       for (let i = 0; i < segments; i++) {
@@ -68,10 +67,10 @@ export class WorldBoundary {
       }
     this.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     this.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    this.geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.baseColors, 3));
+    this.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     this.geometry.setIndex(indices);
     this.geometry.computeVertexNormals();
-    const groundMesh = new THREE.Mesh(this.geometry, this.ground);
+    const groundMesh = new THREE.Mesh(this.geometry, ground);
     groundMesh.updateMatrixWorld();
     this.root.add(groundMesh);
     const groundRay = new THREE.Raycaster();
@@ -99,16 +98,6 @@ export class WorldBoundary {
   setSeason(season: Season): void {
     if (this.season === season) return;
     this.season = season;
-    this.ground.map = ModelAssets.shared.groundTexture(season) ?? null;
-    this.ground.needsUpdate = true;
-    const colors = this.geometry.attributes.color;
-    const color = new THREE.Color();
-    for (let i = 0; i < colors.count; i++) {
-      color.setRGB(this.baseColors[i * 3], this.baseColors[i * 3 + 1], this.baseColors[i * 3 + 2]);
-      seasonalGroundColor(color, season);
-      colors.setXYZ(i, color.r, color.g, color.b);
-    }
-    colors.needsUpdate = true;
     this.leaves.color.setHex(season === 'Зима' ? 0x658777 : 0x345e47);
   }
 }

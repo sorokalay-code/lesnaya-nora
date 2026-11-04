@@ -12,9 +12,9 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
 const TEXTURE_NAMES = [
   'fur',
   'leaf',
-  'ground-cover',
   ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
     `ground-${season}`,
+    `cover-${season}`,
     `soil-${season}`,
   ]),
 ];
@@ -106,7 +106,8 @@ export class ModelAssets {
         TEXTURE_NAMES.map(async (name) => {
           const texture = await loader.loadAsync(assetUrl(`textures/${name}.png`));
           texture.colorSpace = THREE.SRGBColorSpace;
-          if (name !== 'ground-cover') texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          if (!name.startsWith('cover-') && !name.startsWith('ground-'))
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
           this.textures.set(name, texture);
         }),
       );
@@ -140,8 +141,8 @@ export class ModelAssets {
     return this.textures.get(`soil-${SEASON_TEXTURE_SUFFIX[season]}`);
   }
 
-  get groundCover(): THREE.Texture | undefined {
-    return this.textures.get('ground-cover');
+  coverTexture(season: Season): THREE.Texture | undefined {
+    return this.textures.get(`cover-${SEASON_TEXTURE_SUFFIX[season]}`);
   }
 
   tintedMaterial(source: THREE.Material, variant: number): THREE.Material {

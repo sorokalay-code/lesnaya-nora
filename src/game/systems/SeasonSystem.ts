@@ -1,3 +1,4 @@
+import type { SeasonBlend } from '../SeasonalGround';
 import { hash2 } from '../Random';
 import { type FoodKind, type Season, type Weather } from '../types';
 import { defaultWorldConfig, SEASONS, type SeasonLengths } from '../WorldConfig';
@@ -34,6 +35,23 @@ export class SeasonSystem {
 
   name(day: number): Season {
     return SEASONS[this.period(day) % 4];
+  }
+
+  visualBlend(day: number, clock: number): SeasonBlend {
+    const index = this.period(day) % SEASONS.length;
+    const current = SEASONS[index];
+    const next = SEASONS[(index + 1) % SEASONS.length];
+    const length = this.lengths[current];
+    const elapsed = ((Math.floor(day) - 1) % this.yearLength) - (this.startDay(index) - 1);
+    const age = elapsed + (clock % 1440) / 1440;
+    const transitionDays = Math.min(3, length / 3);
+    const t = Math.max(0, Math.min(1, (age - length + transitionDays) / transitionDays));
+    return {
+      current,
+      next,
+      mix: t * t * (3 - 2 * t),
+      progress: Math.max(0, Math.min(1, age / length)),
+    };
   }
 
   temperature(day: number, clock: number, weather: Weather): number {

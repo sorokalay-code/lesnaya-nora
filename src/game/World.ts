@@ -1,8 +1,9 @@
+import { SeasonalGround } from './SeasonalGround';
 import { caveMaterial } from './CaveMaterial';
 import { GroundCover } from './GroundCover';
 import { GroundOpenings } from './GroundOpenings';
 import type { CaveBounds } from './CaveMesher';
-import { groundColor, seasonalGroundColor } from './TerrainColors';
+import { groundColor } from './TerrainColors';
 import { WorldBoundary } from './WorldBoundary';
 import * as THREE from 'three';
 import { ModelAssets } from './ModelAssets';
@@ -86,8 +87,7 @@ export class World {
   private seasons: SeasonSystem;
   private currentDay = 1;
   private displayedSeason = '';
-  private groundColors?: THREE.BufferAttribute;
-  private baseGroundColors?: Float32Array;
+  private readonly seasonalGround = new SeasonalGround();
   private groundMesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   private groundOpenings?: GroundOpenings;
   private treeRootRegrow = new Map<number, number>();
@@ -128,6 +128,7 @@ export class World {
       this.size,
       (x, z) => this.biomeAt(x, z),
       this.config.vegetation,
+      this.seasonalGround.material,
     );
     this.scene.add(this.boundary.root);
     for (const [id, time] of Object.entries(save?.gnawedRoots ?? {}))
@@ -135,7 +136,7 @@ export class World {
 
     this.buildGround();
     this.buildDecorations();
-    this.updateSeason(save?.day ?? 1);
+    this.updateSeason(save?.day ?? 1, save?.clock ?? 0);
     new WaterScenery(
       this.terrain.water,
       (x, z) => this.heightAt(x, z),
@@ -324,16 +325,7 @@ export class World {
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    this.groundColors = geo.getAttribute('color') as THREE.BufferAttribute;
-    this.baseGroundColors = new Float32Array(colors);
-    const ground = new THREE.Mesh(
-      geo,
-      new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 1,
-        side: THREE.DoubleSide,
-      }),
-    );
+    const ground = new THREE.Mesh(geo, this.seasonalGround.material);
     ground.receiveShadow = true;
     ground.name = 'world-ground';
     this.scene.add(ground);
@@ -682,7 +674,7 @@ export class World {
     this.currentDay = day;
     this.currentClock = clock;
     this.chunks.update(px, pz);
-    this.updateSeason(day);
+    this.updateSeason(day, clock);
     if (clock >= this.nextResourceSync) {
       this.nextResourceSync = clock + 1;
       for (const r of this.resources) {
@@ -720,35 +712,16 @@ export class World {
     }
   }
 
-  private updateSeason(day: number): void {
-    const season = this.seasons.name(day);
+  private updateSeason(day: number, clock: number): void {
+    const blend = this.seasons.visualBlend(day, clock);
+    this.seasonalGround.update(blend);
+    this.groundCover?.setSeason(blend);
+    const season = blend.current;
     if (season === this.displayedSeason) return;
     this.displayedSeason = season;
     this.boundary.setSeason(season);
-    if (this.groundMesh) {
-      this.groundMesh.material.map = ModelAssets.shared.groundTexture(season) ?? null;
-      this.groundMesh.material.needsUpdate = true;
-    }
     this.soilMaterial.map = ModelAssets.shared.soilTexture(season) ?? null;
     this.soilMaterial.needsUpdate = true;
-    this.groundCover?.setSeason(season);
-    if (this.groundColors && this.baseGroundColors) {
-      const values = this.groundColors.array as Float32Array;
-      const color = new THREE.Color();
-      for (let i = 0; i < values.length; i += 3) {
-        const r = this.baseGroundColors[i],
-          g = this.baseGroundColors[i + 1],
-          b = this.baseGroundColors[i + 2];
-        color.setRGB(r, g, b);
-        seasonalGroundColor(color, season);
-        values[i] = color.r;
-        values[i + 1] = color.g;
-        values[i + 2] = color.b;
-      }
-
-      this.groundColors.needsUpdate = true;
-      this.groundOpenings?.updateColors();
-    }
 
     this.foliageMaterials.forEach((base, material) => {
       material.color.copy(base);
