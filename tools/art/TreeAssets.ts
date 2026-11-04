@@ -1,3 +1,4 @@
+import { createTreeTrunk, treeBarkMaterial, trunkCenter } from './TreeTrunks';
 import * as THREE from 'three';
 import { Random } from '../../src/game/Random';
 import { NEEDLE_TREES, type TreeSpecies } from '../../src/game/TreeSpecies';
@@ -10,7 +11,6 @@ type Profile = {
   height: number;
   radius: number;
   trunk: number;
-  bark: number;
   tint: number;
   shape: Shape;
   crownStart: number;
@@ -22,7 +22,6 @@ const profiles: Record<Species, Profile> = {
     height: 10.4,
     radius: 2.45,
     trunk: 0.3,
-    bark: 0x825637,
     tint: 0x557b58,
     shape: 'needle',
     crownStart: 0.64,
@@ -32,7 +31,6 @@ const profiles: Record<Species, Profile> = {
     height: 10.8,
     radius: 2.45,
     trunk: 0.31,
-    bark: 0x5f4939,
     tint: 0x466b53,
     shape: 'needle',
     crownStart: 0.25,
@@ -42,7 +40,6 @@ const profiles: Record<Species, Profile> = {
     height: 10.1,
     radius: 2.05,
     trunk: 0.27,
-    bark: 0x805c44,
     tint: 0x8ba464,
     shape: 'needle',
     crownStart: 0.37,
@@ -52,7 +49,6 @@ const profiles: Record<Species, Profile> = {
     height: 9.6,
     radius: 1.83,
     trunk: 0.19,
-    bark: 0xe3d7bd,
     tint: 0x8fb875,
     shape: 'triangle',
     crownStart: 0.53,
@@ -62,7 +58,6 @@ const profiles: Record<Species, Profile> = {
     height: 8.2,
     radius: 2.8,
     trunk: 0.37,
-    bark: 0x745844,
     tint: 0x86a95c,
     shape: 'lobe',
     crownStart: 0.5,
@@ -72,7 +67,6 @@ const profiles: Record<Species, Profile> = {
     height: 10,
     radius: 2.24,
     trunk: 0.27,
-    bark: 0x7c7663,
     tint: 0x839760,
     shape: 'compound',
     crownStart: 0.55,
@@ -82,7 +76,6 @@ const profiles: Record<Species, Profile> = {
     height: 9.2,
     radius: 1.63,
     trunk: 0.21,
-    bark: 0xaca993,
     tint: 0x91b47a,
     shape: 'round',
     crownStart: 0.52,
@@ -92,7 +85,6 @@ const profiles: Record<Species, Profile> = {
     height: 8.7,
     radius: 2.75,
     trunk: 0.34,
-    bark: 0x776150,
     tint: 0x789a60,
     shape: 'heart',
     crownStart: 0.48,
@@ -102,7 +94,6 @@ const profiles: Record<Species, Profile> = {
     height: 6.8,
     radius: 1.9,
     trunk: 0.2,
-    bark: 0x7b6252,
     tint: 0xc3cd9f,
     shape: 'compound',
     crownStart: 0.5,
@@ -119,7 +110,7 @@ export function createTreeModel(species: Species): THREE.Group {
   crown.name = 'Foliage';
   root.add(crown);
 
-  const bark = new THREE.MeshStandardMaterial({ name: 'bark', color: p.bark, roughness: 1 });
+  const bark = treeBarkMaterial(species);
   const foliage = new THREE.MeshStandardMaterial({
     name: `leaf_${species}_cards`,
     color: p.tint,
@@ -161,9 +152,8 @@ export function createTreeModel(species: Species): THREE.Group {
     }
   }
 
-  const bend = needle ? 0.07 : 0.24;
-  wood([0, 0, 0], [bend, p.height * 0.54, 0], p.trunk, 0.65);
-  wood([bend, p.height * 0.54, 0], [0, p.height * 0.95, 0.08], p.trunk * 0.65, 0.15);
+  const trunkHeight = p.height * 0.95;
+  root.add(new THREE.Mesh(createTreeTrunk(species, trunkHeight, p.trunk), bark));
 
   for (let tier = 0; tier < p.tiers; tier++) {
     const t = tier / p.tiers;
@@ -180,7 +170,8 @@ export function createTreeModel(species: Species): THREE.Group {
       const x = Math.cos(angle) * radius * 0.62;
       const z = Math.sin(angle) * radius * 0.62;
       const tipY = y + (species === 'spruce' ? -0.22 : 0.22);
-      wood([bend, y - 0.53, 0], [x, tipY, z], p.trunk * (1 - 0.45 * t) * 0.28, 0.3);
+      const [trunkX, trunkZ] = trunkCenter(species, (y - 0.53) / trunkHeight);
+      wood([trunkX, y - 0.53, trunkZ], [x, tipY, z], p.trunk * (1 - 0.45 * t) * 0.28, 0.3);
       cluster(
         x,
         tipY + 0.23,
@@ -193,34 +184,6 @@ export function createTreeModel(species: Species): THREE.Group {
   }
   cluster(0, p.height * 0.92, 0, p.radius * 0.72, p.radius * (needle ? 0.86 : 1.08), 0.6);
 
-  if (species === 'birch' || species === 'aspen') {
-    const marking = new THREE.MeshStandardMaterial({
-      name: 'bark_marks',
-      color: species === 'birch' ? 0x564d47 : 0x777765,
-      roughness: 1,
-    });
-    for (let i = 0; i < 14; i++) {
-      const y = 0.5 + i * 0.31;
-      const t = y / (p.height * 0.54);
-      const radius = p.trunk * (1 - t * 0.35);
-      // Полосы повторяют поверхность ствола и остаются частью одного материала.
-      const patch = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-          radius + 0.004,
-          radius + 0.004,
-          0.04 + (i % 3) * 0.019,
-          4,
-          1,
-          true,
-          i * 2.4,
-          1.4,
-        ),
-        marking,
-      );
-      patch.position.set(t * bend, y, 0);
-      root.add(patch);
-    }
-  }
   return root;
 }
 

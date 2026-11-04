@@ -1,3 +1,10 @@
+import {
+  createTreeTrunk,
+  treeBarkMaterial,
+  treeBarkPixels,
+  TREE_BARK_SIZE,
+  trunkCenter,
+} from './art/TreeTrunks';
 import { createTreeModel, treeFoliagePixels } from './art/TreeAssets';
 import { isTreeSpecies, TREE_SPECIES } from '../src/game/TreeSpecies';
 import { oakFoliagePixels, OAK_FOLIAGE_SIZE } from './art/OakFoliage';
@@ -790,9 +797,9 @@ function furItem() {
   return root;
 }
 function oak() {
-  const root = group(new THREE.Group(), 'oak'),
-    bark = mat('bark', 0x735940),
-    branch = mat('bark_dark', 0x624934);
+  const root = group(new THREE.Group(), 'oak');
+  const bark = treeBarkMaterial('oak');
+  const trunkHeight = 5.9;
   const leaves = new THREE.MeshStandardMaterial({
     name: 'leaf_oak_cards',
     color: 0x6e9b60,
@@ -814,16 +821,7 @@ function oak() {
       );
     }
   };
-  stick(root, bark, 'Trunk', [0, 0, 0], [0, 5.9, 0], 0.44);
-  for (let i = 0; i < 7; i++)
-    stick(
-      root,
-      branch,
-      `BarkRidge${i}`,
-      [Math.cos(i) * 0.34, 0.4, Math.sin(i) * 0.34],
-      [Math.cos(i) * 0.22, 5.7, Math.sin(i) * 0.22],
-      0.035,
-    );
+  root.add(new THREE.Mesh(createTreeTrunk('oak', trunkHeight, 0.44), bark));
   const crown = group(root, 'Foliage');
   cluster(crown, [0, 7.65, 0], 3.4, 0.4);
   cluster(crown, [0.25, 7.1, 0.25], 3.5, 1.1);
@@ -831,7 +829,8 @@ function oak() {
     const a = i * 2.4,
       x = Math.cos(a) * 1.38,
       z = Math.sin(a) * 1.34;
-    stick(root, bark, `Branch${i}`, [0, 4.8, 0], [x, 6.45, z], 0.115);
+    const [trunkX, trunkZ] = trunkCenter('oak', 4.8 / trunkHeight);
+    stick(root, bark, `Branch${i}`, [trunkX, 4.8, trunkZ], [x, 6.45, z], 0.115);
     cluster(crown, [x, 6.78 + (i % 3) * 0.28, z], 2.6, a);
   }
   const litter = group(root, 'Litter');
@@ -1390,9 +1389,7 @@ function terrainTexture(name, soil = false) {
     ]),
   );
 }
-function writeTreeTexture(species: (typeof TREE_SPECIES)[number]): void {
-  const size = OAK_FOLIAGE_SIZE;
-  const pixels = species === 'oak' ? oakFoliagePixels() : treeFoliagePixels(species);
+function writeTreeTexture(name: string, size: number, pixels: Buffer): void {
   const stride = size * 4;
   const rows = Buffer.alloc((stride + 1) * size);
   for (let y = 0; y < size; y++)
@@ -1404,7 +1401,7 @@ function writeTreeTexture(species: (typeof TREE_SPECIES)[number]): void {
   header[8] = 8;
   header[9] = 6;
   writeFileSync(
-    `public/textures/${species}-foliage.png`,
+    `public/textures/${name}.png`,
     Buffer.concat([
       Buffer.from('89504e470d0a1a0a', 'hex'),
       chunk('IHDR', header),
@@ -1423,7 +1420,10 @@ if (!requested.size) {
   terrainTexture('soil', true);
 }
 for (const species of TREE_SPECIES) {
-  if (!requested.size || requested.has(species)) writeTreeTexture(species);
+  if (requested.size && !requested.has(species)) continue;
+  const foliage = species === 'oak' ? oakFoliagePixels() : treeFoliagePixels(species);
+  writeTreeTexture(`${species}-foliage`, OAK_FOLIAGE_SIZE, foliage);
+  writeTreeTexture(`${species}-bark`, TREE_BARK_SIZE, treeBarkPixels(species));
 }
 const models = {
   pike: () => createPikeModel(),

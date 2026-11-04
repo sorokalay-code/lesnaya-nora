@@ -13,7 +13,7 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
 const TEXTURE_NAMES = [
   'fur',
   'leaf',
-  ...TREE_SPECIES.map((species) => `${species}-foliage`),
+  ...TREE_SPECIES.flatMap((species) => [`${species}-foliage`, `${species}-bark`]),
   ...Object.values(SEASON_TEXTURE_SUFFIX).flatMap((season) => [
     `ground-${season}`,
     `cover-${season}`,
@@ -198,6 +198,13 @@ export class ModelAssets {
           material.userData.baseColor = material.color.getHex();
 
         if (material.name.startsWith('fur_') && fur) material.map = fur;
+
+        const bark = /^bark_(.+)_texture$/.exec(material.name);
+        const barkTexture = bark && this.textures.get(`${bark[1]}-bark`);
+        if (barkTexture) {
+          material.map = barkTexture;
+          material.color.setHex(0xffffff);
+        }
 
         const treeCard = /^leaf_(.+)_cards$/.exec(material.name);
         const treeTexture = treeCard && this.textures.get(`${treeCard[1]}-foliage`);

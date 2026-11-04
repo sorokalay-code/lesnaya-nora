@@ -57,6 +57,13 @@ test('all ten tree crowns are cutout meshes and only evergreens keep their crown
     const crown = object.getObjectByName('Foliage');
     if (!crown) return;
     seen.add(object.name);
+    const bark = crown.parent?.children.find(
+      (child): child is THREE.Mesh =>
+        child instanceof THREE.Mesh && child.material.name === `bark_${object.name}_texture`,
+    );
+    assert.ok(bark);
+    const uv = bark.geometry.getAttribute('uv');
+    assert.ok(uv && Array.from({ length: uv.count }, (_, i) => uv.getY(i)).some((v) => v > 2));
     const metrics = stats(crown);
     assert.equal(metrics.meshes, 1);
     assert.ok(metrics.triangles <= 150);
