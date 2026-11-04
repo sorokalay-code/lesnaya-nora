@@ -1,9 +1,11 @@
 import { playableWorldLimit } from './WorldConfig';
 import * as THREE from 'three';
-import { CaveMesher } from './CaveMesher';
+import { CaveMesher, TUNNEL_FLOOR_DEPTH } from './CaveMesher';
 import type { DigNode, SaveData } from './types';
 import type { World } from './World';
 
+const WALKABLE_TUNNEL_RADIUS = 1.7;
+const ENTRANCE_BLEND_WIDTH = 1.3;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const distance2 = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
@@ -71,12 +73,12 @@ export class Excavation {
       floors: DigNode[] = [];
     for (let i = 0; i < queue.length; i++) {
       const node = queue[i],
-        floor = { x: node.x, y: node.y - 0.95, z: node.z };
+        floor = { x: node.x, y: node.y - TUNNEL_FLOOR_DEPTH, z: node.z };
       if (!this.isSheltered(floor.x, floor.y, floor.z)) continue;
       floors.push(floor);
       for (const next of this.neighbors.get(node) ?? []) {
         if (visited.has(next)) continue;
-        const y = next.y - 0.95;
+        const y = next.y - TUNNEL_FLOOR_DEPTH;
         if (!this.isSheltered(next.x, y, next.z)) continue;
         visited.add(next);
         queue.push(next);
@@ -87,7 +89,7 @@ export class Excavation {
   }
 
   private depth(node: DigNode): number {
-    return this.world.heightAt(node.x, node.z) - (node.y - 0.95);
+    return this.world.heightAt(node.x, node.z) - (node.y - TUNNEL_FLOOR_DEPTH);
   }
 
   depthAt(x: number, y: number, z: number): number {
@@ -95,7 +97,7 @@ export class Excavation {
   }
 
   isSheltered(x: number, y: number, z: number): boolean {
-    return this.depthAt(x, y, z) > 0.18 && this.distanceToTunnel(x, y, z) < 1.7;
+    return this.depthAt(x, y, z) > 0.18 && this.distanceToTunnel(x, y, z) < WALKABLE_TUNNEL_RADIUS;
   }
 
   contains(point: THREE.Vector3): boolean {
@@ -108,9 +110,9 @@ export class Excavation {
   }
 
   canMoveTo(x: number, z: number, y: number, inside: boolean): boolean {
-    if (!inside || this.distanceToTunnel(x, y, z) < 1.7) return true;
+    if (!inside || this.distanceToTunnel(x, y, z) < WALKABLE_TUNNEL_RADIUS) return true;
 
-    return this.openings.some((o) => distance2(o, { x, z }) < 1.7);
+    return this.openings.some((o) => distance2(o, { x, z }) < WALKABLE_TUNNEL_RADIUS);
   }
 
   nearOpening(x: number, z: number, radius = 1.5): boolean {
@@ -141,7 +143,7 @@ export class Excavation {
     const outside = fromInside ? to : from;
     const exitCost = (node: DigNode) =>
       distance2(node, outside) +
-      Math.max(0, this.world.heightAt(node.x, node.z) - (node.y - 0.95)) * 8;
+      Math.max(0, this.world.heightAt(node.x, node.z) - (node.y - TUNNEL_FLOOR_DEPTH)) * 8;
     const opening = this.openings
       .filter((node) => came.has(node))
       .sort((a, b) => exitCost(a) - exitCost(b))[0];
@@ -150,7 +152,7 @@ export class Excavation {
     const nodes: DigNode[] = [];
     for (let node: DigNode | null = endpoint; node; node = came.get(node) ?? null) nodes.push(node);
     if (fromInside) nodes.reverse();
-    const points = nodes.map((node) => ({ x: node.x, y: node.y - 0.95, z: node.z }));
+    const points = nodes.map((node) => ({ x: node.x, y: node.y - TUNNEL_FLOOR_DEPTH, z: node.z }));
     if (!fromInside && opening) {
       const inward = nodes[1] ?? to;
       let dx = opening.x - inward.x,
@@ -215,7 +217,7 @@ export class Excavation {
     let best: { distance: number; y: number; score: number; edge: boolean } | undefined;
     const consider = (cx: number, cy: number, cz: number, edge: boolean) => {
       const distance = Math.hypot(x - cx, z - cz),
-        score = distance + Math.abs(cy - (feetY + 0.95)) * 0.4;
+        score = distance + Math.abs(cy - (feetY + TUNNEL_FLOOR_DEPTH)) * 0.4;
       if (!best || score < best.score) best = { distance, y: cy, score, edge };
     };
     for (const node of this.save.excavation)
@@ -223,10 +225,10 @@ export class Excavation {
 
     for (const [a, b] of this.edges) {
       if (
-        Math.min(a.x, b.x) - 1.3 > x ||
-        Math.max(a.x, b.x) + 1.3 < x ||
-        Math.min(a.z, b.z) - 1.3 > z ||
-        Math.max(a.z, b.z) + 1.3 < z
+        Math.min(a.x, b.x) - ENTRANCE_BLEND_WIDTH > x ||
+        Math.max(a.x, b.x) + ENTRANCE_BLEND_WIDTH < x ||
+        Math.min(a.z, b.z) - ENTRANCE_BLEND_WIDTH > z ||
+        Math.max(a.z, b.z) + ENTRANCE_BLEND_WIDTH < z
       )
         continue;
 
@@ -247,21 +249,21 @@ export class Excavation {
   floorAt(x: number, z: number, previousY: number): number {
     const surface = this.world.heightAt(x, z),
       center = this.centerline(x, z, previousY);
-    if (!center || center.distance > 1.7) return surface;
+    if (!center || center.distance > WALKABLE_TUNNEL_RADIUS) return surface;
 
-    const tunnelFloor = center.y - 0.95;
+    const tunnelFloor = center.y - TUNNEL_FLOOR_DEPTH;
     const opening = this.openings.reduce(
       (best, node) => Math.min(best, distance2(node, { x, z })),
       Infinity,
     );
     // Склон применяется только у открытого входа. В соединённом проходе прежняя
     // радиальная формула поднимала пол между камерами и выталкивала крольчиху наверх.
-    if (opening < 1.7 && !center.edge) {
-      const blend = clamp((1.7 - opening) / 1.3, 0, 1);
+    if (opening < WALKABLE_TUNNEL_RADIUS && !center.edge) {
+      const blend = clamp((WALKABLE_TUNNEL_RADIUS - opening) / ENTRANCE_BLEND_WIDTH, 0, 1);
       return surface + (tunnelFloor - surface) * blend;
     }
 
-    return previousY < surface - 0.13 || opening < 1.7 ? tunnelFloor : surface;
+    return previousY < surface - 0.13 || opening < WALKABLE_TUNNEL_RADIUS ? tunnelFloor : surface;
   }
 
   /** Луч начинается у крольчихи; камера задаёт направление копания без переноса точки действия. */
@@ -359,7 +361,7 @@ export class Excavation {
     let nearest: DigNode | undefined,
       best = Infinity;
     for (const node of this.save.excavation) {
-      const distance = Math.hypot(node.x - x, node.y - (y + 0.95), node.z - z);
+      const distance = Math.hypot(node.x - x, node.y - (y + TUNNEL_FLOOR_DEPTH), node.z - z);
       if (distance < best) {
         best = distance;
         nearest = node;
@@ -383,10 +385,10 @@ export class Excavation {
       this.neighbors.set(node, [...(this.neighbors.get(node) ?? []), other]);
     }
 
-    this.mesher.addNode(node, connections);
+    const bounds = this.mesher.addNode(node, connections);
+    this.world.addGroundHole(bounds, (x, y, z) => this.mesher.distanceAt(x, y, z));
     if (node.y + 1 > this.world.heightAt(node.x, node.z)) {
       this.openings.push(node);
-      this.world.addGroundHole(node.x, node.z, 1.7);
     }
 
     const root = this.world.rootAt(node.x, node.z, this.depth(node));

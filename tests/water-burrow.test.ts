@@ -13,7 +13,10 @@ import { PlayerMovement } from '../src/game/session/PlayerMovement';
 import { WaterSimulation } from '../src/game/session/WaterSimulation';
 import type { ViewCamera } from '../src/game/ViewCamera';
 import type { Soundscape } from '../src/game/Audio';
-import type { DigNode } from '../src/game/types';
+import { KitMovement } from '../src/game/session/KitMovement';
+import { KitWander } from '../src/game/KitWander';
+import { createRabbit } from '../src/game/Models';
+import type { DigNode, KitData } from '../src/game/types';
 import { loadModels } from './model-fixture';
 
 await loadModels(...MODEL_NAMES);
@@ -142,6 +145,38 @@ test('partner enters and leaves an actual excavated entrance with aquatic naviga
   }
   assert.ok(Math.hypot(actor.x - outside.x, actor.z - outside.z) < 0.8);
   assert.ok(Math.abs(actor.root.position.y - f.world.heightAt(actor.x, actor.z)) < 0.01);
+});
+
+test('following kits walk through the dug entrance into the expanded tunnel', () => {
+  const f = fixture();
+  const entrance = f.dig();
+  f.walkTo(entrance.x, entrance.z);
+  for (let i = 0; i < 3; i++) {
+    const section = f.dig(true);
+    f.walkTo(section.x, section.z);
+  }
+
+  const child: KitData = {
+    id: 1,
+    name: 'Kit',
+    genes: genes(),
+    age: 1.2,
+    hunger: 90,
+    health: 100,
+    father: 'Rabbit',
+    alive: true,
+    command: 'follow',
+    homeX: 0,
+    homeY: f.world.heightAt(0, 1),
+    homeZ: 1,
+  };
+  const rig = createRabbit(child.genes, true);
+  const movement = new KitMovement(f.context, new KitWander(new Random(2)));
+  for (let frame = 0; frame < 600; frame++) movement.update(child, rig, frame / 60, 1 / 60);
+  const { x, y, z } = rig.root.position;
+  assert.ok(f.earth.isSheltered(x, y, z));
+  assert.ok(f.earth.depthAt(x, y, z) > 1.7);
+  assert.ok(Math.hypot(x - f.save.player.x, z - f.save.player.z) < 1.8);
 });
 
 test('standing at the lip of a dry entrance starts descent before sheltered becomes true', () => {

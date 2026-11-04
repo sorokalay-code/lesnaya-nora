@@ -1,3 +1,5 @@
+import { GroundOpenings } from './GroundOpenings';
+import type { CaveBounds } from './CaveMesher';
 import { groundColor, seasonalGroundColor } from './TerrainColors';
 import { WorldBoundary } from './WorldBoundary';
 import * as THREE from 'three';
@@ -84,16 +86,8 @@ export class World {
   private displayedSeason = '';
   private groundColors?: THREE.BufferAttribute;
   private baseGroundColors?: Float32Array;
-  private groundGeometry?: THREE.BufferGeometry;
-  private groundMesh?: THREE.Mesh;
-  private groundTiles: { x: number; z: number; indices: number[] }[] = [];
-  private holes: { x: number; z: number; radius: number }[] = [];
-  private holePatches: THREE.Mesh[] = [];
-  private readonly exposedSoil = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    side: THREE.DoubleSide,
-  });
+  private groundMesh?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  private groundOpenings?: GroundOpenings;
   private treeRootRegrow = new Map<number, number>();
   private currentClock = 0;
   private nextResourceSync = 0;
@@ -133,7 +127,6 @@ export class World {
       this.config.vegetation,
     );
     this.scene.add(this.boundary.root);
-    this.exposedSoil.map = ModelAssets.shared.soil ?? null;
     for (const [id, time] of Object.entries(save?.gnawedRoots ?? {}))
       this.treeRootRegrow.set(Number(id), time);
 
@@ -319,11 +312,9 @@ export class World {
 
         const tileIndices = [j, j + 2, j + 1, j, j + 3, j + 2];
         indices.push(...tileIndices);
-        this.groundTiles.push({ x: wx + step / 2, z: wz + step / 2, indices: tileIndices });
       }
 
     const geo = new THREE.BufferGeometry();
-    this.groundGeometry = geo;
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
@@ -343,6 +334,7 @@ export class World {
     ground.receiveShadow = true;
     this.scene.add(ground);
     this.groundMesh = ground;
+    this.groundOpenings = new GroundOpenings(ground, this.size, (x, z) => this.heightAt(x, z));
   }
 
   surfaceHit(
@@ -353,90 +345,11 @@ export class World {
     if (!this.groundMesh) return undefined;
 
     const ray = new THREE.Raycaster(origin, direction, 0, maxDistance);
-    return ray.intersectObject(this.groundMesh, false)[0]?.point;
+    return ray.intersectObject(this.groundMesh, true)[0]?.point;
   }
 
-  isSurfaceCarved(x: number, z: number): boolean {
-    return this.holes.some((h) => Math.hypot(x - h.x, z - h.z) < h.radius);
-  }
-
-  addGroundHole(x: number, z: number, radius = 1.7): void {
-    if (this.holes.some((h) => Math.hypot(h.x - x, h.z - z) < 0.1)) return;
-
-    this.holes.push({ x, z, radius });
-    if (!this.groundGeometry) return;
-
-    const indices: number[] = [];
-    for (const tile of this.groundTiles) {
-      if (this.isSurfaceCarved(tile.x, tile.z)) continue;
-
-      indices.push(...tile.indices);
-    }
-
-    this.groundGeometry.setIndex(indices);
-    this.groundGeometry.computeVertexNormals();
-    this.rebuildHolePatches();
-  }
-
-  /** Закрывает края удалённых ячеек поверхности, сохраняя открытый проход в выкопанную полость. */
-  private rebuildHolePatches(): void {
-    for (const mesh of this.holePatches) {
-      mesh.removeFromParent();
-      mesh.geometry.dispose();
-    }
-
-    this.holePatches = [];
-    for (const hole of this.holes) {
-      const geometry = new THREE.RingGeometry(1.5, 2.55, 48, 6);
-      const position = geometry.getAttribute('position') as THREE.BufferAttribute;
-      const colors: number[] = [];
-      for (let i = 0; i < position.count; i++) {
-        const localX = position.getX(i),
-          localZ = position.getY(i);
-        const x = hole.x + localX,
-          z = hole.z + localZ;
-        position.setXYZ(i, x, this.heightAt(x, z) - 0.045, z);
-        const biome = this.biomeAt(x, z);
-        const grass = new THREE.Color(
-          biome === 'forest'
-            ? 0x54754f
-            : biome === 'meadow'
-              ? 0x81a769
-              : biome === 'swamp'
-                ? 0x688363
-                : 0xa48b60,
-        );
-        const color = new THREE.Color(0x795c43).lerp(
-          grass,
-          Math.min(1, Math.max(0, (Math.hypot(localX, localZ) - 1.5) / 0.75)),
-        );
-        colors.push(color.r, color.g, color.b);
-      }
-
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-      const original = geometry.getIndex();
-      if (original) {
-        const kept: number[] = [];
-        for (let i = 0; i < original.count; i += 3) {
-          const a = original.getX(i),
-            b = original.getX(i + 1),
-            c = original.getX(i + 2);
-          const x = (position.getX(a) + position.getX(b) + position.getX(c)) / 3;
-          const z = (position.getZ(a) + position.getZ(b) + position.getZ(c)) / 3;
-          if (this.isSurfaceCarved(x, z)) continue;
-
-          kept.push(a, b, c);
-        }
-
-        geometry.setIndex(kept);
-      }
-
-      geometry.computeVertexNormals();
-      const mesh = new THREE.Mesh(geometry, this.exposedSoil);
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-      this.holePatches.push(mesh);
-    }
+  addGroundHole(bounds: CaveBounds, distanceAt: (x: number, y: number, z: number) => number): void {
+    this.groundOpenings?.update(bounds, distanceAt);
   }
 
   private buildDecorations(): void {
@@ -840,6 +753,7 @@ export class World {
       }
 
       this.groundColors.needsUpdate = true;
+      this.groundOpenings?.updateColors();
     }
 
     this.foliageMaterials.forEach((base, material) => {

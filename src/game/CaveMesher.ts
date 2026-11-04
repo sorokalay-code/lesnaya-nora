@@ -1,9 +1,24 @@
 import * as THREE from 'three';
 import { ModelAssets } from './ModelAssets';
 import type { DigNode } from './types';
+import { caveMaterial } from './CaveMaterial';
 
 type Edge = [DigNode, DigNode];
 type Chunk = { mesh: THREE.Mesh; center: THREE.Vector3 };
+export const TUNNEL_FLOOR_DEPTH = 0.95;
+const HORIZONTAL_RADIUS = 1.9;
+const CEILING_RADIUS = 1.1;
+const FIELD_MARGIN = 2.35;
+const VERTICAL_MARGIN = 1.4;
+
+export interface CaveBounds {
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+  maxY: number;
+}
+
 const tetrahedra = [
   [0, 5, 1, 6],
   [0, 1, 2, 6],
@@ -31,13 +46,9 @@ export class CaveMesher {
   private nodes: DigNode[] = [];
   private edges: Edge[] = [];
   private readonly chunkSize = 6;
-  private readonly step = 0.5;
-  private readonly material = new THREE.MeshStandardMaterial({
-    color: 0x80694e,
-    map: ModelAssets.shared.soil ?? null,
-    roughness: 1,
-    side: THREE.BackSide,
-  });
+  private readonly step = 0.25;
+  private readonly fields = new Map<string, Float32Array>();
+  private readonly material = caveMaterial(ModelAssets.shared.soil);
 
   constructor(
     scene: THREE.Scene,
@@ -46,32 +57,69 @@ export class CaveMesher {
     scene.add(this.group);
   }
 
-  addNode(node: DigNode, connections: DigNode[]): void {
+  addNode(node: DigNode, connections: DigNode[]): CaveBounds {
     this.nodes.push(node);
     const fresh = connections.map((other) => [node, other] as Edge);
     this.edges.push(...fresh);
     const touched = new Set<string>();
     this.keysForBounds(
-      node.x - 2.1,
-      node.y - 1.3,
-      node.z - 2.1,
-      node.x + 2.1,
-      node.y + 1.3,
-      node.z + 2.1,
+      node.x - FIELD_MARGIN,
+      node.y - VERTICAL_MARGIN,
+      node.z - FIELD_MARGIN,
+      node.x + FIELD_MARGIN,
+      node.y + VERTICAL_MARGIN,
+      node.z + FIELD_MARGIN,
       touched,
     );
     for (const [a, b] of fresh)
       this.keysForBounds(
-        Math.min(a.x, b.x) - 2.1,
-        Math.min(a.y, b.y) - 1.3,
-        Math.min(a.z, b.z) - 2.1,
-        Math.max(a.x, b.x) + 2.1,
-        Math.max(a.y, b.y) + 1.3,
-        Math.max(a.z, b.z) + 2.1,
+        Math.min(a.x, b.x) - FIELD_MARGIN,
+        Math.min(a.y, b.y) - VERTICAL_MARGIN,
+        Math.min(a.z, b.z) - FIELD_MARGIN,
+        Math.max(a.x, b.x) + FIELD_MARGIN,
+        Math.max(a.y, b.y) + VERTICAL_MARGIN,
+        Math.max(a.z, b.z) + FIELD_MARGIN,
         touched,
       );
 
     for (const key of touched) this.rebuildChunk(key);
+    const affected = [node, ...connections];
+    return {
+      minX: Math.min(...affected.map((point) => point.x)) - FIELD_MARGIN,
+      minZ: Math.min(...affected.map((point) => point.z)) - FIELD_MARGIN,
+      maxX: Math.max(...affected.map((point) => point.x)) + FIELD_MARGIN,
+      maxZ: Math.max(...affected.map((point) => point.z)) + FIELD_MARGIN,
+      maxY: Math.max(...affected.map((point) => point.y)) + VERTICAL_MARGIN,
+    };
+  }
+
+  /** Интерполяция в том же тетраэдре, из которого построена видимая стенка. */
+  distanceAt(x: number, y: number, z: number): number {
+    const size = this.chunkSize;
+    const cx = Math.floor(x / size),
+      cy = Math.floor(y / size),
+      cz = Math.floor(z / size);
+    const field = this.fields.get(`${cx},${cy},${cz}`);
+    if (!field) return 1;
+
+    const local = [
+      (x - cx * size) / this.step,
+      (y - cy * size) / this.step,
+      (z - cz * size) / this.step,
+    ];
+    const cell = local.map(Math.floor);
+    const fractions = local.map((value, axis) => value - cell[axis]);
+    const axes = [0, 1, 2].sort((a, b) => fractions[b] - fractions[a]);
+    const stride = size / this.step + 1;
+    const sample = () => field[(cell[2] * stride + cell[1]) * stride + cell[0]];
+    let result = sample() * (1 - fractions[axes[0]]);
+    for (let i = 0; i < 3; i++) {
+      const axis = axes[i];
+      cell[axis]++;
+      result += sample() * (fractions[axis] - (fractions[axes[i + 1]] ?? 0));
+    }
+
+    return result;
   }
 
   private keysForBounds(
@@ -97,21 +145,21 @@ export class CaveMesher {
       max = min.clone().addScalar(s);
     const nearbyNodes = this.nodes.filter(
       (n) =>
-        n.x > min.x - 2.1 &&
-        n.x < max.x + 2.1 &&
-        n.y > min.y - 1.3 &&
-        n.y < max.y + 1.3 &&
-        n.z > min.z - 2.1 &&
-        n.z < max.z + 2.1,
+        n.x > min.x - FIELD_MARGIN &&
+        n.x < max.x + FIELD_MARGIN &&
+        n.y > min.y - VERTICAL_MARGIN &&
+        n.y < max.y + VERTICAL_MARGIN &&
+        n.z > min.z - FIELD_MARGIN &&
+        n.z < max.z + FIELD_MARGIN,
     );
     const nearbyEdges = this.edges.filter(
       ([a, b]) =>
-        Math.max(a.x, b.x) > min.x - 2.1 &&
-        Math.min(a.x, b.x) < max.x + 2.1 &&
-        Math.max(a.y, b.y) > min.y - 1.3 &&
-        Math.min(a.y, b.y) < max.y + 1.3 &&
-        Math.max(a.z, b.z) > min.z - 2.1 &&
-        Math.min(a.z, b.z) < max.z + 2.1,
+        Math.max(a.x, b.x) > min.x - FIELD_MARGIN &&
+        Math.min(a.x, b.x) < max.x + FIELD_MARGIN &&
+        Math.max(a.y, b.y) > min.y - VERTICAL_MARGIN &&
+        Math.min(a.y, b.y) < max.y + VERTICAL_MARGIN &&
+        Math.max(a.z, b.z) > min.z - FIELD_MARGIN &&
+        Math.min(a.z, b.z) < max.z + FIELD_MARGIN,
     );
     const old = this.chunks.get(key);
     if (old) {
@@ -120,12 +168,15 @@ export class CaveMesher {
       this.chunks.delete(key);
     }
 
-    if (!nearbyNodes.length && !nearbyEdges.length) return;
+    if (!nearbyNodes.length && !nearbyEdges.length) {
+      this.fields.delete(key);
+      return;
+    }
 
     const sdf = (x: number, y: number, z: number): number => {
-      let distance = Infinity;
+      let distance = 10;
       for (const n of nearbyNodes) {
-        const d = Math.hypot((x - n.x) / 1.9, (y - n.y) / 1.1, (z - n.z) / 1.9) - 1;
+        const d = sectionDistance(x - n.x, y - n.y, z - n.z);
         if (d < distance) distance = d;
       }
 
@@ -140,9 +191,7 @@ export class CaveMesher {
             ((x - a.x) * dx + (y - a.y) * dy + (z - a.z) * dz) / (dx * dx + dy * dy + dz * dz),
           ),
         );
-        const d =
-          Math.hypot((x - a.x - dx * t) / 1.9, (y - a.y - dy * t) / 1.1, (z - a.z - dz * t) / 1.9) -
-          1;
+        const d = sectionDistance(x - a.x - dx * t, y - a.y - dy * t, z - a.z - dz * t);
         const h = Math.max(0, 0.25 - Math.abs(distance - d)) / 0.25;
         distance = Math.min(distance, d) - h * h * 0.0625;
       }
@@ -162,9 +211,9 @@ export class CaveMesher {
             min.z + z * this.step,
           );
 
+    this.fields.set(key, field);
     const positions: number[] = [],
-      normals: number[] = [],
-      uvs: number[] = [];
+      normals: number[] = [];
     const gradient = (p: THREE.Vector3) => {
       const h = 0.06;
       return new THREE.Vector3(
@@ -174,7 +223,7 @@ export class CaveMesher {
       ).normalize();
     };
     const triangle = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => {
-      const above = (p: THREE.Vector3) => p.y - this.surfaceAt(p.x, p.z) + 0.035;
+      const above = (p: THREE.Vector3) => p.y - this.surfaceAt(p.x, p.z) - 0.035;
       const clipped: THREE.Vector3[] = [];
       const source = [a, b, c];
       for (let i = 0; i < source.length; i++) {
@@ -200,13 +249,14 @@ export class CaveMesher {
           positions.push(vertex.x, vertex.y, vertex.z);
           const normal = gradient(vertex);
           normals.push(normal.x, normal.y, normal.z);
-          uvs.push((Math.abs(normal.x) > 0.55 ? vertex.z : vertex.x) * 0.45, vertex.y * 0.45);
         }
       }
     };
     for (let z = 0; z < n; z++)
       for (let y = 0; y < n; y++)
         for (let x = 0; x < n; x++) {
+          const values = corners.map(([ox, oy, oz]) => field[index(x + ox, y + oy, z + oz)]);
+          if (values.every((v) => v >= 0) || values.every((v) => v < 0)) continue;
           const points = corners.map(
             ([ox, oy, oz]) =>
               new THREE.Vector3(
@@ -215,8 +265,6 @@ export class CaveMesher {
                 min.z + (z + oz) * this.step,
               ),
           );
-          const values = corners.map(([ox, oy, oz]) => field[index(x + ox, y + oy, z + oz)]);
-          if (values.every((v) => v >= 0) || values.every((v) => v < 0)) continue;
 
           for (const tet of tetrahedra) {
             const inside = tet.filter((i) => values[i] < 0),
@@ -251,7 +299,6 @@ export class CaveMesher {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.computeBoundingSphere();
     const mesh = new THREE.Mesh(geometry, this.material);
     mesh.receiveShadow = true;
@@ -273,4 +320,10 @@ export class CaveMesher {
   get chunkCount(): number {
     return this.chunks.size;
   }
+}
+
+function sectionDistance(dx: number, dy: number, dz: number): number {
+  const horizontal = (dx * dx + dz * dz) / HORIZONTAL_RADIUS ** 2;
+  const vertical = dy / (dy < 0 ? TUNNEL_FLOOR_DEPTH : CEILING_RADIUS);
+  return Math.sqrt((dy < 0 ? horizontal ** 2 : horizontal) + vertical ** 2) - 1;
 }

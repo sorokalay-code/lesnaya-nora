@@ -195,25 +195,28 @@ test('the passage between adjacent openings stays below the surface', () => {
 test('four neighboring surface openings remove the ground between them', () => {
   const scene = new THREE.Scene(),
     world = new World(scene, 197, fixture());
-  for (const [x, z] of [
+  const save = fixture();
+  save.excavation = [
     [0, 0],
     [2, 0],
     [0, 2],
     [2, 2],
-  ])
-    world.addGroundHole(x, z, 1.7);
-  assert.equal(world.isSurfaceCarved(1, 1), true);
-  const hit = world.surfaceHit(new THREE.Vector3(1, 20, 1), new THREE.Vector3(0, -1, 0), 30);
-  assert.equal(hit, undefined);
-  const patchHit = new THREE.Raycaster(
-    new THREE.Vector3(1, 20, 1),
-    new THREE.Vector3(0, -1, 0),
-    0,
-    30,
-  )
-    .intersectObjects(scene.children, true)
-    .find((i) => i.object.material === world['exposedSoil']);
-  assert.equal(patchHit, undefined);
+  ].map(([x, z]) => ({ x, y: world.heightAt(x, z) + 0.45, z }));
+  new Excavation(scene, world, save);
+  const hit = (x: number, z: number) =>
+    world.surfaceHit(new THREE.Vector3(x, 10, z), new THREE.Vector3(0, -1, 0), 20);
+  for (const [x, z] of [
+    [1, 1],
+    [1, 0],
+    [0, 1],
+    [2, 1],
+    [-1.2, -1.2],
+  ]) {
+    assert.equal(hit(x, z), undefined);
+  }
+  // The corner of the partially cut tile still lies on the original surface.
+  const corner = hit(-1.85, -1.85);
+  assert.ok(corner && Math.abs(corner.y - world.heightAt(corner.x, corner.z)) < 1e-5);
 });
 
 test('nests and food stashes are placed objects with independent coordinates', () => {
