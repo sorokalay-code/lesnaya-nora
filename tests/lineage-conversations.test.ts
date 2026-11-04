@@ -3,7 +3,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AnimalFactory, PlayerRabbit, RabbitFactory } from '../src/game/animals';
+import { AnimalFactory, PlayerRabbit, RabbitFactory, type RabbitActor } from '../src/game/animals';
 import { AnimalRestraint } from '../src/game/animals/AnimalRestraint';
 import { ModelAssets } from '../src/game/ModelAssets';
 import { createRabbit, animateRabbit } from '../src/game/Models';
@@ -16,6 +16,7 @@ import { RabbitFamily } from '../src/game/session/RabbitFamily';
 import { FamilyLifecycle } from '../src/game/session/FamilyLifecycle';
 import { FamilyCare } from '../src/game/FamilyCare';
 import { RabbitReproductiveThreat } from '../src/game/session/RabbitReproductiveThreat';
+import { AnimalSimulation } from '../src/game/session/AnimalSimulation';
 import { GenomeInheritance } from '../src/game/genetics/GenomeInheritance';
 import { HudPresenter } from '../src/ui/presenters/HudPresenter';
 import { FoodStore, SeasonSystem } from '../src/game/systems';
@@ -248,6 +249,27 @@ test('после перехода новорождённые получают п
   );
 });
 
+function matingSimulation(f: ReturnType<typeof fixture>, actor: RabbitActor) {
+  return new AnimalSimulation({
+    save: f.save,
+    player: f.player.rig,
+    rabbits: [actor],
+    families: [],
+    predators: [],
+    wildlife: [],
+    hawks: [],
+    state: {},
+    world: { heightAt: () => f.save.player.y },
+    earth: { isSheltered: () => false, floorAt: () => f.save.player.y },
+    rng: new Random(12),
+    traffic: { update: () => [] },
+    ecology: { update() {} },
+    collisions: { resolve() {} },
+    groundAt: () => f.save.player.y,
+    toast() {},
+  } as unknown as ConstructorParameters<typeof AnimalSimulation>[0]);
+}
+
 test('крол без анатомических мутаций может начать погоню', () => {
   const { save } = fixture();
   const { player } = save;
@@ -265,6 +287,46 @@ test('крол без анатомических мутаций может на�
   }
   assert.deepEqual(threat.view, { name: data.name, phase: 'warning' });
   assert.equal(save.pregnancy, null);
+});
+
+test('обычный крол и крол без лап запускают парный клип при контакте', () => {
+  for (const legs of [4, 0] as const) {
+    const f = fixture();
+    const { player, partners } = f.save;
+    const data = partners[0];
+    data.genes = { ...gene(), anatomy: { ...gene().anatomy, legs } };
+    const actor = AnimalFactory.rabbit(data, new Random(12));
+    actor.moveTo(player.x + 1, player.z, player.y);
+    const simulation = matingSimulation(f, actor);
+    let time = 0;
+    for (; time <= 800 && !f.save.pregnancy; time += 1) simulation.update(0.05, time, false);
+
+    assert.deepEqual(f.save.pregnancy, { fatherId: data.id, progress: 0, trauma: true });
+    animateRabbit(f.player.rig, time, false, false, 0.05);
+    assert.equal(f.player.rig.activeName, 'mate');
+    assert.equal(actor.rig.activeName, 'mate');
+    assert.equal(actor.root.position.y, player.y + 0.4);
+    assert.equal(f.save.mateId, undefined);
+    simulation.update(0.05, time + 4, false);
+    assert.notEqual(actor.rig.activeName, 'mate');
+    assert.equal(actor.root.position.x, actor.x);
+  }
+});
+
+test('добровольное спаривание использует тот же клип и записывает обычную беременность', () => {
+  const f = fixture();
+  const { player, partners } = f.save;
+  const data = partners[0];
+  data.genes = gene();
+  const actor = AnimalFactory.rabbit(data, new Random(12));
+  actor.moveTo(player.x + 1, player.z, player.y);
+  const simulation = matingSimulation(f, actor);
+  assert.equal(simulation.startMating(data.id, 1, 'consensual'), true);
+  simulation.update(0.05, 1.05, false);
+  animateRabbit(f.player.rig, 1.05, false, false, 0.05);
+  assert.deepEqual(f.save.pregnancy, { fatherId: data.id, progress: 0 });
+  assert.equal(f.player.rig.activeName, 'mate');
+  assert.equal(actor.rig.activeName, 'mate');
 });
 
 test('беременность после нападения видна вместе с крольчатами и сохраняет родословную отца', () => {
@@ -301,12 +363,15 @@ test('беременность после нападения видна вмес
 
   sheltered = false;
   let ran = false;
-  for (let frame = 0; frame < 4000 && !save.pregnancy; frame++) {
-    threat.update(0.1, (time += 0.1), [actor], true);
+  let caught: RabbitActor | undefined;
+  for (let frame = 0; frame < 4000 && !caught; frame++) {
+    caught = threat.update(0.1, (time += 0.1), [actor], true);
     if (threat.view?.phase === 'chase' && actor.x < player.x + 5) ran = true;
   }
   assert.ok(ran);
   assert.equal(threat.view, undefined);
+  assert.equal(caught, actor);
+  assert.equal(matingSimulation(f, actor).startMating(father.id, time, 'forced'), true);
   assert.deepEqual(save.pregnancy, { fatherId: father.id, progress: 0, trauma: true });
   const careEarth = { isSheltered: () => true } as Excavation;
   const care = new FamilyCare(save, careEarth);

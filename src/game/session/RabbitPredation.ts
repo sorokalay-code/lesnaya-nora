@@ -41,11 +41,11 @@ export class RabbitPredation {
   update(
     dt: number,
     time: number,
-    pursuing?: RabbitActor,
+    occupied?: RabbitActor,
     combat = this.context.combatAllowed?.() ?? true,
   ): void {
     for (const actor of this.context.rabbits) {
-      if (actor === pursuing) {
+      if (actor === occupied) {
         actor.root.userData.hunting = false;
         continue;
       }

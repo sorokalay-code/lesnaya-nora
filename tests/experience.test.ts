@@ -181,11 +181,9 @@ test('forming a pair does not generate a nest or consume nest materials', () => 
       },
     },
     sound: { play() {} },
-    playAction() {},
     familyStash: () => undefined,
     resetInput() {},
-    startMating() {},
-    elapsed: () => 0,
+    startMating: () => true,
     toast() {},
     persist() {},
   } as unknown as ConstructorParameters<typeof InteractionController>[0];

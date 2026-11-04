@@ -1,7 +1,7 @@
 import { RabbitReproductiveThreat } from './RabbitReproductiveThreat';
 import { Excavation } from '../Excavation';
 import { ExcavationTraffic } from '../ExcavationTraffic';
-import { setRabbitAction, type RabbitRig } from '../Models';
+import { animateRabbit, setRabbitAction, type RabbitRig } from '../Models';
 import { PartnerSupport } from '../PartnerSupport';
 import { Random } from '../Random';
 import { WildlifeEcology } from '../WildlifeEcology';
@@ -28,6 +28,9 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { PlayerConsequences } from './PlayerConsequences';
 import { WaterSimulation } from './WaterSimulation';
 import type { AnimalRemains } from '../AnimalRemains';
+
+const MATING_DURATION = 3.1;
+
 export interface AnimalState {
   mating?: { fatherId: number; until: number };
 }
@@ -126,10 +129,25 @@ export class AnimalSimulation {
     return this.reproductiveThreat.view;
   }
 
+  startMating(fatherId: number, time: number, cause: 'consensual' | 'forced'): boolean {
+    const { save, state, player } = this.context;
+    if (save.pregnancy || state.mating || AnimalRestraint.active(player.root)) return false;
+    const father = this.context.rabbits.find((actor) => actor.data.id === fatherId);
+    if (!father?.alive || AnimalRestraint.active(father.root)) return false;
+
+    save.pregnancy =
+      cause === 'forced' ? { fatherId, progress: 0, trauma: true } : { fatherId, progress: 0 };
+    state.mating = { fatherId, until: time + MATING_DURATION };
+    setRabbitAction(player, 'mate', time, MATING_DURATION);
+    setRabbitAction(father.rig, 'mate', time + fatherId, MATING_DURATION);
+    return true;
+  }
+
   update(dt: number, time: number, night: boolean, mode: 'active' | 'rest' = 'active'): number {
     const combat = this.context.combatAllowed?.() ?? true;
     const resting = mode === 'rest';
     const canAttackFamily = combat && !resting;
+    const matingActor = this.updateMatingState(time);
     const pursuing = this.reproductiveThreat.actor;
     const attack = this.reproductiveThreat.update(
       dt,
@@ -140,15 +158,18 @@ export class AnimalSimulation {
         (this.context.canGrabPlayer?.() ?? true) &&
         !AnimalRestraint.active(this.context.player.root),
     );
-    if (attack) this.context.toast(attack);
+    if (attack && this.startMating(attack.data.id, time, 'forced'))
+      this.context.toast(
+        `Крол ${attack.data.name} напал на крольчиху. Она забеременела от него. Риск отклонений у потомства повышен.`,
+      );
+    const father = this.context.state.mating ? (matingActor ?? attack) : undefined;
     this.rabbitPredation.update(
       dt,
       time,
-      this.reproductiveThreat.actor ?? pursuing,
+      father ?? this.reproductiveThreat.actor ?? pursuing,
       canAttackFamily,
     );
-    this.updateRabbits(dt, time);
-    this.positionMatingPair(time);
+    this.updateRabbits(dt, time, father);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
     const closestThreat = this.updatePredators(dt, time, night, combat, canAttackFamily);
@@ -168,6 +189,12 @@ export class AnimalSimulation {
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
     for (const pike of this.water?.pikes ?? []) if (!pike.alive) this.context.remains?.record(pike);
     this.removeDeadRabbits();
+    if (
+      father?.alive &&
+      !AnimalRestraint.active(father.root) &&
+      !AnimalRestraint.active(this.context.player.root)
+    )
+      this.positionMatingPair(father, time, dt);
     this.context.remains?.update();
     this.updateVisibility();
     this.friendMarks?.update(this.context.wildlife, this.context.save.player, time);
@@ -185,10 +212,10 @@ export class AnimalSimulation {
     return closestThreat;
   }
 
-  private updateRabbits(dt: number, time: number): void {
+  private updateRabbits(dt: number, time: number, father?: RabbitActor): void {
     const p = this.context.save.player;
     for (const rabbit of this.context.rabbits) {
-      if (rabbit === this.reproductiveThreat.actor) continue;
+      if (rabbit === father || rabbit === this.reproductiveThreat.actor) continue;
       if (rabbit.data.id === this.context.save.mateId) {
         const event = this.context.partnerSupport.update(rabbit, dt, time, this.context.groundAt);
         if (
@@ -206,32 +233,41 @@ export class AnimalSimulation {
     }
   }
 
-  private positionMatingPair(time: number): void {
+  private updateMatingState(time: number): RabbitActor | undefined {
+    const { state, player, rabbits } = this.context;
+    const mating = state.mating;
+    if (!mating) return;
+
+    const actor = rabbits.find((rabbit) => rabbit.data.id === mating.fatherId);
+    if (actor && !AnimalRestraint.active(actor.root)) {
+      const y = Number(actor.root.userData.baseY ?? actor.root.position.y);
+      actor.root.position.set(actor.x, y, actor.z);
+    }
     if (
-      AnimalRestraint.active(this.context.player.root) ||
-      this.context.rabbits.some(
-        (r) => r.data.id === this.context.state.mating?.fatherId && AnimalRestraint.active(r.root),
-      )
+      time >= mating.until ||
+      !actor?.alive ||
+      AnimalRestraint.active(actor.root) ||
+      AnimalRestraint.active(player.root)
     ) {
-      this.context.state.mating = undefined;
+      state.mating = undefined;
+      if (actor?.root.userData.action === 'mate') actor.root.userData.actionUntil = 0;
+      if (player.root.userData.action === 'mate') player.root.userData.actionUntil = 0;
       return;
     }
-    const p = this.context.save.player;
-    if (this.context.state.mating) {
-      const actor = this.context.rabbits.find(
-        (r) => r.data.id === this.context.state.mating!.fatherId,
-      );
-      if (actor) {
-        actor.rig.root.position.set(
-          p.x + Math.sin(this.context.player.root.rotation.y) * 0.28,
-          p.y + 0.4,
-          p.z + Math.cos(this.context.player.root.rotation.y) * 0.28,
-        );
-        actor.rig.root.rotation.y = this.context.player.root.rotation.y;
-      }
+    return actor;
+  }
 
-      if (time >= this.context.state.mating.until) this.context.state.mating = undefined;
-    }
+  private positionMatingPair(actor: RabbitActor, time: number, dt: number): void {
+    const p = this.context.save.player;
+    const heading = this.context.player.root.rotation.y;
+    animateRabbit(actor.rig, time + actor.data.id, false, false, dt);
+    // Парная поза применяется после физики и не меняет сохранённое положение крола.
+    actor.root.position.set(
+      p.x + Math.sin(heading) * 0.28,
+      p.y + 0.4,
+      p.z + Math.cos(heading) * 0.28,
+    );
+    actor.root.rotation.y = heading;
   }
 
   private updatePredators(
@@ -322,6 +358,7 @@ export class AnimalSimulation {
       if (
         !rabbit.solitary &&
         rabbit !== this.reproductiveThreat.actor &&
+        rabbit.data.id !== this.context.state.mating?.fatherId &&
         !AnimalRestraint.active(rabbit.root) &&
         !rabbit.rig.root.userData.conversing &&
         this.context.rng.chance(dt * 0.025)

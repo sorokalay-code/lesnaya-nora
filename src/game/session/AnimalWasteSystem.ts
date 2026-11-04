@@ -129,7 +129,12 @@ export class AnimalWasteSystem {
       size,
       related ? 'family' : 'wild',
     );
-    if (rig && !rig.root.userData.conversing) setRabbitAction(rig, 'defecate', time + phase, 1.2);
+    if (
+      rig &&
+      !rig.root.userData.conversing &&
+      !(rig.root.userData.action === 'mate' && rig.root.userData.actionUntil > time + phase)
+    )
+      setRabbitAction(rig, 'defecate', time + phase, 1.2);
   }
 
   private updateCoats(dt: number): void {

@@ -36,7 +36,7 @@ interface Pursuit {
   endsAt: number;
 }
 
-/** Ведёт одну погоню за крольчихой и записывает отцовство при контакте. */
+/** Ведёт одну погоню за крольчихой и сообщает, какой крол её догнал. */
 export class RabbitReproductiveThreat {
   private readonly rng: Random;
   private nextCheck = 0;
@@ -67,7 +67,7 @@ export class RabbitReproductiveThreat {
     time: number,
     actors: readonly RabbitActor[],
     allowed: boolean,
-  ): string | undefined {
+  ): RabbitActor | undefined {
     this.time = time;
     const player = this.save.player;
     if (
@@ -125,9 +125,8 @@ export class RabbitReproductiveThreat {
     )
       return;
 
-    this.save.pregnancy = { fatherId: actor.data.id, progress: 0, trauma: true };
     this.finish(time);
-    return `Крол ${actor.data.name} напал на крольчиху. Она забеременела от него. Риск отклонений у потомства повышен.`;
+    return actor;
   }
 
   private start(time: number, actors: readonly RabbitActor[]): void {
@@ -155,14 +154,18 @@ export class RabbitReproductiveThreat {
   }
 
   private canPursue(actor: RabbitActor): boolean {
+    const player = this.save.player;
+    const y = actor.data.y ?? actor.root.position.y;
+    const inReach =
+      Math.hypot(actor.x - player.x, y - player.y, actor.z - player.z) <= CHASE.contactRange;
     return (
       actor.alive &&
       !actor.root.userData.conversing &&
       !AnimalRestraint.active(actor.root) &&
-      GeneticTraits.mobility(actor.data.genes) > 0 &&
+      (inReach || GeneticTraits.mobility(actor.data.genes) > 0) &&
       !this.terrain.sheltered({
         x: actor.x,
-        y: actor.data.y ?? actor.root.position.y,
+        y,
         z: actor.z,
       }) &&
       !this.inDeepWater(actor.x, actor.z)

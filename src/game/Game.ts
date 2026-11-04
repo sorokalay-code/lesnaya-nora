@@ -226,6 +226,7 @@ export class Game {
   }
 
   private setupWorld(): void {
+    this.animalState.mating = undefined;
     this.ui.setEvents(this.save.messages);
     this.ui.store.setState({
       saveNotice: undefined,
@@ -442,7 +443,6 @@ export class Game {
       world: this.world,
       rabbits: this.rabbits,
       family: this.family,
-      elapsed: () => this.runtime.elapsed,
       resetInput: () => this.input.clear(),
       resumeGame: () => {
         if (this.running && !this.ui.state.overlay) {
@@ -453,11 +453,9 @@ export class Game {
       toast: (text) => this.toast(text),
       persist: () => this.sessionUI.persist(false),
       markPartner: (actor, active) => this.decorations.markPartner(actor, active),
-      playAction: (action, duration) => this.playAction(action, duration),
       familyStash: () => this.partnerSupport.familyStash(),
-      startMating: (fatherId, until) => {
-        this.animalState.mating = { fatherId, until };
-      },
+      startMating: (fatherId) =>
+        this.animals.startMating(fatherId, this.runtime.elapsed, 'consensual'),
     });
     this.collisions = new AnimalCollisionSystem({
       playerRestrained: () => AnimalRestraint.active(this.player.root),

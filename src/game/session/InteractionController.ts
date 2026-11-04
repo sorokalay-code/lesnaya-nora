@@ -1,8 +1,6 @@
 import type { GameUI } from '../../ui/GameUI';
 import type { StashData } from '../types';
 import type { Soundscape } from '../Audio';
-import type { RabbitAction } from '../Models';
-import { setRabbitAction } from '../Models';
 import type { ViewCamera } from '../ViewCamera';
 import type { World } from '../World';
 import { partnerScore, type ForestAnimal, type RabbitActor } from '../animals';
@@ -27,15 +25,13 @@ interface InteractionContext {
   world: World;
   rabbits: RabbitActor[];
   family: FamilyLifecycle;
-  elapsed: () => number;
   resetInput: () => void;
   resumeGame: () => void;
   toast: (text: string) => void;
   persist: () => void;
   markPartner: (actor: RabbitActor, active: boolean) => void;
-  playAction: (action: RabbitAction, duration: number) => void;
   familyStash: () => StashData | undefined;
-  startMating: (fatherId: number, until: number) => void;
+  startMating: (fatherId: number) => boolean;
 }
 /** Управляет разговорами, отношениями и семейными командами через порт интерфейса. */
 export class InteractionController {
@@ -312,17 +308,16 @@ export class InteractionController {
         return;
       }
 
-      this.context.save.pregnancy = { fatherId: p.id, progress: 0 };
+      if (!this.context.startMating(p.id)) {
+        this.openPartner(p, 'Сейчас не получится. Попробуй позже.');
+        return;
+      }
+
       this.context.save.mateId = p.id;
       this.context.save.mateCommand = this.context.familyStash() ? 'forage' : 'follow';
       this.context.save.mateMessages = [];
-      this.context.playAction('mate', 3.1);
-      this.context.startMating(p.id, this.context.elapsed() + 3.1);
       const actor = this.context.rabbits.find((r) => r.data.id === p.id);
-      if (actor) {
-        setRabbitAction(actor.rig, 'mate', this.context.elapsed() + p.id, 3.1);
-        this.context.markPartner(actor, true);
-      }
+      if (actor) this.context.markPartner(actor, true);
 
       this.context.sound.play('baby');
       this.context.ui.closeDialog();
