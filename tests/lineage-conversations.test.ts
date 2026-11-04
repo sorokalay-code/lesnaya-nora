@@ -3,7 +3,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PlayerRabbit, RabbitFactory } from '../src/game/animals';
+import { AnimalFactory, PlayerRabbit, RabbitFactory } from '../src/game/animals';
 import { AnimalRestraint } from '../src/game/animals/AnimalRestraint';
 import { ModelAssets } from '../src/game/ModelAssets';
 import { createRabbit, animateRabbit } from '../src/game/Models';
@@ -15,6 +15,10 @@ import { LineageSuccession } from '../src/game/session/LineageSuccession';
 import { RabbitFamily } from '../src/game/session/RabbitFamily';
 import { FamilyLifecycle } from '../src/game/session/FamilyLifecycle';
 import { FamilyCare } from '../src/game/FamilyCare';
+import { RabbitReproductiveThreat } from '../src/game/session/RabbitReproductiveThreat';
+import { GenomeInheritance } from '../src/game/genetics/GenomeInheritance';
+import { HudPresenter } from '../src/ui/presenters/HudPresenter';
+import { FoodStore, SeasonSystem } from '../src/game/systems';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { GameUI } from '../src/ui/GameUI';
 import { createUIStore, socialDialogOpen, simulationPaused } from '../src/ui/store';
@@ -241,6 +245,74 @@ test('после перехода новорождённые получают п
     babies.every((k) =>
       k.lineage?.ancestors.some((a) => a.id === f.save.player.lineage!.id && a.distance === 1),
     ),
+  );
+});
+
+test('беременность после нападения видна вместе с крольчатами и сохраняет родословную отца', () => {
+  const f = fixture();
+  const { save } = f;
+  f.daughter.age = 1;
+  const father = save.partners[1];
+  father.genes = { ...gene(), anatomy: { ...gene().anatomy, fangs: true } };
+  save.mateId = save.partners[0].id;
+  const rng = new Random(12);
+  const actor = AnimalFactory.rabbit(father, rng);
+  const threat = new RabbitReproductiveThreat(save);
+  const player = save.player;
+  actor.moveTo(player.x, player.z, player.y);
+  assert.equal(threat.update(0, [actor], true), undefined);
+  assert.equal(save.pregnancy, null);
+  for (let time = 12; time <= 1200 && !save.pregnancy; time += 12)
+    threat.update(time, [actor], false);
+  assert.deepEqual(save.pregnancy, { fatherId: father.id, progress: 0, trauma: true });
+  const careEarth = { isSheltered: () => true } as Excavation;
+  const care = new FamilyCare(save, careEarth);
+  care.advance(864);
+  const world = {
+    heightAt: () => 0,
+    nearWater: () => false,
+    biomeAt: () => 'meadow',
+  } as unknown as World;
+  const hud = new HudPresenter().build(
+    save,
+    world,
+    { isSheltered: () => false } as Excavation,
+    false,
+    new FoodStore(save),
+    new SeasonSystem(save.seed),
+    20,
+    0,
+  );
+  assert.equal(hud.young.length, 1);
+  assert.equal(hud.pregnancyProgress, 50);
+
+  save.nests.push({ id: 1, x: player.x, y: player.y, z: player.z, quality: 100 });
+  const family = new FamilyLifecycle({
+    save,
+    scene: f.scene,
+    earth: careEarth,
+    world,
+    care,
+    rng,
+    genetics: new RabbitFactory(rng),
+    sound: { play() {} } as Soundscape,
+    temperature: () => 20,
+    persist() {},
+    toast() {},
+    playAction() {},
+  });
+  family.birth();
+  const newborns = save.kits.filter((kit) => kit.age === 0);
+  assert.ok(newborns.length >= 2);
+  assert.ok(newborns.every((kit) => kit.father === father.name));
+  assert.ok(
+    newborns.every((kit) =>
+      kit.lineage?.ancestors.some((ancestor) => ancestor.id === father.lineage?.id),
+    ),
+  );
+  assert.ok(
+    GenomeInheritance.risk(player.genes, father.genes, false, 0.25) >
+      GenomeInheritance.risk(player.genes, father.genes),
   );
 });
 

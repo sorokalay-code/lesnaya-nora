@@ -49,18 +49,18 @@ test('predators hunt peaceful animals and a moose strikes back when attacked', (
     rng = new Random(7),
     ecology = new WildlifeEcology(scene, world(), rng);
   const moose = createForestAnimal('moose', 0.5, 0, rng),
-    bear = createPredatorActor('bear', 0, 0, rng);
+    wolf = createPredatorActor('wolf', 0, 0, rng);
   ecology.animals.push(moose);
-  scene.add(moose.root, bear.root);
-  const prey = ecology.targetFor(bear, [bear], 1);
+  scene.add(moose.root, wolf.root);
+  const prey = ecology.targetFor(wolf, [wolf], 1);
   assert.equal(prey, moose);
-  bear.update(0.05, 1, 80, 80, false, true, () => 0, 0, 1, prey);
-  const events = ecology.update(0.05, 1, 300, 80, 80, () => 0, [bear]);
+  wolf.update(0.05, 1, 80, 80, false, true, () => 0, 0, 1, prey);
+  const events = ecology.update(0.05, 1, 300, 80, 80, () => 0, [wolf]);
   assert.ok(moose.health < moose.maxHealth);
-  assert.ok(bear.health < bear.maxHealth);
+  assert.ok(wolf.health < wolf.maxHealth);
   assert.ok(events.some((e) => e.kind === 'defend'));
-  bear.update(0.05, 1.1, 80, 80, false, true, () => 0);
-  assert.equal((bear.root.userData.model as ModelInstance).activeName, 'attack');
+  wolf.update(0.05, 1.1, 80, 80, false, true, () => 0);
+  assert.equal((wolf.root.userData.model as ModelInstance).activeName, 'attack');
 });
 
 test('a predator can kill a small animal and remove it from the world', () => {
@@ -68,12 +68,12 @@ test('a predator can kill a small animal and remove it from the world', () => {
     rng = new Random(9),
     ecology = new WildlifeEcology(scene, world(), rng);
   const squirrel = createForestAnimal('squirrel', 0.6, 0, rng),
-    bear = createPredatorActor('bear', 0, 0, rng);
+    wolf = createPredatorActor('wolf', 0, 0, rng);
   ecology.animals.push(squirrel);
-  scene.add(squirrel.root, bear.root);
-  const prey = ecology.targetFor(bear, [bear], 1);
-  bear.update(0.05, 1, 80, 80, false, true, () => 0, 0, 1, prey);
-  const events = ecology.update(0.05, 1, 300, 80, 80, () => 0, [bear]);
+  scene.add(squirrel.root, wolf.root);
+  const prey = ecology.targetFor(wolf, [wolf], 1);
+  wolf.update(0.05, 1, 80, 80, false, true, () => 0, 0, 1, prey);
+  const events = ecology.update(0.05, 1, 300, 80, 80, () => 0, [wolf]);
   assert.ok(events.some((e) => e.kind === 'hunt'));
   assert.equal(squirrel.alive, false);
   assert.equal(ecology.animals.includes(squirrel), false);

@@ -6,6 +6,7 @@ export const SWIMMING_MODELS = new Set([
   'moose',
   'boar',
   'bear',
+  'duck',
   'wolf',
   'dog',
   'snake',

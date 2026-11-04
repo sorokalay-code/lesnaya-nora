@@ -3,7 +3,7 @@ import type { NestData } from '../../game/types';
 import type { ForestAnimal } from '../../game/animals';
 import { animalNames } from '../../game/animals/names';
 import type { Excavation } from '../../game/Excavation';
-import { FamilyCare } from '../../game/FamilyCare';
+import { FamilyCare, GESTATION_DAYS } from '../../game/FamilyCare';
 import { RabbitFamily } from '../../game/session/RabbitFamily';
 import type { GroundPickup } from '../../game/GroundItems';
 import type { FoodStore, SeasonSystem } from '../../game/systems';
@@ -142,13 +142,14 @@ export class HudPresenter {
       }),
       familyText: young.length
         ? `${young.length} малышей нуждаются в заботе`
-        : save.pregnancy
-          ? `Беременность: ${Math.round((save.pregnancy.progress / 1.2) * 100)}%`
-          : mate
-            ? 'Партнёр помогает семье и приносит припасы'
-            : 'Найди партнёра и создай семью',
+        : mate
+          ? 'Партнёр помогает семье и приносит припасы'
+          : 'Найди партнёра и создай семью',
       grown: save.stats.grown,
       nests: save.nests.length,
+      pregnancyProgress: save.pregnancy
+        ? Math.min(100, Math.round((save.pregnancy.progress / GESTATION_DAYS) * 100))
+        : undefined,
       birthWarning: !!save.pregnancy?.warned,
       worldInfo: [
         `◷ День ${save.day} · ${clock} · ${daypart}`,

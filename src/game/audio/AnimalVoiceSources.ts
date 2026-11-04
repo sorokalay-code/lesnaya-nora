@@ -34,7 +34,13 @@ export class AnimalVoiceSources {
       if (kit.alive && rig) yield this.actor(rig.root, 'rabbit', rig, kit.age < 1);
     }
     for (const animal of this.population.wildlife)
-      if (animal.alive) yield this.actor(animal.root, animal.kind, animal.model);
+      if (
+        animal.alive &&
+        animal.kind !== 'duck' &&
+        animal.kind !== 'mouse' &&
+        animal.kind !== 'fish'
+      )
+        yield this.actor(animal.root, animal.kind, animal.model);
     for (const predator of this.population.predators) {
       if (!predator.alive || predator.kind === 'spider' || predator.kind === 'jumping-spider')
         continue;

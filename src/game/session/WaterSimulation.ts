@@ -137,8 +137,10 @@ export class WaterSimulation {
         immersion: RABBIT_SWIM_IMMERSION * actor.root.scale.x,
         rabbit: true,
       });
-    for (const actor of this.context.wildlife)
+    for (const actor of this.context.wildlife) {
+      if (actor.kind === 'fish') continue;
       traits.set(actor.root, { swimSpeed: actor.swimSpeed, immersion: actor.profile.radius * 0.9 });
+    }
     for (const kit of this.context.save.kits) {
       const root = this.context.family?.rigs.get(kit.id)?.root;
       if (root)

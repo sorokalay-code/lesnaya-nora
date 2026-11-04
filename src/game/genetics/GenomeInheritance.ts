@@ -21,17 +21,18 @@ export class GenomeInheritance {
     return genes;
   }
 
-  static risk(mother: Genes, father: Genes, related = false): number {
+  static risk(mother: Genes, father: Genes, related = false, extraRisk = 0): number {
     return Math.min(
       0.9,
       0.025 +
         (10 - mother.stability - father.stability) * 0.045 +
         (mother.vitality + father.vitality < 5 ? 0.12 : 0) +
-        (related ? 0.3 : 0),
+        (related ? 0.3 : 0) +
+        extraRisk,
     );
   }
 
-  inherit(mother: Genes, father: Genes, related = false): Genes {
+  inherit(mother: Genes, father: Genes, related = false, extraRisk = 0): Genes {
     const choose = <T>(a: T, b: T): T => (this.rng.chance(0.5) ? a : b);
     const rating = (a: number, b: number) =>
       Math.max(1, Math.min(5, Math.round(choose(a, b) + this.rng.range(-0.7, 0.7))));
@@ -79,7 +80,8 @@ export class GenomeInheritance {
       cleanliness: rating(mother.cleanliness ?? 3, father.cleanliness ?? 3),
       anatomy,
     };
-    if (this.rng.chance(GenomeInheritance.risk(mother, father, related))) this.mutate(genes);
+    if (this.rng.chance(GenomeInheritance.risk(mother, father, related, extraRisk)))
+      this.mutate(genes);
     if (genes.anatomy.fangs) genes.eyeColor = 'red';
     return genes;
   }

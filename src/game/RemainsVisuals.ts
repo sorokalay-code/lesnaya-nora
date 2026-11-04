@@ -141,7 +141,7 @@ export class RemainsVisuals {
           bone(point(0, z, 0.18), joint, 0.025);
           bone(joint, point(side * 0.33 * large, z + 0.06), 0.025);
         }
-      if (kind === 'pike') {
+      if (kind === 'pike' || kind === 'fish') {
         for (const side of [-1, 1]) bone(point(0, length), point(side * 0.28, length + 0.3));
       } else if (kind === 'hawk') {
         for (const side of [-1, 1]) {

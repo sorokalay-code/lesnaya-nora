@@ -798,6 +798,58 @@ function furItem() {
   }
   return root;
 }
+function smallWildlife(kind: 'duck' | 'mouse' | 'fish') {
+  const model = group(new THREE.Group(), kind);
+  const root = group(model, 'Visual');
+  const body = mat(
+    kind + '_body',
+    kind === 'duck' ? 0x8d7969 : kind === 'mouse' ? 0x887363 : 0x7f9c8e,
+  );
+  const pale = mat(kind + '_belly', kind === 'fish' ? 0xc9d9b8 : 0xc6b39b);
+  if (kind === 'duck') {
+    ell(root, body, 'Body', [0, 0.26, 0], [0.25, 0.23, 0.42]);
+    const head = group(root, 'Head', 0, 0.56, -0.24);
+    ell(head, mat('duck_head', 0x35664e), 'Crown', [0, 0, 0], [0.15, 0.18, 0.15]);
+    ell(head, mat('duck_bill', 0xe6a33f), 'Bill', [0, -0.05, -0.19], [0.102, 0.047, 0.12]);
+    for (const side of [-1, 1]) {
+      ell(root, pale, 'Wing', [side * 0.2, 0.27, 0.045], [0.07, 0.13, 0.28]);
+      ell(head, eye, 'Eye', [side * 0.12, 0.04, -0.07], [0.024, 0.025, 0.024]);
+      const leg = group(root, side < 0 ? 'LegFL' : 'LegFR', side * 0.11, 0.18, 0);
+      ell(leg, mat('duck_feet', 0xe6a33f), 'Foot', [0, -0.13, -0.05], [0.063, 0.038, 0.11]);
+    }
+  } else if (kind === 'mouse') {
+    ell(root, body, 'Body', [0, 0.11, 0.015], [0.093, 0.085, 0.145]);
+    const head = group(root, 'Head', 0, 0.116, -0.123);
+    ell(head, pale, 'Muzzle', [0, 0, 0], [0.064, 0.05, 0.089]);
+    const tail = group(root, 'Tail', 0, 0.07, 0.125);
+    stick(tail, pale, 'TailBase', [0, 0, 0], [0.04, -0.03, 0.11], 0.012);
+    stick(tail, pale, 'TailTip', [0.04, -0.03, 0.11], [0.1, -0.038, 0.25], 0.007);
+    for (const side of [-1, 1]) {
+      ell(head, pale, 'Ear', [side * 0.053, 0.064, 0.018], [0.035, 0.044, 0.017]);
+      ell(head, eye, 'Eye', [side * 0.048, 0.021, -0.042], [0.013, 0.016, 0.014]);
+      for (const front of [true, false]) {
+        const leg = group(
+          root,
+          `Leg${front ? 'F' : 'B'}${side < 0 ? 'L' : 'R'}`,
+          side * 0.058,
+          0.075,
+          front ? -0.085 : 0.075,
+        );
+        ell(leg, pale, 'Paw', [0, -0.05, 0], [0.028, 0.02, 0.04]);
+      }
+    }
+  } else {
+    ell(root, body, 'Body', [0, 0, 0], [0.095, 0.145, 0.28]);
+    ell(root, pale, 'Belly', [0, -0.058, -0.018], [0.08, 0.078, 0.221]);
+    const tail = group(root, 'Tail', 0, 0, 0.205);
+    ell(tail, body, 'TailUpper', [0, 0.044, 0.118], [0.025, 0.047, 0.11], [0.54, 0, 0]);
+    ell(tail, body, 'TailLower', [0, -0.044, 0.118], [0.025, 0.047, 0.11], [-0.54, 0, 0]);
+    for (const side of [-1, 1])
+      ell(root, eye, 'Eye', [side * 0.072, 0.048, -0.174], [0.019, 0.023, 0.023]);
+  }
+  return model;
+}
+
 function oak() {
   const root = group(new THREE.Group(), 'oak');
   const bark = treeBarkMaterial('oak');
@@ -1272,8 +1324,8 @@ function hawkClips() {
   return clips;
 }
 function peacefulClips(kind, root) {
-  const legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR'];
-  const tail = kind === 'squirrel' ? 'Tail' : undefined;
+  const legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR'].filter((name) => root.getObjectByName(name));
+  const tail = ['squirrel', 'mouse'].includes(kind) ? 'Tail' : undefined;
   return ['idle', 'walk', 'run', 'graze'].map((name, index) => {
     if (name === 'walk' || name === 'run')
       return quadrupedGait(root, name, name === 'run' ? 0.65 : 1, kind);
@@ -1452,6 +1504,9 @@ const models = {
   deer: () => peaceful('deer'),
   squirrel: () => peaceful('squirrel'),
   hedgehog: () => peaceful('hedgehog'),
+  duck: () => smallWildlife('duck'),
+  mouse: () => smallWildlife('mouse'),
+  fish: () => smallWildlife('fish'),
   beaver: () => peaceful('beaver'),
   moose: () => peaceful('moose'),
   nest,
@@ -1505,6 +1560,9 @@ const creatures = new Set([
   'squirrel',
   'hedgehog',
   'beaver',
+  'duck',
+  'mouse',
+  'fish',
   'moose',
 ]);
 function mergeParts(root, flatten = false) {
@@ -1560,19 +1618,40 @@ for (const [name, build] of Object.entries(models)) {
   const animations =
     name === 'pike'
       ? pikeClips()
-      : name === 'spider' || name === 'jumping-spider'
-        ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
-        : name === 'rabbit'
-          ? rabbitClips(model)
-          : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-            ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
-            : name === 'snake'
-              ? snakeClips()
-              : name === 'hawk'
-                ? hawkClips()
-                : ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'].includes(name)
-                  ? peacefulClips(name, model)
-                  : [];
+      : name === 'fish'
+        ? [
+            new THREE.AnimationClip('swim', 1, [
+              rotation('Tail', [
+                [0, 0, 0],
+                [0, 0.45, 0],
+                [0, 0, 0],
+                [0, -0.45, 0],
+                [0, 0, 0],
+              ]),
+            ]),
+          ]
+        : name === 'spider' || name === 'jumping-spider'
+          ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
+          : name === 'rabbit'
+            ? rabbitClips(model)
+            : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
+              ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
+              : name === 'snake'
+                ? snakeClips()
+                : name === 'hawk'
+                  ? hawkClips()
+                  : [
+                        'deer',
+                        'squirrel',
+                        'hedgehog',
+                        'beaver',
+                        'moose',
+                        'boar',
+                        'duck',
+                        'mouse',
+                      ].includes(name)
+                    ? peacefulClips(name, model)
+                    : [];
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
   mergeParts(model, !creatures.has(name) && !isTreeSpecies(name) && !isShrubSpecies(name));
   const buffer = (await new GLTFExporter().parseAsync(model, {

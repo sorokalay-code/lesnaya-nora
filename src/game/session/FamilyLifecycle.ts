@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { RabbitFactory, RabbitKit } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
-import type { FamilyCare } from '../FamilyCare';
+import { TRAUMA_MUTATION_RISK, type FamilyCare } from '../FamilyCare';
 import { KitWander } from '../KitWander';
 import { ModelAssets } from '../ModelAssets';
 import { type RabbitAction, type RabbitRig } from '../Models';
@@ -231,6 +231,7 @@ export class FamilyLifecycle {
           this.context.save.player.genes,
           father.genes,
           Genealogy.related(this.context.save.player.lineage, father.lineage),
+          pregnancy.trauma ? TRAUMA_MUTATION_RISK : 0,
         ),
         lineage: Genealogy.child('child:' + this.context.save.seed + ':' + id, [
           {

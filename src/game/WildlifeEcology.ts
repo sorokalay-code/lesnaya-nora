@@ -1,3 +1,4 @@
+import { WaterNavigation } from './WaterNavigation';
 import * as THREE from 'three';
 import {
   createForestAnimal,
@@ -21,6 +22,10 @@ export type WildlifeEvent = {
   subject: string;
 };
 const names: Record<WildlifeKind, string> = {
+  bear: 'Медведь',
+  duck: 'Утка',
+  mouse: 'Мышь',
+  fish: 'Рыба',
   boar: 'кабан',
   deer: 'олень',
   squirrel: 'белка',
@@ -33,6 +38,7 @@ const names: Record<WildlifeKind, string> = {
 
 export class WildlifeEcology {
   readonly animals: ForestAnimal[] = [];
+  private readonly water: WaterNavigation;
   private foodTargets = new Map<ForestAnimal, Resource>();
   private preyTargets = new Map<Predator, { target: Target; until: number }>();
   private nextFoodSearch = 0;
@@ -44,7 +50,9 @@ export class WildlifeEcology {
     private readonly rng: Random,
     private readonly save?: SaveData,
     private readonly onDeath?: (animal: ForestAnimal | Predator) => void,
-  ) {}
+  ) {
+    this.water = new WaterNavigation(world);
+  }
 
   populate(): void {
     if (this.save?.wildlife) {
@@ -54,14 +62,25 @@ export class WildlifeEcology {
         animal.useWorldBounds(this.save.worldConfig?.size ?? 110);
         animal.social = { ...data.social };
         animal.health = Math.max(0, Math.min(animal.maxHealth, data.health));
-        animal.root.position.y = this.world.heightAt(data.x, data.z);
+        this.place(animal, data.x, data.z);
         this.animals.push(animal);
         this.scene.add(animal.root);
       }
       return;
     }
     const counts = (this.save?.worldConfig ?? defaultWorldConfig()).creatures;
-    for (const kind of ['deer', 'squirrel', 'hedgehog', 'beaver', 'moose', 'boar'] as const)
+    for (const kind of [
+      'deer',
+      'squirrel',
+      'hedgehog',
+      'beaver',
+      'moose',
+      'boar',
+      'bear',
+      'duck',
+      'mouse',
+      'fish',
+    ] as const)
       for (let i = 0; i < counts[kind]; i++) this.spawn(kind, 0, 0, true);
   }
 
@@ -71,16 +90,26 @@ export class WildlifeEcology {
     pz: number,
     initial = false,
   ): ForestAnimal | undefined {
+    if ((kind === 'fish' || kind === 'duck') && !this.world.waterSources.length) return;
     const size = this.save?.worldConfig?.size ?? 110;
     const scale = size / 110;
     let x = 0,
       z = 0,
       found = false;
     for (let attempt = 0; attempt < 35; attempt++) {
-      if (kind === 'beaver' && this.world.waterSources.length) {
+      if (kind === 'fish') {
+        const water = this.rng.pick(this.world.waterSources);
+        x = water.x + this.rng.range(-1.4, 1.4);
+        z = water.z + this.rng.range(-1.4, 1.4);
+        if ((this.world.waterAt?.(x, z)?.depth ?? 0) < 0.6) continue;
+        if (!initial && Math.hypot(x - px, z - pz) < 26) continue;
+        found = true;
+        break;
+      }
+      if ((kind === 'beaver' || kind === 'duck') && this.world.waterSources.length) {
         const pond = this.rng.pick(this.world.waterSources),
           a = this.rng.range(0, Math.PI * 2),
-          d = this.rng.range(4, 8);
+          d = kind === 'duck' ? this.rng.range(1.5, 6) : this.rng.range(4, 8);
         x = pond.x + Math.sin(a) * d;
         z = pond.z + Math.cos(a) * d;
       } else {
@@ -97,7 +126,16 @@ export class WildlifeEcology {
       )
         continue;
 
-      if (kind !== 'deer' && kind !== 'moose' && kind !== 'beaver' && biome !== 'forest') continue;
+      if (
+        kind !== 'deer' &&
+        kind !== 'moose' &&
+        kind !== 'beaver' &&
+        kind !== 'bear' &&
+        kind !== 'duck' &&
+        kind !== 'mouse' &&
+        biome !== 'forest'
+      )
+        continue;
 
       found = true;
       break;
@@ -105,7 +143,7 @@ export class WildlifeEcology {
 
     // При преобладании лугов или огородов лес может отсутствовать. Стартовые животные
     // используют свободную сушу, а не исчезают вопреки выбранной численности.
-    if (!found && initial) {
+    if (!found && initial && kind !== 'fish' && kind !== 'duck') {
       for (let attempt = 0; attempt < 100; attempt++) {
         x = this.rng.range(-90, 90) * scale;
         z = this.rng.range(-90, 90) * scale;
@@ -120,10 +158,17 @@ export class WildlifeEcology {
     animal.useWorldBounds(size);
     animal.socialId = this.save ? (this.save.nextWildlifeId ??= 1) : this.animals.length + 1;
     if (this.save) this.save.nextWildlifeId = animal.socialId + 1;
-    animal.root.position.set(x, this.world.heightAt(x, z), z);
+    this.place(animal, x, z);
     this.animals.push(animal);
     this.scene.add(animal.root);
     return animal;
+  }
+
+  private place(animal: ForestAnimal, x: number, z: number): void {
+    if (typeof this.world.waterAt === 'function') animal.useWater(this.water);
+    const water = this.world.waterAt?.(x, z);
+    const level = animal.kind === 'fish' && water ? water.level - 0.42 : this.world.heightAt(x, z);
+    animal.moveTo(x, z, level);
   }
 
   targetFor(
@@ -150,6 +195,7 @@ export class WildlifeEcology {
         .filter(
           (a) =>
             a.alive &&
+            a.kind !== 'fish' &&
             !AnimalRestraint.active(a.root) &&
             Math.hypot(a.x - predator.x, a.z - predator.z) < 14,
         )
@@ -199,6 +245,7 @@ export class WildlifeEcology {
     if (time >= this.nextFoodSearch) {
       this.nextFoodSearch = time + 3;
       for (const animal of this.animals) {
+        if (animal.kind === 'fish') continue;
         const current = this.foodTargets.get(animal);
         if (current?.available) continue;
 
@@ -308,9 +355,15 @@ export class WildlifeEcology {
           'beaver',
           'moose',
           'boar',
+          'bear',
+          'duck',
+          'mouse',
+          'fish',
         ] as WildlifeKind[]
       ).filter(
-        (kind) => this.animals.filter((animal) => animal.kind === kind).length < counts[kind],
+        (kind) =>
+          (this.world.waterSources.length > 0 || (kind !== 'duck' && kind !== 'fish')) &&
+          this.animals.filter((animal) => animal.kind === kind).length < counts[kind],
       );
       if (candidates.length) {
         const kind = this.rng.pick(candidates);

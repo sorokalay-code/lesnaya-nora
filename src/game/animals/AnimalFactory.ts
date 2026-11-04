@@ -1,3 +1,6 @@
+import { Duck } from './Duck';
+import { Mouse } from './Mouse';
+import { Fish } from './Fish';
 import { Random } from '../Random';
 import type { PartnerTraits, PredatorKind } from '../types';
 import { RabbitActor } from './RabbitActor';
@@ -40,11 +43,14 @@ export class AnimalFactory {
     dog: Dog,
     lynx: Lynx,
     weasel: Weasel,
-    bear: Bear,
     snake: Snake,
   };
   private static readonly wildlife: Record<WildlifeKind, Constructor<ForestAnimal>> = {
     boar: Boar,
+    bear: Bear,
+    duck: Duck,
+    mouse: Mouse,
+    fish: Fish,
     deer: Deer,
     squirrel: Squirrel,
     hedgehog: Hedgehog,

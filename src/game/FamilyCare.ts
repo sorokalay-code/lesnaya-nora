@@ -2,6 +2,8 @@ import type { Excavation } from './Excavation';
 import type { KitData, NestData, SaveData } from './types';
 
 export type PregnancyEvent = 'none' | 'warning' | 'birth';
+export const GESTATION_DAYS = 1.2;
+export const TRAUMA_MUTATION_RISK = 0.25;
 
 /** Отслеживает беременность, предупреждение о родах и пригодность подземного гнезда. */
 
@@ -23,7 +25,7 @@ export class FamilyCare {
       return 'warning';
     }
 
-    return pregnancy.progress >= 1.2 ? 'birth' : 'none';
+    return pregnancy.progress >= GESTATION_DAYS ? 'birth' : 'none';
   }
 
   birthNest(radius = 2.3): NestData | undefined {

@@ -124,7 +124,7 @@ function NatureSettings({ config, update }: SettingsSectionProps) {
         </FieldLabel>
       ))}
       <p className="config-hint">
-        100% — нынешний мир. 0% воды убирает водоёмы и щук. 0% пищи убирает также грядки;
+        100% — нынешний мир. 0% воды убирает водоёмы, уток и рыб. 0% пищи убирает также грядки;
         растительность настраивается отдельно. Верхний предел — {WORLD_LIMITS.density.max * 100}%.
       </p>
       <p className="config-hint">
@@ -168,7 +168,9 @@ function PopulationSettings({ config, update }: SettingsSectionProps) {
               required
               aria-label={label}
               value={config.creatures[kind]}
-              disabled={kind === 'pike' && config.water === 0}
+              disabled={
+                (kind === 'pike' || kind === 'fish' || kind === 'duck') && config.water === 0
+              }
               onChange={(event) =>
                 update({ creatures: { ...config.creatures, [kind]: Number(event.target.value) } })
               }

@@ -80,8 +80,8 @@ export class RabbitFactory {
     return out;
   }
 
-  inherit(mother: Genes, father: Genes, related = false): Genes {
-    return new GenomeInheritance(this.rng).inherit(mother, father, related);
+  inherit(mother: Genes, father: Genes, related = false, extraRisk = 0): Genes {
+    return new GenomeInheritance(this.rng).inherit(mother, father, related, extraRisk);
   }
 }
 export function partnerScore(p: PartnerTraits, genes: Genes): number {

@@ -116,11 +116,19 @@ function Hud() {
   const hud = useUI((state) => state.hud);
   if (!hud) return null;
 
+  const pregnancy =
+    hud.pregnancyProgress === undefined ? null : (
+      <div className="pregnancy-progress">
+        <span>Беременность · {hud.pregnancyProgress}%</span>
+        <Meter className="kit-growth-meter" label="Беременность" value={hud.pregnancyProgress} />
+      </div>
+    );
   return (
     <>
       <WebNotice web={hud.web} touch={touch} />
       <AirliftNotice view={hud.airlift} />
       <div className={`kit-progress ${familyOpen ? '' : 'hidden'}`}>
+        {pregnancy}
         <b>РОСТ КРОЛЬЧАТ</b>
         {!hud.young.length && <p>Крольчат пока нет. Подробности семьи — в дневнике.</p>}
         {hud.young.map((kit) => (
@@ -241,6 +249,7 @@ function Hud() {
             {hud.young.length} <small>крольчат</small>
           </strong>
           <span>{hud.familyText}</span>
+          {pregnancy}
           <div className="family-line">
             <span>Выросли: {hud.grown}</span>
             <span>Гнёзда: {hud.nests}</span>

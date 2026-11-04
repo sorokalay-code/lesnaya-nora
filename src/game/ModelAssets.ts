@@ -40,6 +40,9 @@ export const CREATURE_NAMES = [
   'squirrel',
   'hedgehog',
   'beaver',
+  'duck',
+  'mouse',
+  'fish',
   'moose',
   'boar',
 ] as const;

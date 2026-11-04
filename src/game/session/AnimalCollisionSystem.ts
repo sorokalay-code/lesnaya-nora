@@ -195,7 +195,12 @@ export class AnimalCollisionSystem {
       });
     });
     this.context.wildlife.forEach((animal, i) => {
-      if (AnimalRestraint.active(animal.root)) return;
+      if (
+        animal.kind === 'fish' ||
+        animal.root.userData.swimming ||
+        AnimalRestraint.active(animal.root)
+      )
+        return;
       const radius = animal.profile.radius;
       bodies.push({
         id: 5000 + i,

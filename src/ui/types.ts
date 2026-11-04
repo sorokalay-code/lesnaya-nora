@@ -47,6 +47,7 @@ export interface HudView {
   grown: number;
   nests: number;
   birthWarning: boolean;
+  pregnancyProgress?: number;
   worldInfo: string[];
   prompt: PromptPart[];
 }

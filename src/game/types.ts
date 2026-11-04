@@ -7,7 +7,7 @@ export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
 export type PredatorKind =
-  'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'bear' | 'snake' | 'spider' | 'jumping-spider';
+  'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'snake' | 'spider' | 'jumping-spider';
 export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
@@ -170,7 +170,7 @@ export interface SaveData {
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];
-  pregnancy: { fatherId: number; progress: number; warned?: boolean } | null;
+  pregnancy: { fatherId: number; progress: number; warned?: boolean; trauma?: true } | null;
   stats: {
     births: number;
     grown: number;

@@ -1,3 +1,4 @@
+import { RabbitReproductiveThreat } from './RabbitReproductiveThreat';
 import { Excavation } from '../Excavation';
 import { ExcavationTraffic } from '../ExcavationTraffic';
 import { setRabbitAction, type RabbitRig } from '../Models';
@@ -67,9 +68,11 @@ export class AnimalSimulation {
   private readonly friends = new FriendSignals();
   private readonly rabbitPredation: RabbitPredation;
   private readonly ambience?: AnimalAmbience;
+  private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
 
   constructor(private readonly context: Context) {
+    this.reproductiveThreat = new RabbitReproductiveThreat(context.save);
     this.hawkHunting = new HawkHunting(context);
     this.rabbitPredation = new RabbitPredation(context);
     if (typeof context.world.waterAt === 'function') this.water = new WaterSimulation(context);
@@ -101,6 +104,19 @@ export class AnimalSimulation {
     this.rabbitPredation.update(dt, time);
     this.updateRabbits(dt, time);
     this.positionMatingPair(time);
+    const p = this.context.save.player;
+    if (
+      (this.context.combatAllowed?.() ?? true) &&
+      !this.context.state.mating &&
+      !AnimalRestraint.active(this.context.player.root)
+    ) {
+      const attack = this.reproductiveThreat.update(
+        time,
+        this.context.rabbits,
+        this.context.earth.isSheltered(p.x, p.y, p.z),
+      );
+      if (attack) this.context.toast(attack);
+    }
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
     const closestThreat = this.updatePredators(dt, time, night);

@@ -19,6 +19,8 @@ import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
 import { defaultWorldConfig } from '../WorldConfig';
 
+type LegacyPredatorSlot = PredatorKind | 'bear';
+
 /** Создаёт стартовую популяцию с сохранением порядка генерации случайных значений. */
 export class WorldPopulation {
   readonly rabbits: RabbitActor[];
@@ -89,10 +91,18 @@ export class WorldPopulation {
     }
 
     this.predators = [];
-    const groundKinds: PredatorKind[] = ['dog', 'bear', 'snake', 'lynx', 'weasel', 'wolf', 'fox'];
+    const groundKinds: LegacyPredatorSlot[] = [
+      'dog',
+      'bear',
+      'snake',
+      'lynx',
+      'weasel',
+      'wolf',
+      'fox',
+    ];
     const remaining = { ...config.creatures };
-    const kinds: PredatorKind[] = [];
-    // Сначала сохраняем прежний порядок: дефолты и старые v4 получают прежний поток RNG.
+    const kinds: LegacyPredatorSlot[] = [];
+    // Старые места медведей резервируем для прежних координат и ID остальных хищников.
     for (let i = 0; i < 22; i++) {
       const kind = this.predatorKind(i);
       if (remaining[kind] > 0) {
@@ -110,7 +120,9 @@ export class WorldPopulation {
         scale;
       const z =
         (i === 0 && kind === 'dog' ? 31 : i === 1 && kind === 'dog' ? 29 : Math.sin(a) * d) * scale;
+      if (kind === 'bear') continue;
       const predator = createPredatorActor(kind, x, z, context.rng);
+      predator.root.userData.remainsIdentity = `predator:${i}`;
       predator.useWorldBounds(config.size);
       predator.root.position.y = context.world.heightAt(x, z);
       this.predators.push(predator);
@@ -217,7 +229,9 @@ export class WorldPopulation {
       ['hawk', this.hawks],
     ] as const) {
       for (let index = actors.length - 1; index >= 0; index--) {
-        const identity = `${prefix}:${index}`;
+        const identity =
+          actors[index].root.userData.remainsIdentity ??
+          `${prefix}:${index + (prefix === 'predator' ? config.creatures.bear : 0)}`;
         actors[index].root.userData.remainsIdentity = identity;
         if (!context.save.deadPopulation?.includes(identity)) continue;
         const animal = actors[index];
@@ -233,7 +247,7 @@ export class WorldPopulation {
     }
   }
 
-  private predatorKind(index: number): PredatorKind {
+  private predatorKind(index: number): LegacyPredatorSlot {
     if (index < 2) return 'dog';
     if (index === 2 || index === 6) return 'bear';
     if (index >= 3 && index <= 5) return 'snake';

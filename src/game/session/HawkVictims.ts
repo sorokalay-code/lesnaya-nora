@@ -114,7 +114,12 @@ export class HawkVictims {
     }
     for (const animal of this.population.wildlife) {
       // mass — вес для наземных столкновений, а не килограммы; переносимость определяют габариты.
-      if (!animal.alive || (!includeLargeWildlife && animal.profile.radius > 0.43)) continue;
+      if (
+        animal.kind === 'fish' ||
+        !animal.alive ||
+        (!includeLargeWildlife && animal.profile.radius > 0.43)
+      )
+        continue;
       yield {
         root: animal.root,
         name: animalNames[animal.kind],

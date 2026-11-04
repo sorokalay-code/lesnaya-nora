@@ -46,6 +46,11 @@ export class SaveRepository {
       throw new Error('Сохранение содержит неполные или повреждённые гены. Начни новую историю.');
 
     if (
+      (data.pregnancy != null &&
+        (!Number.isSafeInteger(data.pregnancy.fatherId) ||
+          !Number.isFinite(data.pregnancy.progress) ||
+          data.pregnancy.progress < 0 ||
+          (data.pregnancy.trauma !== undefined && data.pregnancy.trauma !== true))) ||
       (data.player.originKitId !== undefined &&
         (!Number.isSafeInteger(data.player.originKitId) || data.player.originKitId < 1)) ||
       data.kits.some(
@@ -61,6 +66,13 @@ export class SaveRepository {
     )
       throw new Error('Сохранение содержит повреждённое состояние семейной линии.');
 
+    if (data.worldConfig?.creatures && typeof data.worldConfig.creatures === 'object') {
+      const defaults = defaultWorldConfig().creatures;
+      for (const kind of ['duck', 'mouse', 'fish'] as const) {
+        if (data.worldConfig.creatures[kind] === undefined)
+          data.worldConfig.creatures[kind] = defaults[kind];
+      }
+    }
     if (data.worldConfig !== undefined && !validWorldConfig(data.worldConfig))
       throw new Error('Сохранение содержит повреждённые настройки мира.');
 
