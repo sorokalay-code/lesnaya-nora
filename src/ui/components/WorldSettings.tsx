@@ -25,9 +25,9 @@ export function WorldSettings({ store }: { store: UIStore }) {
 
   return (
     <div>
+      <CalendarSettings config={config} update={update} store={store} />
       <NatureSettings config={config} update={update} />
       <PopulationSettings config={config} update={update} />
-      <CalendarSettings config={config} update={update} store={store} />
       <Button
         type="button"
         onClick={() => store.setState({ worldConfig: defaultWorldConfig(), startSeason: 0 })}
