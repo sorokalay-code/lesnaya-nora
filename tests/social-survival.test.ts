@@ -71,18 +71,27 @@ test('nest rest completely restores energy, while a bare tunnel gives partial re
   for (const inNest of [false, true]) {
     const save = game();
     save.player.energy = 0;
+    let rested = 0;
+    let persisted = false;
     const context = {
       save,
       earth: { isSheltered: () => true },
       queries: { nest: () => (inNest ? { id: 1 } : undefined) },
-      care: { advance() {} },
-      family: {},
+      advanceRest(minutes: number) {
+        rested = minutes;
+        return true;
+      },
+      persist() {
+        persisted = true;
+      },
       sound: {},
       playAction() {},
       toast() {},
     } as unknown as ConstructorParameters<typeof EnvironmentController>[0];
     new EnvironmentController(context).execute('sleep');
     assert.equal(save.player.energy, inNest ? 100 : 65);
+    assert.equal(rested, 330);
+    assert.equal(persisted, true);
   }
 });
 
@@ -361,6 +370,12 @@ test('animal simulation prevents surface attacks during conversation and resumes
   assert.ok(attackingFox.health < attackingFox.maxHealth);
   simulation.update(0.05, 1.15, true);
   assert.equal(attackingFox.huntingPlayer, false, 'лиса отступает после защиты');
+
+  const restingFox = createPredatorActor('fox', 0.4, 0, rng);
+  context.predators.splice(0, 1, restingFox);
+  simulation.update(0.05, 2, true, 'rest');
+  assert.equal(hits, 1, 'сон не запускает атаку на игрока');
+  assert.equal(restingFox.huntingPlayer, false);
 });
 
 test('a fox can bite at the front capsule boundary of a large rabbit', () => {

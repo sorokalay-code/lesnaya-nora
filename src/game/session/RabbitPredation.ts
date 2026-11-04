@@ -38,7 +38,12 @@ export class RabbitPredation {
 
   constructor(private readonly context: Context) {}
 
-  update(dt: number, time: number, pursuing?: RabbitActor): void {
+  update(
+    dt: number,
+    time: number,
+    pursuing?: RabbitActor,
+    combat = this.context.combatAllowed?.() ?? true,
+  ): void {
     for (const actor of this.context.rabbits) {
       if (actor === pursuing) {
         actor.root.userData.hunting = false;
@@ -58,6 +63,7 @@ export class RabbitPredation {
         },
         dt,
         time,
+        combat,
       );
     }
     for (const kit of this.context.save.kits) {
@@ -83,16 +89,17 @@ export class RabbitPredation {
         },
         dt,
         time,
+        combat,
       );
     }
   }
 
-  private hunt(hunter: Hunter, dt: number, time: number): void {
+  private hunt(hunter: Hunter, dt: number, time: number, combat: boolean): void {
     if (AnimalRestraint.active(hunter.rig.root)) return;
     const { rig, genes } = hunter;
     rig.root.userData.hunting = false;
     if (
-      !(this.context.combatAllowed?.() ?? true) ||
+      !combat ||
       rig.root.userData.conversing ||
       this.context.earth.isSheltered(hunter.x, hunter.y, hunter.z)
     )

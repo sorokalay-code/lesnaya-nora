@@ -198,6 +198,7 @@ test('environment command cooldowns belong to the controller', () => {
     elapsed: () => 1,
     toast: () => {},
     playAction: () => {},
+    advanceRest: () => true,
     addNest: () => {},
     makeWaste: () => {},
   });

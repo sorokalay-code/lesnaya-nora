@@ -14,6 +14,7 @@ import { type RabbitAction, type RabbitRig } from '../Models';
 import { Random } from '../Random';
 import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
+import { GAME_MINUTES_PER_SECOND } from './WorldCalendar';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
   onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
@@ -90,15 +91,19 @@ export class FamilyLifecycle {
     this.actors.delete(id);
   }
 
-  update(dt: number, time: number): void {
-    const pregnancyEvent = this.context.care.advance(dt * 6);
+  advancePregnancy(minutes: number): void {
+    const pregnancyEvent = this.context.care.advance(minutes);
     if (pregnancyEvent === 'warning') {
       this.context.sound.play('baby');
       this.context.toast('Скоро роды. Вернись в гнездо внутри выкопанного хода!');
     }
 
     if (pregnancyEvent === 'birth') this.birth();
+  }
 
+  update(dt: number, time: number, mode: 'active' | 'rest' = 'active'): void {
+    const minutes = dt * GAME_MINUTES_PER_SECOND;
+    if (mode === 'active') this.advancePregnancy(minutes);
     for (const kit of this.context.save.kits) {
       if (!kit.alive || kit.health <= 0) {
         kit.alive = false;
@@ -107,7 +112,7 @@ export class FamilyLifecycle {
       }
 
       const currentRig = this.rigs.get(kit.id);
-      kit.age += (dt * 6) / 1440;
+      kit.age += minutes / 1440;
       if (
         !kit.independent &&
         kit.age >= 3 &&

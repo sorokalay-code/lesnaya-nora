@@ -14,6 +14,9 @@ import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import { WaterSimulation } from '../src/game/session/WaterSimulation';
 import { WorldCalendar } from '../src/game/session/WorldCalendar';
+import { WorldRest } from '../src/game/session/WorldRest';
+import { FamilyCare } from '../src/game/FamilyCare';
+import { FamilyLifecycle } from '../src/game/session/FamilyLifecycle';
 import { Random } from '../src/game/Random';
 import { RabbitFactory, PlayerRabbit } from '../src/game/animals';
 import { SeasonSystem } from '../src/game/systems/SeasonSystem';
@@ -144,6 +147,77 @@ test('disabled species stay absent during ecology replenishment and water can be
   for (let time = 0; time < 500; time += 50)
     f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
   assert.equal(f.population.wildlife.length, 0);
+});
+
+test('сон через полночь продвигает сезон, животных, растения и беременность', () => {
+  const config = emptyConfig();
+  config.seasonLengths.Весна = 1;
+  config.food = 1;
+  config.creatures.deer = 1;
+  const f = fixture(config);
+  f.save.clock = 1380;
+  f.save.weather = 'mist';
+  const seasons = new SeasonSystem(f.save.seed, config.seasonLengths);
+  const calendar = new WorldCalendar({ ...f, rng: new Random(12), seasons, toast() {} });
+  const resource = f.world.resources.find((candidate) => candidate.kind === 'clover')!;
+  f.world.harvest(resource, f.save.clock);
+  assert.equal(resource.available, false);
+  const deer = f.population.wildlife[0];
+  const start = { x: deer.x, z: deer.z };
+  const lines: string[] = [];
+  f.save.pregnancy = { fatherId: 1, progress: 0.98 };
+  const family = new FamilyLifecycle({
+    ...f,
+    care: new FamilyCare(f.save, f.earth),
+    genetics: new RabbitFactory(f.rng),
+    temperature: () => calendar.airTemperature(),
+    sound: { play() {} } as Soundscape,
+    toast: (line) => lines.push(line),
+    persist() {},
+    playAction() {},
+  });
+  let refreshedLight = false;
+  const rest = new WorldRest({
+    ...f,
+    family,
+    calendar,
+    state: { elapsed: 0 },
+    animals: {
+      update(dt, time) {
+        f.population.ecology.update(
+          dt,
+          time,
+          f.save.clock,
+          0,
+          0,
+          (x, z) => f.world.heightAt(x, z),
+          [],
+        );
+        return Infinity;
+      },
+    },
+    lighting: {
+      update: () => {
+        refreshedLight = true;
+      },
+    },
+    sound: { setWeather() {} },
+    waste: { update() {} },
+    items: { update() {} },
+  });
+
+  rest.advance(330);
+  assert.equal(f.save.clock, 1710);
+  assert.equal(f.save.day, 2);
+  assert.equal(calendar.season(), 'Лето');
+  assert.notEqual(f.save.weather, 'mist');
+  assert.ok(Math.abs(f.save.player.age - 330 / 1440) < 1e-9);
+  assert.ok(resource.available);
+  assert.ok(Math.hypot(deer.x - start.x, deer.z - start.z) > 0.5);
+  assert.ok(refreshedLight);
+  assert.ok(f.save.pregnancy?.warned);
+  assert.equal(lines.filter((line) => line.includes('Скоро роды')).length, 1);
+  assert.equal(f.save.kits.length, 0);
 });
 
 test('every selected species spawns with its own count even without forest or trees', () => {

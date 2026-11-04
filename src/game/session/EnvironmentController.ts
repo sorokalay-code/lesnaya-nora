@@ -1,16 +1,16 @@
 import type { Camera } from 'three';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
-import type { FamilyCare } from '../FamilyCare';
 import type { RabbitAction, RabbitRig } from '../Models';
 import type { FoodStore, SurvivalSystem, WasteSystem } from '../systems';
 import { FOOD, type NestData, type SaveData } from '../types';
 import type { ViewCamera } from '../ViewCamera';
 import type { World } from '../World';
-import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { SessionQueries } from './SessionQueries';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const REST_MINUTES = 330;
+
 interface EnvironmentContext {
   waste: WasteSystem;
   persist: () => void;
@@ -23,8 +23,7 @@ interface EnvironmentContext {
   player: RabbitRig;
   store: FoodStore;
   survival: SurvivalSystem;
-  care: FamilyCare;
-  family: FamilyLifecycle;
+  advanceRest: (minutes: number) => boolean;
   queries: SessionQueries;
   elapsed: () => number;
   toast: (text: string) => void;
@@ -292,24 +291,18 @@ export class EnvironmentController {
 
   private sleep(): void {
     const p = this.context.save.player;
-    if (!this.sheltered && !this.context.queries.nest(2.5)) {
+    const nest = this.context.queries.nest(2.5);
+    if (!this.sheltered && !nest) {
       this.context.toast('Спать можно в укрытом ходе или у гнезда.');
       return;
     }
 
-    this.context.save.clock += 330;
-    p.age += 330 / 1440;
+    if (!this.context.advanceRest(REST_MINUTES)) {
+      this.context.toast('Сейчас не до сна. Освободись и дождись безопасного момента.');
+      return;
+    }
 
-    const labour = this.context.care.advance(330);
-
-    if (labour === 'warning')
-      this.context.toast('Скоро роды. Успей вернуться в гнездо внутри выкопанного хода!');
-
-    if (labour === 'birth') this.context.family.birth();
-
-    for (const kit of this.context.save.kits) if (kit.alive) kit.age += 330 / 1440;
-
-    p.energy = this.context.queries.nest(2.5) ? 100 : clamp(p.energy + 65, 0, 100);
+    p.energy = nest ? 100 : clamp(p.energy + 65, 0, 100);
     p.hunger = clamp(p.hunger - 17, 0, 100);
     p.thirst = clamp(p.thirst - 20, 0, 100);
     p.bladder = clamp(p.bladder + 15, 0, 100);
@@ -320,7 +313,7 @@ export class EnvironmentController {
     this.context.toast(
       'Ты выспалась. Здоровье восстановилось; в гнезде силы восстанавливаются полностью.',
     );
-    return;
+    this.context.persist();
   }
 
   private defecate(): void {

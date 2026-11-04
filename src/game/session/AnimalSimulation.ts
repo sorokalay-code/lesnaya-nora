@@ -126,36 +126,44 @@ export class AnimalSimulation {
     return this.reproductiveThreat.view;
   }
 
-  update(dt: number, time: number, night: boolean): number {
+  update(dt: number, time: number, night: boolean, mode: 'active' | 'rest' = 'active'): number {
+    const combat = this.context.combatAllowed?.() ?? true;
+    const resting = mode === 'rest';
+    const canAttackFamily = combat && !resting;
     const pursuing = this.reproductiveThreat.actor;
     const attack = this.reproductiveThreat.update(
       dt,
       time,
       this.context.rabbits,
-      (this.context.combatAllowed?.() ?? true) &&
+      canAttackFamily &&
         !this.context.state.mating &&
         (this.context.canGrabPlayer?.() ?? true) &&
         !AnimalRestraint.active(this.context.player.root),
     );
     if (attack) this.context.toast(attack);
-    this.rabbitPredation.update(dt, time, this.reproductiveThreat.actor ?? pursuing);
+    this.rabbitPredation.update(
+      dt,
+      time,
+      this.reproductiveThreat.actor ?? pursuing,
+      canAttackFamily,
+    );
     this.updateRabbits(dt, time);
     this.positionMatingPair(time);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
-    const closestThreat = this.updatePredators(dt, time, night);
-    this.updateUndergroundTraffic(dt, time, night);
+    const closestThreat = this.updatePredators(dt, time, night, combat, canAttackFamily);
+    this.updateUndergroundTraffic(dt, time, night, canAttackFamily, resting);
     this.friendDefense.updateEscorts(
       this.context.save.player,
       this.context.save.clock,
       this.sheltered,
     );
-    this.updateEcology(dt, time);
-    this.context.collisions.resolve(this.context.state.mating?.fatherId);
-    this.water?.update(dt, time, this.context.combatAllowed?.() ?? true);
+    this.updateEcology(dt, time, combat);
+    if (!resting) this.context.collisions.resolve(this.context.state.mating?.fatherId);
+    this.water?.update(dt, time, canAttackFamily);
     this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
-    this.updateHawks(dt, time);
+    this.hawkHunting.update(dt, time, canAttackFamily);
     this.context.family?.collectDead?.();
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
     for (const pike of this.water?.pikes ?? []) if (!pike.alive) this.context.remains?.record(pike);
@@ -163,6 +171,8 @@ export class AnimalSimulation {
     this.context.remains?.update();
     this.updateVisibility();
     this.friendMarks?.update(this.context.wildlife, this.context.save.player, time);
+    if (resting) return closestThreat;
+
     this.ambience?.update(time, night);
     this.friends.update(
       time,
@@ -224,10 +234,15 @@ export class AnimalSimulation {
     }
   }
 
-  private updatePredators(dt: number, time: number, night: boolean): number {
+  private updatePredators(
+    dt: number,
+    time: number,
+    night: boolean,
+    combat: boolean,
+    canAttackFamily: boolean,
+  ): number {
     const p = this.context.save.player;
-    const combat = this.context.combatAllowed?.() ?? true;
-    const canDefend = combat && !this.sheltered;
+    const canDefend = canAttackFamily && !this.sheltered;
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
       if (!predator.alive) continue;
@@ -239,7 +254,7 @@ export class AnimalSimulation {
         time,
         p.x,
         p.z,
-        p.hidden || !combat || AnimalRestraint.active(this.context.player.root),
+        p.hidden || !canAttackFamily || AnimalRestraint.active(this.context.player.root),
         !night,
         this.context.groundAt,
         p.dirtiness / 100,
@@ -250,13 +265,19 @@ export class AnimalSimulation {
       const repelled = canDefend && this.friendDefense.repel(predator, p, time);
       if (strike && !repelled) this.context.consequences.predatorAttack(predator.kind);
 
-      if (combat && !repelled) this.context.consequences.threatenKits(predator, time);
+      if (canAttackFamily && !repelled) this.context.consequences.threatenKits(predator, time);
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     return closestThreat;
   }
 
-  private updateUndergroundTraffic(dt: number, time: number, night: boolean): void {
+  private updateUndergroundTraffic(
+    dt: number,
+    time: number,
+    night: boolean,
+    canAttackFamily: boolean,
+    resting: boolean,
+  ): void {
     for (const event of this.context.traffic.update(
       dt,
       time,
@@ -265,8 +286,9 @@ export class AnimalSimulation {
       this.context.rabbits,
       this.context.save,
       this.context.earth,
-      this.context.combatAllowed?.() ?? true,
+      canAttackFamily,
     )) {
+      if (resting) continue;
       const animal = event.kind === 'weasel' ? 'Ласка' : 'Лиса';
       if (event.type === 'predator-entered')
         this.context.toast(`${animal} учуяла крольчат или отходы и пролезла в неглубокий ход!`);
@@ -280,7 +302,7 @@ export class AnimalSimulation {
     }
   }
 
-  private updateEcology(dt: number, time: number): void {
+  private updateEcology(dt: number, time: number, combat: boolean): void {
     const p = this.context.save.player;
     // Чужие стычки продолжают симулироваться, но не создают семейные уведомления и записи журнала.
     this.context.ecology.update(
@@ -291,7 +313,7 @@ export class AnimalSimulation {
       p.z,
       this.context.groundAt,
       this.context.predators,
-      this.context.combatAllowed?.() ?? true,
+      combat,
     );
   }
 
@@ -313,10 +335,6 @@ export class AnimalSimulation {
         )
           setRabbitAction(rabbit.rig, 'eat', time + rabbit.data.id, 1.2);
       }
-  }
-
-  private updateHawks(dt: number, time: number): void {
-    this.hawkHunting.update(dt, time, this.context.combatAllowed?.() ?? true);
   }
 
   private removeDeadRabbits(): void {

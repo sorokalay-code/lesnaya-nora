@@ -3,6 +3,8 @@ import { World } from '../World';
 import { SeasonSystem } from '../systems';
 import { type SaveData, type Season, type Weather } from '../types';
 
+export const GAME_MINUTES_PER_SECOND = 6;
+
 interface Context {
   save: SaveData;
   seasons: SeasonSystem;
@@ -17,9 +19,10 @@ export class WorldCalendar {
 
   advance(dt: number): void {
     const previousDay = this.context.save.day;
-    this.context.save.clock += dt * 6;
+    const minutes = dt * GAME_MINUTES_PER_SECOND;
+    this.context.save.clock += minutes;
     this.context.save.day = Math.floor(this.context.save.clock / 1440) + 1;
-    this.context.save.player.age += (dt * 6) / 1440;
+    this.context.save.player.age += minutes / 1440;
     if (this.context.save.day > previousDay) this.newDay();
   }
 

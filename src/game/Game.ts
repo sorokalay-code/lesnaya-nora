@@ -349,7 +349,7 @@ export class Game {
       sound: this.sound,
       listener: () => this.save.player,
       facing: () => this.view.forwardAt(),
-      combatAllowed: () => !this.ui.conversationOpen,
+      combatAllowed: () => !this.ui.conversationOpen && !this.simulation?.resting,
       elapsed: () => this.runtime.elapsed,
     });
     this.attackSounds.bind([...this.predators, ...this.hawks]);
@@ -402,8 +402,7 @@ export class Game {
       player: this.player,
       store: this.store,
       survival: this.survival,
-      care: this.care,
-      family: this.family,
+      advanceRest: (minutes) => this.simulation.advanceRest(minutes),
       queries: this.queries,
       elapsed: () => this.runtime.elapsed,
       toast: (text) => this.toast(text),

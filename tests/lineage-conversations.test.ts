@@ -248,6 +248,25 @@ test('после перехода новорождённые получают п
   );
 });
 
+test('крол без анатомических мутаций может начать погоню', () => {
+  const { save } = fixture();
+  const { player } = save;
+  const data = save.partners[0];
+  data.genes = gene();
+  const actor = AnimalFactory.rabbit(data, new Random(12));
+  actor.moveTo(player.x + 4, player.z, player.y);
+  const threat = new RabbitReproductiveThreat(save, {
+    sheltered: () => false,
+    floorAt: (_x, _z, y) => y,
+    waterDepthAt: () => 0,
+  });
+  for (let time = 0; time <= 800 && !threat.view; time += 4) {
+    threat.update(0.05, time, [actor], true);
+  }
+  assert.deepEqual(threat.view, { name: data.name, phase: 'warning' });
+  assert.equal(save.pregnancy, null);
+});
+
 test('беременность после нападения видна вместе с крольчатами и сохраняет родословную отца', () => {
   const f = fixture();
   const { save } = f;

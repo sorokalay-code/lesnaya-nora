@@ -94,6 +94,7 @@ export class WasteSystem {
         return true;
       }
       this.fertilize(waste);
+      this.nextVisual = 0;
       return false;
     });
   }

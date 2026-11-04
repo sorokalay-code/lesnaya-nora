@@ -22,7 +22,8 @@ import { PlayerMovement } from './PlayerMovement';
 import { SceneLighting } from './SceneLighting';
 import type { SessionInterface } from './SessionInterface';
 import { SessionQueries } from './SessionQueries';
-import { WorldCalendar } from './WorldCalendar';
+import { GAME_MINUTES_PER_SECOND, WorldCalendar } from './WorldCalendar';
+import { WorldRest } from './WorldRest';
 export interface SimulationState {
   elapsed: number;
   digHeld: boolean;
@@ -61,8 +62,39 @@ interface Context {
 export class SessionSimulation {
   private lastHud = 0;
   private autosaveAt = 0;
+  private inRest = false;
+  private readonly worldRest: WorldRest;
 
-  constructor(private readonly context: Context) {}
+  constructor(private readonly context: Context) {
+    this.worldRest = new WorldRest({
+      ...context,
+      lighting: {
+        update: (night, sheltered) =>
+          context.lighting.update(context.save, context.world, night, sheltered),
+      },
+    });
+  }
+
+  get resting(): boolean {
+    return this.inRest;
+  }
+
+  advanceRest(minutes: number): boolean {
+    if (
+      this.context.web.trapped ||
+      this.context.animals.hasCaptures ||
+      this.context.player.root.userData.jumping === true
+    )
+      return false;
+    this.inRest = true;
+    try {
+      this.worldRest.advance(minutes);
+      this.context.environment.update(minutes / GAME_MINUTES_PER_SECOND);
+    } finally {
+      this.inRest = false;
+    }
+    return true;
+  }
 
   update(dt: number): void {
     ModelAssets.shared.updateView(this.context.camera);

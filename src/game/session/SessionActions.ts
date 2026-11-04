@@ -303,6 +303,6 @@ export class SessionActions {
 
     if (this.context.inventory.execute(action)) return;
 
-    this.context.environment.execute(action);
+    if (this.context.environment.execute(action) && action === 'sleep') this.context.refreshHud();
   }
 }

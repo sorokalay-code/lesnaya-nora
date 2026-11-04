@@ -14,6 +14,7 @@ const CHASE = {
   detectionRange: 8,
   escapeRange: 13,
   contactRange: 1.25,
+  ordinaryChance: 0.06,
   mutantChance: 0.2,
   fangedChance: 0.4,
 } as const;
@@ -133,15 +134,19 @@ export class RabbitReproductiveThreat {
     const player = this.save.player;
     for (const actor of actors) {
       const { anatomy } = actor.data.genes;
-      if (!anatomy.fangs && anatomy.legs === 4 && anatomy.ears === 2 && anatomy.eyes === 2)
-        continue;
       if (
         Math.hypot(actor.x - player.x, actor.z - player.z) > CHASE.detectionRange ||
         Math.abs(actor.root.position.y - player.y) > 1.5 ||
         !this.canPursue(actor)
       )
         continue;
-      if (!this.rng.chance(anatomy.fangs ? CHASE.fangedChance : CHASE.mutantChance)) continue;
+      const mutated = anatomy.legs !== 4 || anatomy.ears !== 2 || anatomy.eyes !== 2;
+      const chance = anatomy.fangs
+        ? CHASE.fangedChance
+        : mutated
+          ? CHASE.mutantChance
+          : CHASE.ordinaryChance;
+      if (!this.rng.chance(chance)) continue;
 
       const startsAt = time + CHASE.warningSeconds;
       this.pursuit = { actor, startsAt, endsAt: startsAt + CHASE.durationSeconds };
