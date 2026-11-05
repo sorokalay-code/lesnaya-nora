@@ -401,6 +401,7 @@
 }
 .event-panel {
   position: absolute;
+  z-index: 4;
   top: max(var(--ui-space-12), env(safe-area-inset-top));
   right: max(var(--ui-space-12), env(safe-area-inset-right));
   width: min(390px, calc(100% - var(--ui-space-24)));

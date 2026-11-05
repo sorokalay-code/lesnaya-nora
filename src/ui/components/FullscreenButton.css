@@ -1,6 +1,6 @@
 .fullscreen-corner {
   position: fixed;
-  z-index: 10001;
+  z-index: 3;
   top: max(var(--ui-space-12), env(safe-area-inset-top));
   right: max(var(--ui-space-12), env(safe-area-inset-right));
   display: inline-flex;
