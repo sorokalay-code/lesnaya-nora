@@ -1,6 +1,11 @@
 :root {
   --ui-text: #f9f5e9;
   --ui-canvas: #17271e;
+  --ui-map-forest: #315d40;
+  --ui-map-meadow: #9cb975;
+  --ui-map-water: #68b1c4;
+  --ui-map-swamp: #697953;
+  --ui-map-garden: #ad8155;
   --ui-surface: #132f25;
   --ui-surface-raised: #254435;
   --ui-field-bg: #214738;

@@ -1,0 +1,16 @@
+.ui-tabs {
+  display: flex;
+  gap: var(--ui-space-6);
+  padding: var(--ui-space-8) var(--ui-space-0);
+  overflow-x: auto;
+}
+.ui-tabs > .ui-button {
+  flex: 1;
+  white-space: nowrap;
+  min-height: var(--ui-target-height);
+}
+.ui-tabs > [aria-selected='true'] {
+  background: var(--ui-selection);
+  border-color: var(--ui-accent);
+  color: var(--ui-text-accent);
+}

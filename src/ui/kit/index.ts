@@ -8,3 +8,4 @@ export { Meter } from './Meter/Meter';
 export { Notice } from './Notice/Notice';
 export { Progress } from './Progress/Progress';
 export { Select } from './Select/Select';
+export { Tabs } from './Tabs/Tabs';

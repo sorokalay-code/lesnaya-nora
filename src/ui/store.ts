@@ -1,6 +1,8 @@
 import type { TouchBindings } from '../game/input/MobileInput';
 import type { ConversationPage } from './ConversationNavigation';
 import { defaultWorldConfig, type WorldConfig } from '../game/WorldConfig';
+import { defaultMapGeneration } from '../game/MapGeneration';
+
 import { createStore } from 'zustand/vanilla';
 import type {
   DialogViewModel,
@@ -10,6 +12,8 @@ import type {
   UIAction,
   GameMenuPage,
 } from './types';
+
+export type WorldSettingsTab = 'map' | 'nature' | 'population' | 'calendar';
 
 export interface UIState {
   conversationPage: ConversationPage;
@@ -36,7 +40,7 @@ export interface UIState {
   firstPerson: boolean;
   startSeason: number;
   worldConfig: WorldConfig;
-  worldSettingsExpanded: boolean;
+  worldSettingsTab: WorldSettingsTab;
   message: string;
   focus: { target: 'dialog' | 'message'; revision: number };
   toasts: { id: number; text: string }[];
@@ -63,8 +67,8 @@ export function createUIStore(dispatch: UIAction) {
     showControls: true,
     firstPerson: false,
     startSeason: 0,
-    worldConfig: defaultWorldConfig(),
-    worldSettingsExpanded: false,
+    worldConfig: { ...defaultWorldConfig(), map: defaultMapGeneration() },
+    worldSettingsTab: 'map',
     message: '',
     focus: { target: 'dialog', revision: 0 },
     toasts: [],

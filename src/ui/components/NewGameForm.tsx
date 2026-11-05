@@ -1,19 +1,18 @@
-import { Button, Disclosure } from '../kit';
+import { Button } from '../kit';
 import { useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useStore } from 'zustand';
 import { validWorldConfig } from '../../game/WorldConfig';
 import type { UIStore } from '../store';
-import { WorldSettings } from './WorldSettings';
+import { WORLD_SETTINGS_TABS, WorldSettings } from './WorldSettings';
 
-/** Предлагает запуск истории и раскрываемый редактор; создание сохранения выполняет движок. */
+/** Закрепляет запуск истории над вкладками; проверку и создание мира выполняет движок. */
 export function NewGameForm({ store, replacesStory }: { store: UIStore; replacesStory: boolean }) {
   const config = useStore(store, (state) => state.worldConfig);
-  const expanded = useStore(store, (state) => state.worldSettingsExpanded);
   const dispatch = useStore(store, (state) => state.dispatch);
 
   useLayoutEffect(() => {
-    store.setState({ worldSettingsExpanded: false });
+    store.setState({ worldSettingsTab: 'map' });
   }, [store]);
 
   return (
@@ -22,42 +21,43 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        if (!validWorldConfig(config)) {
-          // Сначала монтируем скрытые поля, затем браузер может показать ошибку и дать им фокус.
-          flushSync(() => store.setState({ worldSettingsExpanded: true }));
-          event.currentTarget.reportValidity();
+        const form = event.currentTarget;
+        if (!form.checkValidity() || !validWorldConfig(config)) {
+          const invalid = form.querySelector(':invalid');
+          const panel = invalid?.closest('[data-settings-tab]')?.getAttribute('data-settings-tab');
+          const tab = WORLD_SETTINGS_TABS.find((option) => option.value === panel);
+          if (tab) flushSync(() => store.setState({ worldSettingsTab: tab.value }));
+          form.reportValidity();
           return;
         }
-
         dispatch('new');
       }}
     >
-      <p>Создай свой лес. Крольчиха и её гены будут случайными; возможны врождённые особенности.</p>
-      {replacesStory && (
-        <p className="new-game-warning">
-          Текущая история и её единственное сохранение будут заменены новой игрой.
+      <header className="world-config-header">
+        <div className="world-config-heading">
+          <div>
+            <small>ЛЕСНАЯ НОРА · СОЗДАНИЕ МИРА</small>
+            <h2 id="game-menu-title">Новая история</h2>
+          </div>
+          <div className="config-actions">
+            <Button data-cancel-new onClick={() => dispatch('menu-back')}>
+              ← Назад
+            </Button>
+            <Button type="submit" variant={replacesStory ? 'danger' : 'primary'}>
+              Начать новую игру
+            </Button>
+          </div>
+        </div>
+        <p>
+          Создай свой лес. Крольчиха и её гены будут случайными; возможны врождённые особенности.
         </p>
-      )}
-      <div className="game-menu-options config-actions">
-        <Button type="button" data-cancel-new onClick={() => dispatch('menu-back')}>
-          Отмена
-        </Button>
-        <Button type="submit" variant={replacesStory ? 'danger' : 'primary'}>
-          Начать новую игру
-        </Button>
-      </div>
-      <Disclosure
-        className="world-settings"
-        open={expanded}
-        onToggle={(event) => store.setState({ worldSettingsExpanded: event.currentTarget.open })}
-        summary={
-          <>
-            Настройки мира <small>Размер, существа, природа и сезоны</small>
-          </>
-        }
-      >
-        {expanded && <WorldSettings store={store} />}
-      </Disclosure>
+        {replacesStory && (
+          <p className="new-game-warning">
+            Текущая история и её единственное сохранение будут заменены новой игрой.
+          </p>
+        )}
+      </header>
+      <WorldSettings store={store} />
     </form>
   );
 }

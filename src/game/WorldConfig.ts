@@ -1,11 +1,13 @@
 import type { WildlifeKind } from './animals/types';
 import type { Biome, PredatorKind, Season } from './types';
+import { validMapGeneration, type MapGeneration } from './MapGeneration';
 
 export type CreatureKind = 'rabbit' | PredatorKind | WildlifeKind | 'hawk' | 'pike' | 'butterfly';
 export type BiomePreference = 'mixed' | Biome;
 export type SeasonLengths = Record<Season, number>;
 
 export interface WorldConfig {
+  map?: MapGeneration;
   leaveRemains?: boolean;
   /** Половина стороны квадратного мира, в метрах. */
   size: number;
@@ -122,6 +124,7 @@ export function validWorldConfig(value: unknown): value is WorldConfig {
   const seasons = value.seasonLengths;
   return (
     (value.leaveRemains === undefined || typeof value.leaveRemains === 'boolean') &&
+    (value.map === undefined || validMapGeneration(value.map)) &&
     inRange(value.size, WORLD_LIMITS.size.min, WORLD_LIMITS.size.max, true) &&
     ['water', 'vegetation', 'food'].every((key) =>
       inRange(value[key], WORLD_LIMITS.density.min, WORLD_LIMITS.density.max),

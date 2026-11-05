@@ -1,4 +1,4 @@
-import { Button, FieldGroup, FieldLabel, Input, Select } from '../kit';
+import { Button, FieldGroup, FieldLabel, Input, Select, Tabs } from '../kit';
 import { useStore } from 'zustand';
 import {
   BIOME_OPTIONS,
@@ -8,37 +8,69 @@ import {
   WORLD_LIMITS,
   type WorldConfig,
 } from '../../game/WorldConfig';
-import type { UIStore } from '../store';
+import type { UIStore, WorldSettingsTab } from '../store';
+import { defaultMapGeneration } from '../../game/MapGeneration';
+import { WorldMapSettings } from './WorldMapSettings';
 
-const SIZE_PRESETS = [
-  { side: 140, label: 'Маленький' },
-  { side: 220, label: 'Обычный' },
-  { side: 300, label: 'Большой' },
-  { side: 600, label: 'Огромный' },
-] as const;
+export const WORLD_SETTINGS_TABS: readonly { value: WorldSettingsTab; label: string }[] = [
+  { value: 'map', label: 'Карта' },
+  { value: 'nature', label: 'Природа' },
+  { value: 'population', label: 'Животные' },
+  { value: 'calendar', label: 'Календарь' },
+];
 
 /** Редактирует черновик конфигурации в UI, используя те же пределы, что и загрузка сохранений. */
 export function WorldSettings({ store }: { store: UIStore }) {
   const config = useStore(store, (state) => state.worldConfig);
+  const tab = useStore(store, (state) => state.worldSettingsTab);
   const update = (patch: Partial<WorldConfig>) =>
     store.setState((state) => ({ worldConfig: { ...state.worldConfig, ...patch } }));
 
   return (
-    <div>
-      <CalendarSettings config={config} update={update} store={store} />
-      <NatureSettings config={config} update={update} />
-      <PopulationSettings config={config} update={update} />
-      <Button
-        type="button"
-        onClick={() => store.setState({ worldConfig: defaultWorldConfig(), startSeason: 0 })}
-      >
-        Вернуть исходные настройки
-      </Button>
+    <div className="world-settings">
+      <Tabs
+        id="world-settings"
+        label="Разделы настроек мира"
+        options={WORLD_SETTINGS_TABS}
+        value={tab}
+        onChange={(worldSettingsTab) => store.setState({ worldSettingsTab })}
+      />
+      <div className="world-settings-content" key={tab}>
+        {WORLD_SETTINGS_TABS.map(({ value }) => (
+          <div
+            key={value}
+            className="world-settings-panel"
+            id={`world-settings-panel-${value}`}
+            role="tabpanel"
+            aria-labelledby={`world-settings-tab-${value}`}
+            data-settings-tab={value}
+            hidden={value !== tab}
+          >
+            {value === 'map' && <WorldMapSettings config={config} update={update} />}
+            {value === 'nature' && <NatureSettings config={config} update={update} />}
+            {value === 'population' && <PopulationSettings config={config} update={update} />}
+            {value === 'calendar' && (
+              <CalendarSettings config={config} update={update} store={store} />
+            )}
+          </div>
+        ))}
+        <Button
+          type="button"
+          onClick={() =>
+            store.setState({
+              worldConfig: { ...defaultWorldConfig(), map: defaultMapGeneration() },
+              startSeason: 0,
+            })
+          }
+        >
+          Вернуть исходные настройки
+        </Button>
+      </div>
     </div>
   );
 }
 
-type SettingsSectionProps = {
+export type SettingsSectionProps = {
   config: WorldConfig;
   update: (patch: Partial<WorldConfig>) => void;
 };
@@ -46,39 +78,6 @@ type SettingsSectionProps = {
 function NatureSettings({ config, update }: SettingsSectionProps) {
   return (
     <FieldGroup legend="Мир и природа">
-      <FieldLabel>
-        Сторона мира, м
-        <Input
-          className="world-size-input"
-          type="number"
-          min={WORLD_LIMITS.size.min * 2}
-          max={WORLD_LIMITS.size.max * 2}
-          step={2}
-          required
-          value={config.size * 2}
-          onChange={(event) => update({ size: Number(event.target.value) / 2 })}
-          aria-describedby="world-size-hint"
-        />
-      </FieldLabel>
-      <p className="config-hint" id="world-size-hint">
-        Свой размер от {WORLD_LIMITS.size.min * 2} до {WORLD_LIMITS.size.max * 2} м, шаг 2 м. Карта
-        квадратная; по умолчанию — 220 × 220 м.
-      </p>
-      <div className="world-size-presets" role="group" aria-label="Готовые размеры мира">
-        {SIZE_PRESETS.map(({ side, label }) => (
-          <Button
-            type="button"
-            key={side}
-            aria-pressed={config.size * 2 === side}
-            onClick={() => update({ size: side / 2 })}
-          >
-            {label}
-            <small>
-              {side} × {side} м
-            </small>
-          </Button>
-        ))}
-      </div>
       <FieldLabel>
         Преобладающий биом
         <Select
@@ -98,8 +97,8 @@ function NatureSettings({ config, update }: SettingsSectionProps) {
         </Select>
       </FieldLabel>
       <p className="config-hint">
-        Родная поляна и два огорода сохраняются. Плотность растений считается на единицу площади;
-        число существ задаётся для всего мира.
+        Родная поляна сохраняется, огороды задаются на вкладке «Карта». Плотность растений считается
+        на единицу площади; число существ задаётся для всего мира.
       </p>
       {(
         [

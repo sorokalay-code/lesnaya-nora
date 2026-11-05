@@ -183,7 +183,7 @@ export class Game {
       return;
     }
     const worldConfig = structuredClone(this.ui.state.worldConfig);
-    const seed = Math.floor(Math.random() * 2_147_483_647);
+    const seed = worldConfig.map?.seed ?? Math.floor(Math.random() * 2_147_483_647);
     const seasonIndex = this.ui.state.startSeason;
     this.rng = new Random(seed + 53);
     this.factory = new RabbitFactory(this.rng);

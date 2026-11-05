@@ -49,18 +49,17 @@ export function GameMenu({ store }: { store: UIStore }) {
           }
         }}
       >
-        <header>
-          <div>
-            <small>ЛЕСНАЯ НОРА · {overlay?.type === 'start' ? 'СОЗДАНИЕ МИРА' : 'ПАУЗА'}</small>
-            <h2 id="game-menu-title">{titles[page]}</h2>
-          </div>
-          <Button
-            data-cancel-new={page === 'new-game' ? true : undefined}
-            onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}
-          >
-            {page === 'main' ? 'Продолжить игру' : '← Назад'}
-          </Button>
-        </header>
+        {page !== 'new-game' && (
+          <header>
+            <div>
+              <small>ЛЕСНАЯ НОРА · {overlay?.type === 'start' ? 'СОЗДАНИЕ МИРА' : 'ПАУЗА'}</small>
+              <h2 id="game-menu-title">{titles[page]}</h2>
+            </div>
+            <Button onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}>
+              {page === 'main' ? 'Продолжить игру' : '← Назад'}
+            </Button>
+          </header>
+        )}
         {page === 'main' && (
           <div className="game-menu-options">
             <Button variant="primary" onClick={() => dispatch('save')}>

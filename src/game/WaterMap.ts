@@ -1,3 +1,5 @@
+import { WorldLayout } from './WorldLayout';
+
 export interface WaterBody {
   id: string;
   kind: 'pond' | 'river';
@@ -6,6 +8,8 @@ export interface WaterBody {
   depth: number;
   level: number;
 }
+
+export type WaterDefinition = Omit<WaterBody, 'level'>;
 
 export interface WaterSample {
   body: WaterBody;
@@ -22,53 +26,23 @@ const smooth = (t: number) => {
 export class WaterMap {
   readonly bodies: readonly WaterBody[];
 
-  constructor(naturalHeight: (x: number, z: number) => number, scale = 1, amount = 1) {
+  constructor(
+    naturalHeight: (x: number, z: number) => number,
+    scale = 1,
+    amount = 1,
+    plan?: readonly WaterDefinition[],
+  ) {
     if (amount === 0) {
       this.bodies = [];
       return;
     }
-    const definitions = [
-      {
-        id: 'meadow-pond',
-        kind: 'pond' as const,
-        points: [{ x: 9, z: -7 }],
-        radius: 4.4,
-        depth: 2.2,
-      },
-      {
-        id: 'swamp-pond',
-        kind: 'pond' as const,
-        points: [{ x: -28, z: -25 }],
-        radius: 6,
-        depth: 2.6,
-      },
-      {
-        id: 'small-pond',
-        kind: 'pond' as const,
-        points: [{ x: -39, z: -18 }],
-        radius: 3.5,
-        depth: 1.7,
-      },
-      {
-        id: 'forest-river',
-        kind: 'river' as const,
-        points: [
-          { x: -48, z: -88 },
-          { x: -40, z: -70 },
-          { x: -44, z: -53 },
-          { x: -35, z: -38 },
-          { x: -28, z: -25 },
-        ],
-        radius: 3.4,
-        depth: 2.1,
-      },
-    ];
     // Масштабируем расположение вместе с картой, количество воды — шириной водоёмов.
     // Квадратный корень сохраняет близкую к линейной зависимость площади прудов от настройки.
-    for (const body of definitions) {
-      body.points = body.points.map(({ x, z }) => ({ x: x * scale, z: z * scale }));
-      body.radius *= scale * Math.sqrt(amount);
-    }
+    const definitions = (plan ?? new WorldLayout(0).water).map((body) => ({
+      ...body,
+      points: body.points.map(({ x, z }) => ({ x: x * scale, z: z * scale })),
+      radius: body.radius * scale * Math.sqrt(amount),
+    }));
     const levels = definitions.map((body) => {
       let level = Infinity;
       for (const point of body.points)
@@ -84,8 +58,17 @@ export class WaterMap {
         }
       return level;
     });
-    // Река впадает в топь: обе поверхности имеют один уровень, без ступеньки в месте соединения.
-    levels[1] = levels[3] = Math.min(levels[1], levels[3]);
+    // Все пересекающиеся водоёмы получают один уровень; повтор нужен для цепочки соединений.
+    for (let pass = 0; pass < definitions.length; pass++)
+      for (let i = 0; i < definitions.length; i++)
+        for (let j = i + 1; j < definitions.length; j++) {
+          const a = definitions[i];
+          const b = definitions[j];
+          if (
+            a.points.some((point) => this.distance({ ...b, level: 0 }, point.x, point.z) < a.radius)
+          )
+            levels[i] = levels[j] = Math.min(levels[i], levels[j]);
+        }
     this.bodies = definitions.map((body, i) => ({ ...body, level: levels[i] }));
   }
 

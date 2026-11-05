@@ -10,7 +10,7 @@ import { groundColor } from './TerrainColors';
 import { WorldBoundary } from './WorldBoundary';
 import * as THREE from 'three';
 import { ModelAssets } from './ModelAssets';
-import { hash2, Random, smoothNoise } from './Random';
+import { hash2, Random } from './Random';
 import { ResourceInstances } from './ResourceInstances';
 import { SeasonSystem } from './systems';
 import { Terrain } from './Terrain';
@@ -21,6 +21,7 @@ import { RockField } from './RockField';
 import { WaterScenery } from './WaterScenery';
 import type { WaterSample } from './WaterMap';
 import { defaultWorldConfig, type WorldConfig } from './WorldConfig';
+import { WorldLayout } from './WorldLayout';
 
 export interface Resource {
   id: number;
@@ -76,13 +77,8 @@ export class World {
   readonly resources: Resource[] = [];
   readonly waterSources: { x: number; z: number }[] = [];
   readonly treeLocations: { x: number; z: number }[] = [];
-  readonly landmarks: LandMark[] = [
-    { x: 0, z: 0, biome: 'meadow', label: 'Родная поляна' },
-    { x: 34, z: 31, biome: 'garden', label: 'Дачный огород' },
-    { x: -35, z: 29, biome: 'garden', label: 'Старый огород' },
-    { x: -31, z: -25, biome: 'swamp', label: 'Тихая топь' },
-    { x: 27, z: -34, biome: 'forest', label: 'Сосновая чаща' },
-  ];
+  readonly landmarks: LandMark[];
+  readonly layout: WorldLayout;
   readonly seed: number;
   readonly chunks: WorldChunks;
   readonly terrain: Terrain;
@@ -117,14 +113,17 @@ export class World {
     this.config = save?.worldConfig ?? defaultWorldConfig();
     this.size = this.config.size;
     this.scale = this.size / 110;
-    for (const landmark of this.landmarks) {
-      landmark.x *= this.scale;
-      landmark.z *= this.scale;
-    }
+    this.layout = new WorldLayout(seed, this.config.map);
+    this.landmarks = this.layout.regions.map(({ x, z, biome, label }) => ({
+      x: x * this.scale,
+      z: z * this.scale,
+      biome,
+      label,
+    }));
     this.rng = new Random(seed);
     this.seasons = new SeasonSystem(seed, this.config.seasonLengths);
     this.chunks = new WorldChunks(scene);
-    this.terrain = new Terrain(seed, this.scale, this.config.water);
+    this.terrain = new Terrain(seed, this.scale, this.config.water, this.layout);
     this.boundary = new WorldBoundary(
       this.terrain,
       seed,
@@ -264,22 +263,7 @@ export class World {
   }
 
   biomeAt(x: number, z: number): Biome {
-    x /= this.scale;
-    z /= this.scale;
-    if (Math.hypot(x - 34, z - 31) < 15 || Math.hypot(x + 35, z - 29) < 12) return 'garden';
-
-    if (Math.hypot(x + 31, z + 25) < 19 && smoothNoise(x / 12, z / 12, this.seed + 78) > 0.25)
-      return 'swamp';
-
-    if (Math.hypot(x, z) < 12) return 'meadow';
-
-    const n =
-      smoothNoise(x / 19, z / 19, this.seed) * 0.7 +
-      smoothNoise(x / 8, z / 8, this.seed + 19) * 0.3;
-    // Родная поляна и два огорода остаются ориентирами при любом преобладающем биоме.
-    if (this.config.biome !== 'mixed') return n > 0.3 ? this.config.biome : 'meadow';
-
-    return n > 0.53 ? 'forest' : 'meadow';
+    return this.layout.biomeAt(x / this.scale, z / this.scale, this.config.biome);
   }
 
   private buildGround(): void {
@@ -415,8 +399,8 @@ export class World {
       }
     }
 
-    this.makeGarden(34 * this.scale, 31 * this.scale, 16 * this.scale);
-    this.makeGarden(-35 * this.scale, 29 * this.scale, 13 * this.scale);
+    for (const garden of this.layout.gardens)
+      this.makeGarden(garden.x * this.scale, garden.z * this.scale, garden.radius * this.scale);
     this.makeSmallDetails();
   }
 
@@ -646,7 +630,7 @@ export class World {
               : this.rng.pick(['clover', 'clover', 'bitterleaf', 'berries']);
       add(x, z, kind);
     }
-    GardenCrops.plant(add, this.scale, this.config.food);
+    GardenCrops.plant(add, this.scale, this.config.food, [...this.layout.gardens]);
   }
 
   fertilize(x: number, z: number, clock: number): void {

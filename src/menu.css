@@ -81,6 +81,41 @@
 .touch-menu.game-menu.world-config-menu {
   width: min(760px, calc(100% - var(--ui-space-24)));
   overscroll-behavior: contain;
+  padding: var(--ui-space-0);
+  overflow: hidden;
+}
+.game-menu .new-game-options.world-config {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--ui-space-24));
+  min-height: 0;
+}
+.game-menu .world-config-header {
+  display: block;
+  flex-shrink: 0;
+  position: static;
+  padding: var(--ui-space-20) var(--ui-space-20) var(--ui-space-12);
+  border-bottom: 1px solid var(--ui-divider);
+  margin: var(--ui-space-0);
+}
+.world-config-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ui-space-12);
+}
+.world-config-header p {
+  margin: var(--ui-space-8) var(--ui-space-0) var(--ui-space-0);
+  color: var(--ui-text-muted);
+}
+.world-config-header .new-game-warning {
+  color: var(--ui-invalid);
+}
+.world-config-header .config-actions {
+  display: flex;
+  gap: var(--ui-space-8);
+  flex-shrink: 0;
+  margin: var(--ui-space-0);
 }
 .world-config label {
   margin: var(--ui-space-10) var(--ui-space-0);
@@ -137,24 +172,76 @@
   margin-top: var(--ui-space-14);
 }
 .world-settings {
-  margin-top: var(--ui-space-20);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-.world-settings > summary {
-  cursor: pointer;
-  padding: var(--ui-space-14);
-  border: 1px solid #b5c59366;
-  border-radius: 10px;
-  color: var(--ui-text-accent);
-  background: var(--ui-surface-raised);
-  font-size: 14px;
-  font-weight: 600;
+.world-settings > .ui-tabs {
+  flex-shrink: 0;
+  margin: var(--ui-space-0) var(--ui-space-20);
 }
-.world-settings > summary small {
+.world-settings-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--ui-space-0) var(--ui-space-20) var(--ui-space-20);
+  min-height: 0;
+}
+.world-settings-panel[hidden] {
+  display: none;
+}
+.map-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-8);
+  margin-bottom: var(--ui-space-16);
+}
+.map-presets button {
+  text-align: left;
+}
+.map-presets small {
   display: block;
   margin-top: var(--ui-space-6);
   font-size: 11px;
   font-weight: 400;
   color: var(--ui-text-muted);
+}
+.world-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-16);
+  margin: var(--ui-space-16) var(--ui-space-0);
+  padding: var(--ui-space-12);
+  background: var(--ui-surface-raised);
+  border-radius: var(--ui-radius-control);
+}
+.world-preview svg {
+  width: 160px;
+  flex-shrink: 0;
+  border-radius: var(--ui-radius-control);
+}
+.world-preview figcaption {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+.preview-forest {
+  fill: var(--ui-map-forest);
+}
+.preview-meadow {
+  fill: var(--ui-map-meadow);
+}
+.preview-water {
+  fill: var(--ui-map-water);
+}
+.preview-swamp {
+  fill: var(--ui-map-swamp);
+}
+.preview-garden {
+  fill: var(--ui-map-garden);
+}
+.preview-home {
+  fill: var(--ui-focus);
+  stroke: var(--ui-canvas);
+  stroke-width: 0.3;
 }
 .world-size-presets {
   display: grid;
@@ -173,10 +260,34 @@
   border-color: var(--ui-accent);
   background: var(--ui-selection);
 }
-.world-config .world-size-input {
+.world-config .ui-input.world-size-input {
   width: 100px;
 }
+.world-config .ui-input.map-seed-input {
+  width: min(180px, 50%);
+}
 @media (max-width: 540px) {
+  .world-config-heading {
+    flex-wrap: wrap;
+  }
+  .world-config-heading .config-actions {
+    flex: 1 0 100%;
+  }
+  .world-config-heading .config-actions button[type='submit'] {
+    flex: 1;
+  }
+  .game-menu .world-config-header {
+    padding: var(--ui-space-12);
+  }
+  .world-settings > .ui-tabs {
+    margin: var(--ui-space-0) var(--ui-space-12);
+  }
+  .world-settings-content {
+    padding: var(--ui-space-0) var(--ui-space-12) var(--ui-space-12);
+  }
+  .world-preview {
+    flex-wrap: wrap;
+  }
   .world-config .creature-grid {
     grid-template-columns: 1fr;
   }
