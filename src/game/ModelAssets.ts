@@ -101,45 +101,65 @@ export class ModelAssets {
   private readonly sharedMaterials = new Set<THREE.Material>();
   private readonly palette = new WeakMap<THREE.Material, Map<number, THREE.Material>>();
   private loading?: Promise<void>;
+  private readonly progressListeners = new Set<(loaded: number, total: number) => void>();
+  private loadedAssets = 0;
+  private totalAssets = 0;
   private readonly textures = new Map<string, THREE.Texture>();
   private readonly frustum = new THREE.Frustum();
   private readonly projection = new THREE.Matrix4();
   private readonly cameraPosition = new THREE.Vector3();
   private readonly bounds = new THREE.Sphere(new THREE.Vector3(), 3);
+  async preload(onProgress?: (loaded: number, total: number) => void): Promise<void> {
+    if (!this.loading) {
+      this.loadedAssets = 0;
+      this.totalAssets = TEXTURE_NAMES.length + MODEL_NAMES.length + CREATURE_NAMES.length;
 
-  async preload(): Promise<void> {
-    if (this.loading) return this.loading;
+      this.loading = (async () => {
+        const loaded = () => {
+          this.loadedAssets++;
+          for (const listener of this.progressListeners)
+            listener(this.loadedAssets, this.totalAssets);
+        };
+        const loader = new THREE.TextureLoader();
+        await Promise.all(
+          TEXTURE_NAMES.map(async (name) => {
+            const texture = await loader.loadAsync(assetUrl(`textures/${name}.png`));
+            texture.colorSpace = THREE.SRGBColorSpace;
+            if (!name.startsWith('cover-') && !name.startsWith('ground-'))
+              texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            this.textures.set(name, texture);
+            loaded();
+          }),
+        );
 
-    this.loading = (async () => {
-      const loader = new THREE.TextureLoader();
-      await Promise.all(
-        TEXTURE_NAMES.map(async (name) => {
-          const texture = await loader.loadAsync(assetUrl(`textures/${name}.png`));
-          texture.colorSpace = THREE.SRGBColorSpace;
-          if (!name.startsWith('cover-') && !name.startsWith('ground-'))
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          this.textures.set(name, texture);
-        }),
-      );
+        await Promise.all(
+          MODEL_NAMES.map(async (name) => {
+            const glb = await this.loader.loadAsync(assetUrl(`models/${name}.glb`));
+            this.prepare(glb, name);
+            this.glbs.set(name, glb);
+            loaded();
+            if ((CREATURE_NAMES as readonly string[]).includes(name)) {
+              const low = await this.loader.loadAsync(assetUrl(`models/${name}-low.glb`));
+              this.prepare(low, name);
+              this.low.set(name, low);
+              loaded();
+            }
+          }),
+        );
+      })();
+    }
 
-      await Promise.all(
-        MODEL_NAMES.map(async (name) => {
-          const glb = await this.loader.loadAsync(assetUrl(`models/${name}.glb`));
-          this.prepare(glb, name);
-          this.glbs.set(name, glb);
-          if ((CREATURE_NAMES as readonly string[]).includes(name)) {
-            const low = await this.loader.loadAsync(assetUrl(`models/${name}-low.glb`));
-            this.prepare(low, name);
-            this.low.set(name, low);
-          }
-        }),
-      );
-    })();
+    if (onProgress) {
+      this.progressListeners.add(onProgress);
+      onProgress(this.loadedAssets, this.totalAssets);
+    }
     try {
       await this.loading;
     } catch (err) {
       this.loading = undefined;
       throw err;
+    } finally {
+      if (onProgress) this.progressListeners.delete(onProgress);
     }
   }
 

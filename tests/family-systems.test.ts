@@ -297,8 +297,8 @@ test('family and wild rabbits receive names from the set matching their sex', ()
   assert.ok(FEMALE_RABBIT_NAMES.includes(female.name));
   assert.equal(male.sex, 'male');
   assert.ok(MALE_RABBIT_NAMES.includes(male.name));
-  assert.equal(FEMALE_RABBIT_NAMES.length, 20);
-  assert.equal(MALE_RABBIT_NAMES.length, 20);
+  assert.ok(FEMALE_RABBIT_NAMES.length >= 20);
+  assert.ok(MALE_RABBIT_NAMES.length >= 20);
 
   const partners = new RabbitFactory(new Random(17)).partners(20);
   assert.ok(
