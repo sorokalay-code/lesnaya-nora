@@ -493,6 +493,78 @@
     gap: var(--ui-space-6);
   }
 }
+@media (max-height: 500px) {
+  .touch-ui .touch-menu.game-menu.world-config-menu {
+    inset: max(var(--ui-space-4), env(safe-area-inset-top))
+      max(var(--ui-space-4), env(safe-area-inset-right))
+      max(var(--ui-space-4), env(safe-area-inset-bottom))
+      max(var(--ui-space-4), env(safe-area-inset-left));
+    transform: none;
+    width: auto;
+    max-height: none;
+    margin: var(--ui-space-0);
+    border-radius: var(--ui-radius-control);
+  }
+  .touch-ui .game-menu .new-game-options.world-config {
+    height: 100%;
+    max-height: none;
+  }
+  .touch-ui .game-menu .world-config-header {
+    padding: var(--ui-space-6) var(--ui-space-12);
+  }
+  .touch-ui .world-config-heading {
+    display: grid;
+    grid-template-columns: auto minmax(150px, 1fr) auto;
+    gap: var(--ui-space-10);
+    padding-right: calc(var(--ui-target-height) + var(--ui-space-12));
+  }
+  .touch-ui .world-config-heading > div:first-child small,
+  .touch-ui .world-config-header > p {
+    display: none;
+  }
+  .touch-ui .world-config-heading h2 {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .touch-ui .world-config-heading .adventure-name-field {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-8);
+    margin: var(--ui-space-0);
+    white-space: nowrap;
+  }
+  .touch-ui .world-config-heading .adventure-name-field .ui-input {
+    min-width: 0;
+    min-height: var(--ui-control-height);
+  }
+  .touch-ui .world-config-heading .config-actions {
+    gap: var(--ui-space-6);
+  }
+  .touch-ui .world-config-heading .config-actions button {
+    min-height: var(--ui-control-height);
+    padding: var(--ui-space-6) var(--ui-space-8);
+    white-space: nowrap;
+  }
+  .touch-ui .world-config-heading .config-actions button[type='submit'] {
+    flex: none;
+  }
+  .touch-ui .game-menu .world-settings {
+    flex: 1 1 0;
+    overflow: hidden;
+  }
+  .touch-ui .game-menu .world-settings > .ui-tabs {
+    margin: var(--ui-space-0) var(--ui-space-12);
+  }
+  .touch-ui .game-menu .world-settings > .ui-tabs > .ui-button {
+    min-height: var(--ui-control-height);
+    padding: var(--ui-space-5) var(--ui-space-8);
+  }
+  .touch-ui .game-menu .world-settings-content {
+    flex: 1 1 0;
+    overflow-y: auto;
+    padding: var(--ui-space-0) var(--ui-space-12) var(--ui-space-8);
+  }
+}
 .journal-log {
   margin: var(--ui-space-16) var(--ui-space-0);
   padding: var(--ui-space-12);

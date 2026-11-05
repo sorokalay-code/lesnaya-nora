@@ -40,6 +40,15 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
             <small>ЛЕСНАЯ НОРА · СОЗДАНИЕ МИРА</small>
             <h2 id="game-menu-title">Новая история</h2>
           </div>
+          <FieldLabel className="adventure-name-field">
+            Название приключения
+            <Input
+              required
+              maxLength={40}
+              value={adventureName}
+              onChange={(event) => store.setState({ adventureName: event.target.value })}
+            />
+          </FieldLabel>
           <div className="config-actions">
             <Button data-cancel-new onClick={() => dispatch('menu-back')}>
               ← Назад
@@ -52,15 +61,6 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
         <p>
           Создай свой лес. Крольчиха и её гены будут случайными; возможны врождённые особенности.
         </p>
-        <FieldLabel className="adventure-name-field">
-          Название приключения
-          <Input
-            required
-            maxLength={40}
-            value={adventureName}
-            onChange={(event) => store.setState({ adventureName: event.target.value })}
-          />
-        </FieldLabel>
         {replacesStory && (
           <p className="new-game-warning">
             Новое приключение создаст отдельное сохранение; другие миры останутся доступны.

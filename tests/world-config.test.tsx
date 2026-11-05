@@ -358,6 +358,7 @@ test('form exposes every species, native bounds, independent seasons and replace
   assert.match(html, /type="submit"/);
   assert.match(html, /min="1" max="365"/);
   assert.match(html, /отдельное сохранение/);
+  assert.ok(html.indexOf('Название приключения') < html.indexOf('Начать новую игру'));
   assert.ok(
     !renderToStaticMarkup(<NewGameForm store={store} replacesStory={false} />).includes(
       'отдельное сохранение',
