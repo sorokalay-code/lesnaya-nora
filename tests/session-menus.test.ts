@@ -210,6 +210,19 @@ test('pause menu contains session controls and action panel contains only world 
   assert.match(confirmation, /data-cancel-new/);
 });
 
+test('mobile settings expose a toggle for performance diagnostics only on touch devices', () => {
+  const store = createUIStore(() => {});
+  store.setState({ gameMenu: 'settings', touch: true });
+  store.getInitialState = store.getState;
+  const mobile = renderToStaticMarkup(createElement(GameMenu, { store }));
+  assert.match(mobile, /Показатели производительности/);
+  assert.match(mobile, /aria-pressed="false"/);
+
+  store.setState({ touch: false, performanceEnabled: true });
+  const desktop = renderToStaticMarkup(createElement(GameMenu, { store }));
+  assert.doesNotMatch(desktop, /Показатели производительности/);
+});
+
 test('mobile utilities expose game menu and event history without showing event text', () => {
   const store = createUIStore(() => {});
   store.getInitialState = store.getState;

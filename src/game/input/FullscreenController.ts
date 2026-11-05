@@ -24,8 +24,17 @@ export class FullscreenController {
     document.addEventListener('webkitfullscreenchange', this.sync, {
       signal: this.events.signal,
     });
+    document.addEventListener('keydown', this.onKeyDown, { signal: this.events.signal });
     this.sync();
   }
+
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (event.code !== 'F11' || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!this.ui.state.fullscreenAvailable && !this.ui.state.fullscreen) return;
+
+    event.preventDefault();
+    void this.toggle();
+  };
 
   private get fullscreenElement(): Element | null {
     return document.fullscreenElement ?? this.fullscreenDocument.webkitFullscreenElement ?? null;

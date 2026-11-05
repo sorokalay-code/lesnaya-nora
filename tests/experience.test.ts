@@ -201,6 +201,61 @@ test('fullscreen controller supports Safari-prefixed fullscreen APIs', async () 
   }
 });
 
+test('F11 toggles fullscreen through the browser API and keeps state synchronized', async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const store = createUIStore(() => {});
+  const documentMock = Object.assign(new EventTarget(), {
+    fullscreenEnabled: true,
+    fullscreenElement: null as object | null,
+    async exitFullscreen() {
+      this.fullscreenElement = null;
+      this.dispatchEvent(new Event('fullscreenchange'));
+    },
+  });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: documentMock });
+  const host = {
+    async requestFullscreen() {
+      documentMock.fullscreenElement = host;
+      documentMock.dispatchEvent(new Event('fullscreenchange'));
+    },
+  } as unknown as HTMLElement;
+  const ui = {
+    store,
+    get state() {
+      return store.getState();
+    },
+    toast() {},
+  };
+  const controller = new FullscreenController(host, ui);
+
+  try {
+    const enter = Object.assign(new Event('keydown', { cancelable: true }), {
+      code: 'F11',
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+    });
+    documentMock.dispatchEvent(enter);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(enter.defaultPrevented, true);
+    assert.equal(store.getState().fullscreen, true);
+
+    const exit = Object.assign(new Event('keydown', { cancelable: true }), {
+      code: 'F11',
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+    });
+    documentMock.dispatchEvent(exit);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(store.getState().fullscreen, false);
+  } finally {
+    controller.dispose();
+    if (original) Object.defineProperty(globalThis, 'document', original);
+    else Reflect.deleteProperty(globalThis, 'document');
+  }
+});
+
 test('fullscreen button stays available to explain unsupported browser mode', () => {
   const store = createUIStore(() => {});
   const markup = renderToStaticMarkup(createElement(FullscreenButton, { store, compact: true }));

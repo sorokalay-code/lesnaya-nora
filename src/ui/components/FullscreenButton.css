@@ -1,6 +1,6 @@
 .fullscreen-corner {
   position: fixed;
-  z-index: 1000;
+  z-index: 10001;
   top: max(var(--ui-space-12), env(safe-area-inset-top));
   right: max(var(--ui-space-12), env(safe-area-inset-right));
   display: inline-flex;
@@ -34,4 +34,8 @@
   height: var(--ui-target-height);
   padding: var(--ui-space-0);
   font-size: 20px;
+}
+
+.top-actions {
+  margin-right: calc(var(--ui-target-height) + var(--ui-space-12));
 }

@@ -8,14 +8,29 @@ export class PerformanceMonitor {
   private renders: number[] = [];
   private nextRefresh = 0;
 
-  constructor(private readonly publish: (text?: string) => void) {
+  constructor(
+    private readonly publish: (text?: string) => void,
+    private readonly onEnabledChange: (enabled: boolean) => void = () => {},
+  ) {
     window.addEventListener('keydown', (event) => {
       if (event.code === 'F3') {
         event.preventDefault();
-        this.enabled = !this.enabled;
-        if (!this.enabled) this.publish(undefined);
+        this.setEnabled(!this.enabled);
       }
     });
+    this.onEnabledChange(this.enabled);
+  }
+
+  setEnabled(enabled: boolean): void {
+    if (this.enabled === enabled) return;
+
+    this.enabled = enabled;
+    this.samples = [];
+    this.updates = [];
+    this.renders = [];
+    this.nextRefresh = 0;
+    if (!enabled) this.publish(undefined);
+    this.onEnabledChange(enabled);
   }
 
   record(renderer: WebGLRenderer, frameMs: number, updateMs: number, renderMs: number): void {

@@ -14,6 +14,7 @@ export function GameMenu({ store }: { store: UIStore }) {
   const notice = useStore(store, (s) => s.saveNotice);
   const overlay = useStore(store, (s) => s.overlay);
   const touch = useStore(store, (s) => s.touch);
+  const performanceEnabled = useStore(store, (s) => s.performanceEnabled);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -89,6 +90,14 @@ export function GameMenu({ store }: { store: UIStore }) {
             <Button aria-pressed={controls} onClick={() => dispatch('toggle-controls')}>
               {controls ? '☑' : '☐'} Подсказка управления
             </Button>
+            {touch && (
+              <Button
+                aria-pressed={performanceEnabled}
+                onClick={() => dispatch('performance-toggle')}
+              >
+                {performanceEnabled ? '☑' : '☐'} Показатели производительности
+              </Button>
+            )}
           </div>
         )}
         {page === 'controls' && <ControlGuide touch={touch} />}

@@ -349,7 +349,9 @@
   position: absolute;
   z-index: 90;
   top: max(var(--ui-space-0), env(safe-area-inset-top));
-  right: max(var(--ui-space-8), env(safe-area-inset-right));
+  right: calc(
+    max(var(--ui-space-8), env(safe-area-inset-right)) + var(--ui-target-height) + var(--ui-space-8)
+  );
   display: flex;
   gap: var(--ui-space-4);
 }

@@ -129,7 +129,9 @@ export class Game {
     this.fullscreen = new FullscreenController(this.app, this.ui);
     this.bind();
     this.resize();
-    this.performanceMonitor = new PerformanceMonitor(this.ui.publishPerformance);
+    this.performanceMonitor = new PerformanceMonitor(this.ui.publishPerformance, (enabled) =>
+      this.ui.store.setState({ performanceEnabled: enabled }),
+    );
     this.showStart();
     requestAnimationFrame(this.frame);
   }
@@ -677,6 +679,10 @@ export class Game {
     }
     if (action === 'fullscreen') {
       void this.fullscreen.toggle();
+      return;
+    }
+    if (action === 'performance-toggle') {
+      this.performanceMonitor.setEnabled(!this.ui.state.performanceEnabled);
       return;
     }
     if (action === 'new') {

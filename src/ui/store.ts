@@ -45,6 +45,7 @@ export interface UIState {
   focus: { target: 'dialog' | 'message'; revision: number };
   toasts: { id: number; text: string }[];
   performance?: string;
+  performanceEnabled: boolean;
   dispatch: UIAction;
 }
 
@@ -64,6 +65,7 @@ export function createUIStore(dispatch: UIAction) {
     eventsOpen: false,
     events: [],
     unreadEvents: 0,
+    performanceEnabled: false,
     showControls: true,
     firstPerson: false,
     startSeason: 0,
