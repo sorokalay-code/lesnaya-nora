@@ -30,6 +30,7 @@ export class SessionMenus {
       settings: 'settings',
       'controls-help': 'controls',
       'new-game-menu': 'new-game',
+      'saved-games': 'saves',
       'menu-back': 'main',
     } as const;
     if (Object.hasOwn(pages, action)) {

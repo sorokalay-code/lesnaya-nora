@@ -194,7 +194,7 @@ test('pause menu contains session controls and action panel contains only world 
   store.getInitialState = store.getState;
   store.setState({ gameMenu: 'main' });
   const main = renderToStaticMarkup(createElement(GameMenu, { store }));
-  assert.match(main, /Сохранить игру/);
+  assert.match(main, /Создать сохранение/);
   assert.match(main, /Новая игра/);
   assert.doesNotMatch(main, /Кормить молоком/);
   store.setState({ gameMenu: undefined, actionMenuOpen: true });
@@ -206,7 +206,8 @@ test('pause menu contains session controls and action panel contains only world 
   const confirmation = renderToStaticMarkup(createElement(GameMenu, { store }));
   assert.match(confirmation, /Разделы настроек мира/);
   assert.match(confirmation, /data-settings-tab="calendar" hidden=""/);
-  assert.match(confirmation, /единственное сохранение/);
+  assert.match(confirmation, /отдельное сохранение/);
+  assert.match(confirmation, /Название приключения/);
   assert.match(confirmation, /data-cancel-new/);
 });
 

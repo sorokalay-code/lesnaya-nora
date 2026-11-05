@@ -4,6 +4,7 @@ import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { ControlGuide } from './ControlGuide';
 import { NewGameForm } from './NewGameForm';
+import { SaveLibrary } from './SaveLibrary';
 
 /** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
 export function GameMenu({ store }: { store: UIStore }) {
@@ -34,6 +35,7 @@ export function GameMenu({ store }: { store: UIStore }) {
     settings: 'Настройки',
     'new-game': 'Новая история',
     controls: 'Управление',
+    saves: 'Приключения и сохранения',
   };
   return (
     <div className="menu-backdrop">
@@ -63,8 +65,9 @@ export function GameMenu({ store }: { store: UIStore }) {
         {page === 'main' && (
           <div className="game-menu-options">
             <Button variant="primary" onClick={() => dispatch('save')}>
-              Сохранить игру <kbd>F5</kbd>
+              Создать сохранение <kbd>F5</kbd>
             </Button>
+            <Button onClick={() => dispatch('saved-games')}>Приключения и сохранения</Button>
             <Button onClick={() => dispatch('new-game-menu')}>Новая игра</Button>
             <Button onClick={() => dispatch('settings')}>Настройки</Button>
             <Button onClick={() => dispatch('controls-help')}>
@@ -101,6 +104,7 @@ export function GameMenu({ store }: { store: UIStore }) {
           </div>
         )}
         {page === 'controls' && <ControlGuide touch={touch} />}
+        {page === 'saves' && <SaveLibrary store={store} />}
         {page === 'new-game' && (
           <NewGameForm store={store} replacesStory={overlay?.type !== 'start' || overlay.hasSave} />
         )}

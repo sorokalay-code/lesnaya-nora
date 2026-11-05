@@ -268,7 +268,7 @@ test('every selected species spawns with its own count even without forest or tr
   assert.equal(f.population.wildlife.length, 20);
 });
 
-test('save round trip preserves configured terrain, plants, populations and calendar; v4 defaults survive', () => {
+test('save round trip preserves configured terrain, plants, populations and calendar; defaults survive', () => {
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   let stored = '';
   Object.defineProperty(globalThis, 'localStorage', {
@@ -317,7 +317,9 @@ test('save round trip preserves configured terrain, plants, populations and cale
     assert.equal(restored.layout.gardens.length, 3);
     assert.equal(new MapPresenter().build(restored, loaded).size, 83);
     assert.ok(restored.resources.length > 0);
-    stored = JSON.stringify({ ...f.save, worldConfig: { ...config, size: 'huge' } });
+    const catalog = JSON.parse(stored) as { slots: { save: Record<string, unknown> }[] };
+    catalog.slots[0].save.worldConfig = { ...config, size: 'huge' };
+    stored = JSON.stringify(catalog);
     assert.throws(() => repository.load(), /настройки мира/);
     delete f.save.worldConfig;
     repository.store(f.save);
@@ -355,10 +357,10 @@ test('form exposes every species, native bounds, independent seasons and replace
   for (const season of SEASONS) assert.ok(html.includes(`${season}, игровых дней`));
   assert.match(html, /type="submit"/);
   assert.match(html, /min="1" max="365"/);
-  assert.match(html, /единственное сохранение/);
+  assert.match(html, /отдельное сохранение/);
   assert.ok(
     !renderToStaticMarkup(<NewGameForm store={store} replacesStory={false} />).includes(
-      'единственное сохранение',
+      'отдельное сохранение',
     ),
   );
 });
@@ -370,14 +372,14 @@ test('new history starts above four tabs with only the selected panel visible', 
   assert.equal((html.match(/data-settings-tab="\w+" hidden=""/g) ?? []).length, 3);
   assert.match(html, /role="tab" aria-selected="true"[^>]*>Карта/);
   assert.ok(html.indexOf('Начать новую игру') < html.indexOf('role="tablist"'));
-  assert.match(html, /единственное сохранение/);
+  assert.match(html, /отдельное сохранение/);
   assert.equal(store.getState().worldSettingsTab, 'map');
   store.getInitialState = store.getState;
   store.setState({ worldSettingsTab: 'population' });
   const population = renderToStaticMarkup(<NewGameForm store={store} replacesStory={false} />);
   assert.match(population, /role="tab" aria-selected="true"[^>]*>Животные/);
   assert.match(population, /data-settings-tab="map" hidden=""/);
-  assert.doesNotMatch(population, /единственное сохранение/);
+  assert.doesNotMatch(population, /отдельное сохранение/);
 });
 
 test('expanded ranges create a custom world, longer seasons and larger neighbor families', () => {

@@ -29,7 +29,7 @@ export class WorldLayout {
     private readonly seed: number,
     settings?: MapGeneration,
   ) {
-    // Отсутствие новых полей сохраняет географию уже существующих историй v4.
+    // Отсутствие настроек размещения сохраняет классическую географию.
     this.settings = settings ?? { ...defaultMapGeneration(), layout: 'classic' };
     const rng = new Random(Math.floor(hash2(seed, seed, 9187) * 0xffffffff));
     const occupied: LandscapeRegion[] = [

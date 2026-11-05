@@ -116,20 +116,33 @@ test('poor stability and close kinship increase mutation risk without guaranteei
   assert.equal(fangs.eyeColor, 'red');
 });
 
-test('save format four rejects previous versions and incomplete or non-finite genomes without migration', () => {
+test('save format five rejects previous versions and incomplete or non-finite genomes without migration', () => {
   const save = game();
-  let stored = JSON.stringify(save);
+  let stored = '';
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
-    value: { getItem: () => stored, setItem() {} },
+    value: {
+      getItem: (key: string) => (key === 'qa' ? stored || null : null),
+      setItem: (key: string, value: string) => {
+        if (key === 'qa') stored = value;
+      },
+    },
   });
   try {
-    assert.equal(new SaveRepository('qa').load().version, 4);
-    stored = JSON.stringify({ ...save, version: 3 });
-    assert.throws(() => new SaveRepository('qa').load(), /старой версии/);
-    stored = JSON.stringify({ ...save, player: { ...save.player, genes: { coat: 'cream' } } });
-    assert.throws(() => new SaveRepository('qa').load(), /повреждённые гены/);
+    const repository = new SaveRepository('qa');
+    repository.store(save);
+    assert.equal(repository.load().version, 5);
+    const catalog = JSON.parse(stored) as { slots: { save: Record<string, unknown> }[] };
+    catalog.slots[0].save.version = 3;
+    stored = JSON.stringify(catalog);
+    assert.throws(() => repository.load(), /старой версии/);
+    catalog.slots[0].save = {
+      ...save,
+      player: { ...save.player, genes: { coat: 'cream' } },
+    };
+    stored = JSON.stringify(catalog);
+    assert.throws(() => repository.load(), /повреждённые гены/);
     assert.equal(GenomeValidation.valid(gene({ endurance: Infinity })), false);
     assert.equal(
       GenomeValidation.valid(gene({ anatomy: { legs: -1, ears: 2, eyes: 2, fangs: false } })),

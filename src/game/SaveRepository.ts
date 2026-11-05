@@ -3,30 +3,236 @@ import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
 
-/** Хранит и проверяет актуальный формат сохранения без миграций старых версий. */
+export const SAVE_VERSION = 5;
 
+export interface SaveSlotSummary {
+  id: string;
+  adventureId: string;
+  adventureName: string;
+  name: string;
+  kind: 'autosave' | 'manual';
+  createdAt: number;
+  updatedAt: number;
+  version: number;
+  day: number;
+  clock: number;
+  seed: number;
+  biome: string;
+  worldSize: number;
+  playerX: number;
+  playerZ: number;
+  playerCoat: string;
+  supported: boolean;
+}
+
+interface StoredSaveSlot extends SaveSlotSummary {
+  save: unknown;
+}
+
+interface SaveCatalog {
+  version: 1;
+  nextAdventureNumber: number;
+  slots: StoredSaveSlot[];
+}
+
+/** Хранит независимые приключения и снимки, принимая только текущую версию формата. */
 export class SaveRepository {
-  constructor(private readonly key = 'lesnaya-nora-save-v4') {}
+  private static idCounter = 0;
+
+  constructor(
+    private readonly key = 'lesnaya-nora-save-slots-v1',
+    private readonly legacyKey = 'lesnaya-nora-save-v4',
+  ) {}
 
   exists(): boolean {
-    try {
-      return !!localStorage.getItem(this.key);
-    } catch {
-      return false;
-    }
+    return this.list().some((slot) => slot.supported);
+  }
+
+  hasLegacySave(): boolean {
+    return localStorage.getItem(this.legacyKey) !== null;
+  }
+
+  nextAdventureName(): string {
+    return `Приключение ${this.readCatalog().nextAdventureNumber}`;
+  }
+
+  createAdventureId(): string {
+    return `adventure-${Date.now()}-${++SaveRepository.idCounter}`;
+  }
+
+  list(): SaveSlotSummary[] {
+    return this.readCatalog()
+      .slots.map(({ save: _save, ...slot }) => slot)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+  }
+
+  storeAutosave(save: SaveData, adventureId: string, adventureName: string): void {
+    this.assertCurrentVersion(save);
+    const catalog = this.readCatalog();
+    const id = `autosave:${adventureId}`;
+    const previous = catalog.slots.find((slot) => slot.id === id);
+    const now = Date.now();
+    if (!catalog.slots.some((slot) => slot.adventureId === adventureId))
+      catalog.nextAdventureNumber++;
+    const slot = this.makeSlot({
+      id,
+      adventureId,
+      adventureName,
+      name: 'Автосохранение',
+      kind: 'autosave',
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+      save,
+    });
+    catalog.slots = catalog.slots.filter((entry) => entry.id !== id);
+    catalog.slots.push(slot);
+    this.writeCatalog(catalog);
+  }
+
+  storeManual(save: SaveData, adventureId: string, adventureName: string): SaveSlotSummary {
+    this.assertCurrentVersion(save);
+    const catalog = this.readCatalog();
+    const number =
+      Math.max(
+        0,
+        ...catalog.slots
+          .filter((slot) => slot.adventureId === adventureId && slot.kind === 'manual')
+          .map((slot) => Number(slot.name.match(/^Сохранение (\d+)$/)?.[1] ?? 0)),
+      ) + 1;
+    const now = Date.now();
+    const slot = this.makeSlot({
+      id: `manual-${now}-${++SaveRepository.idCounter}`,
+      adventureId,
+      adventureName,
+      name: `Сохранение ${number}`,
+      kind: 'manual',
+      createdAt: now,
+      updatedAt: now,
+      save,
+    });
+    catalog.slots.push(slot);
+    this.writeCatalog(catalog);
+    const { save: _save, ...summary } = slot;
+    return summary;
+  }
+
+  delete(id: string): void {
+    const catalog = this.readCatalog();
+    const remaining = catalog.slots.filter((slot) => slot.id !== id);
+    if (remaining.length === catalog.slots.length) throw new Error('Сохранение уже удалено');
+    catalog.slots = remaining;
+    this.writeCatalog(catalog);
+  }
+
+  loadSlot(id?: string): { save: SaveData; slot: SaveSlotSummary } {
+    const catalog = this.readCatalog();
+    const stored = id
+      ? catalog.slots.find((slot) => slot.id === id)
+      : (catalog.slots
+          .filter((slot) => slot.supported)
+          .sort((left, right) => right.updatedAt - left.updatedAt)[0] ??
+        catalog.slots.sort((left, right) => right.updatedAt - left.updatedAt)[0]);
+    if (!stored) throw new Error(id ? 'Сохранение не найдено' : 'Нет доступных сохранений');
+
+    const save = this.validateSave(stored.save);
+    const { save: _data, ...slot } = stored;
+    return { save, slot };
   }
 
   store(save: SaveData): void {
-    localStorage.setItem(this.key, JSON.stringify(save));
+    this.storeAutosave(save, 'default', 'Приключение');
   }
 
   load(): SaveData {
-    const raw = localStorage.getItem(this.key);
-    if (!raw) throw new Error('Сохранение не найдено');
+    return this.loadSlot().save;
+  }
 
-    const data = JSON.parse(raw) as SaveData;
+  private makeSlot({
+    id,
+    adventureId,
+    adventureName,
+    name,
+    kind,
+    createdAt,
+    updatedAt,
+    save,
+  }: {
+    id: string;
+    adventureId: string;
+    adventureName: string;
+    name: string;
+    kind: StoredSaveSlot['kind'];
+    createdAt: number;
+    updatedAt: number;
+    save: SaveData;
+  }): StoredSaveSlot {
+    return {
+      id,
+      adventureId,
+      adventureName,
+      name,
+      kind,
+      createdAt,
+      updatedAt,
+      version: save.version,
+      day: save.day,
+      clock: save.clock,
+      seed: save.seed,
+      biome: save.worldConfig?.biome ?? defaultWorldConfig().biome,
+      worldSize: save.worldConfig?.size ?? defaultWorldConfig().size,
+      playerX: save.player.x,
+      playerZ: save.player.z,
+      playerCoat: save.player.genes.coat,
+      supported: save.version === SAVE_VERSION,
+      save: structuredClone(save),
+    };
+  }
+
+  private readCatalog(): SaveCatalog {
+    const raw = localStorage.getItem(this.key);
+    if (!raw) return { version: 1, nextAdventureNumber: 1, slots: [] };
+
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw new Error('Каталог сохранений повреждён');
+    }
+    if (!isRecord(value) || value.version !== 1 || typeof value.nextAdventureNumber !== 'number')
+      throw new Error('Каталог сохранений повреждён');
+    if (!Number.isSafeInteger(value.nextAdventureNumber) || value.nextAdventureNumber < 1)
+      throw new Error('Каталог сохранений повреждён');
+    if (!Array.isArray(value.slots)) throw new Error('Каталог сохранений повреждён');
+
+    const slots: StoredSaveSlot[] = [];
+    for (const slot of value.slots) {
+      if (!isStoredSlot(slot)) throw new Error('Каталог сохранений повреждён');
+      slots.push({
+        ...slot,
+        supported:
+          slot.version === SAVE_VERSION &&
+          isRecord(slot.save) &&
+          slot.save.version === SAVE_VERSION,
+      });
+    }
+
+    return { version: 1, nextAdventureNumber: value.nextAdventureNumber, slots };
+  }
+
+  private writeCatalog(catalog: SaveCatalog): void {
+    localStorage.setItem(this.key, JSON.stringify(catalog));
+  }
+
+  private assertCurrentVersion(save: SaveData): void {
+    if (save.version !== SAVE_VERSION)
+      throw new Error('Нельзя сохранить приключение в несовместимой версии формата.');
+  }
+
+  private validateSave(input: unknown): SaveData {
+    if (!isRecord(input)) throw new Error('Сохранение повреждено');
+    const data = input as unknown as SaveData;
     if (
-      data.version !== 4 ||
+      data.version !== SAVE_VERSION ||
       !Number.isFinite(data.seed) ||
       !Number.isFinite(data.player?.y) ||
       !Array.isArray(data.excavation) ||
@@ -91,14 +297,11 @@ export class SaveRepository {
     )
       throw new Error('Сохранение содержит повреждённое состояние кроликов.');
 
-    // Прежние v4 не хранили пол соседей. Текущий партнёр остаётся кролом;
-    // остальные получают воспроизводимый пол, чтобы жизнь старого мира тоже продолжалась.
     for (const rabbit of data.partners)
       rabbit.sex ??= rabbit.id === data.mateId || rabbit.id % 2 === 0 ? 'male' : 'female';
     if (data.worldConfig !== undefined && !validWorldConfig(data.worldConfig))
       throw new Error('Сохранение содержит повреждённые настройки мира.');
 
-    // У существующих сохранений v4 мир был фиксированным; его параметры совпадают с дефолтами.
     data.worldConfig ??= defaultWorldConfig();
     data.worldConfig.leaveRemains ??= true;
     if (data.remains !== undefined && !validRemains(data.remains))
@@ -122,4 +325,33 @@ export class SaveRepository {
     );
     return data;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStoredSlot(value: unknown): value is StoredSaveSlot {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.adventureId === 'string' &&
+    typeof value.adventureName === 'string' &&
+    typeof value.name === 'string' &&
+    (value.kind === 'autosave' || value.kind === 'manual') &&
+    typeof value.createdAt === 'number' &&
+    typeof value.updatedAt === 'number' &&
+    typeof value.version === 'number' &&
+    typeof value.day === 'number' &&
+    typeof value.clock === 'number' &&
+    typeof value.seed === 'number' &&
+    typeof value.biome === 'string' &&
+    typeof value.worldSize === 'number' &&
+    typeof value.playerX === 'number' &&
+    typeof value.playerZ === 'number' &&
+    typeof value.playerCoat === 'string' &&
+    typeof value.supported === 'boolean' &&
+    typeof value.save === 'object' &&
+    value.save !== null
+  );
 }

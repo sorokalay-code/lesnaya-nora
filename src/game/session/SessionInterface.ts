@@ -32,6 +32,7 @@ interface Context {
   items: GroundItems;
   sound: Soundscape;
   saves: SaveRepository;
+  adventure: { id: string; name: string };
   interactions: InteractionController;
   toast: (text: string) => void;
 }
@@ -91,7 +92,7 @@ export class SessionInterface {
       });
   }
 
-  persist(notify: boolean): void {
+  persist(notify: boolean, manual = false): void {
     if (this.context.canSave && !this.context.canSave()) {
       if (notify) {
         const message = 'Сохранение доступно после того, как сокол отпустит добычу.';
@@ -105,17 +106,36 @@ export class SessionInterface {
       .filter((r) => !r.available)
       .map((r) => r.id);
     try {
-      this.context.saves.store(this.context.save);
+      const manualSave = manual
+        ? this.context.saves.storeManual(
+            this.context.save,
+            this.context.adventure.id,
+            this.context.adventure.name,
+          )
+        : undefined;
+      if (!manual)
+        this.context.saves.storeAutosave(
+          this.context.save,
+          this.context.adventure.id,
+          this.context.adventure.name,
+        );
+      this.context.ui.store.setState({
+        saveSlots: this.context.saves.list(),
+        legacySaveFound: this.context.saves.hasLegacySave(),
+        saveLibraryError: undefined,
+      });
       if (notify) {
-        this.context.ui.store.setState({ saveNotice: 'Игра сохранена в этом браузере.' });
+        const message = manualSave
+          ? `Создано «${manualSave.name}» · ${this.context.adventure.name}.`
+          : `Автосохранение обновлено · ${this.context.adventure.name}.`;
+        this.context.ui.store.setState({ saveNotice: message });
         this.context.sound.play('save');
-        this.context.toast('Игра сохранена в этом браузере.');
+        this.context.toast(message);
       }
     } catch {
-      if (notify)
-        this.context.ui.store.setState({
-          saveNotice: 'Не удалось сохранить игру: хранилище недоступно.',
-        });
+      const message = 'Не удалось сохранить игру: хранилище заполнено или недоступно.';
+      this.context.ui.store.setState({ saveLibraryError: message });
+      if (notify) this.context.ui.store.setState({ saveNotice: message });
       if (notify) this.context.toast('Не удалось сохранить игру: хранилище браузера недоступно.');
     }
   }

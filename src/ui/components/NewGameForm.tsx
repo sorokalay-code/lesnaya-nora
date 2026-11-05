@@ -1,4 +1,4 @@
-import { Button } from '../kit';
+import { Button, FieldLabel, Input } from '../kit';
 import { useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useStore } from 'zustand';
@@ -10,6 +10,7 @@ import { WORLD_SETTINGS_TABS, WorldSettings } from './WorldSettings';
 export function NewGameForm({ store, replacesStory }: { store: UIStore; replacesStory: boolean }) {
   const config = useStore(store, (state) => state.worldConfig);
   const dispatch = useStore(store, (state) => state.dispatch);
+  const adventureName = useStore(store, (state) => state.adventureName);
 
   useLayoutEffect(() => {
     store.setState({ worldSettingsTab: 'map' });
@@ -51,9 +52,18 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
         <p>
           Создай свой лес. Крольчиха и её гены будут случайными; возможны врождённые особенности.
         </p>
+        <FieldLabel className="adventure-name-field">
+          Название приключения
+          <Input
+            required
+            maxLength={40}
+            value={adventureName}
+            onChange={(event) => store.setState({ adventureName: event.target.value })}
+          />
+        </FieldLabel>
         {replacesStory && (
           <p className="new-game-warning">
-            Текущая история и её единственное сохранение будут заменены новой игрой.
+            Новое приключение создаст отдельное сохранение; другие миры останутся доступны.
           </p>
         )}
       </header>

@@ -134,7 +134,7 @@ export interface SaveData {
   wildlife?: WildlifeData[];
   nextWildlifeId?: number;
   discoveries?: { x: number; z: number; label: string }[];
-  version: 4;
+  version: 5;
   seed: number;
   clock: number;
   day: number;

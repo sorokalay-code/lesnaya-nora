@@ -126,25 +126,40 @@ test('population ceiling also limits already conceived litters', () => {
 test('sex and pregnancy survive repository reload and damaged demographic data is rejected', () => {
   const f = fixture();
   conceive(f);
-  let raw = JSON.stringify(f.save);
+  let raw = '';
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
-    value: { getItem: () => raw },
+    value: {
+      getItem: () => raw,
+      setItem: (_key: string, value: string) => {
+        raw = value;
+      },
+    },
   });
   try {
     const repository = new SaveRepository('demography');
+    repository.store(f.save);
     const restored = repository.load();
     assert.deepEqual(restored.partners[1].pregnancy, f.save.partners[1].pregnancy);
     assert.equal(restored.partners[1].sex, 'female');
+    const catalog = JSON.parse(raw) as { slots: { save: typeof f.save }[] };
     for (const patch of [
       { sex: 'unknown' },
       { age: -1 },
       { pregnancy: { fatherId: 123456, dueAt: 0 } },
     ]) {
       raw = JSON.stringify({
-        ...f.save,
-        partners: f.save.partners.map((p, i) => (i === 1 ? { ...p, ...patch } : p)),
+        ...catalog,
+        slots: catalog.slots.map((slot) => ({
+          ...slot,
+          save: {
+            ...slot.save,
+            partners: slot.save.partners.map((partner, i) =>
+              i === 1 ? { ...partner, ...patch } : partner,
+            ),
+          },
+        })),
       });
       assert.throws(() => repository.load(), /состояние кроликов/);
     }

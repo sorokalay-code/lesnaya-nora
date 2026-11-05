@@ -95,6 +95,8 @@ export class Game {
   private player!: RabbitRig;
   private playerActor!: PlayerRabbit;
   private save!: SaveData;
+  private activeAdventureId = '';
+  private activeAdventureName = '';
   private rabbits: RabbitActor[] = [];
   private families: FamilyMember[] = [];
   private predators: Predator[] = [];
@@ -137,7 +139,7 @@ export class Game {
   }
 
   private buildUi(): void {
-    this.ui = new GameUI(this.app, (action) => this.action(action));
+    this.ui = new GameUI(this.app, (action, value) => this.action(action, value));
     this.controls.visible = localStorage.getItem('lesnaya-nora-show-controls') !== 'false';
     this.ui.setControls(this.controls.visible);
     this.syncCameraUi();
@@ -175,7 +177,11 @@ export class Game {
   }
 
   private showStart(): void {
-    this.ui.showOverlay({ type: 'start', hasSave: this.saves.exists() });
+    this.refreshSaveList();
+    this.ui.showOverlay({
+      type: 'start',
+      hasSave: this.ui.state.saveSlots.some((slot) => slot.supported),
+    });
   }
 
   private async newGame(): Promise<void> {
@@ -184,6 +190,12 @@ export class Game {
       this.toast('Проверь настройки нового мира.');
       return;
     }
+    const adventureName = this.ui.state.adventureName.trim();
+    if (!adventureName || adventureName.length > 40) {
+      this.toast('Укажи название приключения длиной до 40 символов.');
+      return;
+    }
+
     const worldConfig = structuredClone(this.ui.state.worldConfig);
     const seed = worldConfig.map?.seed ?? Math.floor(Math.random() * 2_147_483_647);
     const seasonIndex = this.ui.state.startSeason;
@@ -199,6 +211,8 @@ export class Game {
     }
 
     this.save = NewGameFactory.create(seed, seasonIndex, this.factory, worldConfig);
+    this.activeAdventureId = this.saves.createAdventureId();
+    this.activeAdventureName = adventureName;
     this.setupWorld();
     this.ui.showOverlay();
     this.running = true;
@@ -208,9 +222,12 @@ export class Game {
     this.toast('Исследуй лес, копай землю лапами и найди партнёра.');
   }
 
-  private async loadGame(): Promise<void> {
+  private async loadGame(slotId?: string): Promise<void> {
     try {
-      this.save = this.saves.load();
+      const loaded = this.saves.loadSlot(slotId);
+      this.save = loaded.save;
+      this.activeAdventureId = loaded.slot.adventureId;
+      this.activeAdventureName = loaded.slot.adventureName;
       this.ui.showOverlay({ type: 'loading', title: 'Возвращаемся домой…' });
       await ModelAssets.shared.preload();
       this.rng = new Random(this.save.seed + 53);
@@ -233,6 +250,7 @@ export class Game {
     this.ui.store.setState({
       saveNotice: undefined,
       worldConfig: structuredClone(this.save.worldConfig ?? defaultWorldConfig()),
+      adventureName: this.activeAdventureName,
     });
     this.attackSounds?.dispose();
     this.interactions?.dispose();
@@ -489,6 +507,7 @@ export class Game {
       items: this.items,
       sound: this.sound,
       saves: this.saves,
+      adventure: { id: this.activeAdventureId, name: this.activeAdventureName },
       interactions: this.interactions,
       toast: (text) => this.toast(text),
     });
@@ -666,12 +685,49 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
-  private action(action: string): void {
-    if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
-      if (action === 'new-game-menu') {
+  private action(action: string, value?: string | number): void {
+    if (action === 'new-game-menu') {
+      try {
+        this.ui.store.setState({ adventureName: this.saves.nextAdventureName() });
+      } catch (error) {
+        this.toast(
+          error instanceof Error ? error.message : 'Не удалось прочитать список сохранений.',
+        );
+        return;
+      }
+      if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
         this.ui.store.setState({ gameMenu: 'new-game' });
         return;
       }
+      if (this.running) this.actions.execute(action);
+      return;
+    }
+    if (action === 'saved-games') {
+      this.refreshSaveList();
+      if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
+        this.ui.store.setState({ gameMenu: 'saves' });
+        return;
+      }
+      if (this.running) this.actions.execute(action);
+      return;
+    }
+    if (action === 'load-save' && typeof value === 'string') {
+      void this.loadGame(value);
+      return;
+    }
+    if (action === 'delete-save' && typeof value === 'string') {
+      try {
+        this.saves.delete(value);
+        this.refreshSaveList();
+      } catch (error) {
+        this.ui.store.setState({
+          saveLibraryError:
+            error instanceof Error ? error.message : 'Не удалось удалить сохранение.',
+        });
+      }
+      return;
+    }
+    if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
       if (action === 'menu-back') {
         this.ui.store.setState({ gameMenu: undefined });
         return;
@@ -693,7 +749,24 @@ export class Game {
       void this.loadGame();
       return;
     }
+
     if (this.running) this.actions.execute(action);
+  }
+
+  private refreshSaveList(): void {
+    try {
+      this.ui.store.setState({
+        saveSlots: this.saves.list(),
+        legacySaveFound: this.saves.hasLegacySave(),
+        saveLibraryError: undefined,
+      });
+    } catch (error) {
+      this.ui.store.setState({
+        saveSlots: [],
+        saveLibraryError:
+          error instanceof Error ? error.message : 'Не удалось прочитать список сохранений.',
+      });
+    }
   }
 
   private playAction(action: RabbitAction, duration: number): void {

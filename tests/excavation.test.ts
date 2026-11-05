@@ -15,10 +15,10 @@ import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
-function fixture(): SaveData {
+function fixture(seed = 9): SaveData {
   return {
-    version: 4,
-    seed: 9,
+    version: 5,
+    seed,
     clock: 420,
     day: 1,
     weather: 'clear',
@@ -230,8 +230,8 @@ test('nests and food stashes are placed objects with independent coordinates', (
   assert.equal(save.inventory.clover, 2);
 });
 
-test('new saves never load the previous save key', () => {
-  const values = new Map([['lesnaya-nora-save-v2', JSON.stringify({ version: 2 })]]);
+test('legacy saves are detected but not loaded into the new format', () => {
+  const values = new Map([['lesnaya-nora-save-v4', JSON.stringify({ version: 4 })]]);
   const previous = (globalThis as unknown as { localStorage?: unknown }).localStorage;
   (globalThis as unknown as { localStorage: unknown }).localStorage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -240,24 +240,76 @@ test('new saves never load the previous save key', () => {
   try {
     const repository = new SaveRepository();
     assert.equal(repository.exists(), false);
+    assert.equal(repository.hasLegacySave(), true);
     repository.store(fixture());
     assert.equal(repository.exists(), true);
-    assert.equal(repository.load().version, 4);
+    assert.equal(repository.load().version, 5);
   } finally {
     (globalThis as unknown as { localStorage?: unknown }).localStorage = previous;
   }
 });
 
-test('version-two saves are rejected without migration', () => {
-  const old = { ...fixture(), version: 2 };
-  const values = new Map([['lesnaya-nora-save-v4', JSON.stringify(old)]]);
+test('save slots reject an old save format without migration', () => {
+  const values = new Map<string, string>();
   const previous = (globalThis as unknown as { localStorage?: unknown }).localStorage;
   (globalThis as unknown as { localStorage: unknown }).localStorage = {
     getItem: (key: string) => values.get(key) ?? null,
-    setItem: () => {},
+    setItem: (key: string, value: string) => values.set(key, value),
   };
   try {
-    assert.throws(() => new SaveRepository().load(), /старой версии/);
+    const repository = new SaveRepository('slots');
+    repository.store(fixture());
+    const catalog = JSON.parse(values.get('slots')!) as {
+      slots: { version: number; supported: boolean; save: { version: number } }[];
+    };
+    catalog.slots[0].version = 4;
+    catalog.slots[0].supported = true;
+    catalog.slots[0].save.version = 2;
+    values.set('slots', JSON.stringify(catalog));
+    assert.equal(repository.list()[0].supported, false);
+    assert.throws(() => repository.load(), /старой версии/);
+  } finally {
+    (globalThis as unknown as { localStorage?: unknown }).localStorage = previous;
+  }
+});
+
+test('save catalog keeps adventures and manual snapshots independent', () => {
+  const values = new Map<string, string>();
+  const previous = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+  (globalThis as unknown as { localStorage: unknown }).localStorage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  };
+  try {
+    const repository = new SaveRepository('catalog');
+    assert.equal(repository.nextAdventureName(), 'Приключение 1');
+    repository.storeAutosave(fixture(1), 'adventure-1', 'Сумрачный лес');
+    const firstManual = repository.storeManual(fixture(2), 'adventure-1', 'Сумрачный лес');
+    repository.storeAutosave(fixture(3), 'adventure-1', 'Сумрачный лес');
+    const secondManual = repository.storeManual(fixture(4), 'adventure-1', 'Сумрачный лес');
+    repository.storeAutosave(fixture(5), 'adventure-2', 'Тихое озеро');
+
+    const slots = repository.list();
+    assert.equal(slots.length, 4);
+    assert.equal(repository.nextAdventureName(), 'Приключение 3');
+    assert.equal(
+      slots.find((slot) => slot.id === 'autosave:adventure-1')?.adventureName,
+      'Сумрачный лес',
+    );
+    assert.equal(slots.filter((slot) => slot.kind === 'manual').length, 2);
+    assert.equal(firstManual.name, 'Сохранение 1');
+    assert.equal(secondManual.name, 'Сохранение 2');
+    assert.equal(repository.loadSlot('autosave:adventure-1').save.seed, 3);
+    assert.equal(repository.loadSlot(firstManual.id).save.seed, 2);
+    assert.equal(repository.loadSlot(secondManual.id).save.seed, 4);
+    assert.equal(repository.loadSlot('autosave:adventure-2').save.seed, 5);
+
+    repository.delete(firstManual.id);
+    assert.equal(
+      repository.list().some((slot) => slot.id === firstManual.id),
+      false,
+    );
+    assert.equal(repository.loadSlot(secondManual.id).save.seed, 4);
   } finally {
     (globalThis as unknown as { localStorage?: unknown }).localStorage = previous;
   }

@@ -31,7 +31,7 @@ interface Context {
   queries: SessionQueries;
   controls: { visible: boolean };
   resetDig: () => void;
-  persist: (notify: boolean) => void;
+  persist: (notify: boolean, manual?: boolean) => void;
   toast: (message: string) => void;
   toggleJournal: (mode: string) => void;
 }
@@ -124,7 +124,7 @@ export class SessionActions {
     this.context.sound.unlock();
     if (this.context.shelters.execute(action)) return;
     if (action === 'save') {
-      this.context.persist(true);
+      this.context.persist(true, true);
       return;
     }
 

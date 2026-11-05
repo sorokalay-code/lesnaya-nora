@@ -11,7 +11,7 @@ import { GardenCrops } from '../src/game/GardenCrops';
 import { defaultWorldConfig, validWorldConfig } from '../src/game/WorldConfig';
 import { WorldPreviewPresenter } from '../src/ui/presenters/WorldPreviewPresenter';
 
-test('map settings reject corrupt values and leave v4 configurations without a map intact', () => {
+test('map settings reject corrupt values and retain classic layouts without map options', () => {
   const map = defaultMapGeneration();
   assert.ok(validMapGeneration(map));
   assert.ok(validWorldConfig(defaultWorldConfig()));

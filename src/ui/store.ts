@@ -11,6 +11,7 @@ import type {
   OverlayViewModel,
   UIAction,
   GameMenuPage,
+  SaveSlotSummary,
 } from './types';
 
 export type WorldSettingsTab = 'map' | 'nature' | 'population' | 'calendar';
@@ -20,6 +21,10 @@ export interface UIState {
   gameMenu?: GameMenuPage;
   soundMuted: boolean;
   saveNotice?: string;
+  saveSlots: SaveSlotSummary[];
+  saveLibraryError?: string;
+  legacySaveFound: boolean;
+  adventureName: string;
   eventsOpen: boolean;
   events: string[];
   unreadEvents: number;
@@ -62,6 +67,9 @@ export function createUIStore(dispatch: UIAction) {
     actionMenuOpen: false,
     statusOpen: false,
     soundMuted: false,
+    saveSlots: [],
+    legacySaveFound: false,
+    adventureName: '',
     eventsOpen: false,
     events: [],
     unreadEvents: 0,

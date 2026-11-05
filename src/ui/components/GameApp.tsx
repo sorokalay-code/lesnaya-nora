@@ -499,8 +499,8 @@ function Overlay() {
               Новая история <span>→</span>
             </Button>
             {overlay.hasSave && (
-              <Button className="secondary" onClick={() => dispatch('load')}>
-                Продолжить сохранение
+              <Button className="secondary" onClick={() => dispatch('saved-games')}>
+                Приключения и сохранения
               </Button>
             )}
           </div>

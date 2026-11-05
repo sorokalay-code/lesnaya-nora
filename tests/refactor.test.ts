@@ -42,7 +42,7 @@ function fixture() {
     size: 1,
   };
   const save: SaveData = {
-    version: 4,
+    version: 5,
     seed: 14,
     clock: 420,
     day: 1,

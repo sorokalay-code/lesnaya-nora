@@ -69,6 +69,88 @@
   padding: var(--ui-space-8) var(--ui-space-12);
   margin: var(--ui-space-0);
 }
+.adventure-name-field {
+  display: grid;
+  gap: var(--ui-space-6);
+  margin: var(--ui-space-12) var(--ui-space-20);
+}
+.adventure-name-field .ui-input {
+  min-height: var(--ui-target-height);
+}
+.game-menu .save-library {
+  min-height: 0;
+}
+.save-library-empty,
+.save-library-error,
+.save-library-legacy {
+  padding: var(--ui-space-10);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface-raised);
+}
+.save-library-error,
+.save-library-legacy,
+.save-card-warning {
+  color: var(--ui-invalid);
+}
+.save-slot-list {
+  display: grid;
+  gap: var(--ui-space-10);
+  max-height: min(62dvh, 590px);
+  padding: var(--ui-space-3);
+}
+.save-card {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.6fr);
+  gap: var(--ui-space-12);
+  padding: var(--ui-space-10);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface-raised);
+}
+.save-card-unsupported {
+  opacity: 0.7;
+}
+.save-world-preview {
+  width: 100%;
+  min-height: 76px;
+  align-self: center;
+  border-radius: var(--ui-radius-control);
+}
+.save-card-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ui-space-8);
+}
+.save-card-heading h3,
+.save-card-heading strong {
+  display: block;
+  margin: var(--ui-space-0);
+}
+.save-card-heading h3 {
+  font-size: 15px;
+}
+.save-card-heading strong,
+.save-slot-kind,
+.save-card-details > p {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+.save-card-details > p {
+  margin: var(--ui-space-6) var(--ui-space-0);
+}
+.save-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ui-space-6);
+}
+.save-card-actions > span {
+  flex: 1 0 100%;
+  font-size: 11px;
+}
+.save-card-actions button {
+  min-height: var(--ui-target-height);
+}
 .new-game-options label {
   display: flex;
   align-items: center;
@@ -282,6 +364,18 @@
   }
   .world-settings-content {
     padding: var(--ui-space-0) var(--ui-space-12) var(--ui-space-12);
+  }
+  .adventure-name-field {
+    margin: var(--ui-space-10) var(--ui-space-12);
+  }
+  .save-slot-list {
+    max-height: 60dvh;
+  }
+  .save-card {
+    grid-template-columns: 1fr;
+  }
+  .save-world-preview {
+    max-height: 100px;
   }
   .world-preview {
     flex-wrap: wrap;

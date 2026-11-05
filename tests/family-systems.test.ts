@@ -36,7 +36,7 @@ const partner: PartnerTraits = {
 };
 function save(): SaveData {
   return {
-    version: 4,
+    version: 5,
     seed: 14,
     clock: 420,
     day: 1,
@@ -133,11 +133,24 @@ test('fallen branches can be gathered, return later, and discarded food remains 
 
 test('damaged current saves do not silently fill missing family data', () => {
   const data = save();
-  delete data.drops;
+  let raw = '';
   const previous = (globalThis as { localStorage?: unknown }).localStorage;
-  (globalThis as { localStorage?: unknown }).localStorage = { getItem: () => JSON.stringify(data) };
-  assert.throws(() => new SaveRepository('test').load(), /повреждено/);
-  (globalThis as { localStorage?: unknown }).localStorage = previous;
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: () => raw,
+    setItem: (_key: string, value: string) => {
+      raw = value;
+    },
+  };
+  try {
+    const repository = new SaveRepository('test');
+    repository.store(data);
+    const catalog = JSON.parse(raw) as { slots: { save: typeof data }[] };
+    delete catalog.slots[0].save.drops;
+    raw = JSON.stringify(catalog);
+    assert.throws(() => repository.load(), /повреждено/);
+  } finally {
+    (globalThis as { localStorage?: unknown }).localStorage = previous;
+  }
 });
 
 test('partner physically collects food and deposits it in the family stash', () => {

@@ -21,7 +21,7 @@ export class NewGameFactory {
     // Перемешанный отдельный seed даёт разные фенотипы и не сдвигает генерацию соседей.
     const founderSeed = Math.floor(hash2(seed, seed, 11939) * 0xffffffff);
     return {
-      version: 4,
+      version: 5,
       seed,
       worldConfig,
       clock: (startDay - 1) * 1440 + 7 * 60,

@@ -133,10 +133,9 @@ test('save reload uses original death time, skips expired stages and rejects cor
     loaded.clock += 1000;
     restored.update();
     assert.equal(restoredScene.children.length, 0);
-    raw = JSON.stringify({
-      ...save,
-      remains: [{ ...save.remains![0], scale: { x: 0, y: 1, z: 1 } }],
-    });
+    const catalog = JSON.parse(raw) as { slots: { save: typeof save }[] };
+    catalog.slots[0].save.remains = [{ ...save.remains![0], scale: { x: 0, y: 1, z: 1 } }];
+    raw = JSON.stringify(catalog);
     assert.throws(() => repository.load(), /останки/);
     assert.equal(validRemains([{ ...save.remains![0], kind: 'unknown' }]), false);
     assert.equal(validRemains([save.remains![0], save.remains![0]]), false);

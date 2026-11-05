@@ -12,9 +12,10 @@ import type {
   SaveData,
   Season,
 } from '../game/types';
+import type { SaveSlotSummary } from '../game/SaveRepository';
 
 export type UIAction = (action: string, value?: string | number) => void;
-export type GameMenuPage = 'main' | 'settings' | 'new-game' | 'controls';
+export type GameMenuPage = 'main' | 'settings' | 'new-game' | 'controls' | 'saves';
 export interface PromptPart {
   key?: string;
   text: string;
@@ -99,6 +100,7 @@ export interface MapViewModel {
   openings: { x: number; z: number }[];
   player: { x: number; z: number };
 }
+export type { SaveSlotSummary };
 export type JournalViewModel =
   { mode: 'journal'; save: SaveData; season: Season } | { mode: 'map'; map: MapViewModel };
 export type OverlayViewModel =
