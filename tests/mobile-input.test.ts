@@ -3,6 +3,7 @@ import test from 'node:test';
 import { GameInputController } from '../src/game/input/GameInputController';
 import { MobileInput, needsLandscape } from '../src/game/input/MobileInput';
 import { createUIStore, simulationPaused } from '../src/ui/store';
+import { activateTouchJump } from '../src/ui/components/MobileControls';
 import { ViewCamera } from '../src/game/ViewCamera';
 import * as THREE from 'three';
 
@@ -10,6 +11,38 @@ test('orientation restriction applies to touch devices only', () => {
   assert.equal(needsLandscape(true, 390, 844), true);
   assert.equal(needsLandscape(true, 844, 390), false);
   assert.equal(needsLandscape(false, 390, 844), false);
+});
+
+test('touch jump triggers on pointer down without waiting for a click', () => {
+  let prevented = false,
+    jumps = 0;
+  activateTouchJump(
+    {
+      pointerType: 'touch',
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    () => jumps++,
+  );
+  assert.equal(prevented, true);
+  assert.equal(jumps, 1);
+});
+
+test('non-touch pointer down does not activate the mobile jump handler', () => {
+  let prevented = false,
+    jumps = 0;
+  activateTouchJump(
+    {
+      pointerType: 'mouse',
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    () => jumps++,
+  );
+  assert.equal(prevented, false);
+  assert.equal(jumps, 0);
 });
 
 test('input composite resets and disposes every device controller', () => {

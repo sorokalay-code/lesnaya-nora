@@ -4,6 +4,16 @@ import { useStore } from 'zustand';
 import type { TouchBindings } from '../../game/input/MobileInput';
 import type { UIStore } from '../store';
 
+export function activateTouchJump(
+  event: Pick<PointerEvent<HTMLButtonElement>, 'pointerType' | 'preventDefault'>,
+  jump: () => void,
+): void {
+  if (event.pointerType !== 'touch') return;
+
+  event.preventDefault();
+  jump();
+}
+
 /** Сенсорные кнопки не эмулируют DOM-клавиатуру, а обращаются к адаптеру ввода. */
 export function MobileControls({ store }: { store: UIStore }) {
   const touch = useStore(store, (s) => s.touch);
@@ -41,7 +51,15 @@ export function MobileControls({ store }: { store: UIStore }) {
       <Joystick bindings={bindings} />
       <div className="touch-actions">
         <HoldButton label="Бег" onHold={bindings.sprint} />
-        <Button disabled={!!web} onClick={() => dispatch('hop')}>
+        <Button
+          disabled={!!web}
+          onPointerDown={(event) => {
+            activateTouchJump(event, () => dispatch('hop'));
+          }}
+          onClick={(event) => {
+            if (event.detail === 0) dispatch('hop');
+          }}
+        >
           Прыжок
         </Button>
         <Button className="touch-primary" onClick={() => dispatch(web ? 'struggle' : 'interact')}>
