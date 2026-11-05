@@ -3,7 +3,7 @@ import type { Genes, PartnerTraits } from '../types';
 import { GenomeInheritance } from '../genetics/GenomeInheritance';
 import { Genealogy } from '../genetics/Genealogy';
 import { EYE_SHAPES, TAIL_TYPES } from '../genetics/RabbitFeatures';
-const names = [
+export const MALE_RABBIT_NAMES = [
   'Листик',
   'Тимофей',
   'Пушок',
@@ -14,9 +14,22 @@ const names = [
   'Шорох',
   'Орешек',
   'Бор',
+  'Лучик',
+  'Снежок',
+  'Уголёк',
+  'Росток',
+  'Вереск',
+  'Ручей',
+  'Зефир',
+  'Медок',
+  'Тимоша',
+  'Мох',
+  'Какашка',
+  'Нагибатор666',
+  'Косой',
+  'Ржавый',
 ];
-const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
-const femaleNames = [
+export const FEMALE_RABBIT_NAMES = [
   'Искорка',
   'Лапка',
   'Ромашка',
@@ -27,7 +40,19 @@ const femaleNames = [
   'Брусничка',
   'Росинка',
   'Луна',
+  'Жемчужинка',
+  'Зарянка',
+  'Капелька',
+  'Морошка',
+  'Травинка',
+  'Ягодка',
+  'Полянка',
+  'Тучка',
+  'Зорька',
+  'Пушинка',
+  'Кака',
 ];
+const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
 /** Фабрика генов и наследования для процедурных семей кроликов. */
 export class RabbitFactory {
   constructor(private readonly rng: Random) {}
@@ -78,7 +103,7 @@ export class RabbitFactory {
         id: i,
         sex: i % 2 === 0 ? 'male' : 'female',
         lineage: Genealogy.founder('wild:' + i),
-        name: this.rng.pick(i % 2 ? femaleNames : names),
+        name: this.rng.pick(i % 2 ? FEMALE_RABBIT_NAMES : MALE_RABBIT_NAMES),
         x: Math.cos(a) * d,
         z: Math.sin(a) * d,
         genes: this.genes(),

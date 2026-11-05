@@ -7,6 +7,7 @@ import type { GroundHeight } from './types';
 import { Genealogy } from '../genetics/Genealogy';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from './AnimalRestraint';
+import { FEMALE_RABBIT_NAMES, MALE_RABBIT_NAMES } from './RabbitFactory';
 /** Член чужой семьи выбирает собственные цели рядом с домом, не привязываясь к орбите родителя. */
 export class FamilyMember extends Rabbit {
   readonly data: PartnerTraits;
@@ -44,10 +45,11 @@ export class FamilyMember extends Rabbit {
       this.z =
       this.targetZ =
         THREE.MathUtils.clamp(parent.z + Math.sin(angle) * radius, -homeLimit, homeLimit);
-    const names = ['Шелест', 'Черныш', 'Листик', 'Сумрак', 'Орешек', 'Клевер', 'Пушок', 'Шорох'];
+    const sex = index % 2 ? 'male' : 'female';
+    const names = sex === 'female' ? FEMALE_RABBIT_NAMES : MALE_RABBIT_NAMES;
     this.data = {
       id: 100000 + parent.id * 100 + index,
-      sex: index % 2 ? 'male' : 'female',
+      sex,
       name: names[(parent.id + index) % names.length],
       x: this.x,
       z: this.z,

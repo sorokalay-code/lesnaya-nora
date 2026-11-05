@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as THREE from 'three';
-import { FamilyMember, RabbitActor } from '../src/game/animals';
+import { FamilyMember, RabbitActor, RabbitFactory } from '../src/game/animals';
+import { FEMALE_RABBIT_NAMES, MALE_RABBIT_NAMES } from '../src/game/animals/RabbitFactory';
 import { Excavation } from '../src/game/Excavation';
 import { FamilyCare } from '../src/game/FamilyCare';
 import { GroundItems } from '../src/game/GroundItems';
@@ -286,6 +287,25 @@ test('other rabbits spread out and kits choose individual tunnel destinations', 
     first,
   );
   assert.equal(earth.isSheltered(first.x, first.y, first.z), true);
+});
+
+test('family and wild rabbits receive names from the set matching their sex', () => {
+  const female = new FamilyMember(partner, genes, 0, false).data;
+  const male = new FamilyMember(partner, genes, 1, false).data;
+
+  assert.equal(female.sex, 'female');
+  assert.ok(FEMALE_RABBIT_NAMES.includes(female.name));
+  assert.equal(male.sex, 'male');
+  assert.ok(MALE_RABBIT_NAMES.includes(male.name));
+  assert.equal(FEMALE_RABBIT_NAMES.length, 20);
+  assert.equal(MALE_RABBIT_NAMES.length, 20);
+
+  const partners = new RabbitFactory(new Random(17)).partners(20);
+  assert.ok(
+    partners.every((rabbit) =>
+      (rabbit.sex === 'female' ? FEMALE_RABBIT_NAMES : MALE_RABBIT_NAMES).includes(rabbit.name),
+    ),
+  );
 });
 
 test('partner panel exposes commands and escapes typed messages', () => {
