@@ -9,6 +9,8 @@ import type { GroundHeight } from './types';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from './AnimalRestraint';
 import { RABBIT_SWIM_IMMERSION } from '../WaterNavigation';
+import { adultRabbit, rabbitSex } from '../RabbitSex';
+import { RabbitSexAppearance } from '../genetics/RabbitSexAppearance';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
   private wanderAngle = 0;
@@ -20,6 +22,7 @@ export class RabbitActor extends Rabbit {
   private mateForageUntil = 0;
   private mateForageTarget?: { x: number; z: number };
   private readonly navigator = new GroundNavigator();
+  private appearanceAdult?: boolean;
 
   get solitary(): boolean {
     return false;
@@ -29,9 +32,26 @@ export class RabbitActor extends Rabbit {
     readonly data: PartnerTraits,
     private readonly rng: Random,
   ) {
-    super(data, data.genes, false, { health: data.health ?? 100 });
+    super(data, data.genes, !adultRabbit(data), { health: data.health ?? 100 }, rabbitSex(data));
+    this.updateGrowth();
     this.targetX = data.x;
     this.targetZ = data.z;
+  }
+
+  updateGrowth(): void {
+    this.root.scale.setScalar(
+      this.data.genes.size * (0.55 + 0.45 * Math.min(1, (this.data.age ?? 3) / 3)),
+    );
+    const adult = adultRabbit(this.data);
+    if (this.appearanceAdult !== adult) {
+      if (this.appearanceAdult === false && adult)
+        for (const variant of this.rig.variants ?? [this.rig])
+          variant.root.traverse((part) => {
+            if (/^Ear[LR](-extra-\d+)?$/.test(part.name)) part.scale.y /= 0.78;
+          });
+      this.appearanceAdult = adult;
+      RabbitSexAppearance.apply(this.rig, rabbitSex(this.data), adult);
+    }
   }
 
   moveTo(x: number, z: number, y: number): void {

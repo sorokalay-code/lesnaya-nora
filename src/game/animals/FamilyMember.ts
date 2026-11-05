@@ -25,7 +25,13 @@ export class FamilyMember extends Rabbit {
     private readonly rng = new Random(parent.id * 97 + index * 31 + 1),
     worldSize = 110,
   ) {
-    super({ x: parent.x, z: parent.z }, genes, young);
+    super(
+      { x: parent.x, z: parent.z },
+      genes,
+      young,
+      { health: 100 },
+      index % 2 ? 'male' : 'female',
+    );
     this.useWorldBounds(worldSize);
     const homeLimit = (worldSize * 90) / 110;
     const angle = parent.id * 1.7 + index * 2.4,
@@ -41,6 +47,7 @@ export class FamilyMember extends Rabbit {
     const names = ['Шелест', 'Черныш', 'Листик', 'Сумрак', 'Орешек', 'Клевер', 'Пушок', 'Шорох'];
     this.data = {
       id: 100000 + parent.id * 100 + index,
+      sex: index % 2 ? 'male' : 'female',
       name: names[(parent.id + index) % names.length],
       x: this.x,
       z: this.z,

@@ -4,6 +4,7 @@ import type { ConversationPage, SocialDialog } from '../../ConversationNavigatio
 import { GeneticsPanel } from '../GeneticsPanel';
 import { ActionButton } from '../ActionButton';
 import { SectionLink } from './ConversationLayout';
+import { adultRabbit, rabbitSex } from '../../../game/RabbitSex';
 
 type RabbitDialog = Extract<SocialDialog, { type: 'partner' | 'mate' }>;
 
@@ -118,7 +119,7 @@ export function RabbitConversationView({
           <span>✦ Совместимость {Math.round(data.score)}/100</span>
         </div>
         <p className="conversation-note">
-          {p.temperament} крол. Ценит{' '}
+          {rabbitSex(p) === 'female' ? 'Крольчиха' : 'Крол'}. Ценит{' '}
           {
             {
               speed: 'быстроту',
@@ -132,11 +133,13 @@ export function RabbitConversationView({
         <div className="dialog-choices">
           {button('compliment', 'Ты мне нравишься')}
           {button('gift', 'Подарить еду')}
-          {button(
-            'court',
-            data.paired ? 'Планировать новых крольчат' : 'Предложить создать семью',
-            true,
-          )}
+          {rabbitSex(p) === 'male' &&
+            adultRabbit(p) &&
+            button(
+              'court',
+              data.paired ? 'Планировать новых крольчат' : 'Предложить создать семью',
+              true,
+            )}
           {data.paired && (
             <>
               {button('mate-panel', 'Приказы и сообщения')}
@@ -180,6 +183,10 @@ export function RabbitConversationView({
       ) : (
         <>
           <div className="conversation-badges">
+            <span>
+              {rabbitSex(p) === 'female' ? '♀ Крольчиха' : '♂ Крол'}
+              {!adultRabbit(p) && ' · крольчонок'}
+            </span>
             <span>♡ Доверие {Math.round(p.trust)}/100</span>
             <span>{p.temperament}</span>
             {mate && <span>Твой партнёр</span>}

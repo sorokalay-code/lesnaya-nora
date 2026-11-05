@@ -28,6 +28,8 @@ import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { PlayerConsequences } from './PlayerConsequences';
 import { WaterSimulation } from './WaterSimulation';
 import type { AnimalRemains } from '../AnimalRemains';
+import { WildRabbitBreeding } from './WildRabbitBreeding';
+import { adultRabbit, rabbitSex } from '../RabbitSex';
 
 const MATING_DURATION = 3.1;
 
@@ -77,8 +79,10 @@ export class AnimalSimulation {
   private readonly ambience?: AnimalAmbience;
   private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
+  private readonly wildBreeding: WildRabbitBreeding;
 
   constructor(private readonly context: Context) {
+    this.wildBreeding = new WildRabbitBreeding(context);
     this.friendDefense = new FriendDefense(context.wildlife, context.toast);
     if (context.world.scene) this.friendMarks = new FriendMarks(context.world.scene);
     this.reproductiveThreat = new RabbitReproductiveThreat(context.save, {
@@ -133,7 +137,14 @@ export class AnimalSimulation {
     const { save, state, player } = this.context;
     if (save.pregnancy || state.mating || AnimalRestraint.active(player.root)) return false;
     const father = this.context.rabbits.find((actor) => actor.data.id === fatherId);
-    if (!father?.alive || AnimalRestraint.active(father.root)) return false;
+    if (
+      !father?.alive ||
+      rabbitSex(father.data) !== 'male' ||
+      !adultRabbit(father.data) ||
+      this.wildBreeding.busy(father) ||
+      AnimalRestraint.active(father.root)
+    )
+      return false;
 
     save.pregnancy =
       cause === 'forced' ? { fatherId, progress: 0, trauma: true } : { fatherId, progress: 0 };
@@ -169,6 +180,7 @@ export class AnimalSimulation {
       father ?? this.reproductiveThreat.actor ?? pursuing,
       canAttackFamily,
     );
+    this.wildBreeding.update(dt, time, father ?? this.reproductiveThreat.actor);
     this.updateRabbits(dt, time, father);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
@@ -215,7 +227,12 @@ export class AnimalSimulation {
   private updateRabbits(dt: number, time: number, father?: RabbitActor): void {
     const p = this.context.save.player;
     for (const rabbit of this.context.rabbits) {
-      if (rabbit === father || rabbit === this.reproductiveThreat.actor) continue;
+      if (
+        rabbit === father ||
+        rabbit === this.reproductiveThreat.actor ||
+        this.wildBreeding.busy(rabbit)
+      )
+        continue;
       if (rabbit.data.id === this.context.save.mateId) {
         const event = this.context.partnerSupport.update(rabbit, dt, time, this.context.groundAt);
         if (

@@ -6,6 +6,7 @@ import type { World } from '../World';
 import { partnerScore, type ForestAnimal, type RabbitActor } from '../animals';
 import type { FoodKind, KitData, MateCommand, PartnerTraits, SaveData } from '../types';
 import { FOOD } from '../types';
+import { adultRabbit, rabbitSex } from '../RabbitSex';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import { ConversationFocus } from './ConversationFocus';
 import { ForestConversation } from './ForestConversation';
@@ -284,6 +285,15 @@ export class InteractionController {
     }
 
     if (action === 'court') {
+      if (rabbitSex(p) !== 'male' || !adultRabbit(p)) {
+        this.openPartner(p, 'Мы можем дружить и общаться. Для создания пары нужен взрослый крол.');
+        return;
+      }
+      const candidate = this.context.rabbits.find((actor) => actor.data.id === p.id);
+      if (candidate?.root.userData.wildMating) {
+        this.openPartner(p, 'Сейчас я занят. Давай поговорим позже.');
+        return;
+      }
       if (p.genes.anatomy.fangs) {
         this.openPartner(
           p,

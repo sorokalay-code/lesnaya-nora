@@ -1,10 +1,11 @@
 import type { AppearanceTraits } from './AnimalAppearance';
-import type { Genes } from './types';
+import type { Genes, RabbitSex } from './types';
 import { CREATURE_OPTIONS, type CreatureKind } from './WorldConfig';
 import { GenomeValidation } from './genetics/GenomeValidation';
 
 export type RemainsKind = Exclude<CreatureKind, 'butterfly'>;
 export interface RemainsData {
+  sex?: RabbitSex;
   id: number;
   kind: RemainsKind;
   diedAt: number;
@@ -38,6 +39,7 @@ export function validRemains(value: unknown): value is RemainsData[] {
       return false;
     ids.add(data.id);
     if (
+      (data.sex !== undefined && data.sex !== 'male' && data.sex !== 'female') ||
       !CREATURE_OPTIONS.some(({ kind }) => kind !== 'butterfly' && kind === data.kind) ||
       !['x', 'y', 'z', 'heading', 'diedAt'].every(
         (key) => typeof data[key] === 'number' && Number.isFinite(data[key]),

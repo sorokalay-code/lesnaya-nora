@@ -5,6 +5,7 @@ import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { animateRabbit } from '../Models';
 import { SWIM_DEPTH } from '../WaterNavigation';
+import { adultRabbit, rabbitSex } from '../RabbitSex';
 
 const CHASE = {
   checkSeconds: 4,
@@ -160,6 +161,9 @@ export class RabbitReproductiveThreat {
       Math.hypot(actor.x - player.x, y - player.y, actor.z - player.z) <= CHASE.contactRange;
     return (
       actor.alive &&
+      rabbitSex(actor.data) === 'male' &&
+      adultRabbit(actor.data) &&
+      !actor.root.userData.wildMating &&
       !actor.root.userData.conversing &&
       !AnimalRestraint.active(actor.root) &&
       (inReach || GeneticTraits.mobility(actor.data.genes) > 0) &&

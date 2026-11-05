@@ -4,6 +4,8 @@ import { COAT_COLORS, type Genes, type PredatorKind } from './types';
 import { RabbitAppearance } from './genetics/RabbitAppearance';
 import { RabbitGait } from './RabbitGait';
 import { AnimalRestraint } from './animals/AnimalRestraint';
+import { RabbitSexAppearance } from './genetics/RabbitSexAppearance';
+import type { RabbitSex } from './types';
 
 export interface RabbitRig extends ModelInstance {
   leftEar: THREE.Object3D;
@@ -22,7 +24,7 @@ export function setRabbitAction(
   r.root.userData.actionUntil = time + duration;
 }
 
-export function createRabbit(genes: Genes, baby = false): RabbitRig {
+export function createRabbit(genes: Genes, baby = false, sex: RabbitSex = 'female'): RabbitRig {
   const model = ModelAssets.shared.create('rabbit');
   model.root.scale.setScalar((baby ? 0.55 : 1) * genes.size);
   model.root.traverse((object) => {
@@ -43,6 +45,7 @@ export function createRabbit(genes: Genes, baby = false): RabbitRig {
       object.scale.y = genes.ear * (baby ? 0.78 : 1);
   });
   RabbitAppearance.apply(model, genes);
+  RabbitSexAppearance.apply(model, sex, !baby);
   return Object.assign(model, { leftEar, rightEar });
 }
 

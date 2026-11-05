@@ -73,6 +73,28 @@ export class SaveRepository {
           data.worldConfig.creatures[kind] = defaults[kind];
       }
     }
+    if (
+      data.partners.some(
+        (rabbit) =>
+          (rabbit.sex !== undefined && rabbit.sex !== 'female' && rabbit.sex !== 'male') ||
+          (rabbit.age !== undefined && (!Number.isFinite(rabbit.age) || rabbit.age < 0)) ||
+          (rabbit.nextMatingAt !== undefined &&
+            (!Number.isFinite(rabbit.nextMatingAt) || rabbit.nextMatingAt < 0)) ||
+          (rabbit.pregnancy !== undefined &&
+            (!rabbit.pregnancy ||
+              rabbit.sex !== 'female' ||
+              !Number.isFinite(rabbit.pregnancy.dueAt) ||
+              rabbit.pregnancy.dueAt < 0 ||
+              !Number.isSafeInteger(rabbit.pregnancy.fatherId) ||
+              !data.partners.some((father) => father.id === rabbit.pregnancy?.fatherId))),
+      )
+    )
+      throw new Error('Сохранение содержит повреждённое состояние кроликов.');
+
+    // Прежние v4 не хранили пол соседей. Текущий партнёр остаётся кролом;
+    // остальные получают воспроизводимый пол, чтобы жизнь старого мира тоже продолжалась.
+    for (const rabbit of data.partners)
+      rabbit.sex ??= rabbit.id === data.mateId || rabbit.id % 2 === 0 ? 'male' : 'female';
     if (data.worldConfig !== undefined && !validWorldConfig(data.worldConfig))
       throw new Error('Сохранение содержит повреждённые настройки мира.');
 

@@ -16,6 +16,18 @@ const names = [
   'Бор',
 ];
 const coats: Genes['coat'][] = ['cream', 'brown', 'gray', 'black', 'white'];
+const femaleNames = [
+  'Искорка',
+  'Лапка',
+  'Ромашка',
+  'Ива',
+  'Снежка',
+  'Звёздочка',
+  'Берёзка',
+  'Брусничка',
+  'Росинка',
+  'Луна',
+];
 /** Фабрика генов и наследования для процедурных семей кроликов. */
 export class RabbitFactory {
   constructor(private readonly rng: Random) {}
@@ -64,8 +76,9 @@ export class RabbitFactory {
         d = this.rng.range(15, 72);
       out.push({
         id: i,
+        sex: i % 2 === 0 ? 'male' : 'female',
         lineage: Genealogy.founder('wild:' + i),
-        name: this.rng.pick(names),
+        name: this.rng.pick(i % 2 ? femaleNames : names),
         x: Math.cos(a) * d,
         z: Math.sin(a) * d,
         genes: this.genes(),

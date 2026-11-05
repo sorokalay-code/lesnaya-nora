@@ -14,7 +14,7 @@ export class RemainsVisuals {
   body(data: RemainsData): THREE.Group {
     const model =
       data.kind === 'rabbit' && data.genes
-        ? createRabbit(data.genes)
+        ? createRabbit(data.genes, false, data.sex)
         : ModelAssets.shared.create(data.kind);
     if (data.appearance) AnimalAppearance.apply(model, data.appearance);
     // У длинношеих видов голова опускается к плечам: поза живой модели сбоку

@@ -34,6 +34,10 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  sex?: RabbitSex;
+  age?: number;
+  pregnancy?: { fatherId: number; dueAt: number };
+  nextMatingAt?: number;
   health?: number;
   lineage?: Lineage;
   dirtiness?: number;
@@ -49,6 +53,8 @@ export interface PartnerTraits {
   trust: number;
   familySize: number;
 }
+
+export type RabbitSex = 'female' | 'male';
 
 export interface KitData {
   sex?: 'female' | 'male';

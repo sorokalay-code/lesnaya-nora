@@ -50,6 +50,8 @@ export class AnimalRemains {
       heading: root.rotation.y,
       scale: { x: root.scale.x, y: root.scale.y, z: root.scale.z },
       genes: subject.genes ? structuredClone(subject.genes) : undefined,
+      sex:
+        subject.kind === 'rabbit' ? (root.userData.sex === 'male' ? 'male' : 'female') : undefined,
       appearance: subject.appearance ? { ...subject.appearance } : undefined,
     });
     this.update(true);

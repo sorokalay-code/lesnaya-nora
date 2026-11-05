@@ -1,5 +1,5 @@
 import { createRabbit, type RabbitRig } from '../Models';
-import type { Genes } from '../types';
+import type { Genes, RabbitSex } from '../types';
 import { Animal, type AnimalPosition } from './Animal';
 import { RABBIT_SWIM_SPEED } from '../WaterNavigation';
 
@@ -16,8 +16,9 @@ export abstract class Rabbit extends Animal<'rabbit'> {
     genes: Genes,
     baby = false,
     vitality = { health: 100 },
+    sex: RabbitSex = 'female',
   ) {
-    const rig = createRabbit(genes, baby);
+    const rig = createRabbit(genes, baby, sex);
     super('rabbit', rig.root, position, 100, vitality);
     this.rig = rig;
   }

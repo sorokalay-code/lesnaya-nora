@@ -334,6 +334,7 @@ test('беременность после нападения видна вмес
   const { save } = f;
   f.daughter.age = 1;
   const father = save.partners[1];
+  father.sex = 'male';
   father.genes = { ...gene(), anatomy: { ...gene().anatomy, fangs: true } };
   save.mateId = save.partners[0].id;
   const rng = new Random(12);
