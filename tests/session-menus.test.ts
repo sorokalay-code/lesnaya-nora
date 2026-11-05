@@ -257,6 +257,42 @@ test('fullscreen control stays mounted over the start screen', () => {
   assert.match(markup, /Развернуть на весь экран/);
 });
 
+test('low-health warning appears below twenty percent only', () => {
+  const store = createUIStore(() => {});
+  const hud: HudView = {
+    status: '● В ЛЕСУ',
+    bars: [{ label: 'Здоровье', value: 20, color: '#dc9f9a', icon: '♥' }],
+    temperature: 38,
+    inventory: [],
+    carried: 0,
+    capacity: 0,
+    milk: 0,
+    materials: { grass: 0, twigs: 0, fur: 0 },
+    young: [],
+    familyText: '',
+    grown: 0,
+    nests: 0,
+    birthWarning: false,
+    worldInfo: [],
+    prompt: [],
+  };
+  store.setState({ hud });
+  store.getInitialState = store.getState;
+
+  const normalHealth = renderToStaticMarkup(createElement(GameApp, { store }));
+  assert.doesNotMatch(normalHealth, /low-health-vignette/);
+
+  store.setState({
+    hud: {
+      ...hud,
+      bars: [{ ...hud.bars[0], value: 19 }],
+    },
+  });
+  const lowHealth = renderToStaticMarkup(createElement(GameApp, { store }));
+  assert.match(lowHealth, /low-health-vignette/);
+  assert.match(lowHealth, /aria-hidden="true"/);
+});
+
 test('event history retains one hundred records, counts unseen messages and resets at a new session', () => {
   const { ui, store } = fixture();
   const facade = ui as GameUI;

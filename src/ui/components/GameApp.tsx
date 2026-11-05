@@ -10,6 +10,7 @@ import { MobileUtilities } from './MobileUtilities';
 import { EventPanel } from './EventPanel';
 import { MobileControls } from './MobileControls';
 import { FullscreenButton } from './FullscreenButton';
+import { LowHealthVignette } from './LowHealthVignette';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { UIState, UIStore } from '../store';
@@ -31,9 +32,14 @@ function useUIStore() {
 /** Корневой React-интерфейс подписывает каждый блок только на необходимые ему данные. */
 export function GameApp({ store }: { store: UIStore }) {
   const touch = useStore(store, (state) => state.touch);
+  const health = useStore(
+    store,
+    (state) => state.hud?.bars.find((bar) => bar.label === 'Здоровье')?.value,
+  );
   return (
     <UIContext.Provider value={store}>
       <div className={`ui-layer ${touch ? 'touch-ui' : ''}`}>
+        <LowHealthVignette health={health} />
         <Toolbar />
         <Hud />
         <Panels />
