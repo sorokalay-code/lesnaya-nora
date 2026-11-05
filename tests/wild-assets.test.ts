@@ -294,7 +294,14 @@ test('spider GLBs keep an animated near rig and a three-mesh distant silhouette'
 test('decorative rocks use tiny GLBs, share batches and respect chunk visibility', () => {
   for (const kind of ['rock_granite', 'rock_moss', 'rock_slate'] as const) {
     const model = ModelAssets.shared.create(kind);
-    assert.ok(stats(model.root).triangles <= 50);
+    assert.ok(stats(model.root).triangles <= 192);
+    model.root.traverse((part) => {
+      if (!(part instanceof THREE.Mesh)) return;
+      assert.ok(part.geometry.hasAttribute('uv'));
+      assert.ok(part.material instanceof THREE.MeshStandardMaterial);
+      assert.equal(part.material.name, `surface_${kind}`);
+      assert.equal(part.material.flatShading, false);
+    });
     assert.ok(stats(model.root).meshes <= 2);
     ModelAssets.shared.release(model.root);
   }

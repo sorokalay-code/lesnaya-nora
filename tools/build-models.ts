@@ -16,13 +16,9 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import {
-  createRockModel,
-  createSpiderModel,
-  spiderClips,
-  spiderLowClips,
-  spiderJumpClip,
-} from './art/WildAssets';
+import { createSpiderModel, spiderClips, spiderLowClips, spiderJumpClip } from './art/WildAssets';
+import { createRockModel, createLogModel } from './art/SurfaceProps';
+import { buildSurfaceTextures } from './build-surface-textures';
 import { createLynxModel, lynxPounceClip } from './art/LynxAsset';
 import { createRabbitEye } from './art/RabbitEye';
 import { quadrupedGait } from './art/Locomotion';
@@ -1467,6 +1463,7 @@ function writeTreeTexture(name: string, size: number, pixels: Buffer): void {
 mkdirSync('public/models', { recursive: true });
 mkdirSync('public/textures', { recursive: true });
 const requested = new Set(process.argv.slice(2).filter((name) => name !== '--'));
+buildSurfaceTextures();
 if (!requested.size) {
   texture('fur', 222);
   texture('leaf', 210);
@@ -1492,6 +1489,7 @@ const models = {
   rock_granite: () => createRockModel('granite'),
   rock_moss: () => createRockModel('moss'),
   rock_slate: () => createRockModel('slate'),
+  fallen_log: createLogModel,
   rabbit,
   fox: () => quadruped('fox'),
   wolf: () => quadruped('wolf'),

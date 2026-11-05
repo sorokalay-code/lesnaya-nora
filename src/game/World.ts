@@ -47,27 +47,6 @@ export interface LandMark {
 
 const mat = (color: number) =>
   new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true });
-const sphere = new THREE.SphereGeometry(1, 8, 6);
-
-function blob(
-  parent: THREE.Object3D,
-  material: THREE.Material,
-  x: number,
-  y: number,
-  z: number,
-  sx: number,
-  sy: number,
-  sz: number,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(sphere, material);
-  mesh.position.set(x, y, z);
-  mesh.scale.set(sx, sy, sz);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  parent.add(mesh);
-  return mesh;
-}
-
 /** Создаёт процедурный мир и управляет ресурсами, погодой, сезонами и декорациями. */
 export class World {
   readonly size: number;
@@ -434,8 +413,13 @@ export class World {
       biomeAt: (x, z) => this.biomeAt(x, z),
       wet: (x, z) => !!this.waterAt(x, z),
     });
-    const stoneGeo = new THREE.DodecahedronGeometry(0.18, 0);
-    const stones = new THREE.InstancedMesh(stoneGeo, mat(0x9a9b89), 370);
+    const stoneModel = ModelAssets.shared.create('rock_granite').root;
+    let stonePart: THREE.Mesh | undefined;
+    stoneModel.traverse((part) => {
+      if (part instanceof THREE.Mesh) stonePart = part;
+    });
+    if (!stonePart) throw new Error('Не найдена геометрия камня');
+    const stones = new THREE.InstancedMesh(stonePart.geometry, stonePart.material, 370);
     const flowers = new THREE.InstancedMesh(
       new THREE.IcosahedronGeometry(0.075, 0),
       mat(0xf4d7aa),
@@ -446,9 +430,9 @@ export class World {
     for (let i = 0; i < 370; i++) {
       const sx = this.rng.range(-101, 101) * this.scale,
         sz = this.rng.range(-101, 101) * this.scale;
-      dummy.position.set(sx, this.heightAt(sx, sz) + 0.12, sz);
+      dummy.position.set(sx, this.heightAt(sx, sz) - 0.025, sz);
       dummy.rotation.y = this.rng.range(0, 6.28);
-      dummy.scale.setScalar(this.rng.range(0.6, 2.5));
+      dummy.scale.setScalar(this.rng.range(0.6, 2.5) * 0.18);
       dummy.updateMatrix();
       stones.setMatrixAt(i, dummy.matrix);
     }
@@ -467,8 +451,6 @@ export class World {
     }
 
     this.scene.add(stones, flowers);
-    const logMat = mat(0x6e5541),
-      moss = mat(0x63875c);
     for (let i = 0; i < Math.round(65 * vegetation); i++) {
       const x = this.rng.range(-98, 98) * this.scale,
         z = this.rng.range(-98, 98) * this.scale;
@@ -485,7 +467,8 @@ export class World {
         dz = Math.sin(angle);
       const start = this.heightAt(x - (dx * length) / 2, z - (dz * length) / 2),
         end = this.heightAt(x + (dx * length) / 2, z + (dz * length) / 2);
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, length, 7), logMat);
+      const log = ModelAssets.shared.create('fallen_log').root;
+      log.scale.y = length;
       log.quaternion.setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
         new THREE.Vector3(dx, (end - start) / length, dz).normalize(),
@@ -493,10 +476,6 @@ export class World {
       log.position.set(x, (start + end) / 2 + 0.19, z);
       log.castShadow = true;
       this.chunks.add(log, x, z);
-      const mossy = new THREE.Group();
-      mossy.position.set(x + 0.3, this.heightAt(x + 0.3, z), z);
-      blob(mossy, moss, 0, 0.35, 0, 0.22, 0.08, 0.16);
-      this.chunks.add(mossy, x, z);
     }
   }
 

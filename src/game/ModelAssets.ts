@@ -2,6 +2,7 @@ import { SHRUB_SPECIES } from './ShrubSpecies';
 import { isTreeSpecies, TREE_SPECIES } from './TreeSpecies';
 import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
+import { animalSurface, SURFACE_TEXTURES } from './SurfaceMaterials';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -12,6 +13,7 @@ const SEASON_TEXTURE_SUFFIX: Record<Season, string> = {
   Зима: 'winter',
 };
 const TEXTURE_NAMES = [
+  ...SURFACE_TEXTURES.map((name) => `surface-${name}`),
   'fur',
   'leaf',
   ...SHRUB_SPECIES.map((species) => `${species}-foliage`),
@@ -51,6 +53,7 @@ export const MODEL_NAMES = [
   'rock_granite',
   'rock_moss',
   'rock_slate',
+  'fallen_log',
   'nest',
   'stash',
   ...TREE_SPECIES,
@@ -122,11 +125,11 @@ export class ModelAssets {
       await Promise.all(
         MODEL_NAMES.map(async (name) => {
           const glb = await this.loader.loadAsync(assetUrl(`models/${name}.glb`));
-          this.prepare(glb);
+          this.prepare(glb, name);
           this.glbs.set(name, glb);
           if ((CREATURE_NAMES as readonly string[]).includes(name)) {
             const low = await this.loader.loadAsync(assetUrl(`models/${name}-low.glb`));
-            this.prepare(low);
+            this.prepare(low, name);
             this.low.set(name, low);
           }
         }),
@@ -184,12 +187,11 @@ export class ModelAssets {
 
   async register(name: ModelName, bytes: ArrayBuffer, low = false): Promise<void> {
     const glb = await this.loader.parseAsync(bytes, '');
-    this.prepare(glb);
+    this.prepare(glb, name);
     (low ? this.low : this.glbs).set(name, glb);
   }
 
-  private prepare(glb: GLTF): void {
-    const fur = this.textures.get('fur');
+  private prepare(glb: GLTF, name: ModelName): void {
     const leaf = this.textures.get('leaf');
     this.clipMaps.set(glb, new Map(glb.animations.map((clip) => [clip.name, clip])));
     glb.scene.traverse((object) => {
@@ -203,7 +205,28 @@ export class ModelAssets {
         if (material.name.startsWith('leaf_'))
           material.userData.baseColor = material.color.getHex();
 
-        if (material.name.startsWith('fur_') && fur) material.map = fur;
+        const surface = (CREATURE_NAMES as readonly string[]).includes(name)
+          ? animalSurface(name, material.name)
+          : undefined;
+        const surfaceName = surface ?? material.name.replace(/^surface_/, '');
+        const surfaceMap = this.textures.get(`surface-${surfaceName}`);
+        if (surfaceMap) {
+          material.map = surfaceMap;
+          // Часть компактных моделей хранит только цвета вершин. UV добавляются один раз
+          // общей геометрии, до создания экземпляров и обоих уровней детализации.
+          if (!object.geometry.hasAttribute('uv')) {
+            const positions = object.geometry.getAttribute('position');
+            object.geometry.computeBoundingBox();
+            const box = object.geometry.boundingBox!;
+            const height = Math.max(0.001, box.max.y - box.min.y);
+            const uv = new Float32Array(positions.count * 2);
+            for (let i = 0; i < positions.count; i++) {
+              uv[i * 2] = Math.atan2(positions.getZ(i), positions.getX(i)) / (Math.PI * 2) + 0.5;
+              uv[i * 2 + 1] = (positions.getY(i) - box.min.y) / height;
+            }
+            object.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+          }
+        }
 
         const bark = /^bark_(.+)_texture$/.exec(material.name);
         const barkTexture = bark && this.textures.get(`${bark[1]}-bark`);

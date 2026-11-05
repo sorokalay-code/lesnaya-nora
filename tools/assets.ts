@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CREATURE_NAMES, MODEL_NAMES } from '../src/game/ModelAssets';
+import { SURFACE_TEXTURES } from '../src/game/SurfaceMaterials';
 
 export interface AssetEntry {
   path: string;
@@ -31,6 +32,7 @@ export function assetManifest(directory = 'public') {
   }
   scan('');
   const required = [
+    ...SURFACE_TEXTURES.map((name) => `textures/surface-${name}.png`),
     ...MODEL_NAMES.map((name) => `models/${name}.glb`),
     ...CREATURE_NAMES.map((name) => `models/${name}-low.glb`),
     ...['fur', 'leaf', 'ground', 'soil'].map((name) => `textures/${name}.png`),

@@ -50,7 +50,8 @@ export class GroundCover {
   private readonly density = { value: 1 };
   private readonly growth = { value: 1 };
   private readonly tallGrowth = { value: 0 };
-  private readonly material = new THREE.MeshBasicMaterial({
+  private readonly material = new THREE.MeshStandardMaterial({
+    roughness: 1,
     alphaTest: 0.4,
     side: THREE.DoubleSide,
   });
@@ -169,6 +170,13 @@ export class GroundCover {
             vMapUv = (slot + mix(vec2(0.03125), vec2(0.96875), vMapUv)) / vec2(8.0, 5.0);
           #endif
         `,
+        )
+        .replace(
+          '#include <defaultnormal_vertex>',
+          `#include <defaultnormal_vertex>
+          // Плоскость поворачивается к камере в project_vertex; нормаль травы направляем вверх,
+          // чтобы её яркость не зависела от взгляда и совпадала с освещением поверхности.
+          transformedNormal = normalize(mat3(viewMatrix) * vec3(0.0, 1.0, 0.0));`,
         )
         .replace(
           '#include <project_vertex>',
