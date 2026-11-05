@@ -112,9 +112,19 @@
 }
 .save-world-preview {
   width: 100%;
-  min-height: 76px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
   align-self: center;
   border-radius: var(--ui-radius-control);
+}
+.save-world-preview-empty {
+  display: grid;
+  place-items: center;
+  padding: var(--ui-space-8);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  text-align: center;
 }
 .save-card-heading {
   display: flex;

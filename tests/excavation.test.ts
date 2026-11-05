@@ -282,10 +282,18 @@ test('save catalog keeps adventures and manual snapshots independent', () => {
   };
   try {
     const repository = new SaveRepository('catalog');
+    const firstPreview = 'data:image/jpeg;base64,Zmlyc3Q=';
+    const updatedPreview = 'data:image/jpeg;base64,dXBkYXRlZA==';
+    const manualPreview = 'data:image/jpeg;base64,bWFudWFs';
     assert.equal(repository.nextAdventureName(), 'Приключение 1');
-    repository.storeAutosave(fixture(1), 'adventure-1', 'Сумрачный лес');
-    const firstManual = repository.storeManual(fixture(2), 'adventure-1', 'Сумрачный лес');
-    repository.storeAutosave(fixture(3), 'adventure-1', 'Сумрачный лес');
+    repository.storeAutosave(fixture(1), 'adventure-1', 'Сумрачный лес', firstPreview);
+    const firstManual = repository.storeManual(
+      fixture(2),
+      'adventure-1',
+      'Сумрачный лес',
+      manualPreview,
+    );
+    repository.storeAutosave(fixture(3), 'adventure-1', 'Сумрачный лес', updatedPreview);
     const secondManual = repository.storeManual(fixture(4), 'adventure-1', 'Сумрачный лес');
     repository.storeAutosave(fixture(5), 'adventure-2', 'Тихое озеро');
 
@@ -298,8 +306,10 @@ test('save catalog keeps adventures and manual snapshots independent', () => {
     );
     assert.equal(slots.filter((slot) => slot.kind === 'manual').length, 2);
     assert.equal(firstManual.name, 'Сохранение 1');
+    assert.equal(firstManual.preview, manualPreview);
     assert.equal(secondManual.name, 'Сохранение 2');
     assert.equal(repository.loadSlot('autosave:adventure-1').save.seed, 3);
+    assert.equal(repository.loadSlot('autosave:adventure-1').slot.preview, updatedPreview);
     assert.equal(repository.loadSlot(firstManual.id).save.seed, 2);
     assert.equal(repository.loadSlot(secondManual.id).save.seed, 4);
     assert.equal(repository.loadSlot('autosave:adventure-2').save.seed, 5);

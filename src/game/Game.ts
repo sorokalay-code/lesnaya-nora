@@ -507,6 +507,7 @@ export class Game {
       items: this.items,
       sound: this.sound,
       saves: this.saves,
+      capturePreview: () => this.captureSavePreview(),
       adventure: { id: this.activeAdventureId, name: this.activeAdventureName },
       interactions: this.interactions,
       toast: (text) => this.toast(text),
@@ -549,7 +550,7 @@ export class Game {
       resetDig: () => {
         this.runtime.digHeld = false;
       },
-      persist: (notify) => this.sessionUI.persist(notify),
+      persist: (notify, manual) => this.sessionUI.persist(notify, manual),
       toast: (text) => this.toast(text),
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
     });
@@ -683,6 +684,19 @@ export class Game {
     );
     this.player.root.visible = !this.view.isFirstPerson;
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private captureSavePreview(): string {
+    this.render();
+    const source = this.renderer.domElement;
+    const thumbnail = document.createElement('canvas');
+    thumbnail.width = 320;
+    thumbnail.height = 180;
+    const context = thumbnail.getContext('2d');
+    if (!context) throw new Error('Не удалось подготовить снимок сохранения.');
+
+    context.drawImage(source, 0, 0, thumbnail.width, thumbnail.height);
+    return thumbnail.toDataURL('image/jpeg', 0.65);
   }
 
   private action(action: string, value?: string | number): void {

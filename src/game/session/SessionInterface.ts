@@ -32,6 +32,7 @@ interface Context {
   items: GroundItems;
   sound: Soundscape;
   saves: SaveRepository;
+  capturePreview: () => string;
   adventure: { id: string; name: string };
   interactions: InteractionController;
   toast: (text: string) => void;
@@ -106,11 +107,13 @@ export class SessionInterface {
       .filter((r) => !r.available)
       .map((r) => r.id);
     try {
+      const preview = this.context.capturePreview();
       const manualSave = manual
         ? this.context.saves.storeManual(
             this.context.save,
             this.context.adventure.id,
             this.context.adventure.name,
+            preview,
           )
         : undefined;
       if (!manual)
@@ -118,6 +121,7 @@ export class SessionInterface {
           this.context.save,
           this.context.adventure.id,
           this.context.adventure.name,
+          preview,
         );
       this.context.ui.store.setState({
         saveSlots: this.context.saves.list(),

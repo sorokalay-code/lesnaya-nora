@@ -16,7 +16,8 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
   const store = createUIStore(() => {});
   let locked = false,
     closed = 0,
-    opened = 0;
+    opened = 0,
+    saves = 0;
   const ui = {
     get state() {
       return store.getState();
@@ -58,6 +59,7 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
         store.setState({ gameMenu: store.getState().gameMenu ? undefined : 'main' });
       }
       if (action === 'controls-help') store.setState({ gameMenu: 'controls' });
+      if (action === 'save') saves++;
     },
   } as unknown as InputContext;
   let input: DesktopInput | undefined;
@@ -72,6 +74,9 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
       windowMock.dispatchEvent(event);
       return event;
     };
+    const saveKey = key('F5');
+    assert.equal(saveKey.defaultPrevented, true);
+    assert.equal(saves, 1);
     key('Escape');
     assert.equal(ui.panelsOpen, true);
     assert.equal(ui.simulationPaused, true);

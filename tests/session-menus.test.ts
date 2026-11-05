@@ -16,6 +16,7 @@ import { ActionMenu } from '../src/ui/components/ActionMenu';
 import { EventPanel } from '../src/ui/components/EventPanel';
 import { MobileUtilities } from '../src/ui/components/MobileUtilities';
 import { GameApp } from '../src/ui/components/GameApp';
+import { SaveLibrary } from '../src/ui/components/SaveLibrary';
 import type { HudView } from '../src/ui/types';
 
 const game = (seed: number) =>
@@ -150,6 +151,7 @@ test('save and sound settings keep the pause menu open; world commands close onl
   const { ui, store } = fixture();
   let saves = 0,
     resumed = 0;
+  let saveRequest: [boolean, boolean | undefined] | undefined;
   const sound = { muted: false, unlock() {}, play() {} };
   const actions = new SessionActions({
     ui,
@@ -167,8 +169,9 @@ test('save and sound settings keep the pause menu open; world commands close onl
     },
     grooming: { execute: () => false },
     shelters: { execute: () => false },
-    persist: () => {
+    persist: (notify, manual) => {
       saves++;
+      saveRequest = [notify, manual];
     },
     toast() {},
     environment: { execute() {} },
@@ -177,6 +180,7 @@ test('save and sound settings keep the pause menu open; world commands close onl
   actions.showMenu();
   actions.execute('save');
   assert.equal(saves, 1);
+  assert.deepEqual(saveRequest, [true, true]);
   assert.equal(store.getState().gameMenu, 'main');
   assert.equal(resumed, 0);
   actions.execute('settings');
@@ -291,6 +295,42 @@ test('low-health warning appears below twenty percent only', () => {
   const lowHealth = renderToStaticMarkup(createElement(GameApp, { store }));
   assert.match(lowHealth, /low-health-vignette/);
   assert.match(lowHealth, /aria-hidden="true"/);
+});
+
+test('save library displays the stored image snapshot instead of a generated map', () => {
+  const store = createUIStore(() => {});
+  store.getInitialState = store.getState;
+  const preview = 'data:image/jpeg;base64,c25hcHNob3Q=';
+  store.setState({
+    saveSlots: [
+      {
+        id: 'manual-1',
+        adventureId: 'adventure-1',
+        adventureName: 'Тихий лес',
+        name: 'Сохранение 1',
+        kind: 'manual',
+        createdAt: 1,
+        updatedAt: 1,
+        version: 5,
+        day: 2,
+        clock: 540,
+        seed: 1,
+        biome: 'forest',
+        worldSize: 100,
+        playerX: 0,
+        playerZ: 0,
+        playerCoat: 'cream',
+        supported: true,
+        preview,
+      },
+    ],
+  });
+
+  const markup = renderToStaticMarkup(createElement(SaveLibrary, { store }));
+
+  assert.match(markup, /<img[^>]+src="data:image\/jpeg;base64,c25hcHNob3Q="/);
+  assert.match(markup, /alt="Снимок игры «Тихий лес»"/);
+  assert.doesNotMatch(markup, /<svg/);
 });
 
 test('event history retains one hundred records, counts unseen messages and resets at a new session', () => {

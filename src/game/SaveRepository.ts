@@ -23,6 +23,7 @@ export interface SaveSlotSummary {
   playerZ: number;
   playerCoat: string;
   supported: boolean;
+  preview?: string;
 }
 
 interface StoredSaveSlot extends SaveSlotSummary {
@@ -66,7 +67,12 @@ export class SaveRepository {
       .sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
-  storeAutosave(save: SaveData, adventureId: string, adventureName: string): void {
+  storeAutosave(
+    save: SaveData,
+    adventureId: string,
+    adventureName: string,
+    preview?: string,
+  ): void {
     this.assertCurrentVersion(save);
     const catalog = this.readCatalog();
     const id = `autosave:${adventureId}`;
@@ -83,13 +89,19 @@ export class SaveRepository {
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       save,
+      preview,
     });
     catalog.slots = catalog.slots.filter((entry) => entry.id !== id);
     catalog.slots.push(slot);
     this.writeCatalog(catalog);
   }
 
-  storeManual(save: SaveData, adventureId: string, adventureName: string): SaveSlotSummary {
+  storeManual(
+    save: SaveData,
+    adventureId: string,
+    adventureName: string,
+    preview?: string,
+  ): SaveSlotSummary {
     this.assertCurrentVersion(save);
     const catalog = this.readCatalog();
     const number =
@@ -109,6 +121,7 @@ export class SaveRepository {
       createdAt: now,
       updatedAt: now,
       save,
+      preview,
     });
     catalog.slots.push(slot);
     this.writeCatalog(catalog);
@@ -156,6 +169,7 @@ export class SaveRepository {
     createdAt,
     updatedAt,
     save,
+    preview,
   }: {
     id: string;
     adventureId: string;
@@ -165,6 +179,7 @@ export class SaveRepository {
     createdAt: number;
     updatedAt: number;
     save: SaveData;
+    preview?: string;
   }): StoredSaveSlot {
     return {
       id,
@@ -184,6 +199,7 @@ export class SaveRepository {
       playerZ: save.player.z,
       playerCoat: save.player.genes.coat,
       supported: save.version === SAVE_VERSION,
+      preview,
       save: structuredClone(save),
     };
   }
@@ -351,6 +367,9 @@ function isStoredSlot(value: unknown): value is StoredSaveSlot {
     typeof value.playerZ === 'number' &&
     typeof value.playerCoat === 'string' &&
     typeof value.supported === 'boolean' &&
+    (value.preview === undefined ||
+      (typeof value.preview === 'string' &&
+        /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.preview))) &&
     typeof value.save === 'object' &&
     value.save !== null
   );

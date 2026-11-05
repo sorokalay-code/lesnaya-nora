@@ -4,13 +4,6 @@ import type { UIStore } from '../store';
 import type { SaveSlotSummary } from '../types';
 import { Button, ScrollContainer } from '../kit';
 
-const biomeColors: Record<string, [string, string]> = {
-  forest: ['#294936', '#56764b'],
-  meadow: ['#718d4a', '#b5b974'],
-  swamp: ['#495b3f', '#7b8560'],
-  garden: ['#765d43', '#a88a57'],
-};
-
 /** Показывает доступные миры, снимки, их состояние и действия загрузки или удаления. */
 export function SaveLibrary({ store }: { store: UIStore }) {
   const slots = useStore(store, (state) => state.saveSlots);
@@ -112,52 +105,16 @@ function SaveCard({
 }
 
 function WorldPreview({ slot }: { slot: SaveSlotSummary }) {
-  const [background, foreground] = biomeColors[slot.biome] ?? biomeColors.forest;
-  const trees = Array.from({ length: 28 }, (_, index) => {
-    const x = ((slot.seed * (index + 7) * 13) % 170) + 5;
-    const y = ((slot.seed * (index + 11) * 7) % 76) + 5;
-    const radius = 2 + ((slot.seed + index * 3) % 3);
-    return { x, y, radius };
-  });
-  const playerX = Math.max(
-    12,
-    Math.min(168, 12 + (slot.playerX / Math.max(1, slot.worldSize) + 0.5) * 156),
-  );
-  const playerY = Math.max(
-    9,
-    Math.min(81, 9 + (slot.playerZ / Math.max(1, slot.worldSize) + 0.5) * 72),
-  );
-
-  return (
-    <svg
+  return slot.preview ? (
+    <img
       className="save-world-preview"
-      viewBox="0 0 180 90"
-      role="img"
-      aria-label={`Карта мира «${slot.adventureName}»`}
-    >
-      <rect width="180" height="90" fill={background} />
-      <path d="M0 64 Q42 42 74 61 T140 53 T180 61 V90 H0Z" fill={foreground} opacity=".7" />
-      {slot.seed % 2 === 0 && (
-        <path
-          d="M12 82 Q54 55 78 70 T139 46 T180 31"
-          fill="none"
-          stroke="#8ac4c3"
-          strokeWidth="5"
-          opacity=".8"
-        />
-      )}
-      {trees.map((tree, index) => (
-        <circle
-          key={index}
-          cx={tree.x}
-          cy={tree.y}
-          r={tree.radius}
-          fill={index % 2 ? '#193b2b' : '#355c38'}
-          opacity=".9"
-        />
-      ))}
-      <circle cx={playerX} cy={playerY} r="5" fill="#f1d479" stroke="#183727" strokeWidth="2" />
-    </svg>
+      src={slot.preview}
+      alt={`Снимок игры «${slot.adventureName}»`}
+    />
+  ) : (
+    <div className="save-world-preview save-world-preview-empty" aria-label="Снимок недоступен">
+      Снимок недоступен
+    </div>
   );
 }
 
