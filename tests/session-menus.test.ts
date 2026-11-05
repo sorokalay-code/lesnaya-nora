@@ -15,6 +15,7 @@ import { GameMenu } from '../src/ui/components/GameMenu';
 import { ActionMenu } from '../src/ui/components/ActionMenu';
 import { EventPanel } from '../src/ui/components/EventPanel';
 import { MobileUtilities } from '../src/ui/components/MobileUtilities';
+import { GameApp } from '../src/ui/components/GameApp';
 import type { HudView } from '../src/ui/types';
 
 const game = (seed: number) =>
@@ -209,7 +210,7 @@ test('pause menu contains session controls and action panel contains only world 
   assert.match(confirmation, /data-cancel-new/);
 });
 
-test('mobile utilities expose fullscreen exit, game menu and a compact event button without showing event text', () => {
+test('mobile utilities expose game menu and event history without showing event text', () => {
   const store = createUIStore(() => {});
   store.getInitialState = store.getState;
   store.setState({
@@ -221,7 +222,7 @@ test('mobile utilities expose fullscreen exit, game menu and a compact event but
     events: ['СЕКРЕТНОЕ СОБЫТИЕ'],
   });
   const compact = renderToStaticMarkup(createElement(MobileUtilities, { store }));
-  assert.match(compact, /Свернуть полный экран/);
+  assert.doesNotMatch(compact, /Свернуть полный экран/);
   assert.match(compact, /Меню игры/);
   assert.match(compact, /События/);
   assert.doesNotMatch(compact, /СЕКРЕТНОЕ/);
@@ -230,6 +231,16 @@ test('mobile utilities expose fullscreen exit, game menu and a compact event but
   assert.match(panel, /СЕКРЕТНОЕ СОБЫТИЕ/);
   store.setState({ touch: false });
   assert.equal(renderToStaticMarkup(createElement(MobileUtilities, { store })), '');
+});
+
+test('fullscreen control stays mounted over the start screen', () => {
+  const store = createUIStore(() => {});
+  store.setState({ overlay: { type: 'start', hasSave: false } });
+
+  const markup = renderToStaticMarkup(createElement(GameApp, { store }));
+
+  assert.match(markup, /fullscreen-corner/);
+  assert.match(markup, /Развернуть на весь экран/);
 });
 
 test('event history retains one hundred records, counts unseen messages and resets at a new session', () => {

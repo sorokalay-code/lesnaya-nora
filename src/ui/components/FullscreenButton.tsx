@@ -1,8 +1,9 @@
 import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
+import './FullscreenButton.css';
 
-/** Одна кнопка отражает фактический Fullscreen API в меню и на мобильном HUD. */
+/** Постоянная кнопка полного экрана отражает состояние браузерного Fullscreen API. */
 export function FullscreenButton({
   store,
   compact = false,
@@ -14,14 +15,16 @@ export function FullscreenButton({
   const available = useStore(store, (s) => s.fullscreenAvailable);
   const dispatch = useStore(store, (s) => s.dispatch);
   const label = fullscreen ? 'Свернуть полный экран' : 'Развернуть на весь экран';
+  const unavailableTitle = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    ? 'Safari: добавьте игру на экран «Домой», чтобы скрыть панели браузера'
+    : 'Полноэкранный режим недоступен в этом браузере';
   return (
     <Button
       type="button"
-      className={compact ? 'fullscreen-quick' : ''}
-      title={available ? label : 'Полный экран недоступен в этом браузере'}
+      className={`fullscreen-corner ${compact ? 'fullscreen-quick' : ''}`}
+      title={available ? label : unavailableTitle}
       aria-label={label}
       aria-pressed={fullscreen}
-      disabled={!available}
       onClick={() => dispatch('fullscreen')}
     >
       {fullscreen ? '⤢' : '⛶'}

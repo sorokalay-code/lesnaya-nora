@@ -1,7 +1,6 @@
 import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
-import { FullscreenButton } from './FullscreenButton';
 
 /** Мобильные быстрые кнопки остаются на HUD без открытия панели действий. */
 export function MobileUtilities({ store }: { store: UIStore }) {
@@ -18,7 +17,6 @@ export function MobileUtilities({ store }: { store: UIStore }) {
           События{unread > 0 && <b>{unread}</b>}
         </Button>
       )}
-      <FullscreenButton store={store} compact />
       {playing && (
         <Button aria-label="Меню игры" onClick={() => dispatch('menu')}>
           ☰

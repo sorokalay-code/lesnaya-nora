@@ -3,7 +3,6 @@ import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { ControlGuide } from './ControlGuide';
-import { FullscreenButton } from './FullscreenButton';
 import { NewGameForm } from './NewGameForm';
 
 /** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
@@ -90,7 +89,6 @@ export function GameMenu({ store }: { store: UIStore }) {
             <Button aria-pressed={controls} onClick={() => dispatch('toggle-controls')}>
               {controls ? '☑' : '☐'} Подсказка управления
             </Button>
-            <FullscreenButton store={store} />
           </div>
         )}
         {page === 'controls' && <ControlGuide touch={touch} />}

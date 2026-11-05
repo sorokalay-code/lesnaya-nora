@@ -9,6 +9,7 @@ import { GameMenu } from './GameMenu';
 import { MobileUtilities } from './MobileUtilities';
 import { EventPanel } from './EventPanel';
 import { MobileControls } from './MobileControls';
+import { FullscreenButton } from './FullscreenButton';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { UIState, UIStore } from '../store';
@@ -45,14 +46,13 @@ export function GameApp({ store }: { store: UIStore }) {
         <ActionMenu store={store} />
         <GameMenu store={store} />
         <EventPanel store={store} />
+        <FullscreenButton store={store} compact />
       </div>
     </UIContext.Provider>
   );
 }
 
 function Toolbar() {
-  const fullscreen = useUI((s) => s.fullscreen);
-  const fullscreenAvailable = useUI((s) => s.fullscreenAvailable);
   const dispatch = useUI((state) => state.dispatch),
     hud = useUI((state) => state.hud),
     first = useUI((state) => state.firstPerson);
@@ -72,13 +72,6 @@ function Toolbar() {
         </div>
         <div className="top-actions">
           <Button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</Button>
-          <Button
-            disabled={!fullscreenAvailable}
-            onClick={() => dispatch('fullscreen')}
-            title="Полноэкранный режим"
-          >
-            {fullscreen ? '⤢ Свернуть' : '⛶ Полный экран'}
-          </Button>
           <Button onClick={() => dispatch('menu')}>☰ Меню · Esc</Button>
           <Button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</Button>
         </div>

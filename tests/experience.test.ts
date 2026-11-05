@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import * as THREE from 'three';
 import { InteractionController } from '../src/game/session/InteractionController';
 import { JumpMotion } from '../src/game/session/JumpMotion';
@@ -13,6 +15,7 @@ import { Soundscape } from '../src/game/Audio';
 import { Terrain } from '../src/game/Terrain';
 import { WorldBoundary } from '../src/game/WorldBoundary';
 import { FullscreenController } from '../src/game/input/FullscreenController';
+import { FullscreenButton } from '../src/ui/components/FullscreenButton';
 import { createUIStore } from '../src/ui/store';
 import type { DialogViewModel } from '../src/ui/types';
 import { loadModels } from './model-fixture';
@@ -156,6 +159,55 @@ test('fullscreen state follows entering, browser exit and unsupported browsers',
     if (original) Object.defineProperty(globalThis, 'document', original);
     else Reflect.deleteProperty(globalThis, 'document');
   }
+});
+
+test('fullscreen controller supports Safari-prefixed fullscreen APIs', async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const store = createUIStore(() => {});
+  const documentMock = Object.assign(new EventTarget(), {
+    webkitFullscreenEnabled: true,
+    webkitFullscreenElement: null as object | null,
+    async webkitExitFullscreen() {
+      this.webkitFullscreenElement = null;
+      this.dispatchEvent(new Event('webkitfullscreenchange'));
+    },
+  });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: documentMock });
+  const host = {
+    async webkitRequestFullscreen() {
+      documentMock.webkitFullscreenElement = host;
+      documentMock.dispatchEvent(new Event('webkitfullscreenchange'));
+    },
+  } as unknown as HTMLElement;
+  const ui = {
+    store,
+    get state() {
+      return store.getState();
+    },
+    toast() {},
+  };
+  const controller = new FullscreenController(host, ui);
+
+  try {
+    assert.equal(store.getState().fullscreenAvailable, true);
+    await controller.toggle();
+    assert.equal(store.getState().fullscreen, true);
+    await controller.toggle();
+    assert.equal(store.getState().fullscreen, false);
+  } finally {
+    controller.dispose();
+    if (original) Object.defineProperty(globalThis, 'document', original);
+    else Reflect.deleteProperty(globalThis, 'document');
+  }
+});
+
+test('fullscreen button stays available to explain unsupported browser mode', () => {
+  const store = createUIStore(() => {});
+  const markup = renderToStaticMarkup(createElement(FullscreenButton, { store, compact: true }));
+
+  assert.match(markup, /aria-label="Развернуть на весь экран"/);
+  assert.match(markup, /Полноэкранный режим недоступен/);
+  assert.doesNotMatch(markup, /disabled/);
 });
 
 test('forming a pair does not generate a nest or consume nest materials', () => {
