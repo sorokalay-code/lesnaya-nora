@@ -1,0 +1,13 @@
+.ui-scroll-container {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+  scroll-padding-block: var(--ui-space-12);
+}
+.ui-scroll-container:focus-visible {
+  outline: var(--ui-focus-width) solid var(--ui-focus);
+  outline-offset: calc(-1 * var(--ui-focus-offset));
+}

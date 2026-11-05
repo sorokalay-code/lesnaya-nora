@@ -43,7 +43,6 @@
   left: var(--ui-space-16);
   width: 240px;
   max-height: calc(100dvh - var(--ui-offset-150));
-  overflow: auto;
   z-index: 65;
 }
 .ui-layer:has(.status-toggle[aria-expanded='true']) .hud {

@@ -1,4 +1,4 @@
-import { Button, Dialog, Disclosure, Meter } from '../kit';
+import { Button, Dialog, Disclosure, Meter, ScrollContainer } from '../kit';
 import { ControlGuide } from './ControlGuide';
 import { JournalLog } from './JournalLog';
 import { WebNotice } from './WebNotice';
@@ -195,7 +195,7 @@ function Hud() {
       >
         🐇 Семья · {hud.familyCount ?? hud.young.length} {familyOpen ? '×' : '▾'}
       </Button>
-      <div className="hud">
+      <ScrollContainer className="hud" label="Состояние и семья">
         <div className="status-card">
           <div className="card-heading">
             СОСТОЯНИЕ <span>{hud.status}</span>
@@ -253,7 +253,7 @@ function Hud() {
             <div className="birth-warning">⚠ Скоро роды: вернись в подземное гнездо</div>
           )}
         </div>
-      </div>
+      </ScrollContainer>
       <div className="prompt">
         {hud.prompt.map((part, index) => (
           <span key={index}>
@@ -312,7 +312,10 @@ function Panels() {
           />
         )}
       </Dialog>
-      <div className={`journal ${journal ? '' : 'hidden'}`}>
+      <ScrollContainer
+        className={`journal ${journal ? '' : 'hidden'}`}
+        label={journal?.mode === 'map' ? 'Карта леса' : 'Лесной дневник'}
+      >
         {journal && (
           <>
             <div className="journal-head">
@@ -380,7 +383,7 @@ function Panels() {
             )}
           </>
         )}
-      </div>
+      </ScrollContainer>
     </>
   );
 }
@@ -479,7 +482,7 @@ function Overlay() {
   const overlay = useUI((state) => state.overlay),
     dispatch = useUI((state) => state.dispatch);
   return (
-    <div className={`overlay ${overlay ? '' : 'hidden'}`}>
+    <ScrollContainer className={`overlay ${overlay ? '' : 'hidden'}`} label="Экран игры">
       {overlay?.type === 'start' ? (
         <div className="start-card">
           <div className="eyebrow">✦ ТВОЯ ИСТОРИЯ НАЧИНАЕТСЯ ЗДЕСЬ</div>
@@ -526,7 +529,7 @@ function Overlay() {
           </div>
         </div>
       ) : null}
-    </div>
+    </ScrollContainer>
   );
 }
 

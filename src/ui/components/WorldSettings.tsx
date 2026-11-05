@@ -1,4 +1,4 @@
-import { Button, FieldGroup, FieldLabel, Input, Select, Tabs } from '../kit';
+import { Button, FieldGroup, FieldLabel, Input, ScrollContainer, Select, Tabs } from '../kit';
 import { useStore } from 'zustand';
 import {
   BIOME_OPTIONS,
@@ -35,7 +35,7 @@ export function WorldSettings({ store }: { store: UIStore }) {
         value={tab}
         onChange={(worldSettingsTab) => store.setState({ worldSettingsTab })}
       />
-      <div className="world-settings-content" key={tab}>
+      <ScrollContainer className="world-settings-content" key={tab} label="Настройки мира">
         {WORLD_SETTINGS_TABS.map(({ value }) => (
           <div
             key={value}
@@ -65,7 +65,7 @@ export function WorldSettings({ store }: { store: UIStore }) {
         >
           Вернуть исходные настройки
         </Button>
-      </div>
+      </ScrollContainer>
     </div>
   );
 }

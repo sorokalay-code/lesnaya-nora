@@ -13,11 +13,13 @@ body,
   display: none;
 }
 .dialog-panel,
-.journal,
 .settings-panel {
   max-height: calc(100dvh - var(--ui-offset-100));
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.journal {
+  max-height: calc(100dvh - var(--ui-offset-100));
 }
 .top-actions {
   flex-wrap: wrap;
@@ -249,12 +251,9 @@ body,
 }
 .touch-ui .overlay {
   z-index: 150;
-  overflow: auto;
   padding: var(--ui-space-10);
 }
 .touch-ui .start-card {
-  max-height: calc(100dvh - var(--ui-space-20));
-  overflow-y: auto;
   padding: var(--ui-space-20);
 }
 .touch-ui .start-card h1 {

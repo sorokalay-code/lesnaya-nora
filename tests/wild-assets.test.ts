@@ -73,6 +73,8 @@ test('journal persists only the last hundred timestamped events and renders newe
   assert.ok(markup.indexOf('Событие 109') < markup.indexOf('Событие 108'));
   assert.ok(!markup.includes('Событие 0<'));
   assert.ok(markup.includes('100/100'));
+  assert.ok(markup.includes('aria-label="Последние события"'));
+  assert.ok(markup.includes('class="ui-scroll-container journal-log-list"'));
 });
 
 test('dirty fur changes both LODs independently of other rabbits and restores original colours', () => {

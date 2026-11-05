@@ -7,5 +7,6 @@ export { Input } from './Input/Input';
 export { Meter } from './Meter/Meter';
 export { Notice } from './Notice/Notice';
 export { Progress } from './Progress/Progress';
+export { ScrollContainer } from './ScrollContainer/ScrollContainer';
 export { Select } from './Select/Select';
 export { Tabs } from './Tabs/Tabs';

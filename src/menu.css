@@ -181,8 +181,6 @@
   margin: var(--ui-space-0) var(--ui-space-20);
 }
 .world-settings-content {
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: var(--ui-space-0) var(--ui-space-20) var(--ui-space-20);
   min-height: 0;
 }
@@ -342,7 +340,7 @@
   margin: var(--ui-space-8) var(--ui-space-0) var(--ui-space-0);
   padding: var(--ui-space-8);
 }
-.event-panel .journal-log ol {
+.event-panel .journal-log-list {
   max-height: max(70px, calc(100dvh - var(--ui-offset-170)));
 }
 .mobile-utilities {
@@ -427,11 +425,11 @@
   cursor: pointer;
   font-weight: bold;
 }
-.journal-log ol {
-  padding-left: var(--ui-space-20);
+.journal-log-list {
   max-height: 260px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+.journal-log-list ol {
+  padding-left: var(--ui-space-20);
 }
 .journal-log li {
   margin: var(--ui-space-8) var(--ui-space-0);

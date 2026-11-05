@@ -447,7 +447,6 @@ body,
   top: var(--ui-offset-90);
   bottom: var(--ui-offset-84);
   width: min(440px, calc(100% - var(--ui-space-46)));
-  overflow: auto;
   padding: var(--ui-space-22);
   border: 1px solid rgba(245, 242, 216, 0.27);
   border-radius: 13px;
