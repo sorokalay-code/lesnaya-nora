@@ -1,4 +1,4 @@
-.low-health-vignette {
+.ui-layer > .low-health-vignette {
   position: fixed;
   z-index: 60;
   inset: var(--ui-space-0);
