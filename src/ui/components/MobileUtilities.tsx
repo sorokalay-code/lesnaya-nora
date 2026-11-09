@@ -1,3 +1,4 @@
+import { FullscreenButton } from './FullscreenButton';
 import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
@@ -22,6 +23,7 @@ export function MobileUtilities({ store }: { store: UIStore }) {
           ☰
         </Button>
       )}
+      {playing && <FullscreenButton store={store} compact />}
     </div>
   );
 }

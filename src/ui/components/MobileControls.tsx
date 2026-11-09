@@ -1,3 +1,4 @@
+import { FullscreenButton } from './FullscreenButton';
 import { Button } from '../kit';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useStore } from 'zustand';
@@ -40,6 +41,7 @@ export function MobileControls({ store }: { store: UIStore }) {
         <h1>Поверни устройство</h1>
         <p>Лесная нора играется в горизонтальном положении.</p>
         <small>Игра на паузе — крольчиха в безопасности.</small>
+        <FullscreenButton store={store} />
       </div>
     );
   if (hidden || !bindings || airlift) return null;

@@ -1,3 +1,4 @@
+import { FullscreenButton } from './FullscreenButton';
 import { Button, Dialog } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
@@ -57,6 +58,7 @@ export function GameMenu({ store }: { store: UIStore }) {
               <small>ЛЕСНАЯ НОРА · {overlay?.type === 'start' ? 'СОЗДАНИЕ МИРА' : 'ПАУЗА'}</small>
               <h2 id="game-menu-title">{titles[page]}</h2>
             </div>
+            <FullscreenButton store={store} compact />
             <Button onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}>
               {page === 'main' ? 'Продолжить игру' : '← Назад'}
             </Button>

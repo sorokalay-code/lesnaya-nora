@@ -3,7 +3,7 @@ import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import './FullscreenButton.css';
 
-/** Постоянная кнопка полного экрана отражает состояние браузерного Fullscreen API. */
+/** Кнопка полного экрана в потоке раскладки отражает состояние браузерного Fullscreen API. */
 export function FullscreenButton({
   store,
   compact = false,
@@ -21,7 +21,7 @@ export function FullscreenButton({
   return (
     <Button
       type="button"
-      className={`fullscreen-corner ${compact ? 'fullscreen-quick' : ''}`}
+      className={`fullscreen-button ${compact ? 'fullscreen-quick' : ''}`}
       title={available ? label : unavailableTitle}
       aria-label={label}
       aria-pressed={fullscreen}

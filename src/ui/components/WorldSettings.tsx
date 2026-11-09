@@ -78,7 +78,7 @@ export type SettingsSectionProps = {
 function NatureSettings({ config, update }: SettingsSectionProps) {
   return (
     <FieldGroup legend="Мир и природа">
-      <FieldLabel>
+      <FieldLabel separateControl>
         Преобладающий биом
         <Select
           value={config.biome}
@@ -107,7 +107,7 @@ function NatureSettings({ config, update }: SettingsSectionProps) {
           ['food', 'Количество съедобных растений'],
         ] as const
       ).map(([key, label]) => (
-        <FieldLabel className="config-range" key={key}>
+        <FieldLabel separateControl className="config-range" key={key}>
           <span>
             {label} <output>{Math.round(config[key] * 100)}%</output>
           </span>
@@ -154,7 +154,7 @@ function PopulationSettings({ config, update }: SettingsSectionProps) {
       </p>
       <div className="creature-grid">
         {CREATURE_OPTIONS.map(({ kind, label, max }) => (
-          <FieldLabel className="creature-input" key={kind}>
+          <FieldLabel separateControl className="creature-input" key={kind}>
             <span>
               {label}
               <small>0–{max}</small>
@@ -177,7 +177,7 @@ function PopulationSettings({ config, update }: SettingsSectionProps) {
           </FieldLabel>
         ))}
       </div>
-      <FieldLabel>
+      <FieldLabel separateControl>
         Размер семей соседей, максимум
         <Input
           type="number"
@@ -202,7 +202,7 @@ function CalendarSettings({ config, update, store }: SettingsSectionProps & { st
 
   return (
     <FieldGroup legend="Календарь">
-      <FieldLabel>
+      <FieldLabel separateControl>
         Начальный сезон
         <Select
           value={season}
@@ -217,7 +217,7 @@ function CalendarSettings({ config, update, store }: SettingsSectionProps & { st
       </FieldLabel>
       <div className="creature-grid">
         {SEASONS.map((name) => (
-          <FieldLabel className="creature-input" key={name}>
+          <FieldLabel separateControl className="creature-input" key={name}>
             {name}, игровых дней
             <Input
               type="number"

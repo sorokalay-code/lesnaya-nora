@@ -61,7 +61,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             </Button>
           ))}
         </div>
-        <FieldLabel>
+        <FieldLabel separateControl>
           Расположение областей
           <Select
             value={map.layout}
@@ -74,7 +74,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             <option value="classic">Классическое</option>
           </Select>
         </FieldLabel>
-        <FieldLabel>
+        <FieldLabel separateControl>
           Зерно карты
           <Input
             className="map-seed-input"
@@ -95,7 +95,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
           Другое зерно
         </Button>
         <WorldPreview config={config} />
-        <FieldLabel>
+        <FieldLabel separateControl>
           Сторона мира, м
           <Input
             className="world-size-input"
@@ -135,7 +135,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             ['forestCover', 'Лесистость'],
           ] as const
         ).map(([key, label]) => (
-          <FieldLabel className="config-range" key={key}>
+          <FieldLabel separateControl className="config-range" key={key}>
             <span>
               {label}
               <output>{Math.round(map[key] * 100)}%</output>
@@ -163,7 +163,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
               ['ponds', 'Пруды'],
             ] as const
           ).map(([key, label]) => (
-            <FieldLabel className="creature-input" key={key}>
+            <FieldLabel separateControl className="creature-input" key={key}>
               {label}
               <Input
                 type="number"

@@ -1,3 +1,4 @@
+import { FullscreenButton } from './FullscreenButton';
 import { Button, FieldLabel, Input } from '../kit';
 import { useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
@@ -50,6 +51,7 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
             />
           </FieldLabel>
           <div className="config-actions">
+            <FullscreenButton store={store} compact />
             <Button data-cancel-new onClick={() => dispatch('menu-back')}>
               ← Назад
             </Button>

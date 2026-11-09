@@ -52,13 +52,13 @@ export function GameApp({ store }: { store: UIStore }) {
         <ActionMenu store={store} />
         <GameMenu store={store} />
         <EventPanel store={store} />
-        <FullscreenButton store={store} compact />
       </div>
     </UIContext.Provider>
   );
 }
 
 function Toolbar() {
+  const store = useUIStore();
   const dispatch = useUI((state) => state.dispatch),
     hud = useUI((state) => state.hud),
     first = useUI((state) => state.firstPerson);
@@ -77,6 +77,7 @@ function Toolbar() {
           ))}
         </div>
         <div className="top-actions">
+          <FullscreenButton store={store} compact />
           <Button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</Button>
           <Button onClick={() => dispatch('menu')}>☰ Меню · Esc</Button>
           <Button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</Button>
@@ -485,6 +486,7 @@ function Toast({ text, remove }: { text: string; remove: () => void }) {
 }
 
 function Overlay() {
+  const store = useUIStore();
   const overlay = useUI((state) => state.overlay),
     dispatch = useUI((state) => state.dispatch);
   return (
@@ -509,6 +511,7 @@ function Overlay() {
                 Приключения и сохранения
               </Button>
             )}
+            <FullscreenButton store={store} />
           </div>
           <div className="start-foot">
             Случайная крольчиха и её гены · возможны врождённые дефекты

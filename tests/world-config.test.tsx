@@ -383,6 +383,22 @@ test('new history starts above four tabs with only the selected panel visible', 
   assert.doesNotMatch(population, /отдельное сохранение/);
 });
 
+test('world fields keep accessible labels without making the whole row activate the input', () => {
+  const store = createUIStore(() => {});
+  const html = renderToStaticMarkup(<NewGameForm store={store} replacesStory={false} />);
+  const rows = [
+    ...html.matchAll(/class="ui-field-label ui-field-label-separated[^\"]*">([\s\S]*?)<\/div>/g),
+  ];
+  assert.ok(rows.length > 20);
+  for (const row of rows) {
+    const label = row[1].match(/<label for="([^\"]+)">[\s\S]*?<\/label>/);
+    assert.ok(label);
+    assert.ok(row[1].includes(`id="${label[1]}"`));
+    assert.doesNotMatch(label[0], /<(input|select)/);
+  }
+  assert.match(html, /config-actions[\s\S]*fullscreen-button/);
+});
+
 test('expanded ranges create a custom world, longer seasons and larger neighbor families', () => {
   const config = defaultWorldConfig();
   config.size = 217;

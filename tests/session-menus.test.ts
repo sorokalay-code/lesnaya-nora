@@ -240,7 +240,7 @@ test('mobile utilities expose game menu and event history without showing event 
     events: ['СЕКРЕТНОЕ СОБЫТИЕ'],
   });
   const compact = renderToStaticMarkup(createElement(MobileUtilities, { store }));
-  assert.doesNotMatch(compact, /Свернуть полный экран/);
+  assert.match(compact, /aria-label="Свернуть полный экран"/);
   assert.match(compact, /Меню игры/);
   assert.match(compact, /События/);
   assert.doesNotMatch(compact, /СЕКРЕТНОЕ/);
@@ -251,13 +251,15 @@ test('mobile utilities expose game menu and event history without showing event 
   assert.equal(renderToStaticMarkup(createElement(MobileUtilities, { store })), '');
 });
 
-test('fullscreen control stays mounted over the start screen', () => {
+test('fullscreen control belongs to the start screen actions', () => {
   const store = createUIStore(() => {});
   store.setState({ overlay: { type: 'start', hasSave: false } });
+  store.getInitialState = store.getState;
 
   const markup = renderToStaticMarkup(createElement(GameApp, { store }));
 
-  assert.match(markup, /fullscreen-corner/);
+  assert.match(markup, /start-actions[\s\S]*fullscreen-button/);
+  assert.doesNotMatch(markup, /fullscreen-corner/);
   assert.match(markup, /Развернуть на весь экран/);
 });
 
