@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CaveMesher, TUNNEL_FLOOR_DEPTH } from './CaveMesher';
 import type { DigNode, SaveData } from './types';
 import type { World } from './World';
+import { BurrowNetwork, type BurrowLocation } from './BurrowNetwork';
 
 const WALKABLE_TUNNEL_RADIUS = 1.7;
 const ENTRANCE_BLEND_WIDTH = 1.3;
@@ -23,6 +24,8 @@ export class Excavation {
   private neighbors = new Map<DigNode, DigNode[]>();
   private roamingRevision = -1;
   private readonly roamingAreas = new Map<DigNode, readonly DigNode[]>();
+  private networkRevision = -1;
+  private readonly networks = new Map<DigNode, BurrowNetwork>();
   private roots: Array<{ node: DigNode; mesh: THREE.Mesh }> = [];
   private lastRootRefresh = 0;
   private light = new THREE.PointLight(0xffe3b6, 4.5, 12);
@@ -54,6 +57,39 @@ export class Excavation {
 
   get revision(): number {
     return this.save.excavation.length;
+  }
+
+  /** Осмотр доступен внутри норы и рядом с её устьем; соседние несвязанные ходы не объединяются. */
+  burrowAt(position: DigNode): BurrowLocation | undefined {
+    const node = this.nearestNode(position.x, position.y, position.z);
+    if (!node) return;
+    const floor = { ...node, y: node.y - TUNNEL_FLOOR_DEPTH };
+    if (Math.hypot(position.x - floor.x, position.y - floor.y, position.z - floor.z) > 3) return;
+    if (
+      !this.isSheltered(position.x, position.y, position.z) &&
+      (!this.openings.includes(node) || Math.abs(position.y - floor.y) > 1.5)
+    )
+      return;
+
+    if (this.networkRevision !== this.revision) {
+      this.networkRevision = this.revision;
+      this.networks.clear();
+    }
+    let network = this.networks.get(node);
+    if (!network) {
+      const nodes = [node];
+      const visited = new Set(nodes);
+      for (let head = 0; head < nodes.length; head++) {
+        for (const next of this.neighbors.get(nodes[head]) ?? []) {
+          if (visited.has(next)) continue;
+          visited.add(next);
+          nodes.push(next);
+        }
+      }
+      network = new BurrowNetwork(nodes, this.edges, this.openings);
+      for (const member of nodes) this.networks.set(member, network);
+    }
+    return network.locate(node, position);
   }
 
   /** Пол всей связной подземной области; наружные участки и другие несвязанные раскопы исключены. */

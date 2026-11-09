@@ -1,0 +1,171 @@
+.touch-menu.game-menu.burrow-menu {
+  width: min(940px, calc(100% - var(--ui-space-24)));
+  max-width: 940px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.burrow-menu > header {
+  position: static;
+  flex-shrink: 0;
+}
+
+.burrow-menu > .burrow-content {
+  display: block;
+  min-height: 0;
+  scrollbar-gutter: stable;
+  padding-inline: var(--ui-space-8);
+}
+
+.game-menu .burrow-panel {
+  display: block;
+  padding-top: var(--ui-space-8);
+}
+
+.burrow-panel .ui-notice,
+.burrow-content > .ui-notice {
+  background: var(--ui-surface-raised);
+  border-color: var(--ui-border-subtle);
+  color: var(--ui-text);
+  text-align: left;
+}
+
+.burrow-intro,
+.burrow-caption,
+.burrow-legend {
+  color: var(--ui-text-muted);
+}
+
+.burrow-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ui-space-8);
+  margin: var(--ui-space-16) var(--ui-space-0);
+}
+
+.burrow-stats > div {
+  padding: var(--ui-space-10);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface-raised);
+}
+
+.burrow-stats dt {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+.burrow-stats dd {
+  margin: var(--ui-space-4) var(--ui-space-0) var(--ui-space-0);
+  font-size: 18px;
+}
+
+.burrow-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: var(--ui-space-16);
+}
+
+.burrow-map {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-canvas);
+}
+
+.burrow-map line {
+  stroke: var(--ui-scroll-thumb);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.burrow-floor {
+  fill: var(--ui-text-muted);
+}
+
+.burrow-marker rect {
+  stroke: var(--ui-canvas);
+  stroke-width: 2;
+  fill: var(--ui-focus);
+}
+
+.burrow-marker-exit rect {
+  fill: var(--ui-map-meadow);
+}
+
+.burrow-marker-stash rect {
+  fill: var(--ui-map-water);
+}
+
+.burrow-marker text {
+  fill: var(--ui-text);
+  font-size: 13px;
+  paint-order: stroke;
+  stroke: var(--ui-canvas);
+  stroke-width: 3;
+}
+
+.burrow-player {
+  fill: var(--ui-text);
+  stroke: var(--ui-canvas);
+  stroke-width: 2;
+}
+
+.burrow-steps {
+  list-style: none;
+  padding: var(--ui-space-0);
+  margin-block: var(--ui-space-12);
+}
+
+.burrow-steps li {
+  display: flex;
+  gap: var(--ui-space-10);
+  padding-block: var(--ui-space-6);
+  color: var(--ui-text-muted);
+}
+
+.burrow-steps li[data-complete='true'] {
+  color: var(--ui-accent);
+}
+
+.burrow-steps small {
+  display: block;
+  margin-top: var(--ui-space-3);
+}
+
+.burrow-nests {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--ui-space-10);
+  margin-bottom: var(--ui-space-16);
+}
+
+.burrow-nest[data-warning='true'] {
+  border-color: var(--ui-invalid);
+}
+
+.burrow-advice {
+  padding-left: var(--ui-space-20);
+  line-height: 1.6;
+}
+
+.burrow-advice li {
+  margin-block: var(--ui-space-8);
+}
+
+@media (max-width: 740px) {
+  .burrow-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .burrow-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 560px) and (max-height: 500px) {
+  .burrow-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

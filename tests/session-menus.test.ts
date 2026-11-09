@@ -152,6 +152,7 @@ test('save and sound settings keep the pause menu open; world commands close onl
   let saves = 0,
     resumed = 0;
   let saveRequest: [boolean, boolean | undefined] | undefined;
+  let inspections = 0;
   const sound = { muted: false, unlock() {}, play() {} };
   const actions = new SessionActions({
     ui,
@@ -159,6 +160,9 @@ test('save and sound settings keep the pause menu open; world commands close onl
     sound,
     resetInput() {},
     refreshHud() {},
+    inspectBurrow() {
+      inspections++;
+    },
     view: { unlock() {} },
     interactions: {
       clearSelection() {},
@@ -191,6 +195,12 @@ test('save and sound settings keep the pause menu open; world commands close onl
   actions.execute('drink');
   assert.equal(store.getState().actionMenuOpen, false);
   assert.equal(resumed, 1);
+  actions.execute('burrow-plan');
+  assert.equal(inspections, 1);
+  assert.equal(store.getState().gameMenu, 'burrow');
+  assert.equal(simulationPaused(store.getState()), true);
+  actions.execute('menu-back');
+  assert.equal(store.getState().gameMenu, 'main');
 });
 
 test('pause menu contains session controls and action panel contains only world actions', () => {

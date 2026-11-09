@@ -1,6 +1,7 @@
 import { GameUI } from '../../ui/GameUI';
 import { HudPresenter } from '../../ui/presenters/HudPresenter';
 import { MapPresenter } from '../../ui/presenters/MapPresenter';
+import { BurrowPresenter } from '../../ui/presenters/BurrowPresenter';
 import { Soundscape } from '../Audio';
 import { Excavation } from '../Excavation';
 import { GroundItems } from '../GroundItems';
@@ -38,7 +39,7 @@ interface Context {
   toast: (text: string) => void;
 }
 
-/** Публикует HUD и карту, открывает дневник и сохраняет снимок текущего мира. */
+/** Публикует HUD, карту и план норы, открывает дневник и сохраняет снимок текущего мира. */
 export class SessionInterface {
   private readonly hudPresenter = new HudPresenter();
   private readonly mapPresenter = new MapPresenter();
@@ -91,6 +92,12 @@ export class SessionInterface {
         save: this.context.save,
         season: this.context.calendar.season(),
       });
+  }
+
+  inspectBurrow(): void {
+    this.context.ui.store.setState({
+      burrow: BurrowPresenter.build(this.context.save, this.context.earth),
+    });
   }
 
   persist(notify: boolean, manual = false): void {

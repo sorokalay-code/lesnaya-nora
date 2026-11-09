@@ -11,6 +11,7 @@ const groups: { title: string; actions: [string, string, string?][] }[] = [
       ['family-panel', 'Семья'],
       ['mate-panel', 'Партнёр', 'Tab'],
       ['map', 'Карта', 'M'],
+      ['burrow-plan', 'План норы'],
       ['journal', 'Дневник', 'J'],
       ['eat', 'Еда и багаж', 'G'],
     ],

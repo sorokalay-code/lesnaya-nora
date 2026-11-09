@@ -1,5 +1,6 @@
 import type { TouchBindings } from '../game/input/MobileInput';
 import type { ConversationPage } from './ConversationNavigation';
+import type { BurrowView } from './presenters/BurrowPresenter';
 import { defaultWorldConfig, type WorldConfig } from '../game/WorldConfig';
 import { defaultMapGeneration } from '../game/MapGeneration';
 
@@ -19,6 +20,7 @@ export type WorldSettingsTab = 'map' | 'nature' | 'population' | 'calendar';
 export interface UIState {
   conversationPage: ConversationPage;
   gameMenu?: GameMenuPage;
+  burrow?: BurrowView;
   soundMuted: boolean;
   saveNotice?: string;
   saveSlots: SaveSlotSummary[];

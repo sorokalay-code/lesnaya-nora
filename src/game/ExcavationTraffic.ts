@@ -3,6 +3,7 @@ import { Random } from './Random';
 import { Predator, RabbitActor } from './animals';
 import type { PredatorKind, SaveData } from './types';
 import { AnimalRestraint } from './animals/AnimalRestraint';
+import { BurrowSafety } from './BurrowSafety';
 
 export type TunnelEvent = {
   type: 'predator-entered' | 'predator-attack' | 'kit-attack';
@@ -54,6 +55,12 @@ export class ExcavationTraffic {
     for (const predator of predators) {
       if (predator.kind !== 'fox' && predator.kind !== 'weasel') continue;
 
+      if (!predator.alive || AnimalRestraint.active(predator.root)) {
+        this.visits.delete(predator);
+        predator.leaveTunnel();
+        continue;
+      }
+
       const visit = this.visits.get(predator);
       if (visit) {
         if (time > visit.until) {
@@ -72,30 +79,32 @@ export class ExcavationTraffic {
         );
         if (
           combatAllowed &&
-          earth.isSheltered(save.player.x, save.player.y, save.player.z) &&
-          earth.depthAt(save.player.x, save.player.y, save.player.z) <
-            (predator.kind === 'weasel' ? 8 : 5) &&
-          Math.hypot(save.player.x - opening.x, save.player.z - opening.z) < 2.3 &&
-          time - visit.lastHit > 4
+          time - visit.lastHit > 4 &&
+          BurrowSafety.playerExposed(earth, opening, save.player, predator.kind)
         ) {
           visit.lastHit = time;
           events.push({ type: 'predator-attack', kind: predator.kind });
           predator.playAttack(time);
         }
 
-        const kit = save.kits.find(
-          (k) =>
-            k.alive &&
-            k.age < 3 &&
-            k.command !== 'follow' &&
-            Math.hypot(k.homeX - opening.x, k.homeZ - opening.z) < 2.5 &&
-            Math.abs(k.homeY - (opening.y - 0.95)) < 2.5,
-        );
-        if (combatAllowed && kit && time - visit.lastHit > 5) {
-          visit.lastHit = time;
-          kit.health = Math.max(0, kit.health - 12 * 0.8);
-          events.push({ type: 'kit-attack', kind: predator.kind, name: kit.name });
-          predator.playAttack(time);
+        if (combatAllowed && time - visit.lastHit > 5) {
+          const kit = save.kits.find(
+            (k) =>
+              k.alive &&
+              k.health > 0 &&
+              k.age < 3 &&
+              BurrowSafety.kitExposed(earth, opening, {
+                x: k.x ?? k.homeX,
+                y: k.y ?? k.homeY,
+                z: k.z ?? k.homeZ,
+              }),
+          );
+          if (kit) {
+            visit.lastHit = time;
+            kit.health = Math.max(0, kit.health - 12 * 0.8);
+            events.push({ type: 'kit-attack', kind: predator.kind, name: kit.name });
+            predator.playAttack(time);
+          }
         }
 
         continue;

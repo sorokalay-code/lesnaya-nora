@@ -553,6 +553,7 @@ export class Game {
       persist: (notify, manual) => this.sessionUI.persist(notify, manual),
       toast: (text) => this.toast(text),
       toggleJournal: (mode) => this.sessionUI.toggleJournal(mode),
+      inspectBurrow: () => this.sessionUI.inspectBurrow(),
     });
     this.animals = new AnimalSimulation({
       remains: this.remains,

@@ -27,6 +27,13 @@
 .game-menu .new-game-options {
   display: block;
 }
+
+.game-menu-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-8);
+  flex-shrink: 0;
+}
 .game-menu .control-guide {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

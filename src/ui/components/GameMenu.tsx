@@ -1,11 +1,12 @@
 import { FullscreenButton } from './FullscreenButton';
-import { Button, Dialog } from '../kit';
+import { Button, Dialog, ScrollContainer } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import { ControlGuide } from './ControlGuide';
 import { NewGameForm } from './NewGameForm';
 import { SaveLibrary } from './SaveLibrary';
+import { BurrowPanel } from './BurrowPanel';
 
 /** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
 export function GameMenu({ store }: { store: UIStore }) {
@@ -17,6 +18,7 @@ export function GameMenu({ store }: { store: UIStore }) {
   const overlay = useStore(store, (s) => s.overlay);
   const touch = useStore(store, (s) => s.touch);
   const performanceEnabled = useStore(store, (s) => s.performanceEnabled);
+  const burrow = useStore(store, (s) => s.burrow);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -28,6 +30,8 @@ export function GameMenu({ store }: { store: UIStore }) {
     }
     if (page === 'new-game')
       panel.current?.querySelector<HTMLElement>('[data-cancel-new]')?.focus();
+    else if (page === 'burrow')
+      panel.current?.querySelector<HTMLElement>('[data-menu-back]')?.focus();
     else panel.current?.querySelector('button')?.focus();
   }, [page]);
   if (!page) return null;
@@ -37,6 +41,7 @@ export function GameMenu({ store }: { store: UIStore }) {
     'new-game': 'Новая история',
     controls: 'Управление',
     saves: 'Приключения и сохранения',
+    burrow: 'План норы',
   };
   return (
     <div className="menu-backdrop">
@@ -44,7 +49,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         ref={panel}
 
         aria-labelledby="game-menu-title"
-        className={`touch-menu game-menu ${page === 'new-game' ? 'world-config-menu' : ''}`}
+        className={`touch-menu game-menu ${page === 'new-game' ? 'world-config-menu' : ''} ${page === 'burrow' ? 'burrow-menu' : ''}`}
         onKeyDown={(event) => {
           if (event.key === 'Escape' && overlay && overlay.type !== 'loading') {
             event.preventDefault();
@@ -58,10 +63,15 @@ export function GameMenu({ store }: { store: UIStore }) {
               <small>ЛЕСНАЯ НОРА · {overlay?.type === 'start' ? 'СОЗДАНИЕ МИРА' : 'ПАУЗА'}</small>
               <h2 id="game-menu-title">{titles[page]}</h2>
             </div>
-            <FullscreenButton store={store} compact />
-            <Button onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}>
-              {page === 'main' ? 'Продолжить игру' : '← Назад'}
-            </Button>
+            <div className="game-menu-header-actions">
+              <FullscreenButton store={store} compact />
+              <Button
+                data-menu-back
+                onClick={() => dispatch(page === 'main' ? 'resume' : 'menu-back')}
+              >
+                {page === 'main' ? 'Продолжить игру' : '← Назад'}
+              </Button>
+            </div>
           </header>
         )}
         {page === 'main' && (
@@ -70,6 +80,7 @@ export function GameMenu({ store }: { store: UIStore }) {
               Создать сохранение <kbd>F5</kbd>
             </Button>
             <Button onClick={() => dispatch('saved-games')}>Приключения и сохранения</Button>
+            <Button onClick={() => dispatch('burrow-plan')}>План норы</Button>
             <Button onClick={() => dispatch('new-game-menu')}>Новая игра</Button>
             <Button onClick={() => dispatch('settings')}>Настройки</Button>
             <Button onClick={() => dispatch('controls-help')}>
@@ -106,6 +117,11 @@ export function GameMenu({ store }: { store: UIStore }) {
           </div>
         )}
         {page === 'controls' && <ControlGuide touch={touch} />}
+        {page === 'burrow' && burrow && (
+          <ScrollContainer className="burrow-content" label="План и обустройство норы">
+            <BurrowPanel data={burrow} />
+          </ScrollContainer>
+        )}
         {page === 'saves' && <SaveLibrary store={store} />}
         {page === 'new-game' && (
           <NewGameForm store={store} replacesStory={overlay?.type !== 'start' || overlay.hasSave} />

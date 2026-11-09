@@ -34,6 +34,7 @@ interface Context {
   persist: (notify: boolean, manual?: boolean) => void;
   toast: (message: string) => void;
   toggleJournal: (mode: string) => void;
+  inspectBurrow: () => void;
 }
 
 /** Маршрутизирует команды UI и устройств к предметным сервисам текущей сессии. */
@@ -66,6 +67,7 @@ export class SessionActions {
         'self-profile',
         'journal',
         'map',
+        'burrow-plan',
         'events-panel',
         'camera',
       ].includes(action)
@@ -90,6 +92,11 @@ export class SessionActions {
     }
     if (action === 'close' && this.context.ui.state.dialog?.type === 'remove')
       action = 'cancel-remove';
+    if (action === 'burrow-plan') {
+      this.menus.showGame('burrow');
+      this.context.inspectBurrow();
+      return;
+    }
     if (this.menus.execute(action)) return;
     if (action.startsWith('dialog-page:') || action === 'dialog-back') {
       this.context.ui.openDialogPage(action === 'dialog-back' ? 'overview' : action.slice(12));
