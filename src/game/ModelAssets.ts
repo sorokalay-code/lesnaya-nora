@@ -167,6 +167,14 @@ export class ModelAssets {
     return this.textures.get(`ground-${SEASON_TEXTURE_SUFFIX[season]}`);
   }
 
+  setTextureAnisotropy(level: number): void {
+    for (const texture of this.textures.values()) {
+      if (texture.anisotropy === level) continue;
+      texture.anisotropy = level;
+      texture.needsUpdate = true;
+    }
+  }
+
   soilTexture(season: Season): THREE.Texture | undefined {
     return this.textures.get(`soil-${SEASON_TEXTURE_SUFFIX[season]}`);
   }

@@ -7,6 +7,7 @@ import { ControlGuide } from './ControlGuide';
 import { NewGameForm } from './NewGameForm';
 import { SaveLibrary } from './SaveLibrary';
 import { BurrowPanel } from './BurrowPanel';
+import { GraphicsPanel } from './GraphicsPanel';
 
 /** Общее окно управления сессией и создания новой истории со стартового экрана или паузы. */
 export function GameMenu({ store }: { store: UIStore }) {
@@ -30,7 +31,7 @@ export function GameMenu({ store }: { store: UIStore }) {
     }
     if (page === 'new-game')
       panel.current?.querySelector<HTMLElement>('[data-cancel-new]')?.focus();
-    else if (page === 'burrow')
+    else if (page === 'burrow' || page === 'graphics')
       panel.current?.querySelector<HTMLElement>('[data-menu-back]')?.focus();
     else panel.current?.querySelector('button')?.focus();
   }, [page]);
@@ -38,6 +39,7 @@ export function GameMenu({ store }: { store: UIStore }) {
   const titles = {
     main: 'Меню игры',
     settings: 'Настройки',
+    graphics: 'Графика',
     'new-game': 'Новая история',
     controls: 'Управление',
     saves: 'Приключения и сохранения',
@@ -49,7 +51,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         ref={panel}
 
         aria-labelledby="game-menu-title"
-        className={`touch-menu game-menu ${page === 'new-game' ? 'world-config-menu' : ''} ${page === 'burrow' ? 'burrow-menu' : ''}`}
+        className={`touch-menu game-menu ${page === 'new-game' ? 'world-config-menu' : ''} ${page === 'burrow' ? 'burrow-menu' : ''} ${page === 'graphics' ? 'graphics-menu' : ''}`}
         onKeyDown={(event) => {
           if (event.key === 'Escape' && overlay && overlay.type !== 'loading') {
             event.preventDefault();
@@ -100,6 +102,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         )}
         {page === 'settings' && (
           <div className="game-menu-options">
+            <Button onClick={() => dispatch('graphics-menu')}>Графика</Button>
             <Button aria-pressed={!muted} onClick={() => dispatch('sound')}>
               {muted ? '☐' : '☑'} Звуки мира
             </Button>
@@ -117,6 +120,7 @@ export function GameMenu({ store }: { store: UIStore }) {
           </div>
         )}
         {page === 'controls' && <ControlGuide touch={touch} />}
+        {page === 'graphics' && <GraphicsPanel store={store} />}
         {page === 'burrow' && burrow && (
           <ScrollContainer className="burrow-content" label="План и обустройство норы">
             <BurrowPanel data={burrow} />

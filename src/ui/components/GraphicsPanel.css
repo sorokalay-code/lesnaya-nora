@@ -1,0 +1,39 @@
+.touch-menu.game-menu.graphics-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.graphics-menu > header {
+  position: static;
+  flex-shrink: 0;
+}
+
+.graphics-menu > .graphics-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ui-space-8);
+  padding-inline: var(--ui-space-12);
+  scrollbar-gutter: stable;
+}
+
+.graphics-content .ui-field-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ui-space-8);
+  align-items: center;
+  font-size: 13px;
+}
+
+.graphics-content .ui-select {
+  min-width: 0;
+  min-height: var(--ui-target-height);
+}
+
+.touch-ui .graphics-content .ui-select {
+  font-size: 16px;
+}
+
+.graphics-content p {
+  color: var(--ui-text-muted);
+}

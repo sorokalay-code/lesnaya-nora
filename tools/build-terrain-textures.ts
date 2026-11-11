@@ -1,7 +1,7 @@
 import { forestLitter } from './art/ForestLitter';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
-import { Random } from '../src/game/Random';
+import { hash2, Random } from '../src/game/Random';
 
 type RGB = readonly [number, number, number];
 const directory = 'public/textures';
@@ -36,6 +36,22 @@ function png(name: string, width: number, height: number, rgba: Buffer): void {
   );
 }
 
+/** Сглаженный шум с периодом ровно в одну плитку, включая её край. */
+function tileNoise(x: number, y: number, side: number, cells: number, seed: number): number {
+  const gx = (x * cells) / side;
+  const gy = (y * cells) / side;
+  const ix = Math.floor(gx);
+  const iy = Math.floor(gy);
+  const tx = gx - ix;
+  const ty = gy - iy;
+  const u = tx * tx * (3 - 2 * tx);
+  const v = ty * ty * (3 - 2 * ty);
+  const sample = (dx: number, dy: number) => hash2((ix + dx) % cells, (iy + dy) % cells, seed);
+  const top = sample(0, 0) * (1 - u) + sample(1, 0) * u;
+  const bottom = sample(0, 1) * (1 - u) + sample(1, 1) * u;
+  return top * (1 - v) + bottom * v - 0.5;
+}
+
 function terrain(
   seed: number,
   base: RGB,
@@ -46,13 +62,13 @@ function terrain(
 ): Buffer {
   const pixels = Buffer.alloc(side * side * 4);
   const rng = new Random(seed);
-  const tau = (Math.PI * 2) / side;
   for (let y = 0; y < side; y++) {
     for (let x = 0; x < side; x++) {
       const noise =
-        8 * Math.sin((2 * x + 3 * y) * tau) +
-        5 * Math.cos((7 * x - 4 * y) * tau) +
-        rng.range(-9, 9);
+        27 * tileNoise(x, y, side, 4, seed) +
+        19 * tileNoise(x, y, side, 11, seed + 71) +
+        12 * tileNoise(x, y, side, 29, seed + 193) +
+        rng.range(-5, 5);
       const offset = (y * side + x) * 4;
       base.forEach((value, i) => (pixels[offset + i] = Math.min(255, Math.max(0, value + noise))));
       pixels[offset + 3] = 255;

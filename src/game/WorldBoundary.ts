@@ -75,7 +75,21 @@ export class WorldBoundary {
     this.root.add(groundMesh);
     const groundRay = new THREE.Raycaster();
     const treeCount = Math.round(160 * vegetation);
-    const trees = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), this.leaves, treeCount);
+    // Три яруса кроны и открытый ствол дают читаемый силуэт в одном пакете инстансов.
+    const silhouette = new THREE.LatheGeometry(
+      [
+        new THREE.Vector2(0.09, 0),
+        new THREE.Vector2(0.09, 0.16),
+        new THREE.Vector2(1, 0.17),
+        new THREE.Vector2(0.44, 0.43),
+        new THREE.Vector2(0.72, 0.44),
+        new THREE.Vector2(0.31, 0.65),
+        new THREE.Vector2(0.5, 0.66),
+        new THREE.Vector2(0, 1),
+      ],
+      6,
+    );
+    const trees = new THREE.InstancedMesh(silhouette, this.leaves, treeCount);
     const random = new Random(seed + 514);
     const transform = new THREE.Object3D();
     for (let i = 0; i < treeCount; i++) {
@@ -87,7 +101,7 @@ export class WorldBoundary {
       const height = random.range(7, 16);
       groundRay.set(new THREE.Vector3(x, 200, z), new THREE.Vector3(0, -1, 0));
       const groundY = groundRay.intersectObject(groundMesh)[0]?.point.y ?? point(x, z)[1];
-      transform.position.set(x, groundY + height / 2, z);
+      transform.position.set(x, groundY, z);
       transform.scale.set(random.range(2.5, 4), height, random.range(2.5, 4));
       transform.updateMatrix();
       trees.setMatrixAt(i, transform.matrix);

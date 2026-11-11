@@ -22,6 +22,7 @@ import { WaterScenery } from './WaterScenery';
 import type { WaterSample } from './WaterMap';
 import { defaultWorldConfig, type WorldConfig } from './WorldConfig';
 import { WorldLayout } from './WorldLayout';
+import { GRAPHICS_LEVELS, type GraphicsSettings } from './GraphicsSettings';
 
 export interface Resource {
   id: number;
@@ -76,6 +77,7 @@ export class World {
   private deciduousCrowns: THREE.Object3D[] = [];
   private fallenLeaves: THREE.Object3D[] = [];
   private groundCover?: GroundCover;
+  private fogDistance = 1;
   readonly soilMaterial = caveMaterial();
   private rng: Random;
   private rain?: THREE.Points;
@@ -585,6 +587,22 @@ export class World {
     this.scene.fog = fog;
   }
 
+  applyGraphics(settings: GraphicsSettings, x: number, z: number, weather: Weather): void {
+    const radius = GRAPHICS_LEVELS.distance[settings.distance].chunks;
+    this.chunks.setRadius(radius, x, z);
+    this.groundCover?.setDetailDensity(GRAPHICS_LEVELS.details[settings.details]);
+    this.seasonalGround.setTextureQuality(settings.textures);
+    this.fogDistance = (radius + 1) / 3;
+    this.updateFog(weather);
+  }
+
+  private updateFog(weather: Weather): void {
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      const density = weather === 'mist' ? 0.026 : weather === 'rain' ? 0.017 : 0.012;
+      this.scene.fog.density = density / this.fogDistance;
+    }
+  }
+
   private buildResources(): void {
     let id = 0;
     const add = (x: number, z: number, kind: FoodKind) => {
@@ -622,7 +640,7 @@ export class World {
     let best: Resource | undefined,
       dist = radius;
     for (const r of this.resources)
-      if (r.available && r.mesh.visible && r.mesh.parent?.visible) {
+      if (r.available && r.mesh.visible) {
         const d = Math.hypot(r.x - x, r.z - z);
         if (d < dist) {
           dist = d;
@@ -679,8 +697,7 @@ export class World {
       material.size = weather === 'snow' ? 0.2 : 0.09;
     }
 
-    if (this.scene.fog instanceof THREE.FogExp2)
-      this.scene.fog.density = weather === 'mist' ? 0.026 : weather === 'rain' ? 0.017 : 0.012;
+    this.updateFog(weather);
 
     this.ambientFlight.update(time, px, pz, this.seasons.name(day));
   }

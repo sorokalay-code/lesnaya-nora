@@ -511,6 +511,7 @@ function Overlay() {
                 Приключения и сохранения
               </Button>
             )}
+            <Button onClick={() => dispatch('graphics-menu')}>Графика</Button>
             <FullscreenButton store={store} />
           </div>
           <div className="start-foot">

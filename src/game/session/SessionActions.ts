@@ -58,6 +58,7 @@ export class SessionActions {
         'close',
         'menu-back',
         'settings',
+        'graphics-menu',
         'controls-help',
         'new-game-menu',
         'save',

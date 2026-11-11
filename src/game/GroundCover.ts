@@ -27,6 +27,7 @@ type Plant = {
   height: number;
   variant: number;
   densityRank: number;
+  detailRank: number;
   mode: CoverMode;
   removed?: boolean;
 };
@@ -97,6 +98,7 @@ export class GroundCover {
         height,
         variant: tile,
         densityRank: rank,
+        detailRank: hash2(Math.floor(x * 173), Math.floor(z * 173), options.seed + 460),
         mode,
       });
       groups.set(key, plants);
@@ -227,6 +229,8 @@ export class GroundCover {
     const normal = new THREE.Vector3();
     const yaw = new THREE.Quaternion();
     for (const plants of groups.values()) {
+      // Префикс пакета даёт равномерную выборку и не зависит от сезонной густоты.
+      plants.sort((a, b) => a.detailRank - b.detailRank);
       const geometry = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
       geometry.setAttribute(
         'plantAppearance',
@@ -304,6 +308,13 @@ export class GroundCover {
       COVER_HEIGHT[blend.next],
       blend.mix,
     );
+  }
+
+  setDetailDensity(density: number): void {
+    for (const { mesh, plants } of this.batches) {
+      mesh.count = Math.round(plants.length * density);
+      mesh.visible = mesh.count > 0;
+    }
   }
 
   clearOpening(bounds: CaveBounds, distanceAt: (x: number, y: number, z: number) => number): void {

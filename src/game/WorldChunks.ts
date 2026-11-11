@@ -11,7 +11,7 @@ export class WorldChunks {
   constructor(
     private readonly scene: THREE.Scene,
     private readonly size = WORLD_CHUNK_SIZE,
-    private readonly radius = 2,
+    private radius = 2,
   ) {}
 
   add(object: THREE.Object3D, x: number, z: number, dynamic = false): void {
@@ -50,6 +50,14 @@ export class WorldChunks {
     for (const chunk of this.chunks.values())
       chunk.group.visible =
         Math.abs(chunk.cx - cx) <= this.radius && Math.abs(chunk.cz - cz) <= this.radius;
+  }
+
+  setRadius(radius: number, x: number, z: number): void {
+    if (this.radius !== radius) {
+      this.radius = radius;
+      this.activeKey = '';
+    }
+    this.update(x, z);
   }
 
   get count(): number {

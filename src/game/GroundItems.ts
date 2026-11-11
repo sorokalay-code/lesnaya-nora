@@ -79,8 +79,7 @@ export class GroundItems {
         dist = d;
       }
     };
-    for (const branch of this.branches.values())
-      if (branch.mesh.visible && branch.mesh.parent?.visible) consider(branch.item);
+    for (const branch of this.branches.values()) if (branch.mesh.visible) consider(branch.item);
 
     for (const drop of this.save.drops ?? [])
       if (this.drops.get(drop.id)?.parent?.visible) consider(drop);

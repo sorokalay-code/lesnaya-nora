@@ -1,6 +1,7 @@
 import type { TouchBindings } from '../game/input/MobileInput';
 import type { ConversationPage } from './ConversationNavigation';
 import type { BurrowView } from './presenters/BurrowPresenter';
+import { GRAPHICS_PRESETS, type GraphicsSettings } from '../game/GraphicsSettings';
 import { defaultWorldConfig, type WorldConfig } from '../game/WorldConfig';
 import { defaultMapGeneration } from '../game/MapGeneration';
 
@@ -21,6 +22,7 @@ export interface UIState {
   conversationPage: ConversationPage;
   gameMenu?: GameMenuPage;
   burrow?: BurrowView;
+  graphics: GraphicsSettings;
   soundMuted: boolean;
   saveNotice?: string;
   saveSlots: SaveSlotSummary[];
@@ -60,6 +62,7 @@ export interface UIState {
 export function createUIStore(dispatch: UIAction) {
   return createStore<UIState>()(() => ({
     conversationPage: 'overview',
+    graphics: GRAPHICS_PRESETS.balanced,
     fullscreen: false,
     fullscreenAvailable: false,
     familyOpen: false,

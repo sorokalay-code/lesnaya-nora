@@ -51,6 +51,8 @@ import { FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './systems'
 import { type SaveData } from './types';
 import { AnimalRemains } from './AnimalRemains';
 import { validWorldConfig, defaultWorldConfig } from './WorldConfig';
+import { GraphicsPreferences } from './GraphicsSettings';
+import { GraphicsController } from './GraphicsController';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
@@ -69,6 +71,14 @@ export class Game {
   private camera = new THREE.PerspectiveCamera(60, 1, 0.1, 350);
   private renderer = new THREE.WebGLRenderer({ antialias: true });
   private readonly lighting = new SceneLighting(this.scene, this.camera);
+  private readonly coarsePointer = matchMedia('(pointer: coarse)').matches;
+  private readonly graphics = new GraphicsPreferences(localStorage, this.coarsePointer);
+  private readonly graphicsController = new GraphicsController(
+    this.renderer,
+    this.camera,
+    this.lighting,
+    this.coarsePointer ? 1.1 : 1.45,
+  );
   private view: ViewCamera;
   private ui!: GameUI;
   private sound = new Soundscape();
@@ -116,11 +126,7 @@ export class Game {
 
   constructor(private readonly app: HTMLElement) {
     this.view = new ViewCamera(this.camera, this.renderer.domElement);
-    this.renderer.setPixelRatio(
-      Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.1 : 1.45),
-    );
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.graphicsController.apply(this.graphics.settings, devicePixelRatio);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
@@ -140,6 +146,7 @@ export class Game {
 
   private buildUi(): void {
     this.ui = new GameUI(this.app, (action, value) => this.action(action, value));
+    this.ui.store.setState({ graphics: this.graphics.settings });
     this.controls.visible = localStorage.getItem('lesnaya-nora-show-controls') !== 'false';
     this.ui.setControls(this.controls.visible);
     this.syncCameraUi();
@@ -260,6 +267,7 @@ export class Game {
     this.scene.clear();
     this.lighting.reset();
     this.world = new World(this.scene, this.save.seed, this.save);
+    this.applyWorldGraphics();
     this.remains = new AnimalRemains(this.scene, this.save, (x, z, y) =>
       this.earth.floorAt(x, z, y),
     );
@@ -701,6 +709,18 @@ export class Game {
   }
 
   private action(action: string, value?: string | number): void {
+    if (action.startsWith('graphics:')) {
+      const settings = this.graphics.change(action.slice('graphics:'.length), value);
+      if (!settings) return;
+      this.graphicsController.apply(settings, devicePixelRatio);
+      this.applyWorldGraphics();
+      this.ui.store.setState({ graphics: settings });
+      return;
+    }
+    if (action === 'graphics-menu' && this.ui.state.overlay?.type === 'start') {
+      this.ui.store.setState({ gameMenu: 'graphics' });
+      return;
+    }
     if (action === 'new-game-menu') {
       try {
         this.ui.store.setState({ adventureName: this.saves.nextAdventureName() });
@@ -766,6 +786,12 @@ export class Game {
     }
 
     if (this.running) this.actions.execute(action);
+  }
+
+  private applyWorldGraphics(): void {
+    if (!this.world) return;
+    const { player, weather } = this.save;
+    this.world.applyGraphics(this.graphics.settings, player.x, player.z, weather);
   }
 
   private refreshSaveList(): void {

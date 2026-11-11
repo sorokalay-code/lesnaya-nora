@@ -28,10 +28,11 @@ export class SessionMenus {
     }
     const pages = {
       settings: 'settings',
+      'graphics-menu': 'graphics',
       'controls-help': 'controls',
       'new-game-menu': 'new-game',
       'saved-games': 'saves',
-      'menu-back': 'main',
+      'menu-back': this.context.ui.state.gameMenu === 'graphics' ? 'settings' : 'main',
     } as const;
     if (Object.hasOwn(pages, action)) {
       this.showGame(pages[action as keyof typeof pages]);
