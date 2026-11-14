@@ -80,8 +80,21 @@
   stroke-linecap: round;
 }
 
+.burrow-map line[data-damp='true'] {
+  stroke: var(--ui-map-water);
+  stroke-dasharray: 4 9;
+}
+
 .burrow-floor {
   fill: var(--ui-text-muted);
+}
+
+.burrow-floor[data-damp='true'] {
+  fill: var(--ui-map-water);
+}
+
+.burrow-moisture-key {
+  color: var(--ui-map-water);
 }
 
 .burrow-marker rect {

@@ -16,6 +16,7 @@ import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
 import { GAME_MINUTES_PER_SECOND } from './WorldCalendar';
 import { NEST_BEDDING_RADIUS } from '../NestBedding';
+import { FamilyRelocation, RELOCATION_DETAIL } from './FamilyRelocation';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
   onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
@@ -37,11 +38,29 @@ export class FamilyLifecycle {
   readonly actors = new Map<number, RabbitKit>();
   readonly rigs = new Map<number, RabbitRig>();
   readonly wander: KitWander;
+  readonly relocation: FamilyRelocation;
   private readonly movement: KitMovement;
 
   constructor(private readonly context: FamilyContext) {
     this.wander = new KitWander(new Random(context.save.seed + 7741));
     this.movement = new KitMovement(context, this.wander);
+    this.relocation = new FamilyRelocation(context.save, context.earth, (kit) => {
+      const actor = this.actors.get(kit.id);
+      return !!actor && AnimalRestraint.active(actor.root);
+    });
+  }
+
+  relocate(nestId: number): void {
+    const status = this.relocation.move(nestId);
+    if (status !== 'ready') {
+      this.context.toast(RELOCATION_DETAIL[status]);
+      return;
+    }
+
+    this.context.persist();
+    this.context.toast(
+      'Выбрано новое семейное гнездо. Малыши пойдут к нему, когда игра продолжится.',
+    );
   }
 
   add(k: KitData): void {

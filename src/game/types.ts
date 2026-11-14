@@ -77,7 +77,7 @@ export interface KitData {
   homeZ: number;
   alive: boolean;
   nestId?: number;
-  command?: 'follow' | 'stay' | 'rest';
+  command?: 'follow' | 'stay' | 'rest' | 'relocate';
   stayX?: number;
   stayZ?: number;
   stayY?: number;

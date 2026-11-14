@@ -25,6 +25,7 @@ import { SessionQueries } from './SessionQueries';
 import { GAME_MINUTES_PER_SECOND, WorldCalendar } from './WorldCalendar';
 import { WorldRest } from './WorldRest';
 import { atUndergroundNest } from '../NestBedding';
+import { burrowWarming } from '../BurrowClimate';
 export interface SimulationState {
   elapsed: number;
   digHeld: boolean;
@@ -122,11 +123,14 @@ export class SessionSimulation {
       this.context.ui.panelsOpen || this.context.web.trapped,
     );
     this.context.movement.settle(dt);
-    p.hidden = this.sheltered;
+    const sheltered = this.sheltered;
+    p.hidden = sheltered;
     this.context.web.update(dt, this.context.state.elapsed, !this.context.ui.conversationOpen);
     const air = this.context.calendar.airTemperature();
     const nearbyNest = this.context.queries.nest(2.8);
-    const warmed = this.sheltered || nearbyNest !== undefined;
+    const warmed = sheltered || nearbyNest !== undefined;
+    const insulated =
+      !!nearbyNest?.insulated && atUndergroundNest(this.context.earth, p, nearbyNest);
     this.context.survival.tick(
       dt,
       this.context.state.elapsed,
@@ -134,7 +138,7 @@ export class SessionSimulation {
       air,
       warmed,
       () => this.context.consequences.makeWaste('diarrhea'),
-      !!nearbyNest?.insulated && atUndergroundNest(this.context.earth, p, nearbyNest),
+      burrowWarming(sheltered ? this.context.earth.moistureAt(p) : 'dry', insulated),
     );
     this.context.waste.update(dt, p.x, p.y, p.z);
     CoatDirt.update(this.context.player, p.dirtiness);

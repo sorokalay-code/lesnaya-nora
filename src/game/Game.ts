@@ -511,6 +511,7 @@ export class Game {
       earth: this.earth,
       store: this.store,
       seasons: this.seasons,
+      family: this.family,
       calendar: this.calendar,
       queries: this.queries,
       items: this.items,

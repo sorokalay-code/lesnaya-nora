@@ -1,6 +1,8 @@
 import { BurrowPlanner, type BurrowNest } from '../../game/BurrowPlanner';
+import type { BurrowMoisture } from '../../game/BurrowClimate';
 import { NEST_ENTRANCE_MARGIN } from '../../game/BurrowSafety';
 import type { Excavation } from '../../game/Excavation';
+import { RELOCATION_DETAIL, type FamilyRelocation } from '../../game/session/FamilyRelocation';
 import type { DigNode, SaveData } from '../../game/types';
 
 interface BurrowMarker {
@@ -28,6 +30,7 @@ export type BurrowView =
       map: {
         floors: readonly DigNode[];
         passages: readonly (readonly [number, number])[];
+        moisture: readonly BurrowMoisture[];
         exits: BurrowMarker[];
         nests: BurrowMarker[];
         stashes: BurrowMarker[];
@@ -39,12 +42,18 @@ export type BurrowView =
         warning: boolean;
         description: string;
         supplies: string;
+        moisture: BurrowMoisture;
+        relocation?: { available: boolean; detail: string };
       }[];
     };
 
 /** Готовит снимок плана норы и объясняет обустройство без передачи игрового графа в React. */
 export class BurrowPresenter {
-  static build(save: SaveData, earth: Excavation): BurrowView {
+  static build(
+    save: SaveData,
+    earth: Excavation,
+    relocation?: Pick<FamilyRelocation, 'status'>,
+  ): BurrowView {
     const plan = BurrowPlanner.inspect(save, earth);
     if (!plan) return { state: save.excavation.length ? 'away' : 'empty' };
     const exitCount = plan.network.exits.length;
@@ -85,6 +94,7 @@ export class BurrowPresenter {
       map: {
         floors: plan.network.floors.map((point) => ({ ...point })),
         passages: plan.network.passages.map(([a, b]) => [a, b]),
+        moisture: plan.network.floors.map((floor) => earth.moistureAt(floor)),
         exits: plan.network.exits.map((exit, index) => ({
           position: { ...plan.network.floors[exit[0]] },
           label: `Выход ${index + 1}`,
@@ -108,6 +118,8 @@ export class BurrowPresenter {
           ? `Тёплая спальня · ${NEST_STATUS[nest.placement]}`
           : NEST_STATUS[nest.placement],
         warning: nest.placement !== 'interior',
+        moisture: nest.moisture,
+        relocation: this.relocationView(save, nest.id, relocation),
         description: Number.isFinite(nest.entranceDistance)
           ? `Глубина ${round(nest.depth)} м · до ближайшего входа ${round(nest.entranceDistance)} м по ходу.`
           : `Глубина ${round(nest.depth)} м · нет пути на поверхность.`,
@@ -117,5 +129,17 @@ export class BurrowPresenter {
             : `До ближайшей кладовой ${round(nest.stashDistance)} м по ходу.`,
       })),
     };
+  }
+
+  private static relocationView(
+    save: SaveData,
+    id: number,
+    relocation?: Pick<FamilyRelocation, 'status'>,
+  ) {
+    const nest = save.nests.find((item) => item.id === id);
+    if (!relocation || !nest) return;
+    const status = relocation.status(nest);
+    if (status === 'empty') return;
+    return { available: status === 'ready', detail: RELOCATION_DETAIL[status] };
   }
 }

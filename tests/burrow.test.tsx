@@ -23,8 +23,12 @@ import { MapPresenter } from '../src/ui/presenters/MapPresenter';
 import { FamilyCare } from '../src/game/FamilyCare';
 import { FamilyLifecycle } from '../src/game/session/FamilyLifecycle';
 import { Soundscape } from '../src/game/Audio';
+import { FamilyRelocation } from '../src/game/session/FamilyRelocation';
+import { burrowWarming } from '../src/game/BurrowClimate';
+import { nestHasKits } from '../src/game/session/ShelterController';
+import { SurvivalSystem } from '../src/game/systems/SurvivalSystem';
 
-await loadModels('fox');
+await loadModels('fox', 'rabbit');
 
 const floor = (node: DigNode): DigNode => ({ ...node, y: node.y - TUNNEL_FLOOR_DEPTH });
 
@@ -36,6 +40,7 @@ function fixture(nodes?: DigNode[]) {
     rootAt: () => undefined,
     addGroundHole() {},
     biomeAt: () => 'meadow',
+    nearWater: () => false,
     landmarks: [],
   } as unknown as World;
   save.excavation =
@@ -50,6 +55,154 @@ function fixture(nodes?: DigNode[]) {
   if (origin) Object.assign(save.player, floor(origin));
   return { save, earth, world };
 }
+
+test('burrow plan compares dry nests and damp ground during rain and near water', () => {
+  const { save, earth, world } = fixture();
+  const mouth = floor(save.excavation[0]);
+  const innerRoom = floor(save.excavation[4]);
+  save.nests.push({ id: 1, ...mouth, quality: 1 }, { id: 2, ...innerRoom, quality: 1 });
+
+  assert.equal(BurrowPlanner.inspect(save, earth)!.nests[0].moisture, 'dry');
+  save.weather = 'rain';
+  const view = BurrowPresenter.build(save, earth);
+  const html = renderToStaticMarkup(<BurrowPanel data={view} />);
+  assert.match(html, /Голубой пунктир — сырой грунт/);
+  assert.match(html, /Сыро · согревание медленнее/);
+  assert.match(html, /Сухо/);
+  assert.deepEqual(
+    BurrowPlanner.inspect(save, earth)!.nests.map((nest) => nest.moisture),
+    ['damp', 'dry'],
+  );
+
+  save.weather = 'clear';
+  world.nearWater = (x) => x >= innerRoom.x;
+  assert.equal(earth.moistureAt(innerRoom), 'damp');
+  assert.equal(earth.moistureAt({ ...mouth, y: -5 }), 'damp');
+  world.biomeAt = () => 'swamp';
+  assert.equal(earth.moistureAt(mouth), 'damp');
+});
+
+test('damp soil slows warming and an insulated nest offsets it', () => {
+  const temperatures = (['dry', 'damp'] as const).map((soil) =>
+    [false, true].map((insulated) => {
+      const { save } = fixture([]);
+      save.player.bodyTemp = 34;
+      new SurvivalSystem(save, new Random(17)).tick(
+        1,
+        1,
+        false,
+        12,
+        true,
+        () => {},
+        burrowWarming(soil, insulated),
+      );
+      return save.player.bodyTemp;
+    }),
+  );
+  const [[dry, insulatedDry], [damp, insulatedDamp]] = temperatures;
+  assert.ok(damp < dry);
+  assert.equal(insulatedDamp, dry);
+  assert.ok(insulatedDry > dry);
+});
+
+test('relocation waits for the whole brood, then sends each kit through the tunnel', () => {
+  const { save, earth, world } = fixture([
+    ...Array.from({ length: 7 }, (_, index) => ({ x: index * 2, y: -2, z: 0 })),
+    { x: 10, y: -2, z: 6 },
+  ]);
+  const start = floor(save.excavation[0]);
+  const target = { id: 2, ...floor(save.excavation[6]), quality: 1 };
+  save.nests.push({ id: 1, ...start, quality: 1 }, target);
+  const kit: KitData = {
+    id: 1,
+    name: 'Лапка',
+    genes: save.player.genes,
+    father: 'Крол',
+    age: 1,
+    health: 100,
+    hunger: 80,
+    alive: true,
+    nestId: 1,
+    homeX: start.x,
+    homeY: start.y,
+    homeZ: start.z,
+    ...start,
+  };
+  const sibling = { ...kit, id: 2, age: 0.5 };
+  save.kits.push(kit, sibling);
+  let saves = 0;
+  const rng = new Random(14);
+  const family = new FamilyLifecycle({
+    save,
+    earth,
+    world,
+    rng,
+    scene: new THREE.Scene(),
+    care: new FamilyCare(save, earth),
+    genetics: new RabbitFactory(rng),
+    sound: new Soundscape(),
+    temperature: () => 12,
+    toast() {},
+    persist: () => saves++,
+    playAction() {},
+  });
+
+  family.relocate(target.id);
+  assert.equal(kit.nestId, 1);
+  assert.equal(saves, 0);
+  sibling.age = 1;
+  const view = BurrowPresenter.build(save, earth, family.relocation);
+  assert.match(
+    renderToStaticMarkup(<BurrowPanel data={view} relocate={() => {}} />),
+    /Переселить семью сюда/,
+  );
+  family.relocate(target.id);
+  assert.equal(saves, 1);
+  assert.equal(kit.nestId, 2);
+  assert.equal(sibling.nestId, 2);
+  assert.equal(kit.x, start.x);
+  assert.equal(nestHasKits(save, target), true);
+
+  // Загрузка на полпути должна сохранить команду и приоритет возвращения домой.
+  Object.assign(kit, JSON.parse(JSON.stringify(kit)));
+  family.add(kit);
+  for (let i = 1; i <= 600; i++) family.update(0.05, i * 0.05, 'rest');
+  assert.ok(Math.abs(kit.x! - target.x) < 1.5);
+  assert.equal(kit.command, 'rest');
+});
+
+test('relocation rejects a captured kit and a path through an isolated chamber', () => {
+  const { save, earth } = fixture([
+    { x: 0, y: -2, z: 0 },
+    { x: 2, y: -2, z: 0 },
+    { x: 8, y: -2, z: 0 },
+  ]);
+  const start = floor(save.excavation[0]);
+  const target = { id: 2, ...floor(save.excavation[1]), quality: 1 };
+  save.nests.push(target);
+  const kit: KitData = {
+    id: 1,
+    name: 'Лапка',
+    genes: save.player.genes,
+    father: 'Крол',
+    age: 1,
+    health: 100,
+    hunger: 80,
+    alive: true,
+    homeX: start.x,
+    homeY: start.y,
+    homeZ: start.z,
+    ...start,
+  };
+  save.kits.push(kit);
+  let held = true;
+  const relocation = new FamilyRelocation(save, earth, () => held);
+  assert.equal(relocation.move(target.id), 'held');
+  held = false;
+  Object.assign(kit, floor(save.excavation[2]));
+  assert.equal(relocation.move(target.id), 'no-route');
+  assert.equal(kit.nestId, undefined);
+});
 
 test('the map arrow points east for a camera looking along positive X', () => {
   const { save, world } = fixture([]);

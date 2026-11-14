@@ -111,7 +111,8 @@ export function ActionMenu({ store }: { store: UIStore }) {
               disabled={!shelter?.nest || shelter.nest.occupied}
               onClick={() => dispatch('remove-nest')}
             >
-              Разобрать гнездо{shelter?.nest?.occupied && <small>Сначала уведи малышей</small>}
+              Разобрать гнездо
+              {shelter?.nest?.occupied && <small>Сначала уведи или пересели малышей</small>}
             </Button>
           </div>
         </section>

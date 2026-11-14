@@ -1,5 +1,6 @@
 import { playableWorldLimit } from './WorldConfig';
 import * as THREE from 'three';
+import { burrowMoisture, type BurrowMoisture } from './BurrowClimate';
 import { CaveMesher, TUNNEL_FLOOR_DEPTH } from './CaveMesher';
 import type { DigNode, SaveData } from './types';
 import type { World } from './World';
@@ -131,6 +132,10 @@ export class Excavation {
 
   depthAt(x: number, y: number, z: number): number {
     return Math.max(0, this.world.heightAt(x, z) - y);
+  }
+
+  moistureAt(point: DigNode): BurrowMoisture {
+    return burrowMoisture(this.world, point, this.save.weather);
   }
 
   isSheltered(x: number, y: number, z: number): boolean {

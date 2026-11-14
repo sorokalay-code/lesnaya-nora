@@ -281,6 +281,7 @@ export class SaveRepository {
       data.kits.some(
         (kit) =>
           (kit.sex !== undefined && kit.sex !== 'female' && kit.sex !== 'male') ||
+          (kit.command === 'relocate' && !data.nests.some((nest) => nest.id === kit.nestId)) ||
           (kit.condition !== undefined &&
             (!kit.condition ||
               typeof kit.condition !== 'object' ||

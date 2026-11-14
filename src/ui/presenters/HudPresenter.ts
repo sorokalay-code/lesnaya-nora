@@ -67,6 +67,8 @@ export class HudPresenter {
     if (underground) {
       const root = world.rootAt(p.x, p.z, earth.depthAt(p.x, p.y, p.z));
       prompt = [dig, { text: 'Иди по склону' }];
+      if (earth.moistureAt(p) === 'damp')
+        prompt.push({ text: 'Сырой грунт · согревание медленнее' });
       if (firstPerson) prompt.push({ key: ']', text: 'Копать вверх' });
       if (insideNest && young.length) prompt.push({ key: 'F', text: 'Кормить из гнезда' });
       if (root?.available && (!('mesh' in root) || root.mesh.visible)) {

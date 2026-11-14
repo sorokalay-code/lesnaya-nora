@@ -1,9 +1,15 @@
-import { Disclosure, Notice } from '../kit';
+import { Button, Disclosure, Notice } from '../kit';
 import type { BurrowView } from '../presenters/BurrowPresenter';
 import './BurrowPanel.css';
 
 /** Показывает снимок обустройства норы; правила и обход ходов остаются в движке. */
-export function BurrowPanel({ data }: { data: BurrowView }) {
+export function BurrowPanel({
+  data,
+  relocate,
+}: {
+  data: BurrowView;
+  relocate?: (nestId: number) => void;
+}) {
   if (data.state !== 'burrow')
     return (
       <Notice heading={data.state === 'empty' ? 'Здесь начнётся твой дом' : 'Подойди к своей норе'}>
@@ -44,6 +50,9 @@ export function BurrowPanel({ data }: { data: BurrowView }) {
         <div>
           <BurrowMap data={data.map} />
           <p className="burrow-legend">В — выход · Г — гнездо · Т — тайник · светлая точка — ты</p>
+          {data.map.moisture.includes('damp') && (
+            <p className="burrow-legend burrow-moisture-key">Голубой пунктир — сырой грунт</p>
+          )}
           <p className="burrow-caption">
             Схема сверху. Ходы на разной глубине могут пересекаться на плане.
           </p>
@@ -85,7 +94,16 @@ export function BurrowPanel({ data }: { data: BurrowView }) {
                 <strong>{nest.status}</strong>
               </p>
               <p>{nest.description}</p>
+              <p>{nest.moisture === 'damp' ? 'Сыро · согревание медленнее' : 'Сухо'}</p>
               <p>{nest.supplies}</p>
+              {nest.relocation && (
+                <>
+                  <p>{nest.relocation.detail}</p>
+                  {nest.relocation.available && relocate && (
+                    <Button onClick={() => relocate(nest.id)}>Переселить семью сюда</Button>
+                  )}
+                </>
+              )}
             </Notice>
           ))}
         </div>
@@ -110,6 +128,10 @@ export function BurrowPanel({ data }: { data: BurrowView }) {
           <li>
             Подросшие малыши сами ищут еду в ближайших доступных тайниках. Припасы лучше хранить
             недалеко от гнезда.
+          </li>
+          <li>
+            Сырость появляется под болотом, в глубоких ходах у воды и на глубине от 5 м. Во время
+            дождя сыро и в неглубоких ходах. Подстилка помогает согреваться быстрее.
           </li>
         </ul>
       </Disclosure>
@@ -141,6 +163,7 @@ function BurrowMap({ data }: { data: Extract<BurrowView, { state: 'burrow' }>['m
       {data.passages.map(([a, b], index) => (
         <line
           key={index}
+          data-damp={data.moisture[a] === 'damp' || data.moisture[b] === 'damp'}
           x1={x(data.floors[a].x)}
           y1={z(data.floors[a].z)}
           x2={x(data.floors[b].x)}
@@ -148,7 +171,14 @@ function BurrowMap({ data }: { data: Extract<BurrowView, { state: 'burrow' }>['m
         />
       ))}
       {data.floors.map((point, index) => (
-        <circle key={index} className="burrow-floor" cx={x(point.x)} cy={z(point.z)} r="3" />
+        <circle
+          key={index}
+          className="burrow-floor"
+          data-damp={data.moisture[index] === 'damp'}
+          cx={x(point.x)}
+          cy={z(point.z)}
+          r="3"
+        />
       ))}
       {markers.map((marker) => (
         <g

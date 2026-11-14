@@ -102,6 +102,14 @@ export class SessionActions {
       this.context.inspectBurrow();
       return;
     }
+    if (action.startsWith('relocate-family:')) {
+      if (this.context.ui.state.gameMenu !== 'burrow' || this.context.web.trapped) return;
+      const id = Number(action.slice('relocate-family:'.length));
+      if (!Number.isSafeInteger(id) || id < 1) return;
+      this.context.family.relocate(id);
+      this.context.inspectBurrow();
+      return;
+    }
     if (this.menus.execute(action)) return;
     if (action.startsWith('dialog-page:') || action === 'dialog-back') {
       this.context.ui.openDialogPage(action === 'dialog-back' ? 'overview' : action.slice(12));

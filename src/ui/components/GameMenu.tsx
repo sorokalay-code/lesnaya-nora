@@ -123,7 +123,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         {page === 'graphics' && <GraphicsPanel store={store} />}
         {page === 'burrow' && burrow && (
           <ScrollContainer className="burrow-content" label="План и обустройство норы">
-            <BurrowPanel data={burrow} />
+            <BurrowPanel data={burrow} relocate={(id) => dispatch(`relocate-family:${id}`)} />
           </ScrollContainer>
         )}
         {page === 'saves' && <SaveLibrary store={store} />}

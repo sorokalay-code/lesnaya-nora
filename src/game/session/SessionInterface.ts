@@ -14,6 +14,7 @@ import { InteractionController } from './InteractionController';
 import { SessionQueries } from './SessionQueries';
 import { WorldCalendar } from './WorldCalendar';
 import type { WebView } from './SpiderEncounter';
+import type { FamilyLifecycle } from './FamilyLifecycle';
 
 interface Context {
   canSave?: () => boolean;
@@ -26,6 +27,7 @@ interface Context {
   view: ViewCamera;
   world: World;
   earth: Excavation;
+  family: Pick<FamilyLifecycle, 'relocation'>;
   store: FoodStore;
   seasons: SeasonSystem;
   calendar: WorldCalendar;
@@ -100,7 +102,11 @@ export class SessionInterface {
 
   inspectBurrow(): void {
     this.context.ui.store.setState({
-      burrow: BurrowPresenter.build(this.context.save, this.context.earth),
+      burrow: BurrowPresenter.build(
+        this.context.save,
+        this.context.earth,
+        this.context.family.relocation,
+      ),
     });
   }
 

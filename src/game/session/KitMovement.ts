@@ -15,6 +15,8 @@ interface Context {
   world: World;
 }
 
+const RELOCATION_STOP_METERS = 0.3;
+
 /** Движение детей и взрослых потомков: единые маршруты, цели кормления и спокойный отдых. */
 export class KitMovement {
   private readonly navigators = new Map<number, GroundNavigator>();
@@ -51,13 +53,14 @@ export class KitMovement {
     }
     const nest = this.context.save.nests.find((item) => item.id === kit.nestId);
     const home = nest ?? { x: kit.homeX, y: kit.homeY, z: kit.homeZ };
+    const relocating = kit.command === 'relocate';
     const center =
       kit.command === 'follow'
         ? this.context.save.player
         : (kit.command === 'stay' || (kit.command === 'rest' && !nest)) && kit.stayX !== undefined
           ? { x: kit.stayX, y: kit.stayY ?? home.y, z: kit.stayZ ?? home.z }
           : home;
-    const food = this.feeding.update(kit);
+    const food = relocating ? undefined : this.feeding.update(kit);
     const inside = this.context.earth.isSheltered(center.x, center.y, center.z);
     let destination =
       food ??
@@ -93,7 +96,7 @@ export class KitMovement {
         : kit.age < 0.7
           ? 0.55
           : 1.2;
-    const stop = food ? 1.2 : 0.3;
+    const stop = food ? 1.2 : RELOCATION_STOP_METERS;
     const { point, moving } = navigator.step(
       from,
       destination,
@@ -106,6 +109,13 @@ export class KitMovement {
       kit.age >= 3,
       RABBIT_SWIM_IMMERSION * rig.root.scale.x,
     );
+    if (
+      relocating &&
+      Math.hypot(point.x - home.x, point.z - home.z) <= RELOCATION_STOP_METERS + 0.01 &&
+      Math.abs(point.y - home.y) < 0.7
+    )
+      kit.command = 'rest';
+
     if (moving) {
       const desired = Math.atan2(-(point.x - from.x), -(point.z - from.z));
       const turn = Math.atan2(

@@ -1,6 +1,7 @@
 import { BurrowSafety, NEST_ENTRANCE_MARGIN } from './BurrowSafety';
 import type { BurrowLocation, BurrowNetwork } from './BurrowNetwork';
 import type { Excavation } from './Excavation';
+import type { BurrowMoisture } from './BurrowClimate';
 import type { DigNode, SaveData } from './types';
 import { stashItemCount } from './session/ShelterController';
 
@@ -9,6 +10,7 @@ export interface BurrowNest {
   insulated?: true;
   position: DigNode;
   depth: number;
+  moisture: BurrowMoisture;
   entranceDistance: number;
   placement: 'exposed' | 'near' | 'interior' | 'sealed';
   stashDistance?: number;
@@ -71,6 +73,7 @@ export class BurrowPlanner {
         insulated: nest.insulated,
         position: { x: nest.x, y: nest.y, z: nest.z },
         depth: earth.depthAt(nest.x, nest.y, nest.z),
+        moisture: earth.moistureAt(nest),
         entranceDistance,
         placement,
         stashDistance: Number.isFinite(stashDistance) ? stashDistance : undefined,

@@ -17,11 +17,12 @@ export function nestHasKits(save: SaveData, nest: NestData): boolean {
       !kit.independent &&
       kit.age < 3 &&
       kit.nestId === nest.id &&
-      Math.hypot(
-        (kit.x ?? kit.homeX) - nest.x,
-        (kit.y ?? kit.homeY) - nest.y,
-        (kit.z ?? kit.homeZ) - nest.z,
-      ) < 2.5,
+      (kit.command === 'relocate' ||
+        Math.hypot(
+          (kit.x ?? kit.homeX) - nest.x,
+          (kit.y ?? kit.homeY) - nest.y,
+          (kit.z ?? kit.homeZ) - nest.z,
+        ) < 2.5),
   );
 }
 
@@ -60,7 +61,7 @@ export class ShelterController {
       return;
     }
     if (kind === 'nest' && nestHasKits(this.context.save, object as NestData)) {
-      this.context.toast('В гнезде малыши. Позови их за собой и уведи подальше перед разборкой.');
+      this.context.toast('Малыши в гнезде или идут к нему. Позови их за собой либо пересели.');
       return;
     }
     this.pending = { kind, id: object.id };
@@ -98,7 +99,7 @@ export class ShelterController {
           kit.homeX = kit.x ?? kit.homeX;
           kit.homeY = kit.y ?? kit.homeY;
           kit.homeZ = kit.z ?? kit.homeZ;
-          if (kit.command === 'rest') {
+          if (kit.command === 'rest' || kit.command === 'relocate') {
             kit.command = 'stay';
             kit.stayX = kit.homeX;
             kit.stayY = kit.homeY;
