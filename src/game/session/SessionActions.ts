@@ -84,7 +84,11 @@ export class SessionActions {
       }
       return;
     }
-    if (this.context.web.trapped && ['dig', 'dig-down', 'hop'].includes(action)) return;
+    if (
+      this.context.web.trapped &&
+      ['dig', 'dig-down', 'dig-up', 'hop', 'insulate-nest'].includes(action)
+    )
+      return;
     if (action === 'status-panel') {
       const expanded = this.context.ui.state.statusOpen;
       if (this.context.ui.panelsOpen) this.context.interactions.close();

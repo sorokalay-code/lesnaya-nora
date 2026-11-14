@@ -108,12 +108,14 @@ function fixture() {
     heightAt: () => 0,
     chunks: { add: (object: THREE.Object3D) => scene.add(object) },
   } as unknown as World;
+  const location = { network: {} };
   const earth = {
     isSheltered: (_x: number, y: number) => y < -0.5,
     floorAt: (_x: number, _z: number, y: number) => (y < 0 ? -1 : 0),
     nextStep: () => undefined,
     route: (_from: unknown, to: unknown) => [to],
     revision: 0,
+    burrowAt: () => location,
     canMoveTo: () => true,
   } as unknown as Excavation;
   const sound = { play: () => {} } as unknown as Soundscape;
@@ -230,6 +232,43 @@ test('family lifecycle creates kit actors and feeding updates their persisted st
   assert.equal(kit.hunger, 55);
   assert.equal(actor.health, 46);
   assert.equal(save.pregnancy, null);
+});
+
+test('insulating a nest consumes six fur once and provides warmer sleep', () => {
+  const context = fixture();
+  const { save } = context;
+  const player = new PlayerRabbit(save.player);
+  let updated = 0;
+  let persisted = 0;
+  const env = new EnvironmentController({
+    ...context,
+    camera: new THREE.PerspectiveCamera(),
+    player: player.rig,
+    elapsed: () => 0,
+    toast() {},
+    playAction() {},
+    advanceRest: () => true,
+    addNest() {},
+    updateNest: () => {
+      updated++;
+    },
+    persist: () => {
+      persisted++;
+    },
+    makeWaste() {},
+  });
+  env.execute('insulate-nest');
+  assert.equal(save.nests[0].insulated, undefined);
+  save.materials.fur = 12;
+  env.execute('insulate-nest');
+  env.execute('insulate-nest');
+  assert.equal(save.materials.fur, 6);
+  assert.equal(save.nests[0].insulated, true);
+  assert.equal(updated, 1);
+  assert.equal(persisted, 1);
+  save.player.bodyTemp = 30;
+  env.execute('sleep');
+  assert.equal(save.player.bodyTemp, 38.6);
 });
 
 test('Zustand stores isolate sessions and keep message drafts while HUD state changes', () => {

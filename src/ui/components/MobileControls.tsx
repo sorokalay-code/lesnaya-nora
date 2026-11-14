@@ -32,6 +32,7 @@ export function MobileControls({ store }: { store: UIStore }) {
   const airlift = useStore(store, (s) => s.hud?.airlift);
   const dispatch = useStore(store, (s) => s.dispatch);
   const showControls = useStore(store, (s) => s.showControls);
+  const underground = useStore(store, (s) => s.hud?.underground);
 
   if (!touch) return null;
   if (portrait)
@@ -70,7 +71,12 @@ export function MobileControls({ store }: { store: UIStore }) {
         {first && !web && (
           <>
             <HoldButton label="Копать" onHold={bindings.dig} />
-            <Button onClick={() => dispatch('dig-down')}>Копать вниз</Button>
+            {underground && (
+              <>
+                <Button onClick={() => dispatch('dig-down')}>Копать вниз</Button>
+                <Button onClick={() => dispatch('dig-up')}>Копать вверх</Button>
+              </>
+            )}
           </>
         )}
         <Button onClick={() => dispatch('camera')}>{first ? '3-е лицо' : '1-е лицо'}</Button>

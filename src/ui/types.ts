@@ -28,7 +28,11 @@ export interface HudView {
   airlift?: import('../game/session/HawkHunting').AirliftView;
   rabbitChase?: import('../game/session/RabbitReproductiveThreat').RabbitChaseView;
   web?: WebView;
-  nearbyShelter?: { stash?: { items: number }; nest?: { occupied: boolean } };
+  nearbyShelter?: {
+    stash?: { items: number };
+    nest?: { occupied: boolean; inside?: boolean; insulated?: boolean };
+  };
+  underground?: boolean;
   status: string;
   bars: { label: string; value: number; color: string; icon: string }[];
   temperature: number;
@@ -99,7 +103,7 @@ export interface MapViewModel {
   colors: string[];
   landmarks: { x: number; z: number; label: string }[];
   openings: { x: number; z: number }[];
-  player: { x: number; z: number };
+  player: { x: number; z: number; heading: number };
 }
 export type { SaveSlotSummary };
 export type JournalViewModel =

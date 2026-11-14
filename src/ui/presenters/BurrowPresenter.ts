@@ -92,7 +92,7 @@ export class BurrowPresenter {
         })),
         nests: plan.nests.map((nest) => ({
           position: nest.position,
-          label: `Гнездо ${nest.id}`,
+          label: nest.insulated ? `Тёплая спальня ${nest.id}` : `Гнездо ${nest.id}`,
           symbol: `Г${nest.id}`,
         })),
         stashes: plan.stashes.map((stash) => ({
@@ -104,7 +104,9 @@ export class BurrowPresenter {
       },
       nests: plan.nests.map((nest) => ({
         id: nest.id,
-        status: NEST_STATUS[nest.placement],
+        status: nest.insulated
+          ? `Тёплая спальня · ${NEST_STATUS[nest.placement]}`
+          : NEST_STATUS[nest.placement],
         warning: nest.placement !== 'interior',
         description: Number.isFinite(nest.entranceDistance)
           ? `Глубина ${round(nest.depth)} м · до ближайшего входа ${round(nest.entranceDistance)} м по ходу.`

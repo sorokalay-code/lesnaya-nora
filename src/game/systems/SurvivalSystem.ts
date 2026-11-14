@@ -2,6 +2,7 @@ import { Random } from '../Random';
 import { EnergyRecovery } from './EnergyRecovery';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { FOOD, type FoodKind, type SaveData } from '../types';
+import { INSULATED_WARMING_MULTIPLIER } from '../NestBedding';
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 /** Обновляет потребности, температуру, загрязнение, отравление и здоровье крольчихи. */
 export class SurvivalSystem {
@@ -20,6 +21,7 @@ export class SurvivalSystem {
     ambient: number,
     warm: boolean,
     onDiarrhea: () => void,
+    insulated = false,
   ): void {
     const p = this.save.player;
     const metabolism = GeneticTraits.metabolism(p.genes);
@@ -31,10 +33,11 @@ export class SurvivalSystem {
     ambient += GeneticTraits.coldProtection(p.genes);
     p.bladder = clamp(p.bladder + dt * 0.075, 0, 100);
     p.bowel = clamp(p.bowel + dt * 0.055, 0, 100);
+    const warmingRate = insulated && p.bodyTemp < 38.6 ? 0.09 * INSULATED_WARMING_MULTIPLIER : 0.09;
     p.bodyTemp = clamp(
       p.bodyTemp +
         ((warm ? 38.6 : 38.4 - Math.max(0, 12 - ambient) * 0.36) - p.bodyTemp) *
-          Math.min(1, dt * (warm ? 0.09 : 0.022)),
+          Math.min(1, dt * (warm ? warmingRate : 0.022)),
       28,
       41,
     );

@@ -93,6 +93,7 @@ export interface NestData {
   y: number;
   z: number;
   quality: number;
+  insulated?: true;
 }
 
 export interface DigNode {

@@ -2,6 +2,7 @@ import { Button, Dialog } from '../kit';
 import { useLayoutEffect, useRef } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
+import { NEST_FUR_COST } from '../../game/NestBedding';
 
 const groups: { title: string; actions: [string, string, string?][] }[] = [
   {
@@ -85,7 +86,7 @@ export function ActionMenu({ store }: { store: UIStore }) {
             <div>
               {group.actions.map(([action, label, key]) => (
                 <Button key={action} onClick={() => dispatch(action)}>
-                  {label}
+                  {action === 'feed' && shelter?.nest?.inside ? 'Кормить молоком из гнезда' : label}
                   {key && !touch && <kbd>{key}</kbd>}
                 </Button>
               ))}
@@ -96,6 +97,12 @@ export function ActionMenu({ store }: { store: UIStore }) {
           <h3>Убежище рядом</h3>
           <p>Подойди к складу или гнезду, чтобы разобрать его.</p>
           <div>
+            {shelter?.nest?.inside && (
+              <Button disabled={shelter.nest.insulated} onClick={() => dispatch('insulate-nest')}>
+                {shelter.nest.insulated ? 'Тёплая спальня' : 'Утеплить гнездо'}
+                {!shelter.nest.insulated && <small>Пух × {NEST_FUR_COST}</small>}
+              </Button>
+            )}
             <Button disabled={!shelter?.stash} onClick={() => dispatch('remove-stash')}>
               Разобрать склад
               {shelter?.stash && <small>Внутри {shelter.stash.items} предметов</small>}

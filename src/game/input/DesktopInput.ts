@@ -150,6 +150,7 @@ export class DesktopInput implements InputController {
       KeyL: 'pee',
       KeyF: 'feed',
       KeyZ: 'dig-down',
+      BracketRight: 'dig-up',
       KeyH: 'bark',
       Space: 'hop',
     };

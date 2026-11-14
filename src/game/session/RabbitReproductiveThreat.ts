@@ -15,9 +15,9 @@ const CHASE = {
   detectionRange: 8,
   escapeRange: 13,
   contactRange: 1.25,
-  ordinaryChance: 0.06,
-  mutantChance: 0.2,
-  fangedChance: 0.4,
+  ordinaryChance: 0.08,
+  mutantChance: 0.24,
+  fangedChance: 0.45,
 } as const;
 
 interface ChaseTerrain {

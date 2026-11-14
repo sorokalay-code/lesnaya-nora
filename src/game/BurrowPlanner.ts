@@ -6,6 +6,7 @@ import { stashItemCount } from './session/ShelterController';
 
 export interface BurrowNest {
   id: number;
+  insulated?: true;
   position: DigNode;
   depth: number;
   entranceDistance: number;
@@ -67,6 +68,7 @@ export class BurrowPlanner {
 
       nests.push({
         id: nest.id,
+        insulated: nest.insulated,
         position: { x: nest.x, y: nest.y, z: nest.z },
         depth: earth.depthAt(nest.x, nest.y, nest.z),
         entranceDistance,

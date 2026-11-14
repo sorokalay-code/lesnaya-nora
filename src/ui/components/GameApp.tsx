@@ -424,14 +424,24 @@ function WorldMap({ data }: { data: MapViewModel }) {
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#24382b';
     ctx.lineWidth = 2;
+    ctx.save();
+    ctx.translate(position(data.player.x), position(data.player.z));
+    ctx.rotate(data.player.heading);
     ctx.beginPath();
-    ctx.arc(position(data.player.x), position(data.player.z), 6, 0, Math.PI * 2);
+    ctx.moveTo(0, -12);
+    ctx.lineTo(7, 8);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-7, 8);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
   }, [data]);
   return (
     <>
-      <p>Белая точка — ты. Тёмные круги — выкопанные входы.</p>
+      <p>
+        Белая стрелка показывает твоё положение и направление взгляда. Тёмные круги — входы в норы.
+      </p>
       <canvas ref={canvas} width={420} height={420} />
     </>
   );

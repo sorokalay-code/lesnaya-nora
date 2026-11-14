@@ -18,6 +18,7 @@ import {
 import type { Resource, World } from '../../game/World';
 import type { HudView, PromptPart } from '../types';
 import { SWIM_DEPTH } from '../../game/WaterNavigation';
+import { atUndergroundNest } from '../../game/NestBedding';
 
 /** Преобразует изменяемые игровые данные в независимый снимок для React-интерфейса. */
 export class HudPresenter {
@@ -56,6 +57,7 @@ export class HudPresenter {
           world.biomeAt(p.x, p.z)
         ];
     const swimming = !underground && (world.waterAt?.(p.x, p.z)?.depth ?? 0) > SWIM_DEPTH;
+    const insideNest = !!nest && underground && atUndergroundNest(earth, p, nest);
     const dig: PromptPart = swimming
       ? { text: 'Плыви к берегу · в воде нельзя прыгать и копать' }
       : firstPerson
@@ -65,6 +67,8 @@ export class HudPresenter {
     if (underground) {
       const root = world.rootAt(p.x, p.z, earth.depthAt(p.x, p.y, p.z));
       prompt = [dig, { text: 'Иди по склону' }];
+      if (firstPerson) prompt.push({ key: ']', text: 'Копать вверх' });
+      if (insideNest && young.length) prompt.push({ key: 'F', text: 'Кормить из гнезда' });
       if (root?.available && (!('mesh' in root) || root.mesh.visible)) {
         prompt.push({ key: 'Q', text: 'Грызть корень' });
         if (!('tree' in root)) prompt.push({ key: 'T', text: 'Унести растение' });
@@ -107,8 +111,11 @@ export class HudPresenter {
         })),
       nearbyShelter: {
         stash: stash ? { items: stashItemCount(stash) } : undefined,
-        nest: nest ? { occupied: nestHasKits(save, nest) } : undefined,
+        nest: nest
+          ? { occupied: nestHasKits(save, nest), inside: insideNest, insulated: nest.insulated }
+          : undefined,
       },
+      underground,
       status: underground ? '● ПОД ЗЕМЛЁЙ' : threat < 8 ? '● ОПАСНОСТЬ' : '● В ЛЕСУ',
       bars: [
         bar('Сытость', p.hunger, '#bdcf79', '✿'),

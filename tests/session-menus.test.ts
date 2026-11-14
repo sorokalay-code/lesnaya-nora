@@ -118,7 +118,7 @@ test('game menu, action panel and events are mutually exclusive and resume throu
   store.setState({ familyOpen: true, actionMenuOpen: true, eventsOpen: true });
   GameUI.prototype.showJournal.call(ui as GameUI, {
     mode: 'map',
-    map: { colors: [], landmarks: [], openings: [], player: { x: 0, z: 0 } },
+    map: { colors: [], landmarks: [], openings: [], player: { x: 0, z: 0, heading: 0 } },
   });
   assert.equal(store.getState().familyOpen, false);
   assert.equal(store.getState().actionMenuOpen, false);

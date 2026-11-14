@@ -5,6 +5,7 @@ import { makeNest, makeStash } from '../Models';
 import { World } from '../World';
 import { RabbitActor } from '../animals';
 import { type NestData, type StashData } from '../types';
+import { NEST_FUR_COST } from '../NestBedding';
 
 interface Context {
   scene: THREE.Scene;
@@ -30,6 +31,24 @@ export class SceneDecorations {
     this.place(mesh, n);
     this.nestMeshes.set(n.id, mesh);
     this.context.scene.add(mesh);
+    this.updateNest(n);
+  }
+
+  updateNest(nest: NestData): void {
+    const mesh = this.nestMeshes.get(nest.id);
+    if (!nest.insulated || !mesh || mesh.getObjectByName('nest-bedding')) return;
+
+    const bedding = new THREE.Group();
+    bedding.name = 'nest-bedding';
+    for (let index = 0; index < NEST_FUR_COST; index++) {
+      const angle = (index / NEST_FUR_COST) * 2 * Math.PI;
+      const tuft = ModelAssets.shared.create('fur_tuft').root;
+      tuft.position.set(Math.cos(angle) * 0.36, 0.12, Math.sin(angle) * 0.36);
+      tuft.rotation.y = angle;
+      tuft.scale.setScalar(1.6);
+      bedding.add(tuft);
+    }
+    mesh.add(bedding);
   }
 
   addStash(s: StashData): void {

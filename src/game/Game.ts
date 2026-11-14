@@ -438,6 +438,7 @@ export class Game {
       playAction: (action, duration) => this.playAction(action, duration),
       requestJump: () => !this.web.trapped && this.movement.requestJump(this.runtime.elapsed),
       addNest: (nest) => this.decorations.addNest(nest),
+      updateNest: (nest) => this.decorations.updateNest(nest),
       makeWaste: (kind) => this.consequences.makeWaste(kind),
     });
     this.interactions = new InteractionController({

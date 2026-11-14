@@ -19,6 +19,10 @@ import { BurrowPanel } from '../src/ui/components/BurrowPanel';
 import { GameMenu } from '../src/ui/components/GameMenu';
 import { createUIStore, simulationPaused } from '../src/ui/store';
 import { loadModels } from './model-fixture';
+import { MapPresenter } from '../src/ui/presenters/MapPresenter';
+import { FamilyCare } from '../src/game/FamilyCare';
+import { FamilyLifecycle } from '../src/game/session/FamilyLifecycle';
+import { Soundscape } from '../src/game/Audio';
 
 await loadModels('fox');
 
@@ -31,6 +35,8 @@ function fixture(nodes?: DigNode[]) {
     heightAt: () => 0,
     rootAt: () => undefined,
     addGroundHole() {},
+    biomeAt: () => 'meadow',
+    landmarks: [],
   } as unknown as World;
   save.excavation =
     nodes ??
@@ -44,6 +50,64 @@ function fixture(nodes?: DigNode[]) {
   if (origin) Object.assign(save.player, floor(origin));
   return { save, earth, world };
 }
+
+test('the map arrow points east for a camera looking along positive X', () => {
+  const { save, world } = fixture([]);
+  const map = new MapPresenter().build(world, save, { x: 1, z: 0 });
+  assert.equal(map.player.heading, Math.PI / 2);
+  assert.deepEqual([map.player.x, map.player.z], [save.player.x, save.player.z]);
+});
+
+test('one nursing action reaches distant young in the same burrow only', () => {
+  const { save, earth, world } = fixture([
+    ...Array.from({ length: 7 }, (_, i) => ({ x: i * 2, y: -2, z: 0 })),
+    { x: 12, y: -2, z: 5 },
+  ]);
+  Object.assign(save.player, { x: 0, y: -2.95, z: 0, milk: 24 });
+  save.nests.push({ id: 1, x: 0, y: -2.95, z: 0, quality: 1 });
+  const child = (id: number, x: number, y: number, z: number): KitData => ({
+    id,
+    name: 'Крольчонок',
+    genes: save.player.genes,
+    father: 'Крол',
+    age: 1,
+    health: 50,
+    hunger: 20,
+    alive: true,
+    homeX: 0,
+    homeY: -2.95,
+    homeZ: 0,
+    x,
+    y,
+    z,
+  });
+  const walking = child(1, 12, -2.95, 0);
+  const isolated = child(2, 12, -2.95, 5);
+  const outside = child(3, 0, 0, 0);
+  save.kits.push(walking, isolated, outside);
+  const rng = new Random(9);
+  const family = new FamilyLifecycle({
+    save,
+    earth,
+    world,
+    rng,
+    scene: new THREE.Scene(),
+    care: new FamilyCare(save, earth),
+    genetics: new RabbitFactory(rng),
+    sound: new Soundscape(),
+    temperature: () => 12,
+    toast() {},
+    persist() {},
+    playAction() {},
+  });
+  family.feed();
+  assert.equal(walking.hunger, 55);
+  assert.equal(walking.health, 56);
+  assert.equal(isolated.hunger, 20);
+  assert.equal(outside.hunger, 20);
+  assert.equal(save.player.milk, 12);
+  assert.equal(walking.x, 12);
+});
 
 test('a wide mouth is one exit; separate connected mouths provide a real spare exit', () => {
   const { save, earth } = fixture();

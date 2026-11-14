@@ -11,6 +11,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const distance2 = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
 export type DigPreview = { node: DigNode; point: THREE.Vector3; valid: boolean; reason: string };
+export type DigDirection = 'aim' | 'down' | 'up';
 
 /** Хранит выкопанные участки единого мира, проверяет копание и навигацию по ходам. */
 
@@ -308,12 +309,13 @@ export class Excavation {
     x: number,
     y: number,
     z: number,
-    forceDown = false,
+    mode: DigDirection = 'aim',
   ): { node: DigNode; point: THREE.Vector3 } | undefined {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
     const sheltered = this.isSheltered(x, y, z);
-    if (!forceDown && !sheltered && !this.nearOpening(x, z, 1.5)) {
+    if (mode !== 'aim' && !sheltered) return;
+    if (!sheltered && !this.nearOpening(x, z, 1.5)) {
       const horizontal = new THREE.Vector2(direction.x, direction.z).normalize();
       const fallbackX = x + horizontal.x * 2.2,
         fallbackZ = z + horizontal.y * 2.2;
@@ -337,10 +339,15 @@ export class Excavation {
     const nearest = this.nearestNode(x, y, z);
     if (!nearest) return undefined;
 
-    const nx = this.snap(x + horizontal.x * 2.1),
-      nz = this.snap(z + horizontal.y * 2.1);
-    const slope = forceDown || direction.y < -0.42 ? -0.75 : clamp(direction.y * 1.65, -0.7, 0.7);
-    const node = { x: nx, y: Math.round((nearest.y + slope) * 4) / 4, z: nz };
+    const start = mode === 'up' ? nearest : { x, z };
+    const nx = this.snap(start.x + horizontal.x * 2.1),
+      nz = this.snap(start.z + horizontal.y * 2.1);
+    let slope = clamp(direction.y * 1.65, -0.75, 0.75);
+    if (mode === 'up') slope = 0.75;
+    if (mode === 'down') slope = -0.75;
+    const surface = this.world.heightAt(nx, nz);
+    const level = Math.round((nearest.y + slope) * 4) / 4;
+    const node = { x: nx, y: Math.min(level, surface + 0.45), z: nz };
     return { node, point: new THREE.Vector3(nx, node.y, nz) };
   }
 
@@ -349,9 +356,9 @@ export class Excavation {
     x: number,
     y: number,
     z: number,
-    forceDown = false,
+    mode: DigDirection = 'aim',
   ): { success: boolean; reason: string; node?: DigNode } {
-    const preview = this.preview(camera, x, y, z, forceDown);
+    const preview = this.preview(camera, x, y, z, mode);
     if (!preview) return { success: false, reason: 'Направь прицел на землю рядом с крольчихой.' };
 
     if (!preview.valid) return { success: false, reason: preview.reason };
@@ -367,9 +374,9 @@ export class Excavation {
     x: number,
     y: number,
     z: number,
-    forceDown = false,
+    mode: DigDirection = 'aim',
   ): DigPreview | undefined {
-    const aimed = this.target(camera, x, y, z, forceDown);
+    const aimed = this.target(camera, x, y, z, mode);
     if (!aimed) return undefined;
 
     const node = aimed.node;
@@ -378,6 +385,8 @@ export class Excavation {
     if (Math.abs(node.x) > limit || Math.abs(node.z) > limit)
       reason = 'Здесь край исследуемого леса.';
     else if (this.depth(node) > this.maxDepth) reason = 'Глубже 50 м копать нельзя.';
+    else if (this.isOpening(node) && this.world.waterAt?.(node.x, node.z))
+      reason = 'Выведи ход на сушу, в стороне от воды.';
     else if (
       this.save.excavation.some(
         (existing) =>
@@ -412,6 +421,10 @@ export class Excavation {
     return horizontal > 0.1 && horizontal < 2.9 && Math.abs(a.y - b.y) <= 0.85;
   }
 
+  private isOpening(node: DigNode): boolean {
+    return node.y + 1 > this.world.heightAt(node.x, node.z);
+  }
+
   private addGeometry(node: DigNode): void {
     const previous = this.save.excavation.slice(0, this.save.excavation.indexOf(node));
     const connections = previous.filter((other) => this.connected(other, node));
@@ -423,7 +436,7 @@ export class Excavation {
 
     const bounds = this.mesher.addNode(node, connections);
     this.world.addGroundHole(bounds, (x, y, z) => this.mesher.distanceAt(x, y, z));
-    if (node.y + 1 > this.world.heightAt(node.x, node.z)) {
+    if (this.isOpening(node)) {
       this.openings.push(node);
     }
 

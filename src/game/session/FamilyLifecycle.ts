@@ -15,6 +15,7 @@ import { Random } from '../Random';
 import { FOOD, type KitData, type SaveData } from '../types';
 import type { World } from '../World';
 import { GAME_MINUTES_PER_SECOND } from './WorldCalendar';
+import { NEST_BEDDING_RADIUS } from '../NestBedding';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
   onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
@@ -276,15 +277,30 @@ export class FamilyLifecycle {
   }
 
   feed(vegetables = false): void {
-    const p = this.context.save.player;
-    const young = this.context.save.kits.filter(
-      (k) =>
-        k.alive &&
-        k.age < 3 &&
-        Math.hypot((k.x ?? k.homeX) - p.x, (k.y ?? k.homeY) - p.y, (k.z ?? k.homeZ) - p.z) < 4,
-    );
+    const { save, care, earth } = this.context;
+    const p = save.player;
+    const nest = vegetables ? undefined : care.birthNest(NEST_BEDDING_RADIUS);
+    const network = nest ? earth.burrowAt(nest)?.network : undefined;
+    const nursingInNest = network !== undefined && earth.burrowAt(p)?.network === network;
+    const young = save.kits.filter((kit) => {
+      if (!kit.alive || kit.health <= 0 || kit.age >= 3) return false;
+      const actor = this.actors.get(kit.id);
+      if (actor && AnimalRestraint.active(actor.root)) return false;
+
+      const x = kit.x ?? kit.homeX;
+      const y = kit.y ?? kit.homeY;
+      const z = kit.z ?? kit.homeZ;
+      if (!nursingInNest) return Math.hypot(x - p.x, y - p.y, z - p.z) < 4;
+
+      // Кормление из гнезда охватывает гуляющих по связным ходам малышей.
+      return earth.isSheltered(x, y, z) && earth.burrowAt({ x, y, z })?.network === network;
+    });
     if (!young.length) {
-      this.context.toast('Здесь пока нет маленьких крольчат.');
+      this.context.toast(
+        nursingInNest
+          ? 'В этой норе пока нет маленьких крольчат.'
+          : 'Здесь пока нет маленьких крольчат.',
+      );
       return;
     }
 
@@ -328,6 +344,10 @@ export class FamilyLifecycle {
 
     this.context.playAction('nurse', 2.8);
     this.context.sound.play('baby');
-    this.context.toast(`Ты покормила молоком ${young.length} крольчат. Их здоровье укрепилось.`);
+    this.context.toast(
+      nursingInNest
+        ? `Из гнезда покормила молоком ${young.length} крольчат в норе.`
+        : `Ты покормила молоком ${young.length} крольчат. Их здоровье укрепилось.`,
+    );
   }
 }

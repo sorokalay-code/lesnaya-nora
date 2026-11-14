@@ -24,6 +24,7 @@ import type { SessionInterface } from './SessionInterface';
 import { SessionQueries } from './SessionQueries';
 import { GAME_MINUTES_PER_SECOND, WorldCalendar } from './WorldCalendar';
 import { WorldRest } from './WorldRest';
+import { atUndergroundNest } from '../NestBedding';
 export interface SimulationState {
   elapsed: number;
   digHeld: boolean;
@@ -126,8 +127,14 @@ export class SessionSimulation {
     const air = this.context.calendar.airTemperature();
     const nearbyNest = this.context.queries.nest(2.8);
     const warmed = this.sheltered || nearbyNest !== undefined;
-    this.context.survival.tick(dt, this.context.state.elapsed, moving, air, warmed, () =>
-      this.context.consequences.makeWaste('diarrhea'),
+    this.context.survival.tick(
+      dt,
+      this.context.state.elapsed,
+      moving,
+      air,
+      warmed,
+      () => this.context.consequences.makeWaste('diarrhea'),
+      !!nearbyNest?.insulated && atUndergroundNest(this.context.earth, p, nearbyNest),
     );
     this.context.waste.update(dt, p.x, p.y, p.z);
     CoatDirt.update(this.context.player, p.dirtiness);

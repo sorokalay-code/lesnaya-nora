@@ -273,6 +273,9 @@ export class SaveRepository {
           !Number.isFinite(data.pregnancy.progress) ||
           data.pregnancy.progress < 0 ||
           (data.pregnancy.trauma !== undefined && data.pregnancy.trauma !== true))) ||
+      data.nests.some(
+        (nest) => !nest || (nest.insulated !== undefined && nest.insulated !== true),
+      ) ||
       (data.player.originKitId !== undefined &&
         (!Number.isSafeInteger(data.player.originKitId) || data.player.originKitId < 1)) ||
       data.kits.some(

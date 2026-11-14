@@ -84,7 +84,11 @@ export class SessionInterface {
     if (mode === 'map')
       this.context.ui.showJournal({
         mode: 'map',
-        map: this.mapPresenter.build(this.context.world, this.context.save),
+        map: this.mapPresenter.build(
+          this.context.world,
+          this.context.save,
+          this.context.view.forwardAt(),
+        ),
       });
     else
       this.context.ui.showJournal({

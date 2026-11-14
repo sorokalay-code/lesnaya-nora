@@ -1,6 +1,7 @@
 import type { Camera } from 'three';
 import type { Soundscape } from '../Audio';
-import type { Excavation } from '../Excavation';
+import type { DigDirection, Excavation } from '../Excavation';
+import { atUndergroundNest, NEST_BEDDING_RADIUS, NEST_FUR_COST } from '../NestBedding';
 import type { RabbitAction, RabbitRig } from '../Models';
 import type { FoodStore, SurvivalSystem, WasteSystem } from '../systems';
 import { FOOD, type NestData, type SaveData } from '../types';
@@ -29,6 +30,7 @@ interface EnvironmentContext {
   toast: (text: string) => void;
   playAction: (action: RabbitAction, duration: number) => void;
   addNest: (nest: NestData) => void;
+  updateNest?: (nest: NestData) => void;
   requestJump?: () => boolean;
   makeWaste: (kind: 'pellets' | 'urine' | 'diarrhea') => void;
 }
@@ -41,8 +43,10 @@ export class EnvironmentController {
     drink: () => this.drink(),
     fur: () => this.pluckFur(),
     nest: () => this.buildNest(),
-    dig: () => this.dig('dig'),
-    'dig-down': () => this.dig('dig-down'),
+    'insulate-nest': () => this.insulateNest(),
+    dig: () => this.dig('aim'),
+    'dig-down': () => this.dig('down'),
+    'dig-up': () => this.dig('up'),
     roots: () => this.roots('roots'),
     steal: () => this.roots('steal'),
     bark: () => this.gnawBark(),
@@ -163,7 +167,31 @@ export class EnvironmentController {
     return;
   }
 
-  private dig(action: string): void {
+  private insulateNest(): void {
+    const { earth, save, queries, toast } = this.context;
+    const nest = queries.nest(NEST_BEDDING_RADIUS);
+    if (!nest || !atUndergroundNest(earth, save.player, nest)) {
+      toast('Устрой гнездо в норе и подойди к нему, чтобы добавить пух.');
+      return;
+    }
+    if (nest.insulated) {
+      toast('В этой спальне уже есть тёплая подстилка.');
+      return;
+    }
+    if (save.materials.fur < NEST_FUR_COST) {
+      toast(`Для тёплой спальни нужно ${NEST_FUR_COST} пуха. Сейчас есть ${save.materials.fur}.`);
+      return;
+    }
+
+    save.materials.fur -= NEST_FUR_COST;
+    nest.insulated = true;
+    this.context.updateNest?.(nest);
+    this.context.sound.play('nest');
+    toast('Тёплая спальня готова. Здесь крольчиха быстрее согревается.');
+    this.context.persist();
+  }
+
+  private dig(mode: DigDirection): void {
     const p = this.context.save.player;
     if (!this.sheltered && this.context.world.waterAt?.(p.x, p.z)) {
       this.context.toast('В воде копать нельзя. Сначала выберись на берег.');
@@ -174,7 +202,7 @@ export class EnvironmentController {
       return;
     }
 
-    if (action === 'dig-down' && !this.sheltered) {
+    if (mode !== 'aim' && !this.sheltered) {
       this.context.toast('Сначала выкопай вход, затем спустись в него.');
       return;
     }
@@ -201,13 +229,7 @@ export class EnvironmentController {
     )
       return;
 
-    const result = this.context.earth.dig(
-      this.context.camera,
-      p.x,
-      p.y,
-      p.z,
-      action === 'dig-down',
-    );
+    const result = this.context.earth.dig(this.context.camera, p.x, p.y, p.z, mode);
 
     if (!result.success) {
       this.nextDigAt = this.context.elapsed() + 0.55;
@@ -306,7 +328,8 @@ export class EnvironmentController {
     p.hunger = clamp(p.hunger - 17, 0, 100);
     p.thirst = clamp(p.thirst - 20, 0, 100);
     p.bladder = clamp(p.bladder + 15, 0, 100);
-    p.bodyTemp = clamp(p.bodyTemp + 1.5, 28, 39);
+    const insulated = !!nest?.insulated && atUndergroundNest(this.context.earth, p, nest);
+    p.bodyTemp = clamp(insulated ? Math.max(p.bodyTemp + 1.5, 38.6) : p.bodyTemp + 1.5, 28, 39);
 
     p.health = 100;
     this.context.playAction('lie', 2.8);

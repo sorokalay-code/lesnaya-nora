@@ -92,7 +92,7 @@ function fixture() {
     camera.position.set(p.x, p.y + 0.75, p.z);
     camera.lookAt(p.x, p.y - 0.15, p.z - 2.2);
     camera.updateMatrixWorld();
-    const result = earth.dig(camera, p.x, p.y, p.z, down);
+    const result = earth.dig(camera, p.x, p.y, p.z, down ? 'down' : 'aim');
     assert.ok(result.success, result.reason);
     return result.node!;
   }

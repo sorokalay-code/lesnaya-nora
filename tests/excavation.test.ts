@@ -115,11 +115,23 @@ test('digging respects the 50 m depth limit', () => {
   assert.match(result.reason, /50 м/);
 });
 
+test('explicit upward digging opens a sloped passage to the surface', () => {
+  const save = fixture();
+  save.excavation = [{ x: 0, y: -1.5, z: 0 }];
+  const earth = new Excavation(new THREE.Scene(), fakeWorld(), save);
+  assert.equal(earth.dig(camera(), 0, 0, 0, 'up').success, false);
+  const result = earth.dig(camera(), 0, -2.45, 0.3, 'up');
+  assert.ok(result.success, result.reason);
+  assert.equal(result.node?.y, -0.75);
+  assert.equal(earth.openings.length, 1);
+  assert.ok(earth.floorAt(0, -1, -2.45) > -2.45);
+});
+
 test('digging downward creates a connected sloped section', () => {
   const save = fixture();
   save.excavation = [{ x: 0, y: -0.5, z: 0 }];
   const earth = new Excavation(new THREE.Scene(), fakeWorld(), save);
-  const result = earth.dig(camera(), 0, -1.45, 0, true);
+  const result = earth.dig(camera(), 0, -1.45, 0, 'down');
   assert.equal(result.success, true);
   assert.equal(save.excavation.length, 2);
   assert.equal(save.excavation[1].y, -1.25);
