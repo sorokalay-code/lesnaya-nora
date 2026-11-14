@@ -52,9 +52,10 @@ export class WorldBoundary {
           side === 0 ? radius : side === 1 ? -t * radius : side === 2 ? -radius : t * radius;
         const z =
           side === 0 ? t * radius : side === 1 ? radius : side === 2 ? -t * radius : -radius;
-        positions.push(...point(x, z));
+        const vertex = point(x, z);
+        positions.push(...vertex);
         uvs.push(x / 7, z / 7);
-        groundColor(color, x, z, seed, biomeAt(x, z));
+        groundColor(color, x, z, seed, biomeAt(x, z), terrain.hasHighlands ? vertex[1] : undefined);
         colors.push(color.r, color.g, color.b);
       }
     for (let ring = 0; ring < rings.length - 1; ring++)

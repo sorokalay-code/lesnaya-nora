@@ -11,7 +11,7 @@ export function WorldPreview({ config }: { config: WorldConfig }) {
       <svg
         viewBox={`0 0 ${preview.resolution} ${preview.resolution}`}
         role="img"
-        aria-label="Предпросмотр карты: биомы и водоёмы"
+        aria-label="Предпросмотр карты: рельеф, биомы и водоёмы"
       >
         {preview.cells.map((biome, index) => (
           <rect
@@ -21,6 +21,14 @@ export function WorldPreview({ config }: { config: WorldConfig }) {
             y={Math.floor(index / preview.resolution)}
             width={1.05}
             height={1.05}
+          />
+        ))}
+        {preview.water.map((body) => (
+          <polyline
+            key={body.id}
+            className="preview-water-outline"
+            points={body.points}
+            strokeWidth={body.width}
           />
         ))}
         <circle
@@ -33,8 +41,8 @@ export function WorldPreview({ config }: { config: WorldConfig }) {
       <figcaption>
         <strong>Твой будущий лес</strong>
         <p>
-          Светлое — луга, тёмное — лес, голубое — вода, оливковое — болота, коричневое — огороды.
-          Точка в центре — старт.
+          Серое — горы, тёмно-зелёное — низины, голубое — вода, оливковое — болота. Точка в центре —
+          старт.
         </p>
         <p>
           {config.map?.seed == null

@@ -330,9 +330,9 @@ test('save round trip preserves configured terrain, plants, populations and cale
   }
 });
 
-test('no river excludes pikes while custom gardens, fish and other water remain available', () => {
+test('pond-only worlds retain fish but do not spawn pike', () => {
   const config = emptyConfig();
-  config.map = { ...defaultMapGeneration(), gardens: 0, ponds: 2, river: false };
+  config.map = { ...defaultMapGeneration(), gardens: 0, ponds: 2, rivers: 0, lakes: 0 };
   config.creatures.pike = 3;
   config.creatures.fish = 2;
   config.food = 0.3;
@@ -347,6 +347,23 @@ test('no river excludes pikes while custom gardens, fish and other water remain 
       (resource) => resource.kind === 'carrot' || resource.kind === 'cabbage',
     ),
   );
+});
+
+test('deep lakes support pike even in a map without rivers', () => {
+  const config = emptyConfig();
+  config.map = { ...defaultMapGeneration(), gardens: 0, ponds: 0, rivers: 0, lakes: 2 };
+  config.creatures.pike = 4;
+  const { water, world } = fixture(config);
+  assert.equal(water.pikes.length, 4);
+  const occupied = new Set(
+    water.pikes.map((pike) => {
+      const sample = world.waterAt(pike.x, pike.z);
+      assert.equal(sample?.body.kind, 'lake');
+      assert.ok(sample.depth > 0.65);
+      return sample.body.id;
+    }),
+  );
+  assert.equal(occupied.size, 2);
 });
 
 test('form exposes every species, native bounds, independent seasons and replacement notice', () => {

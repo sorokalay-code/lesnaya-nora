@@ -31,8 +31,8 @@ type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: Appea
 
 /** Реестр фабрик создаёт конкретные виды, не раскрывая их конструкторы игровым системам. */
 export class AnimalFactory {
-  static pike(x: number, z: number, river: WaterBody, rng: Random): Pike {
-    return new Pike(x, z, river, rng);
+  static pike(x: number, z: number, habitat: WaterBody, rng: Random): Pike {
+    return new Pike(x, z, habitat, rng);
   }
 
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {

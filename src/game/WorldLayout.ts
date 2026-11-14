@@ -1,4 +1,5 @@
 import { defaultMapGeneration, type MapGeneration } from './MapGeneration';
+import { GeneratedLandscape } from './GeneratedLandscape';
 import { hash2, Random, smoothNoise } from './Random';
 import type { Biome } from './types';
 import type { BiomePreference } from './WorldConfig';
@@ -24,6 +25,7 @@ export class WorldLayout {
   readonly water: readonly WaterDefinition[];
   readonly gardens: readonly LandscapeRegion[];
   readonly swamps: readonly LandscapeRegion[];
+  readonly landscape?: GeneratedLandscape;
 
   constructor(
     private readonly seed: number,
@@ -35,6 +37,14 @@ export class WorldLayout {
     const occupied: LandscapeRegion[] = [
       { x: 0, z: 0, radius: 12, biome: 'meadow', label: 'Родная поляна' },
     ];
+    if (this.settings.layout === 'generated' && this.settings.revision === 2) {
+      this.landscape = new GeneratedLandscape(seed, this.settings);
+      this.gardens = this.landscape.gardens;
+      this.swamps = this.landscape.swamps;
+      this.water = this.landscape.water;
+      this.regions = [...occupied, ...this.gardens, ...this.swamps];
+      return;
+    }
     const river = this.makeRiver(rng);
     const protectedRegions = [
       occupied[0],

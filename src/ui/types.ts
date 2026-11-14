@@ -101,6 +101,7 @@ export type DialogViewModel = (
 export interface MapViewModel {
   size: number;
   colors: string[];
+  water: import('./presenters/LandscapeMap').MapWater[];
   landmarks: { x: number; z: number; label: string }[];
   openings: { x: number; z: number }[];
   player: { x: number; z: number; heading: number };

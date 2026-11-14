@@ -9,7 +9,7 @@ export interface WaterPrey {
   z: number;
 }
 
-/** Щука патрулирует реку, бросается только на добычу в воде и никогда не пересекает сушу. */
+/** Щука патрулирует русло или озеро и преследует добычу в воде. */
 export class Pike extends Animal<'pike'> {
   readonly model: ModelInstance;
   private target?: WaterPrey;
@@ -20,7 +20,7 @@ export class Pike extends Animal<'pike'> {
   constructor(
     x: number,
     z: number,
-    private readonly river: WaterBody,
+    private readonly habitat: WaterBody,
     private readonly rng: Random,
   ) {
     const model = ModelAssets.shared.create('pike');
@@ -38,7 +38,7 @@ export class Pike extends Animal<'pike'> {
       Math.hypot(this.target.x - this.x, this.target.z - this.z) < 0.5
     ) {
       this.nextTurn = time + this.rng.range(3, 6);
-      const point = this.rng.pick(this.river.points);
+      const point = this.patrolPoint();
       this.target = { x: point.x + this.rng.range(-1, 1), z: point.z + this.rng.range(-1, 1) };
     }
     const target = this.target!;
@@ -96,5 +96,22 @@ export class Pike extends Animal<'pike'> {
       prey ? 1.65 : 0.8,
     );
     return bite;
+  }
+
+  private patrolPoint(): WaterPrey {
+    const points = this.habitat.points;
+    if (this.habitat.kind !== 'river' || this.habitat.bankWidth === undefined || points.length < 2)
+      return this.rng.pick(points);
+
+    // На изгибе движение к случайной дальней точке часто упирается в берег.
+    let nearest = 0;
+    for (let i = 1; i < points.length; i++)
+      if (
+        Math.hypot(points[i].x - this.x, points[i].z - this.z) <
+        Math.hypot(points[nearest].x - this.x, points[nearest].z - this.z)
+      )
+        nearest = i;
+    const neighbors = points.slice(Math.max(0, nearest - 1), nearest + 2);
+    return this.rng.pick(neighbors);
   }
 }

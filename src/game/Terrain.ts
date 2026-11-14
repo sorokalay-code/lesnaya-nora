@@ -20,9 +20,14 @@ export class Terrain {
     return this.water.carve(x, z, this.naturalHeightAt(x, z));
   }
 
+  get hasHighlands(): boolean {
+    return this.layout.landscape !== undefined;
+  }
+
   private naturalHeightAt(x: number, z: number): number {
     x /= this.scale;
     z /= this.scale;
+    if (this.layout.landscape) return this.layout.landscape.heightAt(x, z);
     const broad = (smoothNoise(x / 38, z / 38, this.seed + 211) - 0.5) * 9;
     const ridges = (smoothNoise(x / 18, z / 18, this.seed + 251) - 0.5) * 3.2;
     const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * 0.7;
@@ -42,6 +47,7 @@ export class Terrain {
   temperatureOffset(x: number, z: number): number {
     const elevation = this.heightAt(x, z);
     const lowCold = elevation < -1.5 ? (elevation + 1.5) * 0.45 : 0;
-    return -Math.max(0, elevation) * 0.65 + lowCold;
+    const uphillCold = Math.max(0, elevation) * (this.layout.landscape ? 0.28 : 0.65);
+    return -uphillCold + lowCold;
   }
 }

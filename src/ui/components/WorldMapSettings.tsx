@@ -1,5 +1,10 @@
 import { Button, FieldGroup, FieldLabel, Input, Select } from '../kit';
-import { defaultMapGeneration, MAP_LIMITS, type MapGeneration } from '../../game/MapGeneration';
+import {
+  defaultMapGeneration,
+  MAP_LIMITS,
+  riverCount,
+  type MapGeneration,
+} from '../../game/MapGeneration';
 import { WORLD_LIMITS } from '../../game/WorldConfig';
 import type { SettingsSectionProps } from './WorldSettings';
 import { WorldPreview } from './WorldPreview';
@@ -16,16 +21,29 @@ const MAP_PRESETS: readonly {
   description: string;
   settings: Partial<MapGeneration>;
 }[] = [
-  { label: 'Лесной край', description: 'Чащи, поляны и извилистая река', settings: {} },
+  { label: 'Лесной край', description: 'Холмы, долины и река с притоком', settings: {} },
+  {
+    label: 'Горный край',
+    description: 'Высокие хребты, озеро и три русла',
+    settings: { relief: 1.65, gardens: 1, swamps: 1, rivers: 3, ponds: 1 },
+  },
   {
     label: 'Озёрный край',
-    description: 'Шесть прудов среди лесов и топей',
-    settings: { ponds: 6, swamps: 3, river: false, forestCover: 0.55 },
+    description: 'Три озера и топи в широких низинах',
+    settings: { ponds: 3, lakes: 3, swamps: 3, rivers: 1, relief: 0.55, forestCover: 0.55 },
   },
   {
     label: 'Луговой край',
     description: 'Открытые луга и пологие холмы',
-    settings: { forestCover: 0.2, relief: 0.4, gardens: 1, swamps: 0, ponds: 2, river: false },
+    settings: {
+      forestCover: 0.2,
+      relief: 0.4,
+      gardens: 1,
+      swamps: 0,
+      ponds: 2,
+      lakes: 0,
+      rivers: 0,
+    },
   },
   {
     label: 'Знакомый лес',
@@ -67,7 +85,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             value={map.layout}
             onChange={(event) => {
               if (event.target.value === 'classic' || event.target.value === 'generated')
-                change({ layout: event.target.value });
+                change({ layout: event.target.value, revision: 2 });
             }}
           >
             <option value="generated">Новое по зерну карты</option>
@@ -130,7 +148,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
       <FieldGroup legend="Ландшафт и водоёмы">
         {(
           [
-            ['relief', 'Высота холмов'],
+            ['relief', 'Выраженность рельефа'],
             ['biomeScale', 'Размер областей биомов'],
             ['forestCover', 'Лесистость'],
           ] as const
@@ -152,7 +170,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
           </FieldLabel>
         ))}
         <p className="config-hint">
-          0% высоты — равнина до вырезания водоёмов. Лесистость действует в смешанном биоме;
+          0% рельефа — равнина до вырезания водоёмов. Лесистость действует в смешанном биоме;
           преобладающий биом выбирается в «Природе».
         </p>
         <div className="creature-grid">
@@ -177,17 +195,44 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             </FieldLabel>
           ))}
         </div>
-        <FieldLabel className="remains-option">
-          <Input
-            type="checkbox"
-            checked={map.river}
-            onChange={(event) => change({ river: event.target.checked })}
-          />
-          Река
-        </FieldLabel>
+        {map.layout === 'generated' && map.revision === 2 ? (
+          <div className="creature-grid">
+            <FieldLabel separateControl className="creature-input">
+              Реки и притоки
+              <Input
+                type="number"
+                min={0}
+                max={MAP_LIMITS.rivers.max}
+                step={1}
+                value={riverCount(map)}
+                onChange={(event) => change({ river: true, rivers: Number(event.target.value) })}
+              />
+            </FieldLabel>
+            <FieldLabel separateControl className="creature-input">
+              Озёра
+              <Input
+                type="number"
+                min={0}
+                max={MAP_LIMITS.lakes.max}
+                step={1}
+                value={map.lakes ?? 1}
+                onChange={(event) => change({ lakes: Number(event.target.value) })}
+              />
+            </FieldLabel>
+          </div>
+        ) : (
+          <FieldLabel className="remains-option">
+            <Input
+              type="checkbox"
+              checked={map.river}
+              onChange={(event) => change({ river: event.target.checked })}
+            />
+            Река
+          </FieldLabel>
+        )}
         <p className="config-hint">
-          Размер водоёмов регулируется количеством воды в «Природе». Без реки щуки не появляются;
-          без водоёмов отсутствуют также утки и рыбы. Родная поляна остаётся свободной.
+          Количество воды в «Природе» меняет ширину рек и площадь озёр. Щуки живут в глубоких реках
+          и озёрах. Родная поляна остаётся сухой.
         </p>
       </FieldGroup>
     </>

@@ -325,6 +325,18 @@
 .preview-water {
   fill: var(--ui-map-water);
 }
+.preview-water-outline {
+  fill: none;
+  stroke: var(--ui-map-water);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.preview-highland {
+  fill: var(--ui-map-highland);
+}
+.preview-lowland {
+  fill: var(--ui-map-lowland);
+}
 .preview-swamp {
   fill: var(--ui-map-swamp);
 }

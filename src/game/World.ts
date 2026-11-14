@@ -127,8 +127,12 @@ export class World {
       (x, z) => this.heightAt(x, z),
       this.chunks,
       this.config.vegetation,
+      this.size,
     );
-    for (const body of this.terrain.water.bodies) this.waterSources.push(...body.points);
+    for (const body of this.terrain.water.bodies)
+      this.waterSources.push(
+        ...body.points.filter(({ x, z }) => Math.max(Math.abs(x), Math.abs(z)) < this.size - 7),
+      );
     new RockField(
       seed,
       this.chunks,
@@ -280,7 +284,14 @@ export class World {
           [wx + step, wz + step],
           [wx, wz + step],
         ]) {
-          groundColor(color, vx, vz, this.seed, this.biomeAt(vx, vz));
+          groundColor(
+            color,
+            vx,
+            vz,
+            this.seed,
+            this.biomeAt(vx, vz),
+            this.terrain.hasHighlands ? this.heightAt(vx, vz) : undefined,
+          );
           colors.push(color.r, color.g, color.b);
           uvs.push(vx / 7, vz / 7);
         }

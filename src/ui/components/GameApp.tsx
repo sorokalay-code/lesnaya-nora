@@ -405,6 +405,24 @@ function WorldMap({ data }: { data: MapViewModel }) {
       ctx.fillStyle = color;
       ctx.fillRect((index % 60) * 7, Math.floor(index / 60) * 7, 7, 7);
     });
+    ctx.strokeStyle = '#68b1c4';
+    ctx.fillStyle = '#68b1c4';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const body of data.water) {
+      const [start, ...rest] = body.points;
+      const radius = (body.radius / data.size) * 210;
+      ctx.beginPath();
+      if (rest.length === 0) {
+        ctx.arc(position(start.x), position(start.z), radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.moveTo(position(start.x), position(start.z));
+        for (const point of rest) ctx.lineTo(position(point.x), position(point.z));
+        ctx.lineWidth = radius * 2;
+        ctx.stroke();
+      }
+    }
     for (const landmark of data.landmarks) {
       ctx.fillStyle = '#f8e9cc';
       ctx.beginPath();
@@ -441,6 +459,7 @@ function WorldMap({ data }: { data: MapViewModel }) {
     <>
       <p>
         Белая стрелка показывает твоё положение и направление взгляда. Тёмные круги — входы в норы.
+        Голубое — вода, серое — горы.
       </p>
       <canvas ref={canvas} width={420} height={420} />
     </>

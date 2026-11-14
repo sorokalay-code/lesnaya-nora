@@ -38,15 +38,25 @@ export class WaterSimulation {
   constructor(private readonly context: Context) {
     this.navigation = new WaterNavigation(context.world);
     this.sources = new HawkVictims(context);
-    const river = context.world.terrain.water.bodies.find((body) => body.kind === 'river');
-    if (river) {
+    const habitats = context.world.terrain.water.bodies.flatMap((body) => {
+      if (body.kind === 'pond') return [];
+      const points = body.points.filter(
+        ({ x, z }) =>
+          Math.max(Math.abs(x), Math.abs(z)) < context.world.size - 7 &&
+          (context.world.waterAt(x, z)?.depth ?? 0) > 0.65,
+      );
+      return points.length ? [{ ...body, points }] : [];
+    });
+    if (habitats.length) {
       const rng = new Random(context.save.seed + 55781);
       const count = (context.save.worldConfig ?? defaultWorldConfig()).creatures.pike;
       for (let index = 0; index < count; index++) {
         const identity = `pike:${index}`;
         if (context.save.deadPopulation?.includes(identity)) continue;
-        const point = river.points[1 + (index % (river.points.length - 1))];
-        const pike = AnimalFactory.pike(point.x, point.z, river, rng);
+        const habitat = habitats[index % habitats.length];
+        const slot = Math.floor(index / habitats.length);
+        const point = habitat.points[(slot + 1) % habitat.points.length];
+        const pike = AnimalFactory.pike(point.x, point.z, habitat, rng);
         pike.root.userData.remainsIdentity = identity;
         pike.update(0, 0, context.world);
         this.pikes.push(pike);

@@ -15,6 +15,7 @@ export class WaterScenery {
     heightAt: (x: number, z: number) => number,
     chunks: WorldChunks,
     vegetation = 1,
+    edge = Infinity,
   ) {
     const material = new THREE.MeshStandardMaterial({
       color: 0x509e9a,
@@ -30,7 +31,7 @@ export class WaterScenery {
     padGeometry.rotateX(-Math.PI / 2);
     const padMaterial = new THREE.MeshStandardMaterial({ color: 0x669453, roughness: 0.9 });
     for (const body of map.bodies) {
-      const geometry = WaterScenery.geometry(map, body, heightAt);
+      const geometry = WaterScenery.geometry(map, body, heightAt, edge);
       const positions = geometry.getAttribute('position');
       const cells = new Map<string, number[]>();
       for (let i = 0; i < positions.count; i += 3) {
@@ -54,7 +55,13 @@ export class WaterScenery {
         chunks.add(water, cx * 24 + 12, cz * 24 + 12);
       }
       geometry.dispose();
-      for (const point of body.points)
+      // У нового русла больше точек для формы, чем требуется для берегового декора.
+      const sites = body.points.filter(
+        (point, index) =>
+          Math.max(Math.abs(point.x), Math.abs(point.z)) < edge &&
+          (body.bankWidth === undefined || body.kind !== 'river' || index % 3 === 0),
+      );
+      for (const point of sites)
         for (let i = 0; i < Math.round(16 * vegetation); i++) {
           const angle = (i * Math.PI) / (8 * vegetation);
           const x = point.x + Math.cos(angle) * (body.radius + 0.45),
@@ -65,8 +72,8 @@ export class WaterScenery {
           reed.scale.y = 0.7 + (i % 4) * 0.2;
           chunks.add(reed, x, z);
         }
-      for (let i = 0; i < Math.round(body.points.length * 4 * vegetation); i++) {
-        const point = body.points[i % body.points.length],
+      for (let i = 0; i < Math.round(sites.length * 4 * vegetation); i++) {
+        const point = sites[i % sites.length],
           angle = i * 2.4;
         const x = point.x + Math.cos(angle) * body.radius * 0.65,
           z = point.z + Math.sin(angle) * body.radius * 0.65;
@@ -82,50 +89,77 @@ export class WaterScenery {
     map: WaterMap,
     body: WaterBody,
     heightAt: (x: number, z: number) => number,
+    edge = Infinity,
   ): THREE.BufferGeometry {
     const vertices: number[] = [];
-    const minX = Math.floor(Math.min(...body.points.map((p) => p.x)) - body.radius - 1);
-    const maxX = Math.ceil(Math.max(...body.points.map((p) => p.x)) + body.radius + 1);
-    const minZ = Math.floor(Math.min(...body.points.map((p) => p.z)) - body.radius - 1);
-    const maxZ = Math.ceil(Math.max(...body.points.map((p) => p.z)) + body.radius + 1);
+    // Для извилистой реки обход прямоугольника всей карты слишком дорог.
+    // Собираем интервалы ячеек вокруг отдельных отрезков, без повторной триангуляции.
+    const rows = new Map<number, [number, number][]>();
+    for (let i = 0; i < body.points.length; i++) {
+      const a = body.points[i];
+      const b = body.points[i + 1] ?? a;
+      const margin = body.radius + 1;
+      const minX = Math.max(-edge, Math.floor(Math.min(a.x, b.x) - margin));
+      const maxX = Math.min(edge, Math.ceil(Math.max(a.x, b.x) + margin));
+      const minZ = Math.max(-edge, Math.floor(Math.min(a.z, b.z) - margin));
+      const maxZ = Math.min(edge, Math.ceil(Math.max(a.z, b.z) + margin));
+      for (let z = minZ; z < maxZ; z++) {
+        const intervals = rows.get(z) ?? [];
+        intervals.push([minX, maxX]);
+        rows.set(z, intervals);
+      }
+    }
     const preceding = map.bodies.slice(0, map.bodies.indexOf(body));
+    const samples = new Map<string, Vertex>();
     const vertex = (x: number, z: number): Vertex => {
-      let wet = Math.min(body.level - heightAt(x, z), -map.distance(body, x, z));
+      const key = `${x},${z}`;
+      const cached = samples.get(key);
+      if (cached) return cached;
+      let wet = -map.distance(body, x, z);
+      if (wet >= -2) wet = Math.min(wet, body.level - heightAt(x, z));
       // Общая гладь в месте впадения: не накладываем два прозрачных меша друг на друга.
       for (const other of preceding) wet = Math.min(wet, map.distance(other, x, z));
-      return { x, z, wet };
+      const point = { x, z, wet };
+      samples.set(key, point);
+      return point;
     };
-    for (let x = minX; x < maxX; x++)
-      for (let z = minZ; z < maxZ; z++) {
-        const a = vertex(x, z),
-          b = vertex(x + 1, z),
-          c = vertex(x + 1, z + 1),
-          d = vertex(x, z + 1);
-        for (const triangle of [
-          [a, c, b],
-          [a, d, c],
-        ]) {
-          const polygon: Vertex[] = [];
-          for (let i = 0; i < 3; i++) {
-            const current = triangle[i],
-              next = triangle[(i + 1) % 3];
-            const currentWet = current.wet >= 0,
-              nextWet = next.wet >= 0;
-            if (currentWet) polygon.push(current);
-            if (currentWet !== nextWet) {
-              const t = current.wet / (current.wet - next.wet);
-              polygon.push({
-                x: current.x + (next.x - current.x) * t,
-                z: current.z + (next.z - current.z) * t,
-                wet: 0,
-              });
+    for (const [z, intervals] of rows) {
+      intervals.sort(([a], [b]) => a - b);
+      let scanned = -Infinity;
+      for (const [minX, maxX] of intervals) {
+        for (let x = Math.max(scanned, minX); x < maxX; x++) {
+          const a = vertex(x, z),
+            b = vertex(x + 1, z),
+            c = vertex(x + 1, z + 1),
+            d = vertex(x, z + 1);
+          for (const triangle of [
+            [a, c, b],
+            [a, d, c],
+          ]) {
+            const polygon: Vertex[] = [];
+            for (let i = 0; i < 3; i++) {
+              const current = triangle[i],
+                next = triangle[(i + 1) % 3];
+              const currentWet = current.wet >= 0,
+                nextWet = next.wet >= 0;
+              if (currentWet) polygon.push(current);
+              if (currentWet !== nextWet) {
+                const t = current.wet / (current.wet - next.wet);
+                polygon.push({
+                  x: current.x + (next.x - current.x) * t,
+                  z: current.z + (next.z - current.z) * t,
+                  wet: 0,
+                });
+              }
             }
+            for (let i = 1; i < polygon.length - 1; i++)
+              for (const p of [polygon[0], polygon[i], polygon[i + 1]])
+                vertices.push(p.x, body.level + 0.012, p.z);
           }
-          for (let i = 1; i < polygon.length - 1; i++)
-            for (const p of [polygon[0], polygon[i], polygon[i + 1]])
-              vertices.push(p.x, body.level + 0.012, p.z);
         }
+        scanned = Math.max(scanned, maxX);
       }
+    }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.computeVertexNormals();
