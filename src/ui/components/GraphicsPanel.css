@@ -1,20 +1,7 @@
-.touch-menu.game-menu.graphics-menu {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.graphics-menu > header {
-  position: static;
-  flex-shrink: 0;
-}
-
-.graphics-menu > .graphics-content {
+.graphics-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--ui-space-8);
-  padding-inline: var(--ui-space-12);
-  scrollbar-gutter: stable;
 }
 
 .graphics-content .ui-field-label {

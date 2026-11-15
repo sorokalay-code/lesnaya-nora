@@ -27,7 +27,9 @@ function trapDialogFocus(event: KeyboardEvent<HTMLElement>): void {
     ...event.currentTarget.querySelectorAll<HTMLElement>(
       'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]',
     ),
-  ].filter((control) => control.getClientRects().length > 0);
+  ].filter(
+    (control) => control.getAttribute('tabindex') !== '-1' && control.getClientRects().length > 0,
+  );
   const first = controls[0],
     last = controls.at(-1);
   if (!first) {

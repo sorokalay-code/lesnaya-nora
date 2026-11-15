@@ -13,6 +13,7 @@ import type {
   OverlayViewModel,
   UIAction,
   GameMenuPage,
+  SettingsTab,
   SaveSlotSummary,
 } from './types';
 
@@ -21,6 +22,7 @@ export type WorldSettingsTab = 'map' | 'nature' | 'population' | 'calendar';
 export interface UIState {
   conversationPage: ConversationPage;
   gameMenu?: GameMenuPage;
+  settingsTab: SettingsTab;
   burrow?: BurrowView;
   graphics: GraphicsSettings;
   soundMuted: boolean;
@@ -62,6 +64,7 @@ export interface UIState {
 export function createUIStore(dispatch: UIAction) {
   return createStore<UIState>()(() => ({
     conversationPage: 'overview',
+    settingsTab: 'graphics',
     graphics: GRAPHICS_PRESETS.balanced,
     fullscreen: false,
     fullscreenAvailable: false,

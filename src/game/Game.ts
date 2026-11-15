@@ -121,7 +121,6 @@ export class Game {
   private movement!: PlayerMovement;
   private running = false;
   private readonly animalState: AnimalState = {};
-  private readonly controls = { visible: true };
   private readonly groundAt = (x: number, z: number) => this.world.heightAt(x, z);
 
   constructor(private readonly app: HTMLElement) {
@@ -147,8 +146,7 @@ export class Game {
   private buildUi(): void {
     this.ui = new GameUI(this.app, (action, value) => this.action(action, value));
     this.ui.store.setState({ graphics: this.graphics.settings });
-    this.controls.visible = localStorage.getItem('lesnaya-nora-show-controls') !== 'false';
-    this.ui.setControls(this.controls.visible);
+    this.ui.setControls(localStorage.getItem('lesnaya-nora-show-controls') !== 'false');
     this.syncCameraUi();
   }
 
@@ -257,7 +255,8 @@ export class Game {
     this.ui.store.setState({
       saveNotice: undefined,
       worldConfig: structuredClone(this.save.worldConfig ?? defaultWorldConfig()),
-      adventureName: this.activeAdventureName,
+      adventureName: '',
+      worldSettingsTab: 'map',
     });
     this.attackSounds?.dispose();
     this.interactions?.dispose();
@@ -556,7 +555,6 @@ export class Game {
       inventory: this.inventory,
       environment: this.environment,
       queries: this.queries,
-      controls: this.controls,
       resetDig: () => {
         this.runtime.digHeld = false;
       },
@@ -720,11 +718,28 @@ export class Game {
       this.ui.store.setState({ graphics: settings });
       return;
     }
-    if (action === 'graphics-menu' && this.ui.state.overlay?.type === 'start') {
-      this.ui.store.setState({ gameMenu: 'graphics' });
+    if (action === 'sound') {
+      this.sound.unlock();
+      this.sound.muted = !this.sound.muted;
+      this.ui.store.setState({ soundMuted: this.sound.muted });
       return;
     }
-    if (action === 'new-game-menu') {
+    if (action === 'toggle-controls') {
+      const visible = !this.ui.state.showControls;
+      localStorage.setItem('lesnaya-nora-show-controls', String(visible));
+      this.ui.setControls(visible);
+      return;
+    }
+    const overlay = this.ui.state.overlay;
+    const frontScreen = overlay?.type === 'start' || overlay?.type === 'gameover';
+    if (frontScreen && (action === 'settings' || action === 'graphics-menu')) {
+      this.ui.store.setState({
+        gameMenu: 'settings',
+        settingsTab: action === 'graphics-menu' ? 'graphics' : this.ui.state.settingsTab,
+      });
+      return;
+    }
+    if (action === 'new-game-menu' && !this.ui.state.adventureName.trim()) {
       try {
         this.ui.store.setState({ adventureName: this.saves.nextAdventureName() });
       } catch (error) {
@@ -733,16 +748,14 @@ export class Game {
         );
         return;
       }
-      if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
-        this.ui.store.setState({ gameMenu: 'new-game' });
-        return;
-      }
-      if (this.running) this.actions.execute(action);
+    }
+    if (action === 'new-game-menu' && frontScreen) {
+      this.ui.store.setState({ gameMenu: 'new-game' });
       return;
     }
     if (action === 'saved-games') {
       this.refreshSaveList();
-      if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
+      if (frontScreen) {
         this.ui.store.setState({ gameMenu: 'saves' });
         return;
       }
@@ -765,8 +778,8 @@ export class Game {
       }
       return;
     }
-    if (this.ui.state.overlay?.type === 'start' || this.ui.state.overlay?.type === 'gameover') {
-      if (action === 'menu-back') {
+    if (frontScreen) {
+      if (action === 'menu-back' || action === 'resume') {
         this.ui.store.setState({ gameMenu: undefined });
         return;
       }

@@ -15,8 +15,8 @@ import type {
 import type { SaveSlotSummary } from '../game/SaveRepository';
 
 export type UIAction = (action: string, value?: string | number) => void;
-export type GameMenuPage =
-  'main' | 'settings' | 'graphics' | 'new-game' | 'controls' | 'saves' | 'burrow';
+export type GameMenuPage = 'main' | 'settings' | 'new-game' | 'saves' | 'burrow';
+export type SettingsTab = 'graphics' | 'controls' | 'audio' | 'interface';
 export interface PromptPart {
   key?: string;
   text: string;

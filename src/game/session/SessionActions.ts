@@ -29,7 +29,6 @@ interface Context {
   inventory: InventoryController;
   environment: EnvironmentController;
   queries: SessionQueries;
-  controls: { visible: boolean };
   resetDig: () => void;
   persist: (notify: boolean, manual?: boolean) => void;
   toast: (message: string) => void;
@@ -57,13 +56,13 @@ export class SessionActions {
         'resume',
         'close',
         'menu-back',
+        'continue-menu',
         'settings',
         'graphics-menu',
         'controls-help',
         'new-game-menu',
+        'saved-games',
         'save',
-        'sound',
-        'toggle-controls',
         'status-panel',
         'self-profile',
         'journal',
@@ -148,13 +147,6 @@ export class SessionActions {
       return;
     }
 
-    if (action === 'sound') {
-      this.context.sound.muted = !this.context.sound.muted;
-      this.context.ui.store.setState({ soundMuted: this.context.sound.muted });
-      this.context.toast(this.context.sound.muted ? 'Звук выключен' : 'Звук включён');
-      return;
-    }
-
     if (action === 'self-profile') {
       this.context.view.unlock();
       this.context.ui.closeJournal();
@@ -214,13 +206,6 @@ export class SessionActions {
         return;
       }
       this.context.ui.store.setState({ familyOpen: true });
-      return;
-    }
-
-    if (action === 'toggle-controls') {
-      this.context.controls.visible = !this.context.controls.visible;
-      localStorage.setItem('lesnaya-nora-show-controls', String(this.context.controls.visible));
-      this.context.ui.setControls(this.context.controls.visible);
       return;
     }
 

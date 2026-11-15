@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
 import type { SaveSlotSummary } from '../types';
-import { Button, ScrollContainer } from '../kit';
+import { Button } from '../kit';
 
 /** Показывает доступные миры, снимки, их состояние и действия загрузки или удаления. */
 export function SaveLibrary({ store }: { store: UIStore }) {
@@ -27,7 +27,7 @@ export function SaveLibrary({ store }: { store: UIStore }) {
       {!slots.length && !legacyFound ? (
         <p className="save-library-empty">Сохранений пока нет. Создай новое приключение.</p>
       ) : (
-        <ScrollContainer className="save-slot-list" label="Сохранения">
+        <div className="save-slot-list">
           {slots.map((slot) => (
             <SaveCard
               key={slot.id}
@@ -43,7 +43,7 @@ export function SaveLibrary({ store }: { store: UIStore }) {
               onCancelDelete={() => setDeleteId(undefined)}
             />
           ))}
-        </ScrollContainer>
+        </div>
       )}
     </section>
   );
@@ -94,7 +94,7 @@ function SaveCard({
         ) : (
           <div className="save-card-actions">
             <Button disabled={!slot.supported} variant="primary" onClick={onLoad}>
-              Продолжить
+              Загрузить
             </Button>
             <Button onClick={onDelete}>Удалить</Button>
           </div>

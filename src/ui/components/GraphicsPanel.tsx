@@ -1,7 +1,7 @@
 import { useStore } from 'zustand';
 import { graphicsPreset, type GraphicsSettings } from '../../game/GraphicsSettings';
 import type { UIStore } from '../store';
-import { Button, FieldLabel, ScrollContainer, Select } from '../kit';
+import { Button, FieldLabel, Select } from '../kit';
 import './GraphicsPanel.css';
 
 const fields = {
@@ -31,7 +31,7 @@ export function GraphicsPanel({ store }: { store: UIStore }) {
   const graphics = useStore(store, (state) => state.graphics);
   const dispatch = useStore(store, (state) => state.dispatch);
   return (
-    <ScrollContainer className="graphics-content" label="Настройки графики">
+    <div className="graphics-content">
       <FieldLabel separateControl>
         Пресет
         <Select
@@ -63,6 +63,6 @@ export function GraphicsPanel({ store }: { store: UIStore }) {
       ))}
       <p>Изменения применяются сразу и сохраняются в браузере.</p>
       <Button onClick={() => dispatch('graphics:reset')}>Сбросить настройки графики</Button>
-    </ScrollContainer>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ export function Tabs<T extends string>({
   value,
   onChange,
   className,
+  orientation = 'horizontal',
 }: {
   id: string;
   label: string;
@@ -22,9 +23,15 @@ export function Tabs<T extends string>({
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  orientation?: 'horizontal' | 'vertical';
 }) {
   return (
-    <div className={withClassName('ui-tabs', className)} role="tablist" aria-label={label}>
+    <div
+      className={withClassName('ui-tabs', className)}
+      role="tablist"
+      aria-label={label}
+      aria-orientation={orientation}
+    >
       {options.map((option, index) => (
         <Button
           key={option.value}
@@ -36,8 +43,9 @@ export function Tabs<T extends string>({
           onClick={() => onChange(option.value)}
           onKeyDown={(event) => {
             let next: number;
-            if (event.key === 'ArrowRight') next = (index + 1) % options.length;
-            else if (event.key === 'ArrowLeft')
+            if (event.key === (orientation === 'vertical' ? 'ArrowDown' : 'ArrowRight'))
+              next = (index + 1) % options.length;
+            else if (event.key === (orientation === 'vertical' ? 'ArrowUp' : 'ArrowLeft'))
               next = (index + options.length - 1) % options.length;
             else if (event.key === 'Home') next = 0;
             else if (event.key === 'End') next = options.length - 1;

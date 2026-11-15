@@ -58,7 +58,8 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
         opened++;
         store.setState({ gameMenu: store.getState().gameMenu ? undefined : 'main' });
       }
-      if (action === 'controls-help') store.setState({ gameMenu: 'controls' });
+      if (action === 'controls-help')
+        store.setState({ gameMenu: 'settings', settingsTab: 'controls' });
       if (action === 'save') saves++;
     },
   } as unknown as InputContext;
@@ -96,11 +97,12 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     key('Escape');
     assert.equal(ui.panelsOpen, true);
     key('F1');
-    assert.equal(store.getState().gameMenu, 'controls');
+    assert.equal(store.getState().gameMenu, 'settings');
+    assert.equal(store.getState().settingsTab, 'controls');
     input.dispose();
     input = undefined;
     key('Escape');
-    assert.equal(store.getState().gameMenu, 'controls');
+    assert.equal(store.getState().gameMenu, 'settings');
   } finally {
     input?.dispose();
     names.forEach((name, index) => {

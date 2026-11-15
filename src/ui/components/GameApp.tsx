@@ -6,6 +6,7 @@ import { AirliftNotice } from './AirliftNotice';
 import { RabbitChaseNotice } from './RabbitChaseNotice';
 import { ActionMenu } from './ActionMenu';
 import { GameMenu } from './GameMenu';
+import { MenuTrigger } from './MenuTrigger';
 import { MobileUtilities } from './MobileUtilities';
 import { EventPanel } from './EventPanel';
 import { MobileControls } from './MobileControls';
@@ -77,10 +78,9 @@ function Toolbar() {
           ))}
         </div>
         <div className="top-actions">
-          <FullscreenButton store={store} compact />
           <Button onClick={() => dispatch('camera')}>◉ {first ? '1' : '3'}-е лицо</Button>
-          <Button onClick={() => dispatch('menu')}>☰ Меню · Esc</Button>
           <Button onClick={() => dispatch('world-actions')}>✦ Действия · Ё</Button>
+          <MenuTrigger store={store} />
         </div>
       </div>
       <div className="family-avatars">
@@ -537,10 +537,10 @@ function Overlay() {
             </Button>
             {overlay.hasSave && (
               <Button className="secondary" onClick={() => dispatch('saved-games')}>
-                Приключения и сохранения
+                Загрузить игру
               </Button>
             )}
-            <Button onClick={() => dispatch('graphics-menu')}>Графика</Button>
+            <Button onClick={() => dispatch('settings')}>Настройки</Button>
             <FullscreenButton store={store} />
           </div>
           <div className="start-foot">
@@ -564,7 +564,7 @@ function Overlay() {
             <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
               Начать новую историю
             </Button>
-            <Button onClick={() => dispatch('load')}>Вернуться к сохранению</Button>
+            <Button onClick={() => dispatch('saved-games')}>Загрузить игру</Button>
           </div>
         </div>
       ) : null}

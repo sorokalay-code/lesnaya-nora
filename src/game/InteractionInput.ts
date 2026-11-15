@@ -19,7 +19,8 @@ export class InteractionInput {
     if (!context.playing) return;
     if (code === 'Escape' && context.dialogPageOpen) return 'dialog-back';
 
-    if (code === 'Escape' && context.gameMenu && context.gameMenu !== 'main') return 'menu-back';
+    if (code === 'Escape' && context.gameMenu === 'burrow') return 'menu-back';
+    if (code === 'Escape' && context.gameMenu) return 'close-panels';
     if (code === 'Escape')
       return context.confirmationOpen
         ? 'cancel-remove'

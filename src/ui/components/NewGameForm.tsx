@@ -1,6 +1,4 @@
-import { FullscreenButton } from './FullscreenButton';
 import { Button, FieldLabel, Input } from '../kit';
-import { useLayoutEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useStore } from 'zustand';
 import { validWorldConfig } from '../../game/WorldConfig';
@@ -12,10 +10,6 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
   const config = useStore(store, (state) => state.worldConfig);
   const dispatch = useStore(store, (state) => state.dispatch);
   const adventureName = useStore(store, (state) => state.adventureName);
-
-  useLayoutEffect(() => {
-    store.setState({ worldSettingsTab: 'map' });
-  }, [store]);
 
   return (
     <form
@@ -37,10 +31,6 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
     >
       <header className="world-config-header">
         <div className="world-config-heading">
-          <div>
-            <small>ЛЕСНАЯ НОРА · СОЗДАНИЕ МИРА</small>
-            <h2 id="game-menu-title">Новая история</h2>
-          </div>
           <FieldLabel className="adventure-name-field">
             Название приключения
             <Input
@@ -51,10 +41,6 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
             />
           </FieldLabel>
           <div className="config-actions">
-            <FullscreenButton store={store} compact />
-            <Button data-cancel-new onClick={() => dispatch('menu-back')}>
-              ← Назад
-            </Button>
             <Button type="submit" variant={replacesStory ? 'danger' : 'primary'}>
               Начать новую игру
             </Button>

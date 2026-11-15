@@ -413,7 +413,6 @@ test('world fields keep accessible labels without making the whole row activate 
     assert.ok(row[1].includes(`id="${label[1]}"`));
     assert.doesNotMatch(label[0], /<(input|select)/);
   }
-  assert.match(html, /config-actions[\s\S]*fullscreen-button/);
 });
 
 test('expanded ranges create a custom world, longer seasons and larger neighbor families', () => {

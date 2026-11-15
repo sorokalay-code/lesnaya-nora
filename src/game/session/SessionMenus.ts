@@ -16,23 +16,29 @@ export class SessionMenus {
   constructor(private readonly context: Context) {}
 
   showGame(page: NonNullable<UIState['gameMenu']> = 'main'): void {
-    this.prepare();
+    if (!this.context.ui.state.gameMenu) this.prepare();
     this.context.ui.store.setState({ gameMenu: page });
   }
 
   execute(action: string): boolean {
     if (action === 'menu') {
-      if (this.context.ui.state.gameMenu === 'main') this.context.interactions.close();
+      if (this.context.ui.state.gameMenu) this.context.interactions.close();
       else this.showGame();
       return true;
     }
+    if (action === 'graphics-menu' || action === 'controls-help') {
+      this.showGame('settings');
+      this.context.ui.store.setState({
+        settingsTab: action === 'graphics-menu' ? 'graphics' : 'controls',
+      });
+      return true;
+    }
     const pages = {
+      'continue-menu': 'main',
       settings: 'settings',
-      'graphics-menu': 'graphics',
-      'controls-help': 'controls',
       'new-game-menu': 'new-game',
       'saved-games': 'saves',
-      'menu-back': this.context.ui.state.gameMenu === 'graphics' ? 'settings' : 'main',
+      'menu-back': 'main',
     } as const;
     if (Object.hasOwn(pages, action)) {
       this.showGame(pages[action as keyof typeof pages]);

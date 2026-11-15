@@ -1,4 +1,4 @@
-import { FullscreenButton } from './FullscreenButton';
+import { MenuTrigger } from './MenuTrigger';
 import { Button } from '../kit';
 import { useStore } from 'zustand';
 import type { UIStore } from '../store';
@@ -18,12 +18,7 @@ export function MobileUtilities({ store }: { store: UIStore }) {
           События{unread > 0 && <b>{unread}</b>}
         </Button>
       )}
-      {playing && (
-        <Button aria-label="Меню игры" onClick={() => dispatch('menu')}>
-          ☰
-        </Button>
-      )}
-      {playing && <FullscreenButton store={store} compact />}
+      <MenuTrigger store={store} compact />
     </div>
   );
 }

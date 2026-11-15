@@ -15,6 +15,7 @@ import { GameMenu } from '../src/ui/components/GameMenu';
 import { ActionMenu } from '../src/ui/components/ActionMenu';
 import { EventPanel } from '../src/ui/components/EventPanel';
 import { MobileUtilities } from '../src/ui/components/MobileUtilities';
+import { MenuTrigger } from '../src/ui/components/MenuTrigger';
 import { GameApp } from '../src/ui/components/GameApp';
 import { SaveLibrary } from '../src/ui/components/SaveLibrary';
 import type { HudView } from '../src/ui/types';
@@ -101,7 +102,9 @@ test('game menu, action panel and events are mutually exclusive and resume throu
   assert.equal(simulationPaused(store.getState()), true);
   menus.execute('settings');
   assert.equal(store.getState().gameMenu, 'settings');
-  menus.execute('menu-back');
+  menus.execute('controls-help');
+  assert.equal(store.getState().settingsTab, 'controls');
+  menus.execute('continue-menu');
   assert.equal(store.getState().gameMenu, 'main');
   menus.execute('world-actions');
   assert.equal(store.getState().gameMenu, undefined);
@@ -114,7 +117,7 @@ test('game menu, action panel and events are mutually exclusive and resume throu
   menus.execute('events-panel');
   assert.equal(blockingPanelOpen(store.getState()), false);
   assert.equal(counts().resumed, 1);
-  assert.ok(counts().unlocked >= 4);
+  assert.equal(counts().unlocked, 3);
   store.setState({ familyOpen: true, actionMenuOpen: true, eventsOpen: true });
   GameUI.prototype.showJournal.call(ui as GameUI, {
     mode: 'map',
@@ -126,7 +129,7 @@ test('game menu, action panel and events are mutually exclusive and resume throu
   assert.equal(store.getState().journal?.mode, 'map');
 });
 
-test('Escape navigates back from settings and new game while world shortcut does not affect typed text', () => {
+test('Escape resumes from any pause tab while keeping submenu back navigation and text input', () => {
   const input = new InteractionInput();
   const context = {
     playing: true,
@@ -135,25 +138,27 @@ test('Escape navigates back from settings and new game while world shortcut does
     mateMenuOpen: false,
     editable: false,
   };
-  assert.equal(input.action('Escape', { ...context, gameMenu: 'settings' }), 'menu-back');
+  assert.equal(input.action('Escape', { ...context, gameMenu: 'settings' }), 'close-panels');
   assert.equal(
     input.action('Escape', { ...context, gameMenu: 'new-game', editable: true }),
-    'menu-back',
+    'close-panels',
   );
   assert.equal(input.action('Escape', { ...context, gameMenu: 'main' }), 'close-panels');
+  assert.equal(input.action('Escape', { ...context, gameMenu: 'saves' }), 'close-panels');
+  assert.equal(input.action('Escape', { ...context, gameMenu: 'burrow' }), 'menu-back');
   assert.equal(input.action('Backquote', { ...context, gameMenu: 'settings' }), undefined);
   assert.equal(input.action('KeyM', { ...context, gameMenu: 'main' }), undefined);
   assert.equal(input.action('Backquote', { ...context, panelsOpen: false }), 'world-actions');
   assert.equal(input.action('Backquote', { ...context, editable: true }), undefined);
 });
 
-test('save and sound settings keep the pause menu open; world commands close only the action panel', () => {
+test('saving keeps the pause menu open and world commands close only their action panel', () => {
   const { ui, store } = fixture();
   let saves = 0,
     resumed = 0;
   let saveRequest: [boolean, boolean | undefined] | undefined;
   let inspections = 0;
-  const sound = { muted: false, unlock() {}, play() {} };
+  const sound = { unlock() {}, play() {} };
   const actions = new SessionActions({
     ui,
     web: { trapped: false },
@@ -188,8 +193,6 @@ test('save and sound settings keep the pause menu open; world commands close onl
   assert.equal(store.getState().gameMenu, 'main');
   assert.equal(resumed, 0);
   actions.execute('settings');
-  actions.execute('sound');
-  assert.equal(store.getState().soundMuted, true);
   assert.equal(store.getState().gameMenu, 'settings');
   actions.execute('world-actions');
   actions.execute('drink');
@@ -209,7 +212,11 @@ test('pause menu contains session controls and action panel contains only world 
   store.setState({ gameMenu: 'main' });
   const main = renderToStaticMarkup(createElement(GameMenu, { store }));
   assert.match(main, /Создать сохранение/);
+  assert.match(main, /Продолжить игру/);
+  assert.match(main, /Загрузить игру/);
   assert.match(main, /Новая игра/);
+  assert.match(main, /Настройки/);
+  assert.match(main, /role="tabpanel"/);
   assert.doesNotMatch(main, /Кормить молоком/);
   store.setState({ gameMenu: undefined, actionMenuOpen: true });
   const world = renderToStaticMarkup(createElement(ActionMenu, { store }));
@@ -222,20 +229,29 @@ test('pause menu contains session controls and action panel contains only world 
   assert.match(confirmation, /data-settings-tab="calendar" hidden=""/);
   assert.match(confirmation, /отдельное сохранение/);
   assert.match(confirmation, /Название приключения/);
-  assert.match(confirmation, /data-cancel-new/);
+  assert.match(confirmation, /aria-label="Закрыть меню"/);
 });
 
-test('mobile settings expose a toggle for performance diagnostics only on touch devices', () => {
+test('settings show the selected section with graphics, controls, audio and interface tabs', () => {
   const store = createUIStore(() => {});
   store.setState({ gameMenu: 'settings', touch: true });
   store.getInitialState = store.getState;
-  const mobile = renderToStaticMarkup(createElement(GameMenu, { store }));
-  assert.match(mobile, /Показатели производительности/);
-  assert.match(mobile, /aria-pressed="false"/);
+  const render = () => renderToStaticMarkup(createElement(GameMenu, { store }));
+  const graphics = render();
+  for (const label of ['Разделы настроек', 'Графика', 'Управление', 'Звук', 'Интерфейс', 'Тени'])
+    assert.ok(graphics.includes(label));
+  assert.doesNotMatch(graphics, /Показатели производительности/);
 
-  store.setState({ touch: false, performanceEnabled: true });
-  const desktop = renderToStaticMarkup(createElement(GameMenu, { store }));
-  assert.doesNotMatch(desktop, /Показатели производительности/);
+  store.setState({ settingsTab: 'audio', soundMuted: true });
+  assert.match(render(), /aria-pressed="false"[^>]*>Звук мира/);
+  store.setState({ settingsTab: 'controls' });
+  assert.match(render(), /Джойстик/);
+  store.setState({ settingsTab: 'interface', performanceEnabled: true });
+  const mobile = render();
+  assert.match(mobile, /Показатели производительности/);
+  assert.doesNotMatch(mobile, /Подсказка управления/);
+  store.setState({ touch: false });
+  assert.match(render(), /Подсказка управления/);
 });
 
 test('mobile utilities expose game menu and event history without showing event text', () => {
@@ -250,7 +266,7 @@ test('mobile utilities expose game menu and event history without showing event 
     events: ['СЕКРЕТНОЕ СОБЫТИЕ'],
   });
   const compact = renderToStaticMarkup(createElement(MobileUtilities, { store }));
-  assert.match(compact, /aria-label="Свернуть полный экран"/);
+  assert.doesNotMatch(compact, /Свернуть полный экран/);
   assert.match(compact, /Меню игры/);
   assert.match(compact, /События/);
   assert.doesNotMatch(compact, /СЕКРЕТНОЕ/);
@@ -259,6 +275,20 @@ test('mobile utilities expose game menu and event history without showing event 
   assert.match(panel, /СЕКРЕТНОЕ СОБЫТИЕ/);
   store.setState({ touch: false });
   assert.equal(renderToStaticMarkup(createElement(MobileUtilities, { store })), '');
+});
+
+test('desktop exposes a corner menu button and fullscreen belongs to the pause header', () => {
+  const store = createUIStore(() => {});
+  store.getInitialState = store.getState;
+  store.setState({ hud: {} as HudView, fullscreenAvailable: true });
+  const main = renderToStaticMarkup(createElement(MenuTrigger, { store }));
+  assert.match(main, /aria-label="Меню игры"/);
+  assert.doesNotMatch(main, /Развернуть на весь экран/);
+  store.setState({ gameMenu: 'main' });
+  assert.match(
+    renderToStaticMarkup(createElement(GameMenu, { store })),
+    /pause-header[\s\S]*Развернуть на весь экран/,
+  );
 });
 
 test('fullscreen control belongs to the start screen actions', () => {

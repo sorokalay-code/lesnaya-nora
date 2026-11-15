@@ -1,30 +1,10 @@
-.touch-menu.game-menu.burrow-menu {
-  width: min(940px, calc(100% - var(--ui-space-24)));
-  max-width: 940px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.burrow-menu > header {
-  position: static;
-  flex-shrink: 0;
-}
-
-.burrow-menu > .burrow-content {
-  display: block;
-  min-height: 0;
-  scrollbar-gutter: stable;
-  padding-inline: var(--ui-space-8);
-}
-
 .game-menu .burrow-panel {
   display: block;
   padding-top: var(--ui-space-8);
 }
 
 .burrow-panel .ui-notice,
-.burrow-content > .ui-notice {
+.pause-menu-burrow .pause-scroll > .ui-notice {
   background: var(--ui-surface-raised);
   border-color: var(--ui-border-subtle);
   color: var(--ui-text);
