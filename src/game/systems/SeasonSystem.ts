@@ -60,7 +60,7 @@ export class SeasonSystem {
     return (
       base +
       Math.cos(((hour - 14) / 24) * Math.PI * 2) * 5 +
-      { clear: 0, rain: -4, mist: -2, snow: -6 }[weather]
+      { clear: 0, cloudy: 0, rain: -4, mist: -2, snow: -6 }[weather]
     );
   }
 

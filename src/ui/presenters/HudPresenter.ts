@@ -48,9 +48,13 @@ export class HudPresenter {
       clock = `${String(Math.floor(hour)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
     const daypart =
       hour < 5 || hour >= 21 ? 'Ночь' : hour < 10 ? 'Утро' : hour < 17 ? 'День' : 'Вечер';
-    const weather = { clear: '☀ Ясно', rain: '☂ Дождь', mist: '☁ Туман', snow: '❄ Снег' }[
-      save.weather
-    ];
+    const weather = {
+      clear: '☀ Ясно',
+      cloudy: '☁ Пасмурно',
+      rain: '☂ Дождь',
+      mist: '☁ Туман',
+      snow: '❄ Снег',
+    }[save.weather];
     const biome = underground
       ? `Под землёй · ${Math.round(earth.depthAt(p.x, p.y, p.z))} м`
       : { forest: 'Лес', meadow: 'Луг', swamp: 'Болото', garden: 'Огород' }[

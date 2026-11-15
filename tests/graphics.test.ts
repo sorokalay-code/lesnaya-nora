@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
+import type { SaveData } from '../src/game/types';
+import type { World } from '../src/game/World';
 import {
   GRAPHICS_PRESETS,
   GraphicsPreferences,
@@ -101,4 +103,45 @@ test('changing shadow resolution frees the old map and turning shadows off disab
   lighting.setShadowSize(512);
   assert.equal(sun.castShadow, true);
   assert.equal(sun.shadow.mapSize.x, 512);
+});
+
+test('sky and sunlight follow the clock and cloud cover without adding shadow geometry', () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera();
+  const lighting = new SceneLighting(scene, camera);
+  const save = { clock: 420, weather: 'clear', player: { x: 0, z: 0 } } as SaveData;
+  const ground = { heightAt: () => 5 } as World;
+  lighting.reset();
+  const sky = camera.getObjectByName('weather-sky');
+  assert.ok(sky instanceof THREE.Mesh && sky.material instanceof THREE.ShaderMaterial);
+  const sun = scene.children.find((child) => child instanceof THREE.DirectionalLight);
+  assert.ok(sun instanceof THREE.DirectionalLight);
+  const uniforms = sky.material.uniforms;
+  assert.equal(sky.geometry.getAttribute('position').count, 3);
+  assert.equal(sky.castShadow, false);
+  assert.equal(sky.material.depthWrite, false);
+
+  lighting.update(save, ground, false, false);
+  const morning = sun.position.x;
+  assert.ok(morning > 0 && uniforms.sunVisibility.value > 0.9);
+  save.clock = 1140;
+  lighting.update(save, ground, false, false);
+  assert.ok(sun.position.x < 0 && uniforms.sunVisibility.value > 0.9);
+  const direct = sun.intensity;
+  save.weather = 'cloudy';
+  lighting.update(save, ground, false, false);
+  assert.ok(sun.intensity < direct);
+  assert.equal(uniforms.sunVisibility.value, 0);
+
+  save.weather = 'clear';
+  save.clock = 60;
+  lighting.update(save, ground, true, false);
+  assert.equal(uniforms.sunVisibility.value, 0);
+  lighting.update(save, ground, true, true);
+  assert.equal(sky.visible, false);
+  scene.clear();
+  lighting.reset();
+  lighting.update(save, ground, true, false);
+  assert.equal(scene.getObjectByName('weather-sky'), sky);
+  assert.equal(sky.visible, true);
 });

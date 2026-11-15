@@ -13,11 +13,17 @@ import {defaultWorldConfig} from './src/game/WorldConfig.ts';
 import {RabbitFactory} from './src/game/animals/RabbitFactory.ts';
 import {Random} from './src/game/Random.ts';
 import {GRAPHICS_PRESETS} from './src/game/GraphicsSettings.ts';
+import {SceneLighting} from './src/game/session/SceneLighting.ts';
 import {readFileSync} from 'node:fs';
 for(const name of MODEL_NAMES){const data=readFileSync('public/models/'+name+'.glb');await ModelAssets.shared.register(name,data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));}
 const map = process.argv.includes('--generated') ? defaultMapGeneration() : undefined;
 const save = NewGameFactory.create(31415, 0, new RabbitFactory(new Random(31415)), { ...defaultWorldConfig(), map });
-const scene=new THREE.Scene(),world=new World(scene,31415,save);world.update(420,0,'clear',1,0,0);
+const scene = new THREE.Scene();
+const world = new World(scene, 31415, save);
+const lighting = new SceneLighting(scene, new THREE.PerspectiveCamera());
+lighting.reset();
+lighting.update(save, world, false, false);
+world.update(420,0,'clear',1,0,0);
 const presets = {};
 for(const [name, settings] of Object.entries(GRAPHICS_PRESETS)) {
   world.applyGraphics(settings,0,0,'clear');

@@ -51,8 +51,7 @@ export class ViewCamera {
         : this.fallbackPointer
           ? e.clientY - this.fallbackPointer.y
           : 0;
-      this.yaw -= dx * 0.006;
-      this.pitch = clamp(this.pitch + dy * 0.004, -0.3, 1.1);
+      this.lookBy(dx, dy);
       if (!this.isLocked && Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
         this.fallbackPointer = { x: e.clientX, y: e.clientY };
         const rect = canvas.getBoundingClientRect();
@@ -96,7 +95,11 @@ export class ViewCamera {
 
   lookBy(dx: number, dy: number): void {
     this.yaw -= dx * 0.006;
-    this.pitch = clamp(this.pitch + dy * 0.004, -0.3, 1.1);
+    this.adjustPitch(dy * 0.004);
+  }
+
+  private adjustPitch(delta: number): void {
+    this.pitch = clamp(this.pitch + delta, this.isFirstPerson ? -1.45 : -0.3, 1.1);
   }
 
   lock(): void {
@@ -129,6 +132,7 @@ export class ViewCamera {
     if (this.currentMode === mode) return;
 
     this.currentMode = mode;
+    this.adjustPitch(0);
     this.modeChanged = true;
     this.paws.visible = mode === 'first';
     this.camera.fov = mode === 'first' ? 72 : 60;
@@ -200,7 +204,7 @@ export class ViewCamera {
     if (this.lookEnabled && !this.isLocked) {
       const step = clamp(time - this.lastLookTime, 0, 0.05);
       this.yaw -= this.edgeX * step * 1.4;
-      this.pitch = clamp(this.pitch + this.edgeY * step * 0.65, -0.3, 1.1);
+      this.adjustPitch(this.edgeY * step * 0.65);
     }
 
     this.lastLookTime = time;

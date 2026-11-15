@@ -4,6 +4,24 @@ import { SeasonSystem } from '../systems';
 import { type SaveData, type Season, type Weather } from '../types';
 
 export const GAME_MINUTES_PER_SECOND = 6;
+const WINTER_WEATHER: readonly Weather[] = [
+  'clear',
+  'cloudy',
+  'mist',
+  'mist',
+  'snow',
+  'snow',
+  'snow',
+  'snow',
+];
+const MILD_WEATHER: readonly Weather[] = ['clear', 'clear', 'cloudy', 'mist', 'rain'];
+const WEATHER_CHANGE: Record<Weather, string> = {
+  clear: 'Небо прояснилось.',
+  cloudy: 'Небо затянуло облаками.',
+  rain: 'Пошёл дождь. В лесу пахнет мокрой листвой.',
+  mist: 'Над лесом стелется туман.',
+  snow: 'Начался снегопад. Пора искать тепло.',
+};
 
 interface Context {
   save: SaveData;
@@ -49,20 +67,10 @@ export class WorldCalendar {
   private newDay(): void {
     const previous = this.context.save.weather;
     this.context.save.weather = this.context.rng.pick(
-      this.season() === 'Зима'
-        ? (['clear', 'mist', 'snow', 'snow'] as Weather[])
-        : (['clear', 'clear', 'clear', 'mist', 'rain'] as Weather[]),
+      this.season() === 'Зима' ? WINTER_WEATHER : MILD_WEATHER,
     );
     if (previous !== this.context.save.weather)
-      this.context.toast(
-        this.context.save.weather === 'rain'
-          ? 'Пошёл дождь. В лесу пахнет мокрой листвой.'
-          : this.context.save.weather === 'mist'
-            ? 'Над лесом стелется туман.'
-            : this.context.save.weather === 'snow'
-              ? 'Начался снегопад. Пора искать тепло.'
-              : 'Небо прояснилось.',
-      );
+      this.context.toast(WEATHER_CHANGE[this.context.save.weather]);
 
     const grown = this.context.save.kits.filter((k) => k.alive && k.age >= 3).length;
     this.context.save.stats.survived = grown;

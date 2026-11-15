@@ -641,7 +641,9 @@ export class Game {
       action: (command) => this.action(command),
       gameOver: () => this.gameOver(),
     });
-    this.view.snap(this.save.player.x, this.save.player.y, this.save.player.z, this.sheltered);
+    const sheltered = this.sheltered;
+    this.lighting.update(this.save, this.world, this.calendar.isNight(), sheltered);
+    this.view.snap(this.save.player.x, this.save.player.y, this.save.player.z, sheltered);
     this.sessionUI.updateHud();
   }
 

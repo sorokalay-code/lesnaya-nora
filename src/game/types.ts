@@ -8,7 +8,7 @@ export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
 export type PredatorKind =
   'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'snake' | 'spider' | 'jumping-spider';
-export type Weather = 'clear' | 'rain' | 'mist' | 'snow';
+export type Weather = 'clear' | 'cloudy' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
 export interface Genes {

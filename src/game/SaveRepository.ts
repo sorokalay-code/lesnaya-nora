@@ -260,6 +260,8 @@ export class SaveRepository {
     )
       throw new Error('Сохранение повреждено или создано в старой версии игры');
 
+    if (!['clear', 'cloudy', 'rain', 'mist', 'snow'].includes(data.weather)) data.weather = 'clear';
+
     if (
       !GenomeValidation.valid(data.player.genes) ||
       !data.partners.every((partner) => partner && GenomeValidation.valid(partner.genes)) ||
