@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { StartupLoader } from './ui/components/StartupLoader';
+import { StartupLoader } from './ui/app';
 
 const app = document.querySelector<HTMLElement>('#app');
 if (!app) throw new Error('Не найден игровой контейнер');
@@ -25,10 +25,10 @@ async function startGame(): Promise<void> {
     const preload = ModelAssets.shared.preload(renderLoader);
     const [gameModule] = await Promise.all([
       import('./game/Game'),
-      import('./ui/kit/tokens.css'),
-      import('./ui/kit/spacing.css'),
-      import('./ui/kit/focus.css'),
-      import('./ui/kit/scrollbars.css'),
+      import('./ui/shared/ui/tokens.css'),
+      import('./ui/shared/ui/spacing.css'),
+      import('./ui/shared/ui/focus.css'),
+      import('./ui/shared/ui/scrollbars.css'),
       import('./improvements.css'),
       import('./style.css'),
       import('./responsive.css'),

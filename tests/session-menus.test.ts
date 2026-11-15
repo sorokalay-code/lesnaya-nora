@@ -11,13 +11,12 @@ import { GenomeValidation } from '../src/game/genetics/GenomeValidation';
 import { InteractionInput } from '../src/game/InteractionInput';
 import { GameUI } from '../src/ui/GameUI';
 import { createUIStore, simulationPaused, blockingPanelOpen } from '../src/ui/store';
-import { GameMenu } from '../src/ui/components/GameMenu';
-import { ActionMenu } from '../src/ui/components/ActionMenu';
-import { EventPanel } from '../src/ui/components/EventPanel';
-import { MobileUtilities } from '../src/ui/components/MobileUtilities';
-import { MenuTrigger } from '../src/ui/components/MenuTrigger';
-import { GameApp } from '../src/ui/components/GameApp';
-import { SaveLibrary } from '../src/ui/components/SaveLibrary';
+import { GameMenu, SaveLibrary } from '../src/ui/widgets/game-menu';
+import { ActionMenu } from '../src/ui/widgets/action-menu';
+import { EventPanel } from '../src/ui/widgets/events';
+import { MobileUtilities } from '../src/ui/widgets/mobile-utilities';
+import { MenuTrigger } from '../src/ui/features/menu-trigger';
+import { GameApp } from '../src/ui/app';
 import type { HudView } from '../src/ui/types';
 
 const game = (seed: number) =>

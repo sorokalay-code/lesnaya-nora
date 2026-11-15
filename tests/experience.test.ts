@@ -15,7 +15,7 @@ import { Soundscape } from '../src/game/Audio';
 import { Terrain } from '../src/game/Terrain';
 import { WorldBoundary } from '../src/game/WorldBoundary';
 import { FullscreenController } from '../src/game/input/FullscreenController';
-import { FullscreenButton } from '../src/ui/components/FullscreenButton';
+import { FullscreenButton } from '../src/ui/widgets/game-menu';
 import { createUIStore } from '../src/ui/store';
 import type { DialogViewModel } from '../src/ui/types';
 import { loadModels } from './model-fixture';

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { GameInputController } from '../src/game/input/GameInputController';
 import { MobileInput, needsLandscape } from '../src/game/input/MobileInput';
 import { createUIStore, simulationPaused } from '../src/ui/store';
-import { activateTouchJump } from '../src/ui/components/MobileControls';
+import { activateTouchJump } from '../src/ui/widgets/mobile-controls';
 import { ViewCamera } from '../src/game/ViewCamera';
 import * as THREE from 'three';
 

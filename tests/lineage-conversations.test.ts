@@ -24,7 +24,7 @@ import { SaveRepository } from '../src/game/SaveRepository';
 import { GameUI } from '../src/ui/GameUI';
 import { createUIStore, socialDialogOpen, simulationPaused } from '../src/ui/store';
 import { ConversationNavigation } from '../src/ui/ConversationNavigation';
-import { DialogView } from '../src/ui/components/Dialogs';
+import { DialogView } from '../src/ui/widgets/conversation';
 import { InteractionInput } from '../src/game/InteractionInput';
 import { GeneticsPresenter } from '../src/ui/presenters/GeneticsPresenter';
 import type { KitData } from '../src/game/types';

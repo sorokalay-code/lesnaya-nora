@@ -1,5 +1,5 @@
 import { createRoot, type Root } from 'react-dom/client';
-import { GameApp } from './components/GameApp';
+import { GameApp } from './app';
 import { ConversationNavigation } from './ConversationNavigation';
 import { blockingPanelOpen, createUIStore, simulationPaused, socialDialogOpen } from './store';
 import type {

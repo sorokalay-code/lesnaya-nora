@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 test('low-health vignette does not intercept clicks on desktop UI', () => {
-  const styles = readFileSync('src/ui/components/LowHealthVignette.css', 'utf8');
+  const styles = readFileSync('src/ui/widgets/hud/LowHealthVignette.css', 'utf8');
 
   assert.match(
     styles,

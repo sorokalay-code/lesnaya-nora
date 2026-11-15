@@ -22,7 +22,7 @@ import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import { SessionQueries } from '../src/game/session/SessionQueries';
 import { ForestConversation } from '../src/game/session/ForestConversation';
 import { FriendSignals } from '../src/game/session/FriendSignals';
-import { DialogView } from '../src/ui/components/Dialogs';
+import { DialogView } from '../src/ui/widgets/conversation';
 import { createRabbit } from '../src/game/Models';
 import type { GroundItems } from '../src/game/GroundItems';
 import { World, type Resource } from '../src/game/World';

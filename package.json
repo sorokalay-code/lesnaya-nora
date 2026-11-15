@@ -19,6 +19,7 @@
     "check": "pnpm run format:check && pnpm run check:structure && pnpm test && pnpm run build"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.186.1",

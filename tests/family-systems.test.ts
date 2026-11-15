@@ -16,7 +16,7 @@ import { SaveRepository } from '../src/game/SaveRepository';
 import { FoodStore } from '../src/game/systems';
 import type { PartnerTraits, SaveData } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
-import { DialogView } from '../src/ui/components/Dialogs';
+import { DialogView } from '../src/ui/widgets/conversation';
 import { loadModels } from './model-fixture';
 import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 

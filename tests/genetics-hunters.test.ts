@@ -35,7 +35,7 @@ import { AnimalCollisionSystem } from '../src/game/session/AnimalCollisionSystem
 import { WasteSystem } from '../src/game/systems/WasteSystem';
 import { SurvivalSystem } from '../src/game/systems/SurvivalSystem';
 import { GeneticsPresenter } from '../src/ui/presenters/GeneticsPresenter';
-import { GeneticsPanel } from '../src/ui/components/GeneticsPanel';
+import { GeneticsPanel } from '../src/ui/widgets/conversation';
 import type { Genes } from '../src/game/types';
 import type { ViewCamera } from '../src/game/ViewCamera';
 import type { Excavation } from '../src/game/Excavation';

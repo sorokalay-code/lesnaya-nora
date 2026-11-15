@@ -25,7 +25,7 @@ import { SaveRepository } from '../src/game/SaveRepository';
 import { Excavation } from '../src/game/Excavation';
 import { MapPresenter } from '../src/ui/presenters/MapPresenter';
 import { createUIStore } from '../src/ui/store';
-import { NewGameForm } from '../src/ui/components/NewGameForm';
+import { NewGameForm } from '../src/ui/widgets/game-menu';
 import { MODEL_NAMES } from '../src/game/ModelAssets';
 import { loadModels } from './model-fixture';
 import { PlayerMovement } from '../src/game/session/PlayerMovement';

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { StartupLoader } from '../src/ui/components/StartupLoader';
+import { StartupLoader } from '../src/ui/app';
 
 test('startup loader shows resource progress', () => {
   const markup = renderToStaticMarkup(

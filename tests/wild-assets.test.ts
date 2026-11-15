@@ -20,7 +20,7 @@ import { WebEscape } from '../src/game/session/WebEscape';
 import { AnimalWasteSystem } from '../src/game/session/AnimalWasteSystem';
 import { DailyWasteBudget } from '../src/game/systems/DailyWasteBudget';
 import { WasteSystem } from '../src/game/systems/WasteSystem';
-import { JournalLog } from '../src/ui/components/JournalLog';
+import { JournalLog } from '../src/ui/widgets/events';
 import { loadModels } from './model-fixture';
 
 await loadModels('rabbit', 'spider', 'rock_granite', 'rock_moss', 'rock_slate');

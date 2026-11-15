@@ -23,7 +23,7 @@ import { HawkHunting } from '../src/game/session/HawkHunting';
 import { AnimalRestraint } from '../src/game/animals/AnimalRestraint';
 import { AnimalSimulation } from '../src/game/session/AnimalSimulation';
 import { createRabbit, setRabbitAction } from '../src/game/Models';
-import { DialogView } from '../src/ui/components/Dialogs';
+import { DialogView } from '../src/ui/widgets/conversation';
 import { ConversationNavigation } from '../src/ui/ConversationNavigation';
 import type { World } from '../src/game/World';
 import type { GroundItems } from '../src/game/GroundItems';
