@@ -2,7 +2,7 @@ import { WorldLayout } from './WorldLayout';
 
 export interface WaterBody {
   id: string;
-  kind: 'pond' | 'lake' | 'river';
+  kind: 'pond' | 'lake' | 'river' | 'bog';
   points: readonly { x: number; z: number }[];
   radius: number;
   depth: number;

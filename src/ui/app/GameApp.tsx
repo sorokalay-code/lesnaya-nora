@@ -190,7 +190,7 @@ function WorldMap({ data }: { data: MapViewModel }) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     for (const body of data.water) {
-      const color = body.kind === 'lake' ? '#438da2' : '#68b1c4';
+      const color = body.kind === 'lake' ? '#438da2' : body.kind === 'bog' ? '#566b51' : '#68b1c4';
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
       const [start, ...rest] = body.points;

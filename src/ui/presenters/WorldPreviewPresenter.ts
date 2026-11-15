@@ -3,7 +3,7 @@ import { WorldLayout } from '../../game/WorldLayout';
 import { validWorldConfig, type WorldConfig } from '../../game/WorldConfig';
 import { landscapeCell, mapWater, type LandscapeCell, type MapWater } from './LandscapeMap';
 
-type PreviewCell = LandscapeCell | 'water';
+type PreviewCell = LandscapeCell | 'water' | 'bog-water';
 
 /** Готовит лёгкую схему из того же генератора без сцены, ресурсов и игровых объектов. */
 export class WorldPreviewPresenter {
@@ -30,9 +30,12 @@ export class WorldPreviewPresenter {
           z / (config.size / 110),
           config.biome,
         );
+        const water = terrain.water.sample(x, z, height);
         cells.push(
-          terrain.water.sample(x, z, height)
-            ? 'water'
+          water
+            ? water.body.kind === 'bog'
+              ? 'bog-water'
+              : 'water'
             : landscapeCell(terrain, biome, x, z, height),
         );
       }

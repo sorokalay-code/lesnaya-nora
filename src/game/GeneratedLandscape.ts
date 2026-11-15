@@ -20,6 +20,12 @@ const PREVIOUS_LAKE_RADIUS_MIN = 7;
 const PREVIOUS_LAKE_RADIUS_MAX = 9;
 const PREVIOUS_LAKE_LENGTH_MIN = 6;
 const PREVIOUS_LAKE_LENGTH_MAX = 10;
+const BOG_POOL_COUNT = 1;
+const BOG_POOL_RADIUS_MIN = 1.8;
+const BOG_POOL_RADIUS_MAX = 2.8;
+const BOG_POOL_DEPTH_MIN = 0.22;
+const BOG_POOL_DEPTH_MAX = 0.34;
+const BOG_POOL_SITE_GRID_STEP = 1;
 
 /** Размещает обжитые области и водоёмы в понижениях одной и той же карты высот. */
 export class GeneratedLandscape {
@@ -79,7 +85,11 @@ export class GeneratedLandscape {
         biome: 'swamp',
         label: i === 0 ? 'Тихая топь' : `Топь ${i + 1}`,
       });
-      this.swampHeights.push(Math.min(-3.5, this.relief.heightAt(site.x, site.z) - 1));
+      const minimumHeight = settings.revision === 4 ? -4.8 : -3.5;
+      const depressionDepth = settings.revision === 4 ? 2 : 1;
+      this.swampHeights.push(
+        Math.min(minimumHeight, this.relief.heightAt(site.x, site.z) - depressionDepth),
+      );
     }
 
     for (let i = 0; i < (settings.lakes ?? 1); i++) this.makeLake(i);
@@ -98,6 +108,8 @@ export class GeneratedLandscape {
         depth: this.rng.range(1.8, 3),
       });
     }
+    if (settings.revision === 4)
+      for (let i = 0; i < this.swamps.length; i++) this.makeBogPools(this.swamps[i], i);
   }
 
   heightAt(x: number, z: number): number {
@@ -230,14 +242,19 @@ export class GeneratedLandscape {
   }
 
   private makeLake(index: number): void {
+    const revision = this.settings.revision;
+    const usesExpandedLakes = revision === 3 || revision === 4;
+    const lakeScale = revision === 4 ? (this.settings.lakeSize ?? 100) / 100 : 1;
     const radius =
-      this.settings.revision === 3
-        ? this.rng.range(LAKE_RADIUS_MIN, LAKE_RADIUS_MAX)
-        : this.rng.range(PREVIOUS_LAKE_RADIUS_MIN, PREVIOUS_LAKE_RADIUS_MAX);
+      this.rng.range(
+        usesExpandedLakes ? LAKE_RADIUS_MIN : PREVIOUS_LAKE_RADIUS_MIN,
+        usesExpandedLakes ? LAKE_RADIUS_MAX : PREVIOUS_LAKE_RADIUS_MAX,
+      ) * lakeScale;
     const length =
-      this.settings.revision === 3
-        ? this.rng.range(LAKE_LENGTH_MIN, LAKE_LENGTH_MAX)
-        : this.rng.range(PREVIOUS_LAKE_LENGTH_MIN, PREVIOUS_LAKE_LENGTH_MAX);
+      this.rng.range(
+        usesExpandedLakes ? LAKE_LENGTH_MIN : PREVIOUS_LAKE_LENGTH_MIN,
+        usesExpandedLakes ? LAKE_LENGTH_MAX : PREVIOUS_LAKE_LENGTH_MAX,
+      ) * lakeScale;
     const area = radius * MAX_WATER_WIDTH + Math.hypot(length, 3) + 7;
     const main = this.water[0];
     let site: Point | undefined;
@@ -253,7 +270,7 @@ export class GeneratedLandscape {
     if (!site) {
       const clearanceAt = (point: Point, size: number) => this.clearance(point, size, true);
       site = this.site(area, (x, z) => this.heightAt(x, z), clearanceAt);
-      if (this.settings.revision === 3 && clearanceAt(site, area) < 0)
+      if (usesExpandedLakes && clearanceAt(site, area) < 0)
         site = this.site(
           area,
           (x, z) => this.heightAt(x, z),
@@ -276,6 +293,46 @@ export class GeneratedLandscape {
       depth: this.rng.range(3.4, 5.1),
       bankWidth: 7,
     });
+  }
+
+  private makeBogPools(swamp: LandscapeRegion, index: number): void {
+    for (let pool = 0; pool < BOG_POOL_COUNT; pool++) {
+      const radius = this.rng.range(BOG_POOL_RADIUS_MIN, BOG_POOL_RADIUS_MAX);
+      const clearance = radius * MAX_WATER_WIDTH;
+      const minimumDistance = swamp.radius * 0.2;
+      const maximumDistance = swamp.radius * 0.9;
+      const extent = Math.ceil(maximumDistance);
+      const candidates: Point[] = [];
+      for (
+        let z = Math.floor(swamp.z - extent);
+        z <= swamp.z + extent;
+        z += BOG_POOL_SITE_GRID_STEP
+      )
+        for (
+          let x = Math.floor(swamp.x - extent);
+          x <= swamp.x + extent;
+          x += BOG_POOL_SITE_GRID_STEP
+        ) {
+          const point = { x, z };
+          const distance = Math.hypot(x - swamp.x, z - swamp.z);
+          if (
+            distance >= minimumDistance &&
+            distance <= maximumDistance &&
+            this.clearance(point, clearance) >= 0
+          )
+            candidates.push(point);
+        }
+      if (!candidates.length) continue;
+      const site = candidates[this.rng.int(0, candidates.length - 1)];
+
+      this.water.push({
+        id: `bog-${index}-${pool}`,
+        kind: 'bog',
+        points: [site],
+        radius,
+        depth: this.rng.range(BOG_POOL_DEPTH_MIN, BOG_POOL_DEPTH_MAX),
+      });
+    }
   }
 
   private site(

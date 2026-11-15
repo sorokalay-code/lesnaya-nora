@@ -25,6 +25,13 @@ export class WaterScenery {
       opacity: 0.64,
       depthWrite: false,
     });
+    const bogMaterial = new THREE.MeshStandardMaterial({
+      color: 0x566b51,
+      roughness: 0.62,
+      transparent: true,
+      opacity: 0.76,
+      depthWrite: false,
+    });
     const reeds = new THREE.MeshStandardMaterial({ color: 0x7d9754, roughness: 1 });
     const reedGeometry = new THREE.ConeGeometry(0.045, 0.85, 4);
     const padGeometry = new THREE.CircleGeometry(0.32, 8);
@@ -49,7 +56,7 @@ export class WaterScenery {
         const part = new THREE.BufferGeometry();
         part.setAttribute('position', new THREE.Float32BufferAttribute(values, 3));
         part.computeVertexNormals();
-        const water = new THREE.Mesh(part, material);
+        const water = new THREE.Mesh(part, body.kind === 'bog' ? bogMaterial : material);
         water.name = 'water-surface';
         water.renderOrder = 1;
         chunks.add(water, cx * 24 + 12, cz * 24 + 12);
@@ -72,6 +79,7 @@ export class WaterScenery {
           reed.scale.y = 0.7 + (i % 4) * 0.2;
           chunks.add(reed, x, z);
         }
+      if (body.kind === 'bog') continue;
       for (let i = 0; i < Math.round(sites.length * 4 * vegetation); i++) {
         const point = sites[i % sites.length],
           angle = i * 2.4;

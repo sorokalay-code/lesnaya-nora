@@ -10,9 +10,10 @@ export interface MapGeneration {
   ponds: number;
   river: boolean;
   /** Старые сохранения без этой версии восстанавливают прежний рельеф и воду. */
-  revision?: 2 | 3;
+  revision?: 2 | 3 | 4;
   rivers?: number;
   lakes?: number;
+  lakeSize?: number;
 }
 
 export const MAP_LIMITS = {
@@ -25,6 +26,7 @@ export const MAP_LIMITS = {
   ponds: { min: 0, max: 8 },
   rivers: { min: 0, max: 3 },
   lakes: { min: 0, max: 3 },
+  lakeSize: { min: 60, max: 110 },
 } as const;
 
 export function defaultMapGeneration(): MapGeneration {
@@ -38,9 +40,10 @@ export function defaultMapGeneration(): MapGeneration {
     swamps: 1,
     ponds: 3,
     river: true,
-    revision: 3,
+    revision: 4,
     rivers: 2,
     lakes: 1,
+    lakeSize: 100,
   };
 }
 
@@ -50,9 +53,11 @@ export function validMapGeneration(value: unknown): value is MapGeneration {
   if ((map.layout !== 'classic' && map.layout !== 'generated') || typeof map.river !== 'boolean')
     return false;
   if (map.seed !== null && !bounded(map.seed, MAP_LIMITS.seed, true)) return false;
-  if (map.revision !== undefined && map.revision !== 2 && map.revision !== 3) return false;
+  if (map.revision !== undefined && map.revision !== 2 && map.revision !== 3 && map.revision !== 4)
+    return false;
   if (map.rivers !== undefined && !bounded(map.rivers, MAP_LIMITS.rivers, true)) return false;
   if (map.lakes !== undefined && !bounded(map.lakes, MAP_LIMITS.lakes, true)) return false;
+  if (map.lakeSize !== undefined && !bounded(map.lakeSize, MAP_LIMITS.lakeSize, true)) return false;
 
   return (['relief', 'biomeScale', 'forestCover', 'gardens', 'swamps', 'ponds'] as const).every(
     (key) => bounded(map[key], MAP_LIMITS[key], ['gardens', 'swamps', 'ponds'].includes(key)),

@@ -56,7 +56,7 @@ const MAP_PRESETS: readonly {
 export function WorldMapSettings({ config, update }: SettingsSectionProps) {
   const map = config.map ?? { ...defaultMapGeneration(), layout: 'classic' as const };
   const change = (patch: Partial<MapGeneration>) =>
-    update({ map: { ...map, ...patch, revision: 3 } });
+    update({ map: { ...map, ...patch, revision: 4 } });
   return (
     <>
       <FieldGroup legend="Твоя карта">
@@ -232,10 +232,27 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
           </FieldLabel>
         )}
         {map.layout === 'generated' && map.revision !== undefined && (
-          <p className="config-hint">
-            Пруды и крупные вытянутые озёра создаются отдельно; их количество настраивается
-            независимо.
-          </p>
+          <>
+            <FieldLabel separateControl className="config-range">
+              <span>
+                Размер озёр
+                <output>{map.lakeSize ?? 100}%</output>
+              </span>
+              <Input
+                type="range"
+                aria-label="Размер озёр"
+                min={MAP_LIMITS.lakeSize.min}
+                max={MAP_LIMITS.lakeSize.max}
+                step={5}
+                value={map.lakeSize ?? 100}
+                onChange={(event) => change({ lakeSize: Number(event.target.value) })}
+              />
+            </FieldLabel>
+            <p className="config-hint">
+              Пруды и крупные вытянутые озёра создаются отдельно; их количество настраивается
+              независимо. Размер озёр — от 60 до 110%.
+            </p>
+          </>
         )}
         <p className="config-hint">
           Количество воды в «Природе» меняет ширину рек и площадь озёр. Щуки живут в глубоких реках

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   defaultMapGeneration,
+  MAP_LIMITS,
   validMapGeneration,
   type MapGeneration,
 } from '../src/game/MapGeneration';
@@ -33,7 +34,10 @@ test('map settings reject corrupt values and retain classic layouts without map 
     { ...map, river: 'yes' },
     { ...map, rivers: 4 },
     { ...map, lakes: 1.5 },
-    { ...map, revision: 4 },
+    { ...map, lakeSize: 59 },
+    { ...map, lakeSize: 111 },
+    { ...map, lakeSize: 75.5 },
+    { ...map, revision: 5 },
     { ...map, layout: 'ocean' },
     { ...map, layout: ['classic'] },
   ]) {
@@ -101,6 +105,7 @@ test('maximum procedural water and landmarks fit the map and leave the whole sta
     ponds: 8,
     lakes: 3,
     rivers: 3,
+    lakeSize: MAP_LIMITS.lakeSize.max,
   };
   for (const seed of [0, 1, 2, 5, 14, 20, 45, 90, 31415, 2_147_483_646])
     for (const scale of [50 / 110, 1, 300 / 110]) {
@@ -141,6 +146,8 @@ test('maximum procedural water and landmarks fit the map and leave the whole sta
         for (const point of body.points) {
           const wet = terrain.water.sample(point.x, point.z, terrain.heightAt(point.x, point.z));
           assert.ok(wet && wet.depth > 0.1);
+          if (body.kind === 'bog')
+            assert.ok(wet.depth < 0.38, `bog pool ${body.id} is too deep at seed ${seed}`);
         }
     }
 });
@@ -180,14 +187,40 @@ test('generated landscapes have connected channels, irregular lakes and usable h
   }
 });
 
-test('new map revisions create large lakes while revision 2 keeps its previous scale', () => {
+test('new map revisions scale lakes while revisions 2 and 3 preserve their previous sizes', () => {
   const current = new WorldLayout(31415, defaultMapGeneration());
-  const previous = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 2 });
+  const smaller = new WorldLayout(31415, { ...defaultMapGeneration(), lakeSize: 60 });
+  const previous = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 3 });
+  const oldest = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 2 });
   const currentLake = current.water.find((body) => body.kind === 'lake')!;
+  const smallerLake = smaller.water.find((body) => body.kind === 'lake')!;
   const previousLake = previous.water.find((body) => body.kind === 'lake')!;
+  const oldestLake = oldest.water.find((body) => body.kind === 'lake')!;
 
-  assert.ok(currentLake.radius > previousLake.radius);
-  assert.ok(previousLake.radius <= 9);
+  assert.ok(currentLake.radius > smallerLake.radius);
+  assert.equal(currentLake.radius, previousLake.radius);
+  assert.ok(previousLake.radius > oldestLake.radius);
+  assert.ok(previousLake.radius <= 11);
+  assert.equal(
+    previous.water.some((body) => body.kind === 'bog'),
+    false,
+  );
+});
+
+test('revision 4 swamps have deep boggy ground and separate shallow pools', () => {
+  const map = defaultMapGeneration();
+  const layout = new WorldLayout(31415, map);
+  const terrain = new Terrain(31415, 1, 1, layout);
+  const pools = terrain.water.bodies.filter((body) => body.kind === 'bog');
+
+  assert.ok(pools.length >= 1);
+  assert.ok(layout.landscape!.heightAt(layout.swamps[0].x, layout.swamps[0].z) <= -4.8);
+  assert.equal(layout.biomeAt(layout.swamps[0].x, layout.swamps[0].z, 'mixed'), 'swamp');
+  for (const pool of pools) {
+    const point = pool.points[0];
+    const sample = terrain.water.sample(point.x, point.z, terrain.heightAt(point.x, point.z));
+    assert.ok(sample && sample.depth > 0.1 && sample.depth < 0.38);
+  }
 });
 
 test('crossing channels agree on water level even when no axis point lies near the crossing', () => {
@@ -250,12 +283,12 @@ test('classic landmarks and water retain their established positions and extra r
 });
 
 test('preview uses actual seed and landscape settings and rejects an invalid draft', () => {
-  const config = { ...defaultWorldConfig(), map: { ...defaultMapGeneration(), seed: 41 } };
+  const config = { ...defaultWorldConfig(), map: { ...defaultMapGeneration(), seed: 31415 } };
   const preview = WorldPreviewPresenter.build(config)!;
   assert.deepEqual(preview, WorldPreviewPresenter.build(structuredClone(config)));
   assert.notDeepEqual(
     preview,
-    WorldPreviewPresenter.build({ ...config, map: { ...config.map, seed: 42 } }),
+    WorldPreviewPresenter.build({ ...config, map: { ...config.map, seed: 31416 } }),
   );
   assert.equal(WorldPreviewPresenter.build({ ...config, size: 0 }), undefined);
   assert.ok(preview.cells.includes('water'));
@@ -267,4 +300,5 @@ test('preview uses actual seed and landscape settings and rejects an invalid dra
   assert.equal(lake?.kind, 'lake');
   assert.equal(pond?.kind, 'pond');
   assert.ok(lake && pond && lake.width > pond.width * 2);
+  assert.ok(preview.water.some(({ kind }) => kind === 'bog'));
 });
