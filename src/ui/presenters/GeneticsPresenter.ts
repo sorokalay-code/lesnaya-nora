@@ -5,6 +5,7 @@ import { RabbitFeatures } from '../../game/genetics/RabbitFeatures';
 import { GenomeInheritance } from '../../game/genetics/GenomeInheritance';
 import type { Lineage } from '../../game/genetics/types';
 import type { Genes } from '../../game/types';
+import type { LineageGraphView } from './LineageGraphPresenter';
 
 export interface GeneticsView {
   generation: number;
@@ -14,6 +15,7 @@ export interface GeneticsView {
   anatomy: string;
   solitary: boolean;
   ancestors: { id: string; name: string; label: string }[];
+  lineageGraph?: LineageGraphView;
   risk?: number;
   related: boolean;
 }
@@ -24,6 +26,7 @@ export class GeneticsPresenter {
     genes: Genes,
     lineage?: Lineage,
     mate?: { genes: Genes; lineage?: Lineage },
+    lineageGraph?: LineageGraphView,
   ): GeneticsView {
     const eye = genes.anatomy.fangs ? 'red' : genes.eyeColor;
     const eyes = {
@@ -97,6 +100,7 @@ export class GeneticsPresenter {
             ? ' · родитель'
             : ' · предок через ' + ancestor.distance + ' поколения'),
       })),
+      lineageGraph,
       risk: mate ? Math.round(GenomeInheritance.risk(genes, mate.genes, related) * 100) : undefined,
       related,
     };

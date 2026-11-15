@@ -11,6 +11,7 @@ import { SessionQueries } from './SessionQueries';
 import type { FamilyGrooming } from './FamilyGrooming';
 import type { SpiderEncounter } from './SpiderEncounter';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
+import { LineageGraphPresenter } from '../../ui/presenters/LineageGraphPresenter';
 import { SessionMenus } from './SessionMenus';
 
 interface Context {
@@ -155,6 +156,8 @@ export class SessionActions {
         genetics: GeneticsPresenter.build(
           this.context.save.player.genes,
           this.context.save.player.lineage,
+          undefined,
+          LineageGraphPresenter.build(this.context.save),
         ),
         player: this.context.save.player,
         pregnant: !!this.context.save.pregnancy,

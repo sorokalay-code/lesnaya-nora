@@ -12,6 +12,7 @@ import { ConversationFocus } from './ConversationFocus';
 import { ForestConversation } from './ForestConversation';
 import { RabbitConversation } from './RabbitConversation';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
+import { LineageGraphPresenter } from '../../ui/presenters/LineageGraphPresenter';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import type { LineageSuccession } from './LineageSuccession';
@@ -97,7 +98,12 @@ export class InteractionController {
     this.context.view.unlock();
     this.context.ui.showDialog({
       type: 'partner',
-      genetics: GeneticsPresenter.build(p.genes, p.lineage, this.context.save.player),
+      genetics: GeneticsPresenter.build(
+        p.genes,
+        p.lineage,
+        this.context.save.player,
+        LineageGraphPresenter.build(this.context.save, p.lineage?.id),
+      ),
       partner: p,
       score: this.compatibility(p),
       line,
@@ -126,7 +132,12 @@ export class InteractionController {
     this.context.view.unlock();
     this.context.ui.showDialog({
       type: 'mate',
-      genetics: GeneticsPresenter.build(mate.genes, mate.lineage, this.context.save.player),
+      genetics: GeneticsPresenter.build(
+        mate.genes,
+        mate.lineage,
+        this.context.save.player,
+        LineageGraphPresenter.build(this.context.save, mate.lineage?.id),
+      ),
       partner: mate,
       command: this.context.save.mateCommand ?? 'forage',
       messages: this.context.save.mateMessages ?? [],
@@ -354,7 +365,12 @@ export class InteractionController {
       relationship: RabbitFamily.relationship(this.context.save, kit),
       succession: this.context.succession?.offer(kit),
       line,
-      genetics: GeneticsPresenter.build(kit.genes, kit.lineage),
+      genetics: GeneticsPresenter.build(
+        kit.genes,
+        kit.lineage,
+        undefined,
+        LineageGraphPresenter.build(this.context.save, kit.lineage?.id),
+      ),
     });
     this.update(0);
   }

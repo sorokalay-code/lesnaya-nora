@@ -63,6 +63,7 @@ export class LineageSuccession {
       dirtiness: previous.dirtiness,
       alive: true,
       independent: true,
+      wasPlayer: true,
       father: '',
       homeX: previous.x,
       homeY: previous.y,

@@ -58,6 +58,7 @@ export type RabbitSex = 'female' | 'male';
 
 export interface KitData {
   sex?: 'female' | 'male';
+  wasPlayer?: true;
   condition?: Pick<
     SaveData['player'],
     'thirst' | 'bodyTemp' | 'energy' | 'bladder' | 'bowel' | 'poison' | 'milk'

@@ -1,5 +1,10 @@
+import { lazy, Suspense, useState } from 'react';
 import { Disclosure } from '../../shared/ui';
 import type { GeneticsView } from '../../presenters/GeneticsPresenter';
+
+const LineageGraph = lazy(() =>
+  import('./LineageGraph').then((module) => ({ default: module.LineageGraph })),
+);
 
 /** Раскрываемая карточка генов и известных предков не загромождает обычный разговор. */
 export function GeneticsPanel({
@@ -9,6 +14,7 @@ export function GeneticsPanel({
   data?: GeneticsView;
   expanded?: boolean;
 }) {
+  const [graphOpen, setGraphOpen] = useState(false);
   if (!data) return null;
   const title = `Гены и родословная · поколение ${data.generation}`;
   const content = (
@@ -49,6 +55,19 @@ export function GeneticsPanel({
         </ol>
       ) : (
         <p>Основатель линии: известных предков пока нет.</p>
+      )}
+      {data.lineageGraph && (
+        <Disclosure
+          className="lineage-graph-disclosure"
+          summary="Показать древо династии"
+          onToggle={(event) => setGraphOpen(event.currentTarget.open)}
+        >
+          {graphOpen && (
+            <Suspense fallback={<p role="status">Загружаю граф родословной…</p>}>
+              <LineageGraph graph={data.lineageGraph} />
+            </Suspense>
+          )}
+        </Disclosure>
       )}
       <small>
         Здесь действуют игровые правила наследования. Взросление само по себе не меняет поколение.

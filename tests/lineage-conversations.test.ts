@@ -27,6 +27,7 @@ import { ConversationNavigation } from '../src/ui/ConversationNavigation';
 import { DialogView } from '../src/ui/widgets/conversation';
 import { InteractionInput } from '../src/game/InteractionInput';
 import { GeneticsPresenter } from '../src/ui/presenters/GeneticsPresenter';
+import { LineageGraphPresenter } from '../src/ui/presenters/LineageGraphPresenter';
 import type { KitData } from '../src/game/types';
 import type { Excavation } from '../src/game/Excavation';
 import type { World } from '../src/game/World';
@@ -146,6 +147,7 @@ test('управление взрослой дочерью сохраняет м
   const mother = save.kits.find((k) => k.lineage?.id === oldLine)!;
   assert.ok(mother.alive && mother.independent);
   assert.equal(mother.condition?.energy, 24);
+  assert.equal(mother.wasPlayer, true);
   assert.equal(RabbitFamily.relationship(save, mother), 'Твоя мать');
   assert.equal(save.kits.length, 1);
   assert.equal(f.changes(), 1);
@@ -447,11 +449,29 @@ test('выбранная героиня и её семейная история 
     assert.equal(restored.player.name, 'Искорка');
     assert.equal(restored.player.lineage!.generation, 2);
     assert.equal(restored.kits[0].name, 'Мама');
+    assert.equal(restored.kits[0].wasPlayer, true);
     assert.equal(restored.kits[0].condition?.energy, 24);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+});
+
+test('граф родословной сохраняет прошлую героиню и объединяет её с потомками', () => {
+  const f = fixture();
+  const formerId = f.save.player.lineage!.id;
+  const partnerId = f.save.partners[0].lineage!.id;
+  f.succession.switchTo(f.daughter.id);
+
+  const graph = LineageGraphPresenter.build(f.save);
+  const former = graph.nodes.find((node) => node.id === formerId);
+  const current = graph.nodes.find((node) => node.id === f.save.player.lineage?.id);
+
+  assert.equal(former?.name, 'Мама');
+  assert.equal(former?.status, 'former-player');
+  assert.equal(current?.status, 'current');
+  assert.ok(graph.edges.some((edge) => edge.source === formerId && edge.target === current?.id));
+  assert.ok(graph.nodes.some((node) => node.id === partnerId));
 });
 
 test('разделы диалога сохраняются при ответе и сбрасываются при смене собеседника; Esc возвращает назад', () => {

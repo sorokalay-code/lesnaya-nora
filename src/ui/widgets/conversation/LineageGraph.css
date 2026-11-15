@@ -1,0 +1,149 @@
+.lineage-graph {
+  margin-top: var(--ui-space-12);
+}
+
+.lineage-graph-empty,
+.lineage-graph-note {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+.lineage-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-6) var(--ui-space-12);
+  padding: 0;
+  margin: 0 0 var(--ui-space-8);
+  list-style: none;
+  color: var(--ui-text-muted);
+  font-size: 10px;
+}
+
+.lineage-graph-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-4);
+}
+
+.lineage-legend-swatch {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 50%;
+}
+
+.lineage-legend-swatch.is-current {
+  background: var(--ui-focus);
+}
+
+.lineage-legend-swatch.is-former {
+  background: var(--ui-text-accent);
+}
+
+.lineage-legend-swatch.is-deceased {
+  background: var(--ui-text-muted);
+}
+
+.lineage-graph-canvas {
+  height: min(58vh, 480px);
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-canvas);
+}
+
+.lineage-graph-canvas .react-flow__controls button {
+  background: var(--ui-surface-raised);
+  border-color: var(--ui-border-subtle);
+  color: var(--ui-text);
+  fill: var(--ui-text);
+}
+
+.lineage-graph-canvas .react-flow__controls button:hover {
+  background: var(--ui-selection);
+}
+
+.lineage-flow-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--ui-space-8);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+  box-shadow: 0 4px 12px #071a1280;
+}
+
+.lineage-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.lineage-node-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ui-text-accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineage-node span,
+.lineage-node small {
+  color: var(--ui-text-muted);
+  font-size: 10px;
+}
+
+.lineage-flow-node--current,
+.lineage-flow-node--former-player {
+  border-width: 2px;
+}
+
+.lineage-flow-node--current {
+  border-color: var(--ui-focus);
+}
+
+.lineage-flow-node--former-player {
+  border-color: var(--ui-text-accent);
+}
+
+.lineage-flow-node--deceased {
+  opacity: 0.75;
+}
+
+.lineage-flow-node.is-focused {
+  box-shadow:
+    0 0 0 2px var(--ui-focus),
+    0 4px 12px #071a1280;
+}
+
+.lineage-graph-canvas .react-flow__handle {
+  width: 5px;
+  height: 5px;
+  border: 0;
+  background: var(--ui-accent);
+}
+
+.lineage-graph-canvas .react-flow__edge-text {
+  fill: var(--ui-text-muted);
+  font-size: 10px;
+}
+
+.lineage-graph-canvas .react-flow__attribution {
+  background: #132f25cc;
+  color: var(--ui-text-muted);
+}
+
+.lineage-graph-canvas .react-flow__attribution a {
+  color: var(--ui-text-accent);
+}
