@@ -1,13 +1,21 @@
 import { WorldLayout } from './WorldLayout';
 
+export interface WaterPoint {
+  x: number;
+  z: number;
+}
+
 export interface WaterBody {
   id: string;
   kind: 'pond' | 'lake' | 'river' | 'bog';
-  points: readonly { x: number; z: number }[];
+  points: readonly WaterPoint[];
   radius: number;
   depth: number;
   level: number;
   bankWidth?: number;
+  outline?: readonly WaterPoint[];
+  fixedLevel?: number;
+  gentleBanks?: boolean;
 }
 
 export type WaterDefinition = Omit<WaterBody, 'level'>;
@@ -31,6 +39,24 @@ export function distanceToSegment(x: number, z: number, a: Point, b: Point): num
   const dz = b.z - a.z;
   const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
   return Math.hypot(x - a.x - dx * t, z - a.z - dz * t);
+}
+
+export function distanceToOutline(x: number, z: number, points: readonly Point[]): number {
+  let inside = false;
+  let shortestSquared = Infinity;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[j];
+    const b = points[i];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const t = Math.max(
+      0,
+      Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)),
+    );
+    shortestSquared = Math.min(shortestSquared, (x - a.x - dx * t) ** 2 + (z - a.z - dz * t) ** 2);
+    if (a.z > z !== b.z > z && x < a.x + ((z - a.z) * dx) / dz) inside = !inside;
+  }
+  return Math.sqrt(shortestSquared) * (inside ? -1 : 1);
 }
 
 function segments(points: readonly Point[]): Segment[] {
@@ -84,10 +110,12 @@ export class WaterMap {
     const definitions = (plan ?? new WorldLayout(0).water).map((body) => ({
       ...body,
       points: body.points.map(({ x, z }) => ({ x: x * scale, z: z * scale })),
+      outline: body.outline?.map(({ x, z }) => ({ x: x * scale, z: z * scale })),
       radius: body.radius * scale * Math.sqrt(amount),
       bankWidth: body.bankWidth === undefined ? undefined : body.bankWidth * scale,
     }));
     const levels = definitions.map((body) => {
+      if (body.fixedLevel !== undefined) return body.fixedLevel;
       const samples = [];
       for (const point of body.points) {
         let shore = Infinity;
@@ -115,6 +143,8 @@ export class WaterMap {
       for (let j = i + 1; j < definitions.length; j++) {
         const a = definitions[i];
         const b = definitions[j];
+        // Озёра с контурами разделены сушей, для новых рек уже назначен тот же уровень.
+        if (a.outline || b.outline) continue;
         // Для неизменяемых карт сохраняем исходное правило, чтобы высота не сместилась.
         const connected =
           a.bankWidth !== undefined || b.bankWidth !== undefined
@@ -128,16 +158,19 @@ export class WaterMap {
       for (const [i, j] of joins) levels[i] = levels[j] = Math.min(levels[i], levels[j]);
     this.bodies = definitions.map((body, i) => ({ ...body, level: levels[i] }));
     for (const body of this.bodies) {
+      const extent = body.outline ?? body.points;
       this.bounds.set(body, {
-        minX: Math.min(...body.points.map((point) => point.x)) - body.radius,
-        maxX: Math.max(...body.points.map((point) => point.x)) + body.radius,
-        minZ: Math.min(...body.points.map((point) => point.z)) - body.radius,
-        maxZ: Math.max(...body.points.map((point) => point.z)) + body.radius,
+        minX: Math.min(...extent.map((point) => point.x)) - body.radius,
+        maxX: Math.max(...extent.map((point) => point.x)) + body.radius,
+        minZ: Math.min(...extent.map((point) => point.z)) - body.radius,
+        maxZ: Math.max(...extent.map((point) => point.z)) + body.radius,
       });
     }
   }
 
   distance(body: WaterBody, x: number, z: number): number {
+    if (body.outline) return distanceToOutline(x, z, body.outline);
+
     let distance = Math.hypot(x - body.points[0].x, z - body.points[0].z);
     for (let i = 1; i < body.points.length; i++) {
       const a = body.points[i - 1],
@@ -152,26 +185,41 @@ export class WaterMap {
       nearestDistance = 3;
     let valley = natural;
     let dryEdge = -Infinity;
+    let joinedBed = Infinity;
     for (const body of this.bodies) {
-      const bankWidth = body.bankWidth ?? 3;
+      const shore = body.level + (body.gentleBanks ? 0 : 0.12);
+      const bankWidth = !body.gentleBanks
+        ? (body.bankWidth ?? 3)
+        : Math.max(body.bankWidth ?? 3, Math.abs(natural - shore) * 2.5);
       if (!this.inBounds(body, x, z, bankWidth)) continue;
       const distance = this.distance(body, x, z);
+      if (body.gentleBanks && distance < 0)
+        joinedBed = Math.min(joinedBed, body.level - Math.min(body.depth, -distance * 0.55));
       if (distance < nearestDistance) {
         nearest = body;
         nearestDistance = distance;
       }
-      if (body.bankWidth !== undefined && distance >= 0 && distance < bankWidth) {
-        const shore = body.level + 0.12;
+      if (
+        (body.gentleBanks || body.bankWidth !== undefined) &&
+        distance >= 0 &&
+        distance < bankWidth
+      ) {
         const blend = shore + (natural - shore) * smooth(distance / bankWidth);
         valley = Math.min(valley, blend);
         // Если естественный грунт ниже воды, поднимаем только узкую кромку.
         if (natural < shore) {
-          const skirt = natural + (shore - natural) * smooth(1 - distance / 3);
+          const skirt = !body.gentleBanks
+            ? natural + (shore - natural) * smooth(1 - distance / 3)
+            : blend;
           dryEdge = Math.max(dryEdge, skirt);
         }
       }
     }
-    if (!nearest || (nearestDistance >= 0 && nearest.bankWidth !== undefined))
+    if (joinedBed !== Infinity) return joinedBed;
+    if (
+      !nearest ||
+      (nearestDistance >= 0 && (nearest.gentleBanks || nearest.bankWidth !== undefined))
+    )
       return Math.max(valley, dryEdge);
     const bed = nearest.level - nearest.depth * smooth(-nearestDistance / 2.2);
     const bankHeight =

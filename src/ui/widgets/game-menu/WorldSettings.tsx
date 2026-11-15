@@ -110,7 +110,6 @@ function NatureSettings({ config, update }: SettingsSectionProps) {
       </p>
       {(
         [
-          ['water', 'Количество воды'],
           ['vegetation', 'Плотность растительности'],
           ['food', 'Количество съедобных растений'],
         ] as const
@@ -131,8 +130,8 @@ function NatureSettings({ config, update }: SettingsSectionProps) {
         </FieldLabel>
       ))}
       <p className="config-hint">
-        100% — нынешний мир. 0% воды убирает водоёмы, уток и рыб. 0% пищи убирает также грядки;
-        растительность настраивается отдельно. Верхний предел — {WORLD_LIMITS.density.max * 100}%.
+        100% — обычная плотность. 0% пищи убирает также грядки; растительность настраивается
+        отдельно. Верхний предел — {WORLD_LIMITS.density.max * 100}%.
       </p>
       <p className="config-hint">
         Большой мир, высокая плотность и большие популяции увеличивают нагрузку.

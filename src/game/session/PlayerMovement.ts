@@ -76,7 +76,7 @@ export class PlayerMovement {
 
   private advanceJump(dt: number): boolean {
     const step = this.jump.advance(dt);
-    this.advanceOnGround(step.x, step.z);
+    this.advanceOnGround(step.x, step.z, false);
     this.player.rig.root.userData.jumpHeight = step.height;
     this.player.rig.root.userData.jumpPitch = step.pitch;
     this.player.rig.root.userData.jumping = this.jump.active;
@@ -84,19 +84,29 @@ export class PlayerMovement {
     return true;
   }
 
-  private advanceOnGround(dx: number, dz: number): boolean {
+  private advanceOnGround(dx: number, dz: number, surfaceSpeed = true): boolean {
     const p = this.player.data;
     const x = clamp(p.x + dx, -this.movementLimit, this.movementLimit);
     const z = clamp(p.z + dz, -this.movementLimit, this.movementLimit);
     const immersion = RABBIT_SWIM_IMMERSION * p.genes.size;
     const canOccupy = (nx: number, nz: number, y: number) =>
       this.canOccupy(nx, nz, y, this.player.root.rotation.y);
-    let point = walkOnExcavation(this.earth, p, x, z, this.water, immersion, canOccupy);
+    const walk = (nx: number, nz: number, distance: number) =>
+      walkOnExcavation(
+        this.earth,
+        p,
+        nx,
+        nz,
+        this.water,
+        immersion,
+        canOccupy,
+        surfaceSpeed ? distance : undefined,
+      );
+    let point = walk(x, z, Math.hypot(dx, dz));
     // Если прямой шаг упирается в стену или склон, пробуем скользить вдоль него.
     if (point === p && x !== p.x && z !== p.z) {
-      point = walkOnExcavation(this.earth, p, x, p.z, this.water, immersion, canOccupy);
-      if (point === p)
-        point = walkOnExcavation(this.earth, p, p.x, z, this.water, immersion, canOccupy);
+      point = walk(x, p.z, Math.abs(dx));
+      if (point === p) point = walk(p.x, z, Math.abs(dz));
     }
     if (point === p) return false;
 

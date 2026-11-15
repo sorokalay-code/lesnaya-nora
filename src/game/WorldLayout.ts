@@ -177,7 +177,10 @@ export class WorldLayout {
     for (const garden of this.gardens)
       if (Math.hypot(x - garden.x, z - garden.z) < garden.radius - 1) return 'garden';
     const swampNoiseThreshold =
-      this.settings.layout === 'generated' && this.settings.revision === 4 ? 0.08 : 0.25;
+      this.settings.layout === 'generated' &&
+      (this.settings.revision === 4 || this.settings.revision === 5)
+        ? 0.08
+        : 0.25;
     for (const swamp of this.swamps)
       if (
         Math.hypot(x - swamp.x, z - swamp.z) < swamp.radius - 1 &&

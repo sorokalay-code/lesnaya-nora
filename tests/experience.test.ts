@@ -114,8 +114,23 @@ test('distant terrain leaves the playable square empty and batches trees into on
   assert.ok(indices.count / 3 < 10000);
 });
 
-test('fullscreen state follows entering, browser exit and unsupported browsers', async () => {
+test('fullscreen captures only Escape until browser exit and also handles unsupported browsers', async () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const keyboardEvents: string[] = [];
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      keyboard: {
+        async lock(keys: string[]) {
+          keyboardEvents.push(...keys);
+        },
+        unlock() {
+          keyboardEvents.push('released');
+        },
+      },
+    },
+  });
   const store = createUIStore(() => {});
   const documentMock = Object.assign(new EventTarget(), {
     fullscreenEnabled: true,
@@ -147,8 +162,11 @@ test('fullscreen state follows entering, browser exit and unsupported browsers',
     controller = new FullscreenController(host, ui);
     await controller.toggle();
     assert.equal(store.getState().fullscreen, true);
+    documentMock.dispatchEvent(new Event('fullscreenchange'));
+    assert.deepEqual(keyboardEvents, ['Escape']);
     await documentMock.exitFullscreen();
     assert.equal(store.getState().fullscreen, false);
+    assert.deepEqual(keyboardEvents, ['Escape', 'released']);
     controller.dispose();
     controller = new FullscreenController({} as HTMLElement, ui);
     await controller.toggle();
@@ -156,6 +174,8 @@ test('fullscreen state follows entering, browser exit and unsupported browsers',
     assert.equal(messages.length, 1);
   } finally {
     controller?.dispose();
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else Reflect.deleteProperty(globalThis, 'navigator');
     if (original) Object.defineProperty(globalThis, 'document', original);
     else Reflect.deleteProperty(globalThis, 'document');
   }

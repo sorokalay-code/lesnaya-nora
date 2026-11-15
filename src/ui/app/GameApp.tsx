@@ -193,7 +193,7 @@ function WorldMap({ data }: { data: MapViewModel }) {
       const color = body.kind === 'lake' ? '#438da2' : body.kind === 'bog' ? '#566b51' : '#68b1c4';
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      const [start, ...rest] = body.points;
+      const [start, ...rest] = body.outline ?? body.points;
       const radius = (body.radius / data.size) * 210;
       ctx.beginPath();
       if (rest.length === 0) {
@@ -202,8 +202,13 @@ function WorldMap({ data }: { data: MapViewModel }) {
       } else {
         ctx.moveTo(position(start.x), position(start.z));
         for (const point of rest) ctx.lineTo(position(point.x), position(point.z));
-        ctx.lineWidth = radius * 2;
-        ctx.stroke();
+        if (body.outline) {
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.lineWidth = radius * 2;
+          ctx.stroke();
+        }
       }
     }
     for (const landmark of data.landmarks) {

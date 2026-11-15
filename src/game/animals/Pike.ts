@@ -100,7 +100,8 @@ export class Pike extends Animal<'pike'> {
 
   private patrolPoint(): WaterPrey {
     const points = this.habitat.points;
-    if (this.habitat.kind !== 'river' || this.habitat.bankWidth === undefined || points.length < 2)
+    const followsChannel = this.habitat.kind === 'river' && this.habitat.bankWidth !== undefined;
+    if ((!this.habitat.outline && !followsChannel) || points.length < 2)
       return this.rng.pick(points);
 
     // На изгибе движение к случайной дальней точке часто упирается в берег.

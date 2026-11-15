@@ -1,4 +1,5 @@
 import { GroundNavigator } from '../GroundNavigator';
+import { GroundPose } from '../GroundPose';
 import type { Excavation } from '../Excavation';
 import type { KitWander } from '../KitWander';
 import { animateRabbit, setRabbitAction, type RabbitRig } from '../Models';
@@ -23,6 +24,7 @@ export class KitMovement {
   private readonly feeding: KitFeeding;
   private readonly water?: WaterNavigation;
   private readonly followTargets = new Map<number, { anchor: DigNode; point: DigNode }>();
+  private readonly surfaceAt = (x: number, z: number) => this.context.world.heightAt(x, z);
 
   constructor(
     private readonly context: Context,
@@ -137,6 +139,11 @@ export class KitMovement {
       mark.rotation.y = time * 0.9;
       mark.position.y = Math.sin(time * 2 + kit.id) * 0.07;
     }
+    if (
+      !this.context.earth.isSheltered(point.x, point.y, point.z) &&
+      !this.water?.terrain.waterAt(point.x, point.z)
+    )
+      GroundPose.contact(rig.root, point.x, point.z, this.surfaceAt);
     animateRabbit(rig, time + kit.id, moving, false, dt);
   }
 

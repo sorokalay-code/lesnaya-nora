@@ -22,7 +22,10 @@ export function smoothInfluence(distance: number): number {
 export class Landform {
   private readonly massifs: readonly Massif[];
 
-  constructor(private readonly seed: number) {
+  constructor(
+    private readonly seed: number,
+    private readonly gentle = false,
+  ) {
     const rng = new Random(Math.floor(hash2(seed, seed, 66531) * 0xffffffff));
     const direction = rng.range(0, Math.PI * 2);
     const count = rng.int(2, 3);
@@ -35,8 +38,8 @@ export class Landform {
         z: Math.sin(bearing) * distance,
         cos: Math.cos(axis),
         sin: Math.sin(axis),
-        halfLength: rng.range(32, 54),
-        halfWidth: rng.range(19, 32),
+        halfLength: rng.range(32, 54) * (gentle ? 1.23 : 1),
+        halfWidth: rng.range(19, 32) * (gentle ? 1.55 : 1),
         height: rng.range(19, 29),
       };
     });
@@ -45,17 +48,21 @@ export class Landform {
   heightAt(x: number, z: number): number {
     const basin = (smoothNoise(x / 53, z / 53, this.seed + 211) - 0.62) * 15;
     const hills = (smoothNoise(x / 20, z / 20, this.seed + 251) - 0.5) * 6;
-    const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * 1.1;
+    const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * (this.gentle ? 0.7 : 1.1);
     let mountains = 0;
     for (const massif of this.massifs) {
       const dx = x - massif.x;
       const dz = z - massif.z;
-      if (Math.abs(dx) >= massif.halfLength || Math.abs(dz) >= massif.halfLength) continue;
+      const extent = this.gentle
+        ? Math.max(massif.halfLength, massif.halfWidth)
+        : massif.halfLength;
+      if (Math.abs(dx) >= extent || Math.abs(dz) >= extent) continue;
 
       const along = dx * massif.cos + dz * massif.sin;
       const across = -dx * massif.sin + dz * massif.cos;
       const falloff = (along / massif.halfLength) ** 2 + (across / massif.halfWidth) ** 2;
-      const saddles = 0.78 + smoothNoise(x / 12, z / 12, this.seed + 905) * 0.27;
+      const saddles =
+        0.78 + smoothNoise(x / 12, z / 12, this.seed + 905) * (this.gentle ? 0.14 : 0.27);
       mountains = Math.max(mountains, massif.height * smoothInfluence(falloff) * saddles);
     }
     return basin + hills + detail + mountains;

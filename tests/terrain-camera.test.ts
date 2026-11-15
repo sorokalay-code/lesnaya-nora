@@ -61,7 +61,7 @@ test('walking up and down a hill keeps the same surface support before and after
     movement.settle();
     assert.equal(p.y, heightAt(p.x));
   }
-  assert.ok(p.x > 4);
+  assert.ok(p.x > 3 && p.x < 4, 'uphill travel is slower than on flat terrain');
   heading.x = -1;
   player.root.rotation.y = Math.PI / 2;
   for (let frame = 37; frame <= 70; frame++) {

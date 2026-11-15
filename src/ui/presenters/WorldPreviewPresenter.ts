@@ -11,7 +11,13 @@ export class WorldPreviewPresenter {
     | {
         cells: PreviewCell[];
         resolution: number;
-        water: { id: string; kind: MapWater['kind']; points: string; width: number }[];
+        water: {
+          id: string;
+          kind: MapWater['kind'];
+          points: string;
+          width: number;
+          closed: boolean;
+        }[];
       }
     | undefined {
     if (!validWorldConfig(config)) return;
@@ -43,10 +49,13 @@ export class WorldPreviewPresenter {
     const water = mapWater(terrain).map((body) => ({
       id: body.id,
       kind: body.kind,
-      points: (body.points.length === 1 ? [body.points[0], body.points[0]] : body.points)
+      points: (
+        body.outline ?? (body.points.length === 1 ? [body.points[0], body.points[0]] : body.points)
+      )
         .map(({ x, z }) => `${coordinate(x)},${coordinate(z)}`)
         .join(' '),
       width: (body.radius / config.size) * resolution,
+      closed: !!body.outline,
     }));
     return { cells, resolution, water };
   }

@@ -311,6 +311,9 @@
 .preview-water-outline--lake {
   stroke: var(--ui-map-lake);
 }
+.preview-lake-fill {
+  fill: var(--ui-map-lake);
+}
 .preview-bog-water {
   fill: var(--ui-map-bog-water);
 }

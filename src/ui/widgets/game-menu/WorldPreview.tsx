@@ -23,14 +23,18 @@ export function WorldPreview({ config }: { config: WorldConfig }) {
             height={1.05}
           />
         ))}
-        {preview.water.map((body) => (
-          <polyline
-            key={body.id}
-            className={`preview-water-outline preview-water-outline--${body.kind}`}
-            points={body.points}
-            strokeWidth={body.width}
-          />
-        ))}
+        {preview.water.map((body) =>
+          body.closed ? (
+            <polygon key={body.id} className="preview-lake-fill" points={body.points} />
+          ) : (
+            <polyline
+              key={body.id}
+              className={`preview-water-outline preview-water-outline--${body.kind}`}
+              points={body.points}
+              strokeWidth={body.width}
+            />
+          ),
+        )}
         <circle
           cx={preview.resolution / 2}
           cy={preview.resolution / 2}

@@ -1,6 +1,8 @@
 import { Button, FieldGroup, FieldLabel, Input, Select } from '../../shared/ui';
 import {
   defaultMapGeneration,
+  LAKE_AREA_BUDGET,
+  lakeAreas,
   MAP_LIMITS,
   riverCount,
   type MapGeneration,
@@ -55,8 +57,21 @@ const MAP_PRESETS: readonly {
 /** Настраивает географию карты; параметры передаются общему генератору движка. */
 export function WorldMapSettings({ config, update }: SettingsSectionProps) {
   const map = config.map ?? { ...defaultMapGeneration(), layout: 'classic' as const };
+  const areas = lakeAreas(map);
+  const totalArea = areas.reduce((sum, area) => sum + area, 0);
+  const available = LAKE_AREA_BUDGET - totalArea;
   const change = (patch: Partial<MapGeneration>) =>
-    update({ map: { ...map, ...patch, revision: 4 } });
+    update({ map: { ...map, ...patch, revision: 5 } });
+  const resizeLakeList = (count: number) => {
+    if (!Number.isInteger(count) || count < 0 || count > MAP_LIMITS.lakes.max) return;
+    const next = lakeAreas({ ...map, lakes: count });
+    let remaining = available;
+    for (let i = areas.length; i < count; i++) {
+      next[i] = Math.max(1, Math.min(next[i], remaining - (count - i - 1)));
+      remaining -= next[i];
+    }
+    if (remaining >= 0) change({ lakes: count, lakeAreas: next });
+  };
   return (
     <>
       <FieldGroup legend="Твоя карта">
@@ -214,10 +229,10 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
               <Input
                 type="number"
                 min={0}
-                max={MAP_LIMITS.lakes.max}
+                max={Math.min(MAP_LIMITS.lakes.max, areas.length + available)}
                 step={1}
                 value={map.lakes ?? 1}
-                onChange={(event) => change({ lakes: Number(event.target.value) })}
+                onChange={(event) => resizeLakeList(Number(event.target.value))}
               />
             </FieldLabel>
           </div>
@@ -231,34 +246,61 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             Река
           </FieldLabel>
         )}
-        {map.layout === 'generated' && map.revision !== undefined && (
-          <>
-            <FieldLabel separateControl className="config-range">
-              <span>
-                Размер озёр
-                <output>{map.lakeSize ?? 100}%</output>
-              </span>
-              <Input
-                type="range"
-                aria-label="Размер озёр"
-                min={MAP_LIMITS.lakeSize.min}
-                max={MAP_LIMITS.lakeSize.max}
-                step={5}
-                value={map.lakeSize ?? 100}
-                onChange={(event) => change({ lakeSize: Number(event.target.value) })}
-              />
-            </FieldLabel>
-            <p className="config-hint">
-              Пруды и крупные вытянутые озёра создаются отдельно; их количество настраивается
-              независимо. Размер озёр — от 60 до 110%.
-            </p>
-          </>
-        )}
+        <FieldLabel separateControl className="config-range">
+          <span>
+            Количество воды <output>{Math.round(config.water * 100)}%</output>
+          </span>
+          <Input
+            type="range"
+            aria-label="Количество воды"
+            min={WORLD_LIMITS.density.min}
+            max={WORLD_LIMITS.density.max}
+            step={0.1}
+            value={config.water}
+            onChange={(event) => update({ water: Number(event.target.value) })}
+          />
+        </FieldLabel>
         <p className="config-hint">
-          Количество воды в «Природе» меняет ширину рек и площадь озёр. Щуки живут в глубоких реках
-          и озёрах. Родная поляна остаётся сухой.
+          {map.layout === 'generated'
+            ? 'Меняет ширину рек и размер прудов и болотных луж. Площадь озёр задаётся отдельно.'
+            : 'Меняет ширину реки и размер водоёмов на классической карте.'}{' '}
+          0% убирает все водоёмы, уток и рыб.
         </p>
       </FieldGroup>
+      {map.layout === 'generated' && areas.length > 0 && (
+        <FieldGroup legend="Площадь озёр">
+          {areas.map((area, index) => {
+            const label = `Озеро ${index + 1}, доля карты`;
+            return (
+              <FieldLabel separateControl className="config-range" key={index}>
+                <span>
+                  Озеро {index + 1} <output>{area}% карты</output>
+                </span>
+                <Input
+                  type="range"
+                  aria-label={label}
+                  min={MAP_LIMITS.lakeArea.min}
+                  max={Math.min(MAP_LIMITS.lakeArea.max, area + available)}
+                  step={1}
+                  value={area}
+                  onChange={(event) =>
+                    change({
+                      lakeAreas: areas.map((value, i) =>
+                        i === index ? Number(event.target.value) : value,
+                      ),
+                    })
+                  }
+                />
+              </FieldLabel>
+            );
+          })}
+          <p className="config-hint">
+            Всего озёра занимают около {totalArea}% карты. Максимум 50% на одно озеро и{' '}
+            {LAKE_AREA_BUDGET}% на все. Озёра разделяет суша, стартовая поляна остаётся сухой. Если
+            места мало, часть огородов, болот и прудов не появится.
+          </p>
+        </FieldGroup>
+      )}
     </>
   );
 }

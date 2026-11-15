@@ -1,8 +1,9 @@
 import { Landform, smoothInfluence } from './Landform';
-import { riverCount, type MapGeneration } from './MapGeneration';
+import { LakePlan } from './LakePlan';
+import { lakeAreas, riverCount, type MapGeneration } from './MapGeneration';
 import { hash2, Random } from './Random';
 import type { LandscapeRegion } from './WorldLayout';
-import { distanceToSegment, type WaterDefinition } from './WaterMap';
+import { distanceToOutline, distanceToSegment, type WaterDefinition } from './WaterMap';
 
 type Point = WaterDefinition['points'][number];
 type HeightAt = (x: number, z: number) => number;
@@ -41,11 +42,19 @@ export class GeneratedLandscape {
     seed: number,
     private readonly settings: MapGeneration,
   ) {
-    this.relief = new Landform(seed);
+    const newTerrain = settings.revision === 5;
+    this.relief = new Landform(seed, newTerrain);
     this.rng = new Random(Math.floor(hash2(seed, seed, 33197) * 0xffffffff));
     const heading = this.rng.int(0, 7) * (Math.PI / 4);
     const rivers = riverCount(settings);
     if (rivers) this.makeRivers(rivers, heading);
+    if (newTerrain) {
+      const lakes = LakePlan.build(seed, lakeAreas(settings));
+      if (lakes.length) {
+        for (const river of this.water) river.fixedLevel = lakes[0].fixedLevel;
+        this.water.unshift(...lakes);
+      }
+    }
 
     for (let i = 0; i < settings.gardens; i++) {
       const radius = i === 0 ? 16 : 13;
@@ -59,6 +68,7 @@ export class GeneratedLandscape {
         },
         (point, area) => this.clearance(point, area),
       );
+      if (newTerrain && this.clearance(site, radius * Math.SQRT2) < 0) continue;
       this.gardens.push({
         ...site,
         radius,
@@ -70,29 +80,31 @@ export class GeneratedLandscape {
 
     for (let i = 0; i < settings.swamps; i++) {
       const radius = this.rng.range(15, 20);
-      const site = this.site(
-        radius,
-        (x, z) => this.heightAt(x, z),
-        (point, area) =>
-          Math.min(
-            this.clearance(point, area, true),
-            ...this.swamps.map((swamp) => Math.hypot(swamp.x - point.x, swamp.z - point.z) - 28),
-          ),
-      );
+      const clearanceAt = (point: Point, area: number) =>
+        Math.min(
+          this.clearance(point, area, true),
+          ...this.swamps.map((swamp) => Math.hypot(swamp.x - point.x, swamp.z - point.z) - 28),
+        );
+      const site = this.site(radius, (x, z) => this.heightAt(x, z), clearanceAt);
+      if (newTerrain && clearanceAt(site, radius) < 0) continue;
       this.swamps.push({
         ...site,
         radius,
         biome: 'swamp',
         label: i === 0 ? 'Тихая топь' : `Топь ${i + 1}`,
       });
-      const minimumHeight = settings.revision === 4 ? -4.8 : -3.5;
-      const depressionDepth = settings.revision === 4 ? 2 : 1;
+      const minimumHeight = settings.revision === 4 || newTerrain ? -4.8 : -3.5;
+      const depressionDepth = settings.revision === 4 || newTerrain ? 2 : 1;
       this.swampHeights.push(
         Math.min(minimumHeight, this.relief.heightAt(site.x, site.z) - depressionDepth),
       );
     }
 
-    for (let i = 0; i < (settings.lakes ?? 1); i++) this.makeLake(i);
+    if (newTerrain) {
+      for (let i = 0; i < this.swamps.length; i++) this.makeBogPools(this.swamps[i], i);
+    } else {
+      for (let i = 0; i < (settings.lakes ?? 1); i++) this.makeLake(i);
+    }
     for (let i = 0; i < settings.ponds; i++) {
       const radius = this.rng.range(3.1, 5.4);
       const site = this.site(
@@ -100,6 +112,7 @@ export class GeneratedLandscape {
         (x, z) => this.heightAt(x, z),
         (point, area) => this.clearance(point, area),
       );
+      if (newTerrain && this.clearance(site, radius * MAX_WATER_WIDTH + BANK_MARGIN) < 0) continue;
       this.water.push({
         id: `pond-${i}`,
         kind: 'pond',
@@ -110,6 +123,7 @@ export class GeneratedLandscape {
     }
     if (settings.revision === 4)
       for (let i = 0; i < this.swamps.length; i++) this.makeBogPools(this.swamps[i], i);
+    if (newTerrain) for (const body of this.water) body.gentleBanks = true;
   }
 
   heightAt(x: number, z: number): number {
@@ -374,6 +388,13 @@ export class GeneratedLandscape {
     for (const body of this.water) {
       if (overlapWater) continue;
       if (allowRiver && body.kind === 'river') continue;
+      if (body.outline) {
+        distance = Math.min(
+          distance,
+          distanceToOutline(point.x, point.z, body.outline) - radius - BANK_MARGIN,
+        );
+        continue;
+      }
       const margin = body.radius * MAX_WATER_WIDTH + radius + BANK_MARGIN;
       for (let i = 0; i < body.points.length; i++) {
         const a = body.points[i];

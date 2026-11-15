@@ -11,10 +11,17 @@ interface FullscreenHost {
   webkitRequestFullscreen?: () => Promise<void> | void;
 }
 
+interface EscapeKeyboard {
+  lock: (codes: string[]) => Promise<void>;
+  unlock: () => void;
+}
+
 /** Управляет полноэкранным режимом контейнера и синхронизирует выход через Esc с интерфейсом. */
 export class FullscreenController {
   private readonly events = new AbortController();
   private readonly fullscreenDocument = document as SafariDocument;
+  private readonly keyboard = (navigator as Navigator & { keyboard?: EscapeKeyboard }).keyboard;
+  private fullscreen = false;
 
   constructor(
     private readonly host: HTMLElement,
@@ -33,7 +40,7 @@ export class FullscreenController {
     if (!this.ui.state.fullscreenAvailable && !this.ui.state.fullscreen) return;
 
     event.preventDefault();
-    void this.toggle();
+    if (!event.repeat) void this.toggle();
   };
 
   private get fullscreenElement(): Element | null {
@@ -51,8 +58,18 @@ export class FullscreenController {
 
   private sync = (): void => {
     const request = this.requestFullscreen;
+    const fullscreen = this.fullscreenElement === this.host;
+    if (fullscreen !== this.fullscreen) {
+      this.fullscreen = fullscreen;
+      if (fullscreen) {
+        // Перехватываем только Esc. Долгое нажатие остаётся аварийным выходом браузера.
+        void this.keyboard?.lock?.(['Escape']).catch(() => {});
+      } else {
+        this.keyboard?.unlock?.();
+      }
+    }
     this.ui.store.setState({
-      fullscreen: this.fullscreenElement === this.host,
+      fullscreen,
       fullscreenAvailable:
         !!request &&
         ((this.host as FullscreenHost).requestFullscreen
@@ -89,5 +106,6 @@ export class FullscreenController {
 
   dispose(): void {
     this.events.abort();
+    if (this.fullscreen) this.keyboard?.unlock?.();
   }
 }

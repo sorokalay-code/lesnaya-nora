@@ -12,6 +12,117 @@ import { GardenCrops } from '../src/game/GardenCrops';
 import { defaultWorldConfig, validWorldConfig } from '../src/game/WorldConfig';
 import { WorldPreviewPresenter } from '../src/ui/presenters/WorldPreviewPresenter';
 import { WaterMap } from '../src/game/WaterMap';
+import { WaterScenery } from '../src/game/WaterScenery';
+
+test('new mountains leave more walkable slopes on a small map without flattening the peaks', () => {
+  const seed = 31415;
+  const settings = {
+    ...defaultMapGeneration(),
+    gardens: 0,
+    swamps: 0,
+    ponds: 0,
+    lakes: 0,
+    river: false,
+  };
+  const steepSteps = (terrain: Terrain) => {
+    let steep = 0;
+    let peak = 0;
+    for (let x = -44; x < 44; x++)
+      for (let z = -44; z < 44; z++) {
+        const height = terrain.heightAt(x, z);
+        const grade = Math.hypot(
+          terrain.heightAt(x + 1, z) - height,
+          terrain.heightAt(x, z + 1) - height,
+        );
+        if (grade > 1.15) steep++;
+        peak = Math.max(peak, height);
+      }
+    return { steep, peak };
+  };
+  const previous = steepSteps(
+    new Terrain(seed, 50 / 110, 0, new WorldLayout(seed, { ...settings, revision: 4 })),
+  );
+  const current = steepSteps(new Terrain(seed, 50 / 110, 0, new WorldLayout(seed, settings)));
+  assert.ok(current.peak > 11);
+  assert.ok(current.steep < previous.steep / 2);
+});
+
+test('individual lakes cover their requested area at different scales without overlap or flooding the start', () => {
+  for (const [seed, scale, amount, areas] of [
+    [1, 50 / 110, 0.2, [50, 40]],
+    [31415, 1, 1, [50, 39, 1]],
+    [45, 300 / 110, 5, [30, 30, 30]],
+    [8, 1, 1, [1, 5, 15]],
+  ] as const) {
+    const settings = {
+      ...defaultMapGeneration(),
+      lakes: areas.length,
+      lakeAreas: [...areas],
+      gardens: 0,
+      swamps: 0,
+      ponds: 0,
+      river: false,
+    };
+    const layout = new WorldLayout(seed, settings);
+    const terrain = new Terrain(seed, scale, amount, layout);
+    const lakes = terrain.water.bodies;
+    const side = 220 * scale;
+    const resolution = 132;
+    const counts = lakes.map(() => 0);
+    assert.equal(lakes.length, areas.length);
+    for (let row = 0; row < resolution; row++)
+      for (let column = 0; column < resolution; column++) {
+        const x = ((column + 0.5) / resolution - 0.5) * side;
+        const z = ((row + 0.5) / resolution - 0.5) * side;
+        const matches = lakes.filter((body) => terrain.water.distance(body, x, z) < 0);
+        assert.ok(matches.length <= 1);
+        if (!matches.length) continue;
+
+        assert.ok(Math.hypot(x, z) > 13 * scale);
+        const wet = terrain.water.sample(x, z, terrain.heightAt(x, z));
+        if (wet) counts[lakes.indexOf(wet.body)]++;
+      }
+    counts.forEach((count, index) => {
+      const coverage = (100 * count) / resolution ** 2;
+      assert.ok(
+        Math.abs(areas[index] - coverage) < 0.8,
+        `${coverage}% instead of ${areas[index]}%`,
+      );
+    });
+    assert.equal(new Terrain(seed, scale, 0, layout).water.bodies.length, 0);
+  }
+});
+
+test('a large lake renders its area with a small mesh instead of filling the 600 m map with meter triangles', () => {
+  const seed = 31415;
+  const layout = new WorldLayout(seed, {
+    ...defaultMapGeneration(),
+    lakes: 1,
+    lakeAreas: [50],
+    river: false,
+    ponds: 0,
+    swamps: 0,
+  });
+  const terrain = new Terrain(seed, 300 / 110, 1, layout);
+  const geometry = WaterScenery.geometry(
+    terrain.water,
+    terrain.water.bodies[0],
+    (x, z) => terrain.heightAt(x, z),
+    300,
+  );
+  const p = geometry.getAttribute('position');
+  let area = 0;
+  for (let i = 0; i < p.count; i += 3) {
+    const ax = p.getX(i + 1) - p.getX(i);
+    const az = p.getZ(i + 1) - p.getZ(i);
+    const bx = p.getX(i + 2) - p.getX(i);
+    const bz = p.getZ(i + 2) - p.getZ(i);
+    area += Math.abs(ax * bz - az * bx) * 0.5;
+  }
+  geometry.dispose();
+  assert.ok(area > 178_000 && area <= 180_000, `rendered area: ${area}`);
+  assert.ok(p.count / 3 < 45_000);
+});
 
 test('map settings reject corrupt values and retain classic layouts without map options', () => {
   const map = defaultMapGeneration();
@@ -37,7 +148,11 @@ test('map settings reject corrupt values and retain classic layouts without map 
     { ...map, lakeSize: 59 },
     { ...map, lakeSize: 111 },
     { ...map, lakeSize: 75.5 },
-    { ...map, revision: 5 },
+    { ...map, revision: 6 },
+    { ...map, lakeAreas: [0] },
+    { ...map, lakeAreas: [51] },
+    { ...map, lakeAreas: [2, 2] },
+    { ...map, lakes: 2, lakeAreas: [50, 41] },
     { ...map, layout: 'ocean' },
     { ...map, layout: ['classic'] },
   ]) {
@@ -46,6 +161,7 @@ test('map settings reject corrupt values and retain classic layouts without map 
   }
   assert.ok(validMapGeneration({ ...map, seed: 0 }));
   assert.ok(validMapGeneration({ ...map, revision: 2 }));
+  assert.ok(validMapGeneration({ ...map, lakes: 2, lakeAreas: [50, 40] }));
 });
 
 test('same seed reproduces geography while other seeds move gardens, swamps and water', () => {
@@ -100,6 +216,7 @@ test('custom counts and toggles remove water, gardens, crops and marshes indepen
 test('maximum procedural water and landmarks fit the map and leave the whole starting clearing dry', () => {
   const map: MapGeneration = {
     ...defaultMapGeneration(),
+    revision: 4,
     gardens: 4,
     swamps: 4,
     ponds: 8,
@@ -153,7 +270,7 @@ test('maximum procedural water and landmarks fit the map and leave the whole sta
 });
 
 test('generated landscapes have connected channels, irregular lakes and usable high and low ground', () => {
-  const map = defaultMapGeneration();
+  const map = { ...defaultMapGeneration(), revision: 4 as const };
   for (const seed of [1, 45, 31415, 81294]) {
     const layout = new WorldLayout(seed, map);
     const terrain = new Terrain(seed, 1, 1, layout);
@@ -188,8 +305,9 @@ test('generated landscapes have connected channels, irregular lakes and usable h
 });
 
 test('new map revisions scale lakes while revisions 2 and 3 preserve their previous sizes', () => {
-  const current = new WorldLayout(31415, defaultMapGeneration());
-  const smaller = new WorldLayout(31415, { ...defaultMapGeneration(), lakeSize: 60 });
+  const classicRadius = { ...defaultMapGeneration(), revision: 4 as const };
+  const current = new WorldLayout(31415, classicRadius);
+  const smaller = new WorldLayout(31415, { ...classicRadius, lakeSize: 60 });
   const previous = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 3 });
   const oldest = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 2 });
   const currentLake = current.water.find((body) => body.kind === 'lake')!;
@@ -208,7 +326,7 @@ test('new map revisions scale lakes while revisions 2 and 3 preserve their previ
 });
 
 test('revision 4 swamps have deep boggy ground and separate shallow pools', () => {
-  const map = defaultMapGeneration();
+  const map = { ...defaultMapGeneration(), revision: 4 as const };
   const layout = new WorldLayout(31415, map);
   const terrain = new Terrain(31415, 1, 1, layout);
   const pools = terrain.water.bodies.filter((body) => body.kind === 'bog');
@@ -299,6 +417,7 @@ test('preview uses actual seed and landscape settings and rejects an invalid dra
   const pond = preview.water.find(({ id }) => id === 'pond-0');
   assert.equal(lake?.kind, 'lake');
   assert.equal(pond?.kind, 'pond');
-  assert.ok(lake && pond && lake.width > pond.width * 2);
+  assert.ok(lake?.closed && lake.points.split(' ').length >= 8);
+  assert.ok(pond && !pond.closed && pond.width > 0);
   assert.ok(preview.water.some(({ kind }) => kind === 'bog'));
 });

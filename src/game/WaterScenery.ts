@@ -62,6 +62,7 @@ export class WaterScenery {
         chunks.add(water, cx * 24 + 12, cz * 24 + 12);
       }
       geometry.dispose();
+      if (body.outline) continue;
       // У нового русла больше точек для формы, чем требуется для берегового декора.
       const sites = body.points.filter(
         (point, index) =>
@@ -103,7 +104,7 @@ export class WaterScenery {
     // Для извилистой реки обход прямоугольника всей карты слишком дорог.
     // Собираем интервалы ячеек вокруг отдельных отрезков, без повторной триангуляции.
     const rows = new Map<number, [number, number][]>();
-    for (let i = 0; i < body.points.length; i++) {
+    for (let i = 0; !body.outline && i < body.points.length; i++) {
       const a = body.points[i];
       const b = body.points[i + 1] ?? a;
       const margin = body.radius + 1;
@@ -131,40 +132,75 @@ export class WaterScenery {
       samples.set(key, point);
       return point;
     };
+    const cell = (x: number, z: number) => {
+      const a = vertex(x, z),
+        b = vertex(x + 1, z),
+        c = vertex(x + 1, z + 1),
+        d = vertex(x, z + 1);
+      for (const triangle of [
+        [a, c, b],
+        [a, d, c],
+      ]) {
+        const polygon: Vertex[] = [];
+        for (let i = 0; i < 3; i++) {
+          const current = triangle[i],
+            next = triangle[(i + 1) % 3];
+          const currentWet = current.wet >= 0,
+            nextWet = next.wet >= 0;
+          if (currentWet) polygon.push(current);
+          if (currentWet !== nextWet) {
+            const t = current.wet / (current.wet - next.wet);
+            polygon.push({
+              x: current.x + (next.x - current.x) * t,
+              z: current.z + (next.z - current.z) * t,
+              wet: 0,
+            });
+          }
+        }
+        for (let i = 1; i < polygon.length - 1; i++)
+          for (const p of [polygon[0], polygon[i], polygon[i + 1]])
+            vertices.push(p.x, body.level + 0.012, p.z);
+      }
+    };
+    if (body.outline) {
+      const tile = 8;
+      const xs = body.outline.map((point) => point.x);
+      const zs = body.outline.map((point) => point.z);
+      const tileStart = (value: number) => Math.floor(value / tile) * tile;
+      const minX = tileStart(Math.min(...xs));
+      const minZ = tileStart(Math.min(...zs));
+      const maxX = Math.max(...xs);
+      const maxZ = Math.max(...zs);
+      const level = body.level + 0.012;
+      for (let z = minZ; z < maxZ; z += tile)
+        for (let x = minX; x < maxX; x += tile) {
+          const half = tile / 2;
+          const distance = map.distance(body, x + half, z + half);
+          const reach = half * Math.SQRT2;
+          if (distance > reach + 1) continue;
+
+          // Большое озеро внутри контура — плоская вода; метровая сетка нужна только на берегу.
+          if (
+            distance < -reach - 2 &&
+            x >= -edge &&
+            z >= -edge &&
+            x + tile <= edge &&
+            z + tile <= edge
+          ) {
+            vertices.push(x, level, z, x + tile, level, z + tile, x + tile, level, z);
+            vertices.push(x, level, z, x, level, z + tile, x + tile, level, z + tile);
+            continue;
+          }
+          for (let row = Math.max(z, -edge); row < Math.min(z + tile, edge); row++)
+            for (let column = Math.max(x, -edge); column < Math.min(x + tile, edge); column++)
+              cell(column, row);
+        }
+    }
     for (const [z, intervals] of rows) {
       intervals.sort(([a], [b]) => a - b);
       let scanned = -Infinity;
       for (const [minX, maxX] of intervals) {
-        for (let x = Math.max(scanned, minX); x < maxX; x++) {
-          const a = vertex(x, z),
-            b = vertex(x + 1, z),
-            c = vertex(x + 1, z + 1),
-            d = vertex(x, z + 1);
-          for (const triangle of [
-            [a, c, b],
-            [a, d, c],
-          ]) {
-            const polygon: Vertex[] = [];
-            for (let i = 0; i < 3; i++) {
-              const current = triangle[i],
-                next = triangle[(i + 1) % 3];
-              const currentWet = current.wet >= 0,
-                nextWet = next.wet >= 0;
-              if (currentWet) polygon.push(current);
-              if (currentWet !== nextWet) {
-                const t = current.wet / (current.wet - next.wet);
-                polygon.push({
-                  x: current.x + (next.x - current.x) * t,
-                  z: current.z + (next.z - current.z) * t,
-                  wet: 0,
-                });
-              }
-            }
-            for (let i = 1; i < polygon.length - 1; i++)
-              for (const p of [polygon[0], polygon[i], polygon[i + 1]])
-                vertices.push(p.x, body.level + 0.012, p.z);
-          }
-        }
+        for (let x = Math.max(scanned, minX); x < maxX; x++) cell(x, z);
         scanned = Math.max(scanned, maxX);
       }
     }

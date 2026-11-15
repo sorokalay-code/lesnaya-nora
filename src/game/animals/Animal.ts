@@ -1,6 +1,7 @@
 import type { Group } from 'three';
 import type { WaterNavigation } from '../WaterNavigation';
 import { traceGround } from '../GroundContact';
+import { GroundPose } from '../GroundPose';
 
 export interface AnimalPosition {
   x: number;
@@ -50,6 +51,7 @@ export abstract class Animal<K extends string = string> {
     const from = { x: this.x, y: support(this.x, this.z), z: this.z };
     const point = traceGround(from, x, z, {
       heightAt: support,
+      surfaceSpeed: true,
       slopeLimit: water
         ? (previous, nx, nz) =>
             !water.terrain.waterAt(previous.x, previous.z) && !water.terrain.waterAt(nx, nz)
@@ -57,6 +59,8 @@ export abstract class Animal<K extends string = string> {
     });
     this.root.userData.swimming = !!this.swimSpeed && !!water?.swimming(point.x, point.z);
     this.moveTo(point.x, point.z, point.y);
+    if (!water?.terrain.waterAt(point.x, point.z))
+      GroundPose.contact(this.root, point.x, point.z, groundAt);
     return point !== from;
   }
 

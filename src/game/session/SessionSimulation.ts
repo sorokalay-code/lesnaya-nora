@@ -3,6 +3,7 @@ import { GameUI } from '../../ui/GameUI';
 import { Soundscape } from '../Audio';
 import { Excavation } from '../Excavation';
 import { GroundItems } from '../GroundItems';
+import { GroundPose } from '../GroundPose';
 import { ModelAssets } from '../ModelAssets';
 import { animateRabbit, type RabbitRig } from '../Models';
 import { ViewCamera } from '../ViewCamera';
@@ -66,6 +67,7 @@ export class SessionSimulation {
   private autosaveAt = 0;
   private inRest = false;
   private readonly worldRest: WorldRest;
+  private readonly surfaceAt = (x: number, z: number) => this.context.world.heightAt(x, z);
 
   constructor(private readonly context: Context) {
     this.worldRest = new WorldRest({
@@ -174,6 +176,13 @@ export class SessionSimulation {
     this.context.player.root.position.z = p.z;
     this.context.player.root.userData.baseY = p.y;
     this.context.player.root.visible = !this.context.view.isFirstPerson;
+    if (
+      this.context.player.root.visible &&
+      !this.sheltered &&
+      !AnimalRestraint.active(this.context.player.root) &&
+      !this.context.world.waterAt(p.x, p.z)
+    )
+      GroundPose.contact(this.context.player.root, p.x, p.z, this.surfaceAt);
     animateRabbit(
       this.context.player,
       this.context.state.elapsed,

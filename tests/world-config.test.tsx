@@ -332,7 +332,7 @@ test('save round trip preserves configured terrain, plants, populations and cale
 
 test('pond-only worlds retain fish but do not spawn pike', () => {
   const config = emptyConfig();
-  config.map = { ...defaultMapGeneration(), gardens: 0, ponds: 2, rivers: 0, lakes: 0 };
+  config.map = { ...defaultMapGeneration(), gardens: 0, ponds: 2, rivers: 0, lakes: 0, swamps: 0 };
   config.creatures.pike = 3;
   config.creatures.fish = 2;
   config.food = 0.3;

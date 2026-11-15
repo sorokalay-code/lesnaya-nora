@@ -27,7 +27,12 @@ export class Terrain {
   private naturalHeightAt(x: number, z: number): number {
     x /= this.scale;
     z /= this.scale;
-    if (this.layout.landscape) return this.layout.landscape.heightAt(x, z);
+    if (this.layout.landscape) {
+      // На маленькой карте не сжимаем широкие склоны в крутые уступы той же высоты.
+      const verticalScale =
+        this.layout.settings.revision === 5 ? Math.min(1, this.scale * 1.25) : 1;
+      return this.layout.landscape.heightAt(x, z) * verticalScale;
+    }
     const broad = (smoothNoise(x / 38, z / 38, this.seed + 211) - 0.5) * 9;
     const ridges = (smoothNoise(x / 18, z / 18, this.seed + 251) - 0.5) * 3.2;
     const detail = (smoothNoise(x / 7, z / 7, this.seed + 283) - 0.5) * 0.7;

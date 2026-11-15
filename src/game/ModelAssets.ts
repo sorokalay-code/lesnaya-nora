@@ -3,6 +3,7 @@ import { isTreeSpecies, TREE_SPECIES } from './TreeSpecies';
 import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
 import { animalSurface, SURFACE_TEXTURES } from './SurfaceMaterials';
+import { GroundPose } from './GroundPose';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -374,6 +375,7 @@ export class ModelAssets {
   }
 
   play(instance: ModelInstance, name: string, dt: number, speed = 1): void {
+    GroundPose.present(instance.root);
     if (!instance.root.visible) return;
 
     if (instance.root.userData.swimming === true) {
