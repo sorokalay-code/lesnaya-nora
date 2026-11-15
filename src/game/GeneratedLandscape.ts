@@ -12,6 +12,14 @@ const MAX_WATER_WIDTH = Math.sqrt(5);
 const BANK_MARGIN = 3;
 const RIVER_STEP = 8;
 const START_LEVEL_RADIUS = 10;
+const LAKE_RADIUS_MIN = 10;
+const LAKE_RADIUS_MAX = 11;
+const LAKE_LENGTH_MIN = 12;
+const LAKE_LENGTH_MAX = 16;
+const PREVIOUS_LAKE_RADIUS_MIN = 7;
+const PREVIOUS_LAKE_RADIUS_MAX = 9;
+const PREVIOUS_LAKE_LENGTH_MIN = 6;
+const PREVIOUS_LAKE_LENGTH_MAX = 10;
 
 /** Размещает обжитые области и водоёмы в понижениях одной и той же карты высот. */
 export class GeneratedLandscape {
@@ -222,8 +230,14 @@ export class GeneratedLandscape {
   }
 
   private makeLake(index: number): void {
-    const radius = this.rng.range(7, 9);
-    const length = this.rng.range(6, 10);
+    const radius =
+      this.settings.revision === 3
+        ? this.rng.range(LAKE_RADIUS_MIN, LAKE_RADIUS_MAX)
+        : this.rng.range(PREVIOUS_LAKE_RADIUS_MIN, PREVIOUS_LAKE_RADIUS_MAX);
+    const length =
+      this.settings.revision === 3
+        ? this.rng.range(LAKE_LENGTH_MIN, LAKE_LENGTH_MAX)
+        : this.rng.range(PREVIOUS_LAKE_LENGTH_MIN, PREVIOUS_LAKE_LENGTH_MAX);
     const area = radius * MAX_WATER_WIDTH + Math.hypot(length, 3) + 7;
     const main = this.water[0];
     let site: Point | undefined;
@@ -235,12 +249,17 @@ export class GeneratedLandscape {
       );
       site = candidates.sort((a, b) => this.heightAt(a.x, a.z) - this.heightAt(b.x, b.z))[0];
     }
-    // Озеро может занимать пойму, поэтому близость русла здесь допустима.
-    site ??= this.site(
-      area,
-      (x, z) => this.heightAt(x, z),
-      (point, size) => this.clearance(point, size, true),
-    );
+    // Крупные озёра могут соединяться с водой, но не занимают стартовую поляну или огороды.
+    if (!site) {
+      const clearanceAt = (point: Point, size: number) => this.clearance(point, size, true);
+      site = this.site(area, (x, z) => this.heightAt(x, z), clearanceAt);
+      if (this.settings.revision === 3 && clearanceAt(site, area) < 0)
+        site = this.site(
+          area,
+          (x, z) => this.heightAt(x, z),
+          (point, size) => this.clearance(point, size, true, true),
+        );
+    }
     const angle = this.rng.range(0, Math.PI * 2);
     const points = [-1, -0.56, 0, 0.35, 0.78].map((step) => {
       const lateral = this.rng.range(-3, 3);
@@ -280,7 +299,12 @@ export class GeneratedLandscape {
     return best;
   }
 
-  private clearance(point: Point, radius: number, allowRiver = false): number {
+  private clearance(
+    point: Point,
+    radius: number,
+    allowRiver = false,
+    overlapWater = false,
+  ): number {
     let distance = Math.hypot(point.x, point.z) - START_RADIUS - radius;
     for (const garden of this.gardens)
       distance = Math.min(
@@ -291,6 +315,7 @@ export class GeneratedLandscape {
           2,
       );
     for (const body of this.water) {
+      if (overlapWater) continue;
       if (allowRiver && body.kind === 'river') continue;
       const margin = body.radius * MAX_WATER_WIDTH + radius + BANK_MARGIN;
       for (let i = 0; i < body.points.length; i++) {

@@ -10,7 +10,7 @@ export interface MapGeneration {
   ponds: number;
   river: boolean;
   /** Старые сохранения без этой версии восстанавливают прежний рельеф и воду. */
-  revision?: 2;
+  revision?: 2 | 3;
   rivers?: number;
   lakes?: number;
 }
@@ -38,7 +38,7 @@ export function defaultMapGeneration(): MapGeneration {
     swamps: 1,
     ponds: 3,
     river: true,
-    revision: 2,
+    revision: 3,
     rivers: 2,
     lakes: 1,
   };
@@ -50,7 +50,7 @@ export function validMapGeneration(value: unknown): value is MapGeneration {
   if ((map.layout !== 'classic' && map.layout !== 'generated') || typeof map.river !== 'boolean')
     return false;
   if (map.seed !== null && !bounded(map.seed, MAP_LIMITS.seed, true)) return false;
-  if (map.revision !== undefined && map.revision !== 2) return false;
+  if (map.revision !== undefined && map.revision !== 2 && map.revision !== 3) return false;
   if (map.rivers !== undefined && !bounded(map.rivers, MAP_LIMITS.rivers, true)) return false;
   if (map.lakes !== undefined && !bounded(map.lakes, MAP_LIMITS.lakes, true)) return false;
 
@@ -61,7 +61,7 @@ export function validMapGeneration(value: unknown): value is MapGeneration {
 
 export function riverCount(map: MapGeneration): number {
   if (!map.river) return 0;
-  return map.revision === 2 && map.layout === 'generated' ? (map.rivers ?? 2) : 1;
+  return map.revision !== undefined && map.layout === 'generated' ? (map.rivers ?? 2) : 1;
 }
 
 function bounded(value: unknown, limits: { min: number; max: number }, integer: boolean): boolean {

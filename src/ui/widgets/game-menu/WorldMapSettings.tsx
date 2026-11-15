@@ -55,7 +55,8 @@ const MAP_PRESETS: readonly {
 /** Настраивает географию карты; параметры передаются общему генератору движка. */
 export function WorldMapSettings({ config, update }: SettingsSectionProps) {
   const map = config.map ?? { ...defaultMapGeneration(), layout: 'classic' as const };
-  const change = (patch: Partial<MapGeneration>) => update({ map: { ...map, ...patch } });
+  const change = (patch: Partial<MapGeneration>) =>
+    update({ map: { ...map, ...patch, revision: 3 } });
   return (
     <>
       <FieldGroup legend="Твоя карта">
@@ -85,7 +86,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             value={map.layout}
             onChange={(event) => {
               if (event.target.value === 'classic' || event.target.value === 'generated')
-                change({ layout: event.target.value, revision: 2 });
+                change({ layout: event.target.value });
             }}
           >
             <option value="generated">Новое по зерну карты</option>
@@ -178,7 +179,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             [
               ['gardens', 'Огороды'],
               ['swamps', 'Болотные области'],
-              ['ponds', 'Пруды'],
+              ['ponds', 'Пруды (небольшие)'],
             ] as const
           ).map(([key, label]) => (
             <FieldLabel separateControl className="creature-input" key={key}>
@@ -195,7 +196,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             </FieldLabel>
           ))}
         </div>
-        {map.layout === 'generated' && map.revision === 2 ? (
+        {map.layout === 'generated' && map.revision !== undefined ? (
           <div className="creature-grid">
             <FieldLabel separateControl className="creature-input">
               Реки и притоки
@@ -209,7 +210,7 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
               />
             </FieldLabel>
             <FieldLabel separateControl className="creature-input">
-              Озёра
+              Озёра (крупные)
               <Input
                 type="number"
                 min={0}
@@ -229,6 +230,12 @@ export function WorldMapSettings({ config, update }: SettingsSectionProps) {
             />
             Река
           </FieldLabel>
+        )}
+        {map.layout === 'generated' && map.revision !== undefined && (
+          <p className="config-hint">
+            Пруды и крупные вытянутые озёра создаются отдельно; их количество настраивается
+            независимо.
+          </p>
         )}
         <p className="config-hint">
           Количество воды в «Природе» меняет ширину рек и площадь озёр. Щуки живут в глубоких реках

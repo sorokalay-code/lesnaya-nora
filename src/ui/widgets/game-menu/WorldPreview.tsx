@@ -26,7 +26,7 @@ export function WorldPreview({ config }: { config: WorldConfig }) {
         {preview.water.map((body) => (
           <polyline
             key={body.id}
-            className="preview-water-outline"
+            className={`preview-water-outline preview-water-outline--${body.kind}`}
             points={body.points}
             strokeWidth={body.width}
           />

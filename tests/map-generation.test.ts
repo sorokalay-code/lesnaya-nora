@@ -33,7 +33,7 @@ test('map settings reject corrupt values and retain classic layouts without map 
     { ...map, river: 'yes' },
     { ...map, rivers: 4 },
     { ...map, lakes: 1.5 },
-    { ...map, revision: 3 },
+    { ...map, revision: 4 },
     { ...map, layout: 'ocean' },
     { ...map, layout: ['classic'] },
   ]) {
@@ -41,6 +41,7 @@ test('map settings reject corrupt values and retain classic layouts without map 
     assert.equal(validWorldConfig({ ...defaultWorldConfig(), map: invalid }), false);
   }
   assert.ok(validMapGeneration({ ...map, seed: 0 }));
+  assert.ok(validMapGeneration({ ...map, revision: 2 }));
 });
 
 test('same seed reproduces geography while other seeds move gardens, swamps and water', () => {
@@ -114,12 +115,20 @@ test('maximum procedural water and landmarks fit the map and leave the whole sta
       for (const garden of layout.gardens) {
         assert.ok(Math.abs(garden.x) + garden.radius < 103);
         assert.ok(Math.abs(garden.z) + garden.radius < 103);
-        for (const dx of [-garden.radius, 0, garden.radius])
-          for (const dz of [-garden.radius, 0, garden.radius])
-            assert.equal(
-              terrain.water.near((garden.x + dx) * scale, (garden.z + dz) * scale, 0),
-              false,
+        for (const dx of [-garden.radius, 0, garden.radius]) {
+          for (const dz of [-garden.radius, 0, garden.radius]) {
+            const x = (garden.x + dx) * scale;
+            const z = (garden.z + dz) * scale;
+            const overlappingWater = terrain.water.bodies.find(
+              (body) => terrain.water.distance(body, x, z) < 0,
             );
+            assert.equal(
+              overlappingWater !== undefined,
+              false,
+              `water ${overlappingWater?.id} overlaps garden for seed ${seed} at scale ${scale}`,
+            );
+          }
+        }
       }
       for (let x = -10; x <= 10; x += 2)
         for (let z = -10; z <= 10; z += 2) {
@@ -162,9 +171,23 @@ test('generated landscapes have connected channels, irregular lakes and usable h
     );
     const lake = terrain.water.bodies.find((body) => body.kind === 'lake')!;
     assert.ok(lake.radius > 2 * main.radius && lake.depth > main.depth);
+    const largestPond = Math.max(
+      ...terrain.water.bodies.filter((body) => body.kind === 'pond').map((body) => body.radius),
+    );
+    assert.ok(lake.radius > largestPond * 1.5);
     assert.ok(lake.points.length > 2);
     assert.ok(lake.points.every(({ x, z }) => terrain.water.sample(x, z, terrain.heightAt(x, z))));
   }
+});
+
+test('new map revisions create large lakes while revision 2 keeps its previous scale', () => {
+  const current = new WorldLayout(31415, defaultMapGeneration());
+  const previous = new WorldLayout(31415, { ...defaultMapGeneration(), revision: 2 });
+  const currentLake = current.water.find((body) => body.kind === 'lake')!;
+  const previousLake = previous.water.find((body) => body.kind === 'lake')!;
+
+  assert.ok(currentLake.radius > previousLake.radius);
+  assert.ok(previousLake.radius <= 9);
 });
 
 test('crossing channels agree on water level even when no axis point lies near the crossing', () => {
@@ -239,5 +262,9 @@ test('preview uses actual seed and landscape settings and rejects an invalid dra
   assert.ok(preview.cells.includes('highland'));
   assert.ok(preview.cells.includes('lowland'));
   assert.ok(preview.water.some(({ id }) => id === 'tributary'));
-  assert.ok(preview.water.some(({ id }) => id === 'lake-0'));
+  const lake = preview.water.find(({ id }) => id === 'lake-0');
+  const pond = preview.water.find(({ id }) => id === 'pond-0');
+  assert.equal(lake?.kind, 'lake');
+  assert.equal(pond?.kind, 'pond');
+  assert.ok(lake && pond && lake.width > pond.width * 2);
 });

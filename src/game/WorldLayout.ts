@@ -37,7 +37,7 @@ export class WorldLayout {
     const occupied: LandscapeRegion[] = [
       { x: 0, z: 0, radius: 12, biome: 'meadow', label: 'Родная поляна' },
     ];
-    if (this.settings.layout === 'generated' && this.settings.revision === 2) {
+    if (this.settings.layout === 'generated' && this.settings.revision !== undefined) {
       this.landscape = new GeneratedLandscape(seed, this.settings);
       this.gardens = this.landscape.gardens;
       this.swamps = this.landscape.swamps;

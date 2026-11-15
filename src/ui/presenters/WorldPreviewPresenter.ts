@@ -1,7 +1,7 @@
 import { Terrain } from '../../game/Terrain';
 import { WorldLayout } from '../../game/WorldLayout';
 import { validWorldConfig, type WorldConfig } from '../../game/WorldConfig';
-import { landscapeCell, mapWater, type LandscapeCell } from './LandscapeMap';
+import { landscapeCell, mapWater, type LandscapeCell, type MapWater } from './LandscapeMap';
 
 type PreviewCell = LandscapeCell | 'water';
 
@@ -11,7 +11,7 @@ export class WorldPreviewPresenter {
     | {
         cells: PreviewCell[];
         resolution: number;
-        water: { id: string; points: string; width: number }[];
+        water: { id: string; kind: MapWater['kind']; points: string; width: number }[];
       }
     | undefined {
     if (!validWorldConfig(config)) return;
@@ -39,6 +39,7 @@ export class WorldPreviewPresenter {
     const coordinate = (meters: number) => (meters / (2 * config.size) + 0.5) * resolution;
     const water = mapWater(terrain).map((body) => ({
       id: body.id,
+      kind: body.kind,
       points: (body.points.length === 1 ? [body.points[0], body.points[0]] : body.points)
         .map(({ x, z }) => `${coordinate(x)},${coordinate(z)}`)
         .join(' '),

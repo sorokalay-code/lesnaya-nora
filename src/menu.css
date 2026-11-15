@@ -308,6 +308,9 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.preview-water-outline--lake {
+  stroke: var(--ui-map-lake);
+}
 .preview-highland {
   fill: var(--ui-map-highland);
 }
