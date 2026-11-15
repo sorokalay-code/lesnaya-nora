@@ -10,7 +10,6 @@ import { MenuTrigger } from './MenuTrigger';
 import { MobileUtilities } from './MobileUtilities';
 import { EventPanel } from './EventPanel';
 import { MobileControls } from './MobileControls';
-import { FullscreenButton } from './FullscreenButton';
 import { LowHealthVignette } from './LowHealthVignette';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
@@ -33,6 +32,7 @@ function useUIStore() {
 /** Корневой React-интерфейс подписывает каждый блок только на необходимые ему данные. */
 export function GameApp({ store }: { store: UIStore }) {
   const touch = useStore(store, (state) => state.touch);
+  const inWorld = useStore(store, (state) => !!state.hud && !state.overlay);
   const health = useStore(
     store,
     (state) => state.hud?.bars.find((bar) => bar.label === 'Здоровье')?.value,
@@ -40,19 +40,23 @@ export function GameApp({ store }: { store: UIStore }) {
   return (
     <UIContext.Provider value={store}>
       <div className={`ui-layer ${touch ? 'touch-ui' : ''}`}>
-        <LowHealthVignette health={health} />
-        <Toolbar />
-        <Hud />
-        <Panels />
-        <Controls />
+        {inWorld && (
+          <>
+            <LowHealthVignette health={health} />
+            <Toolbar />
+            <Hud />
+            <Panels />
+            <Controls />
+            <Performance />
+            <MobileUtilities store={store} />
+            <ActionMenu store={store} />
+            <EventPanel store={store} />
+          </>
+        )}
         <Toasts />
-        <Overlay />
-        <Performance />
+        <LoadingOverlay />
         <MobileControls store={store} />
-        <MobileUtilities store={store} />
-        <ActionMenu store={store} />
         <GameMenu store={store} />
-        <EventPanel store={store} />
       </div>
     </UIContext.Provider>
   );
@@ -486,7 +490,7 @@ function Toasts() {
   const overlay = useUI((state) => state.overlay);
   if (touch && !overlay) return null;
   return (
-    <div className={trapped ? 'toast-box web-toasts' : 'toast-box'}>
+    <div className={`toast-box ${overlay ? 'toast-box-overlay' : trapped ? 'web-toasts' : ''}`}>
       {(touch ? toasts.slice(-1) : toasts).map((toast) => (
         <Toast
           key={toast.id}
@@ -514,61 +518,13 @@ function Toast({ text, remove }: { text: string; remove: () => void }) {
   return <div className={`toast ${fade ? 'fade' : ''}`}>{text}</div>;
 }
 
-function Overlay() {
-  const store = useUIStore();
-  const overlay = useUI((state) => state.overlay),
-    dispatch = useUI((state) => state.dispatch);
+function LoadingOverlay() {
+  const overlay = useUI((state) => state.overlay);
+  if (overlay?.type !== 'loading') return null;
   return (
-    <ScrollContainer className={`overlay ${overlay ? '' : 'hidden'}`} label="Экран игры">
-      {overlay?.type === 'start' ? (
-        <div className="start-card">
-          <div className="eyebrow">✦ ТВОЯ ИСТОРИЯ НАЧИНАЕТСЯ ЗДЕСЬ</div>
-          <h1>
-            Лесная
-            <br />
-            <em>нора</em>
-          </h1>
-          <p>
-            Один лес. Тысячи историй. Найди свой дом, вырасти семью и проживи жизнь дикой крольчихи.
-          </p>
-          <div className="start-actions">
-            <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
-              Новая история <span>→</span>
-            </Button>
-            {overlay.hasSave && (
-              <Button className="secondary" onClick={() => dispatch('saved-games')}>
-                Загрузить игру
-              </Button>
-            )}
-            <Button onClick={() => dispatch('settings')}>Настройки</Button>
-            <FullscreenButton store={store} />
-          </div>
-          <div className="start-foot">
-            Случайная крольчиха и её гены · возможны врождённые дефекты
-          </div>
-        </div>
-      ) : overlay?.type === 'loading' ? (
-        <div className="start-card">
-          <h1>{overlay.title}</h1>
-          <p>Загружаем животных и их движения.</p>
-        </div>
-      ) : overlay?.type === 'gameover' ? (
-        <div className="dialog-card">
-          <div className="eyebrow">ЛЕС ПОМНИТ КАЖДУЮ ИСТОРИЮ</div>
-          <h2>История завершилась</h2>
-          <p>
-            Ты прожила {overlay.day} дней, дала жизнь {overlay.births} крольчатам и вырастила{' '}
-            {overlay.grown} из них.
-          </p>
-          <div className="dialog-actions">
-            <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
-              Начать новую историю
-            </Button>
-            <Button onClick={() => dispatch('saved-games')}>Загрузить игру</Button>
-          </div>
-        </div>
-      ) : null}
-    </ScrollContainer>
+    <div className="overlay" role="status">
+      <h1>{overlay.title}</h1>
+    </div>
   );
 }
 

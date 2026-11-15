@@ -53,8 +53,15 @@ export class GameUI {
   }
 
   showOverlay(overlay?: OverlayViewModel) {
-    this.closePanels();
-    this.store.setState({ overlay, statusOpen: false });
+    const gameMenu =
+      overlay?.type === 'start'
+        ? this.state.saveSlots.some((slot) => slot.supported)
+          ? 'main'
+          : 'new-game'
+        : overlay?.type === 'gameover'
+          ? 'main'
+          : undefined;
+    this.closePanels({ overlay, gameMenu, statusOpen: false });
   }
 
   showDialog(dialog: DialogViewModel, focus: 'dialog' | 'message' = 'dialog') {
@@ -116,7 +123,7 @@ export class GameUI {
     });
   }
 
-  closePanels() {
+  closePanels(next?: Pick<Partial<typeof this.state>, 'overlay' | 'gameMenu' | 'statusOpen'>) {
     this.store.setState({
       dialog: undefined,
       journal: undefined,
@@ -124,6 +131,7 @@ export class GameUI {
       eventsOpen: false,
       actionMenuOpen: false,
       familyOpen: false,
+      ...next,
     });
   }
 

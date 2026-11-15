@@ -223,9 +223,6 @@
   pointer-events: none !important;
   z-index: 2;
 }
-.ui-layer:has(.overlay:not(.hidden)) .dig-reticle {
-  display: none;
-}
 .family-avatars {
   position: absolute;
   top: var(--ui-offset-84);
@@ -348,8 +345,6 @@
 .mate-chat b {
   color: #edd59b;
 }
-.ui-layer:has(.overlay:not(.hidden)) .family-avatars,
-.ui-layer:has(.overlay:not(.hidden)) .kit-progress,
 .ui-layer:has(.dialog-panel:not(.hidden)) .kit-progress,
 .ui-layer:has(.journal:not(.hidden)) .kit-progress,
 .ui-layer:has(.settings-panel:not(.hidden)) .kit-progress {

@@ -183,10 +183,17 @@ export class Game {
 
   private showStart(): void {
     this.refreshSaveList();
-    this.ui.showOverlay({
-      type: 'start',
-      hasSave: this.ui.state.saveSlots.some((slot) => slot.supported),
-    });
+    this.prepareAdventureName();
+    this.ui.showOverlay({ type: 'start' });
+  }
+
+  private prepareAdventureName(): void {
+    if (this.ui.state.adventureName.trim()) return;
+    try {
+      this.ui.store.setState({ adventureName: this.saves.nextAdventureName() });
+    } catch {
+      this.ui.store.setState({ adventureName: 'Новое приключение' });
+    }
   }
 
   private async newGame(): Promise<void> {
@@ -228,6 +235,7 @@ export class Game {
   }
 
   private async loadGame(slotId?: string): Promise<void> {
+    if (this.ui.state.overlay?.type === 'loading') return;
     try {
       const loaded = this.saves.loadSlot(slotId);
       this.save = loaded.save;
@@ -739,16 +747,7 @@ export class Game {
       });
       return;
     }
-    if (action === 'new-game-menu' && !this.ui.state.adventureName.trim()) {
-      try {
-        this.ui.store.setState({ adventureName: this.saves.nextAdventureName() });
-      } catch (error) {
-        this.toast(
-          error instanceof Error ? error.message : 'Не удалось прочитать список сохранений.',
-        );
-        return;
-      }
-    }
+    if (action === 'new-game-menu') this.prepareAdventureName();
     if (action === 'new-game-menu' && frontScreen) {
       this.ui.store.setState({ gameMenu: 'new-game' });
       return;
@@ -778,11 +777,13 @@ export class Game {
       }
       return;
     }
-    if (frontScreen) {
-      if (action === 'menu-back' || action === 'resume') {
-        this.ui.store.setState({ gameMenu: undefined });
-        return;
-      }
+    if (frontScreen && (action === 'continue-menu' || action === 'menu-back')) {
+      const firstRun =
+        overlay.type === 'start' && !this.ui.state.saveSlots.some((slot) => slot.supported);
+      this.ui.store.setState({
+        gameMenu: action === 'menu-back' && firstRun ? 'new-game' : 'main',
+      });
+      return;
     }
     if (action === 'fullscreen') {
       void this.fullscreen.toggle();
@@ -843,7 +844,7 @@ export class Game {
     this.remains?.record({ kind: 'rabbit', root: this.player.root, genes: this.save.player.genes });
     this.running = false;
     this.view.unlock();
-    this.ui.closePanels();
+    this.refreshSaveList();
     this.ui.showOverlay({
       type: 'gameover',
       day: this.save.day,

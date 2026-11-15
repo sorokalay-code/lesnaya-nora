@@ -1,15 +1,19 @@
 .touch-menu.game-menu.pause-menu {
+  inset: var(--ui-space-0);
+  transform: none;
   display: grid;
-  grid-template-columns: minmax(175px, 0.85fr) minmax(0, 3fr);
+  grid-template-columns: clamp(175px, 22vw, 280px) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(900px, calc(100% - var(--ui-space-32)));
-  height: min(620px, calc(100dvh - var(--ui-space-32)));
-  padding: var(--ui-space-0);
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
   overflow: hidden;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-panel);
+  border: 0;
+  border-radius: 0;
   background: var(--ui-surface);
-  box-shadow: 0 var(--ui-space-20) var(--ui-space-44) var(--ui-backdrop);
 }
 
 .pause-menu > .pause-header {
@@ -155,8 +159,14 @@
   min-width: 0;
 }
 
-.pause-menu.pause-menu-burrow {
+.touch-menu.game-menu.pause-menu-burrow {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pause-menu > .pause-burrow-content {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 @media (max-width: 740px), (max-height: 520px) {
@@ -200,7 +210,6 @@
   .touch-menu.game-menu.pause-menu:not(.pause-menu-burrow) {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto minmax(0, 1fr);
-    height: calc(100dvh - var(--ui-space-16));
   }
 
   .pause-menu:not(.pause-menu-burrow) > .pause-header {

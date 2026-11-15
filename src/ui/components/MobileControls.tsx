@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } fr
 import { useStore } from 'zustand';
 import type { TouchBindings } from '../../game/input/MobileInput';
 import type { UIStore } from '../store';
+import { MenuTrigger } from './MenuTrigger';
 
 export function activateTouchJump(
   event: Pick<PointerEvent<HTMLButtonElement>, 'pointerType' | 'preventDefault'>,
@@ -19,6 +20,7 @@ export function activateTouchJump(
 export function MobileControls({ store }: { store: UIStore }) {
   const touch = useStore(store, (s) => s.touch);
   const portrait = useStore(store, (s) => s.portrait);
+  const showOrientation = useStore(store, (s) => !s.overlay && !s.gameMenu);
   const hidden = useStore(
     store,
     (s) =>
@@ -35,7 +37,7 @@ export function MobileControls({ store }: { store: UIStore }) {
   const underground = useStore(store, (s) => s.hud?.underground);
 
   if (!touch) return null;
-  if (portrait)
+  if (portrait && showOrientation)
     return (
       <div className="orientation-guard" role="alert">
         <span>↻</span>
@@ -43,9 +45,10 @@ export function MobileControls({ store }: { store: UIStore }) {
         <p>Лесная нора играется в горизонтальном положении.</p>
         <small>Игра на паузе — крольчиха в безопасности.</small>
         <FullscreenButton store={store} />
+        <MenuTrigger store={store} />
       </div>
     );
-  if (hidden || !bindings || airlift) return null;
+  if (portrait || hidden || !bindings || airlift) return null;
 
   if (open) return null;
 

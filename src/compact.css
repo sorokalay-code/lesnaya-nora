@@ -111,10 +111,6 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
-.ui-layer:has(.overlay:not(.hidden)) .status-toggle,
-.ui-layer:has(.overlay:not(.hidden)) .family-toggle {
-  display: none;
-}
 #app:fullscreen {
   width: 100vw;
   height: 100dvh;

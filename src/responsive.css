@@ -253,25 +253,6 @@ body,
   z-index: 150;
   padding: var(--ui-space-10);
 }
-.touch-ui .start-card {
-  padding: var(--ui-space-20);
-}
-.touch-ui .start-card h1 {
-  font-size: 38px;
-  margin: var(--ui-space-8) var(--ui-space-0);
-}
-.touch-ui .start-card p {
-  margin: var(--ui-space-8) var(--ui-space-0);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.touch-ui .start-foot,
-.touch-ui .eyebrow {
-  display: none;
-}
-.touch-ui .start-actions button {
-  min-height: var(--ui-target-height);
-}
 @media (max-height: 420px) and (pointer: coarse) {
   .touch-actions {
     width: 204px;
@@ -284,12 +265,6 @@ body,
   .touch-joystick {
     width: 100px;
     height: 100px;
-  }
-  .touch-ui .start-card {
-    width: min(600px, 100%);
-  }
-  .touch-ui .start-card h1 {
-    font-size: 30px;
   }
 }
 @media (min-width: 701px) and (max-width: 1100px) and (pointer: fine) {

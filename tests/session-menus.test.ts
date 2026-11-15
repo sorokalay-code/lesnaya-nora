@@ -32,8 +32,8 @@ function fixture() {
     get panelsOpen() {
       return blockingPanelOpen(store.getState());
     },
-    closePanels() {
-      GameUI.prototype.closePanels.call(this as GameUI);
+    closePanels(next?: Parameters<GameUI['closePanels']>[0]) {
+      GameUI.prototype.closePanels.call(this as GameUI, next);
     },
   };
   let unlocked = 0,
@@ -291,16 +291,33 @@ test('desktop exposes a corner menu button and fullscreen belongs to the pause h
   );
 });
 
-test('fullscreen control belongs to the start screen actions', () => {
-  const store = createUIStore(() => {});
-  store.setState({ overlay: { type: 'start', hasSave: false } });
+test('first launch opens the new game tab in the full menu, including in portrait', () => {
+  const { ui, store } = fixture();
   store.getInitialState = store.getState;
+  store.setState({ touch: true, portrait: true });
+  GameUI.prototype.showOverlay.call(ui as GameUI, { type: 'start' });
 
   const markup = renderToStaticMarkup(createElement(GameApp, { store }));
 
-  assert.match(markup, /start-actions[\s\S]*fullscreen-button/);
-  assert.doesNotMatch(markup, /fullscreen-corner/);
-  assert.match(markup, /Развернуть на весь экран/);
+  assert.match(markup, /pause-header[\s\S]*fullscreen-button/);
+  assert.match(markup, /id="pause-tab-new-game" role="tab" aria-selected="true"/);
+  assert.equal((markup.match(/role="tab" aria-selected/g) ?? []).length, 8);
+  assert.match(markup, /Начать новую игру/);
+  assert.doesNotMatch(markup, /Закрыть меню|Поверни устройство|Создать сохранение/);
+});
+
+test('with a save the opening menu offers to continue the latest adventure', () => {
+  const { ui, store } = fixture();
+  store.getInitialState = store.getState;
+  store.setState({
+    saveSlots: [{ ...sampleSaveSlot, supported: false }, sampleSaveSlot],
+  });
+  GameUI.prototype.showOverlay.call(ui as GameUI, { type: 'start' });
+  const markup = renderToStaticMarkup(createElement(GameApp, { store }));
+  assert.match(markup, /id="pause-tab-main" role="tab" aria-selected="true"/);
+  assert.match(markup, /Продолжить с последнего сохранения/);
+  assert.match(markup, /Тихий лес · день 2/);
+  assert.doesNotMatch(markup, /Вернуться в игру|Создать сохранение/);
 });
 
 test('low-health warning appears below twenty percent only', () => {
@@ -339,34 +356,32 @@ test('low-health warning appears below twenty percent only', () => {
   assert.match(lowHealth, /aria-hidden="true"/);
 });
 
+const preview = 'data:image/jpeg;base64,c25hcHNob3Q=';
+const sampleSaveSlot = {
+  id: 'manual-1',
+  adventureId: 'adventure-1',
+  adventureName: 'Тихий лес',
+  name: 'Сохранение 1',
+  kind: 'manual',
+  createdAt: 1,
+  updatedAt: 1,
+  version: 5,
+  day: 2,
+  clock: 540,
+  seed: 1,
+  biome: 'forest',
+  worldSize: 100,
+  playerX: 0,
+  playerZ: 0,
+  playerCoat: 'cream',
+  supported: true,
+  preview,
+} as const;
+
 test('save library displays the stored image snapshot instead of a generated map', () => {
   const store = createUIStore(() => {});
   store.getInitialState = store.getState;
-  const preview = 'data:image/jpeg;base64,c25hcHNob3Q=';
-  store.setState({
-    saveSlots: [
-      {
-        id: 'manual-1',
-        adventureId: 'adventure-1',
-        adventureName: 'Тихий лес',
-        name: 'Сохранение 1',
-        kind: 'manual',
-        createdAt: 1,
-        updatedAt: 1,
-        version: 5,
-        day: 2,
-        clock: 540,
-        seed: 1,
-        biome: 'forest',
-        worldSize: 100,
-        playerX: 0,
-        playerZ: 0,
-        playerCoat: 'cream',
-        supported: true,
-        preview,
-      },
-    ],
-  });
+  store.setState({ saveSlots: [sampleSaveSlot] });
 
   const markup = renderToStaticMarkup(createElement(SaveLibrary, { store }));
 

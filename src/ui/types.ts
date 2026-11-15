@@ -110,6 +110,6 @@ export type { SaveSlotSummary };
 export type JournalViewModel =
   { mode: 'journal'; save: SaveData; season: Season } | { mode: 'map'; map: MapViewModel };
 export type OverlayViewModel =
-  | { type: 'start'; hasSave: boolean }
+  | { type: 'start' }
   | { type: 'loading'; title: string }
   | { type: 'gameover'; day: number; births: number; grown: number };

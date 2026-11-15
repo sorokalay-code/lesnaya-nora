@@ -63,8 +63,7 @@ export function GameMenu({ store }: { store: UIStore }) {
 
   if (!page) return null;
   const inWorld = !overlay;
-  const visibleTabs = inWorld ? tabs : tabs.slice(1);
-  const chapter = visibleTabs.find((tab) => tab.value === page);
+  const chapter = tabs.find((tab) => tab.value === page);
   const close = page === 'burrow' ? 'menu-back' : 'resume';
 
   return (
@@ -77,7 +76,7 @@ export function GameMenu({ store }: { store: UIStore }) {
         onKeyDown={(event) => {
           if (event.key === 'Escape' && overlay) {
             event.preventDefault();
-            dispatch('resume');
+            dispatch('menu-back');
           }
         }}
       >
@@ -85,14 +84,16 @@ export function GameMenu({ store }: { store: UIStore }) {
           <h2 id="game-menu-title">{page === 'burrow' ? 'План норы' : 'Меню игры'}</h2>
           <div className="game-menu-header-actions">
             <FullscreenButton store={store} compact />
-            <Button
-              data-burrow-back={page === 'burrow' ? '' : undefined}
-              aria-label={page === 'burrow' ? 'Назад к меню' : 'Закрыть меню'}
-              onClick={() => dispatch(close)}
-            >
-              {page === 'burrow' ? '← Назад' : '✕'}
-              {page !== 'burrow' && inWorld && !touch && <kbd>Esc</kbd>}
-            </Button>
+            {inWorld && (
+              <Button
+                data-burrow-back={page === 'burrow' ? '' : undefined}
+                aria-label={page === 'burrow' ? 'Назад к меню' : 'Закрыть меню'}
+                onClick={() => dispatch(close)}
+              >
+                {page === 'burrow' ? '← Назад' : '✕'}
+                {page !== 'burrow' && !touch && <kbd>Esc</kbd>}
+              </Button>
+            )}
           </div>
         </header>
         {chapter && (
@@ -102,14 +103,14 @@ export function GameMenu({ store }: { store: UIStore }) {
               label="Меню игры"
               className="pause-tabs"
               orientation={compact ? 'horizontal' : 'vertical'}
-              options={visibleTabs}
+              options={tabs}
               value={chapter.value}
               onChange={(value) => {
                 const tab = tabs.find((item) => item.value === value);
                 if (tab && value !== page) dispatch(tab.action);
               }}
             />
-            {visibleTabs.map(({ value }) => (
+            {tabs.map(({ value }) => (
               <div
                 key={value}
                 id={`pause-panel-${value}`}
@@ -118,7 +119,9 @@ export function GameMenu({ store }: { store: UIStore }) {
                 className="pause-panel"
                 hidden={value !== page}
               >
-                {page === value && value === 'main' && <ResumePanel store={store} />}
+                {page === value &&
+                  value === 'main' &&
+                  (inWorld ? <ResumePanel store={store} /> : <FrontMenuPanel store={store} />)}
                 {page === value && value === 'saves' && (
                   <ScrollContainer className="pause-scroll" label="Загрузить игру">
                     <SaveLibrary store={store} />
@@ -126,22 +129,58 @@ export function GameMenu({ store }: { store: UIStore }) {
                 )}
                 {page === value && value === 'settings' && <GameSettings store={store} />}
                 {page === value && value === 'new-game' && (
-                  <NewGameForm
-                    store={store}
-                    replacesStory={overlay?.type !== 'start' || overlay.hasSave}
-                  />
+                  <NewGameForm store={store} replacesStory={inWorld} />
                 )}
               </div>
             ))}
           </>
         )}
         {page === 'burrow' && burrow && (
-          <ScrollContainer className="pause-scroll" label="План и обустройство норы">
+          <ScrollContainer
+            className="pause-scroll pause-burrow-content"
+            label="План и обустройство норы"
+          >
             <BurrowPanel data={burrow} relocate={(id) => dispatch(`relocate-family:${id}`)} />
           </ScrollContainer>
         )}
       </Dialog>
     </div>
+  );
+}
+
+function FrontMenuPanel({ store }: { store: UIStore }) {
+  const latest = useStore(store, (state) => state.saveSlots.find((slot) => slot.supported));
+  const overlay = useStore(store, (state) => state.overlay);
+  const dispatch = useStore(store, (state) => state.dispatch);
+  return (
+    <ScrollContainer className="pause-scroll" label="Продолжить игру">
+      <div className="pause-session">
+        <h3>{overlay?.type === 'gameover' ? 'История завершилась' : 'Лесная нора'}</h3>
+        {overlay?.type === 'gameover' && (
+          <p>
+            Дней прожито: {overlay.day} · родилось крольчат: {overlay.births} · выросло:{' '}
+            {overlay.grown}
+          </p>
+        )}
+        {latest ? (
+          <>
+            <p>
+              {latest.adventureName} · день {latest.day}
+            </p>
+            <Button variant="primary" onClick={() => dispatch('load-save', latest.id)}>
+              Продолжить с последнего сохранения
+            </Button>
+          </>
+        ) : (
+          <>
+            <p>Сохранений пока нет.</p>
+            <Button variant="primary" onClick={() => dispatch('new-game-menu')}>
+              Новая игра
+            </Button>
+          </>
+        )}
+      </div>
+    </ScrollContainer>
   );
 }
 
