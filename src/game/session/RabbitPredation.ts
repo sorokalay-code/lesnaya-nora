@@ -8,6 +8,7 @@ import type { World } from '../World';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import type { AttackListener } from '../audio/AttackCue';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
+import { traceGround } from '../GroundContact';
 
 interface Context {
   attackSound?: AttackListener;
@@ -130,12 +131,17 @@ export class RabbitPredation {
     );
     const x = hunter.x + (dx / (distance || 1)) * step,
       z = hunter.z + (dz / (distance || 1)) * step;
-    if (this.context.earth.canMoveTo(x, z, hunter.y, false)) {
-      hunter.move(x, this.context.world.heightAt(x, z), z);
-      rig.root.userData.huntMoving = step > 0.001;
-    }
+    const point = traceGround(hunter, x, z, {
+      heightAt: (nx, nz) => this.context.world.heightAt(nx, nz),
+    });
+    if (point !== hunter) hunter.move(point.x, point.y, point.z);
+    rig.root.userData.huntMoving = point !== hunter;
     rig.root.rotation.y = Math.atan2(-dx, -dz);
-    if (distance < 1.9 && time >= (this.cooldowns.get(rig.root) ?? 0)) {
+    const targetY = prey?.root.position.y ?? player.y;
+    if (
+      Math.hypot(distance, targetY - point.y) < 1.9 &&
+      time >= (this.cooldowns.get(rig.root) ?? 0)
+    ) {
       this.cooldowns.set(rig.root, time + 3);
       setRabbitAction(rig, 'eat', time + hunter.phase, 0.5);
       const { x, y, z } = rig.root.position;

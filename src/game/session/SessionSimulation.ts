@@ -122,7 +122,7 @@ export class SessionSimulation {
       this.context.state.elapsed,
       this.context.ui.panelsOpen || this.context.web.trapped,
     );
-    this.context.movement.settle(dt);
+    this.context.movement.settle();
     const sheltered = this.sheltered;
     p.hidden = sheltered;
     this.context.web.update(dt, this.context.state.elapsed, !this.context.ui.conversationOpen);

@@ -1,4 +1,5 @@
 import type { GroundHeight } from './types';
+import { traceGround } from '../GroundContact';
 
 interface PounceProfile {
   range: number;
@@ -83,11 +84,14 @@ export class PounceAttack {
     );
     const x = this.start.x + (this.start.targetX - this.start.x) * fraction;
     const z = this.start.z + (this.start.targetZ - this.start.z) * fraction;
+    const from = { x: position.x, y: groundAt(position.x, position.z), z: position.z };
+    const point = traceGround(from, x, z, { heightAt: groundAt });
+    const hitSlope = Math.hypot(point.x - x, point.z - z) > 0.0001;
     const result = {
-      x,
-      z,
-      y: groundAt(x, z) + Math.sin(fraction * Math.PI) * this.profile.height,
-      landed: fraction >= 1,
+      x: point.x,
+      z: point.z,
+      y: point.y + (hitSlope ? 0 : Math.sin(fraction * Math.PI) * this.profile.height),
+      landed: fraction >= 1 || hitSlope,
       winding: this.progress < this.profile.windup,
       started,
     };

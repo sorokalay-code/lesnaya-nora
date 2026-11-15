@@ -288,7 +288,7 @@ export class Excavation {
     return center?.distance ?? Infinity;
   }
 
-  floorAt(x: number, z: number, previousY: number): number {
+  floorAt(x: number, z: number, previousY: number, fromTunnel?: boolean): number {
     const surface = this.world.heightAt(x, z),
       center = this.centerline(x, z, previousY);
     if (!center || center.distance > WALKABLE_TUNNEL_RADIUS) return surface;
@@ -305,7 +305,9 @@ export class Excavation {
       return surface + (tunnelFloor - surface) * blend;
     }
 
-    return previousY < surface - 0.13 || opening < WALKABLE_TUNNEL_RADIUS ? tunnelFloor : surface;
+    // При шаге с поверхности рост склона не должен переключать опору на тоннель под ним.
+    const useTunnel = fromTunnel ?? previousY < surface - 0.13;
+    return useTunnel || opening < WALKABLE_TUNNEL_RADIUS ? tunnelFloor : surface;
   }
 
   /** Луч начинается у крольчихи; камера задаёт направление копания без переноса точки действия. */

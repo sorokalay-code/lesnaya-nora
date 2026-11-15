@@ -1,4 +1,5 @@
 import { Random } from '../Random';
+import { traceGround } from '../GroundContact';
 import type { DigNode, SaveData } from '../types';
 import type { RabbitActor } from '../animals/RabbitActor';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
@@ -111,13 +112,14 @@ export class RabbitReproductiveThreat {
     const step = Math.min(Math.max(0, distance - CHASE.contactRange * 0.8), speed * dt);
     const x = actor.x + (dx / (distance || 1)) * step;
     const z = actor.z + (dz / (distance || 1)) * step;
-    const y = this.terrain.floorAt(x, z, baseY);
-    const canStep =
-      step > 0 &&
-      Math.abs(y - baseY) <= 0.5 &&
-      !this.terrain.sheltered({ x, y, z }) &&
-      !this.inDeepWater(x, z);
-    if (canStep) actor.moveTo(x, z, y);
+    const from = { x: actor.x, y: baseY, z: actor.z };
+    const point = traceGround(from, x, z, {
+      heightAt: (nx, nz, previous) => this.terrain.floorAt(nx, nz, previous.y),
+      canOccupy: (nx, nz, y) =>
+        !this.terrain.sheltered({ x: nx, y, z: nz }) && !this.inDeepWater(nx, nz),
+    });
+    const canStep = point !== from;
+    if (canStep) actor.moveTo(point.x, point.z, point.y);
     animateRabbit(actor.rig, time + actor.data.id, canStep, true, dt);
 
     if (

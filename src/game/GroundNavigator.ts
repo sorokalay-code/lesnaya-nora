@@ -1,5 +1,6 @@
 import type { Excavation } from './Excavation';
 import type { DigNode } from './types';
+import { walkOnExcavation } from './GroundContact';
 import { RABBIT_SWIM_IMMERSION, type WaterNavigation } from './WaterNavigation';
 
 /** Ведёт существо по сохранённым точкам, учитывает пол и делает паузу при тесноте. */
@@ -69,14 +70,12 @@ export class GroundNavigator {
       x = dry.x;
       z = dry.z;
     }
-    const floor = earth.floorAt(x, z, from.y);
-    const y = water && !sheltered && canSwim ? water.height(x, z, immersion, floor) : floor;
-    if (!earth.canMoveTo(x, z, from.y, sheltered) || Math.abs(y - from.y) > 1.1) {
+    const point = walkOnExcavation(earth, from, x, z, canSwim ? water : undefined, immersion);
+    if (point === from) {
       this.retryAt = time + 0.8;
       this.destination = undefined;
       return { point: from, moving: false };
     }
-    const point = { x, y, z };
     this.expected = point;
     return { point, moving: true };
   }

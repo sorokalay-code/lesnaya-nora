@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as THREE from 'three';
-import type { Excavation } from '../src/game/Excavation';
+import { Excavation } from '../src/game/Excavation';
 import { ModelAssets, MODEL_NAMES } from '../src/game/ModelAssets';
 import { Random } from '../src/game/Random';
 import { ViewCamera } from '../src/game/ViewCamera';
@@ -13,17 +13,94 @@ import {
   Hawk,
   RabbitActor,
   RabbitFactory,
+  PlayerRabbit,
   type WildlifeKind,
 } from '../src/game/animals';
 import { SeasonSystem } from '../src/game/systems';
 import { loadModels } from './model-fixture';
 import type { Season } from '../src/game/types';
+import { GroundNavigator } from '../src/game/GroundNavigator';
+import { NewGameFactory } from '../src/game/session/NewGameFactory';
+import { PlayerMovement } from '../src/game/session/PlayerMovement';
+import { Soundscape } from '../src/game/Audio';
+import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
 
 await loadModels(...MODEL_NAMES);
 
 const scene = new THREE.Scene();
 const world = new World(scene, 31415);
 const groundAt = (x: number, z: number) => world.heightAt(x, z);
+
+function hillFixture(heightAt: (x: number, z: number) => number, tunnel = false) {
+  const save = NewGameFactory.create(31415, 0, new RabbitFactory(new Random(3)));
+  save.player.genes = structuredClone(DEFAULT_GENES);
+  if (tunnel) save.excavation.push({ x: 2, y: -1, z: 0 }, { x: 4, y: -1, z: 0 });
+  const hill = { heightAt, rootAt: () => undefined, addGroundHole() {} } as unknown as World;
+  const earth = new Excavation(new THREE.Scene(), hill, save);
+  const player = new PlayerRabbit(save.player);
+  const heading = { x: 1, z: 0 };
+  const keys = new Set(['KeyW']);
+  const movement = new PlayerMovement(
+    player,
+    keys,
+    { forwardAt: () => heading } as ViewCamera,
+    earth,
+    new Soundscape(),
+  );
+  player.root.rotation.y = -Math.PI / 2;
+  return { save, earth, player, movement, heading, keys };
+}
+
+test('walking up and down a hill keeps the same surface support before and after settling', () => {
+  const heightAt = (x: number) => x * 0.8;
+  const { save, movement, player, heading } = hillFixture(heightAt, true);
+  const p = save.player;
+  for (let frame = 1; frame <= 36; frame++) {
+    assert.equal(movement.move(1 / 30, frame / 30, false), true);
+    assert.equal(p.y, heightAt(p.x));
+    movement.settle();
+    assert.equal(p.y, heightAt(p.x));
+  }
+  assert.ok(p.x > 4);
+  heading.x = -1;
+  player.root.rotation.y = Math.PI / 2;
+  for (let frame = 37; frame <= 70; frame++) {
+    movement.move(1 / 30, frame / 30, false);
+    assert.equal(p.y, heightAt(p.x));
+  }
+  assert.ok(p.x < 1);
+});
+
+test('player sprint, jump and family routes cannot skip a short steep bank in one frame', () => {
+  const bank = (x: number) => Math.max(0, 1.5 - Math.abs(x - 2) * 3);
+  const { save, movement, earth, keys } = hillFixture(bank);
+  const p = save.player;
+  keys.add('ShiftLeft');
+  movement.move(1, 1, false);
+  assert.ok(p.x <= 1.5);
+  assert.equal(p.y, bank(p.x));
+  assert.equal(movement.requestJump(2), true);
+  movement.move(0.58, 2.58, false);
+  assert.ok(p.x <= 1.5);
+  assert.equal(p.y, bank(p.x));
+
+  const from = { x: 0, y: 0, z: 0 };
+  const target = { x: 5, y: 0, z: 0 };
+  const { point } = new GroundNavigator().step(from, target, earth, 1, 1, 5);
+  assert.ok(point.x > 0 && point.x <= 1.5);
+  assert.equal(point.y, bank(point.x));
+});
+
+test('wildlife stays on the safe side of a cliff when heading directly uphill', () => {
+  const wall = (x: number) => Math.max(0, (x - 0.5) * 4);
+  const deer = createForestAnimal('deer', 0, 0, new Random(13));
+  deer.followFriend({ x: 7, z: 0 });
+  for (let i = 0; i < 20; i++) {
+    deer.update(0.1, i * 0.1, wall, []);
+    assert.equal(deer.root.position.y, wall(deer.x));
+  }
+  assert.ok(deer.x > 0.25 && deer.x <= 0.5);
+});
 
 test('the visual transition approaches the next season even for a one-day season', () => {
   const calendar = new SeasonSystem(1, { Весна: 1, Лето: 4, Осень: 1, Зима: 1 });
@@ -301,4 +378,17 @@ test('view switches between eye height and the orbit camera', () => {
   assert.equal(view.mode, 'third');
   assert.ok(Math.hypot(camera.position.x - 4, camera.position.z - 5) > 3);
   assert.equal(camera.children[0].visible, false);
+});
+
+test('the orbit camera stays in front of a slope even before its old smoothing catches up', () => {
+  const camera = new THREE.PerspectiveCamera();
+  const canvas = { addEventListener: () => {} } as unknown as HTMLCanvasElement;
+  const view = new ViewCamera(camera, canvas);
+  const bank = (_x: number, z: number) => Math.max(0, (z - 1) * 2);
+  view.snap(0, 0, 0, false);
+  for (let frame = 0; frame < 8; frame++) {
+    view.update(0, 0, 0, undefined, frame / 60, false, false, bank);
+    assert.ok(camera.position.y > bank(camera.position.x, camera.position.z));
+    assert.ok(camera.position.z < 3);
+  }
 });

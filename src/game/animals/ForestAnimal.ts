@@ -190,7 +190,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       this.eatingUntil = time + 1.6;
     }
 
-    const moving =
+    const wantsToMove =
       !!guard ||
       fleeing ||
       escortDistance > 2.6 ||
@@ -198,13 +198,14 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
         !grazing &&
         time > this.eatingUntil &&
         (!!food || Math.sin(time * 0.47 + this.root.id) > -0.55));
-    if (moving) {
+    let moving = false;
+    if (wantsToMove) {
       const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
       const step = Math.min(
         Math.hypot(this.targetX - this.x, this.targetZ - this.z),
         dt * this.speed * (rushing ? 2 : 1),
       );
-      this.surfaceStep(
+      moving = this.surfaceStep(
         THREE.MathUtils.clamp(
           this.x + Math.sin(angle) * step,
           -this.movementLimit,
@@ -226,7 +227,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       this.root.rotation.y += THREE.MathUtils.clamp(turn, -dt * 4, dt * 4);
     }
 
-    if (!moving) this.surfaceStep(this.x, this.z, dt, groundAt);
+    if (!wantsToMove) this.surfaceStep(this.x, this.z, dt, groundAt);
     ModelAssets.shared.play(
       this.model,
       moving ? (rushing ? 'run' : 'walk') : time < this.eatingUntil ? 'graze' : 'idle',

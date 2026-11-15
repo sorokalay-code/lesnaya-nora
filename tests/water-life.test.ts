@@ -130,7 +130,7 @@ test('player paddles with camera-relative WASD and cannot jump out of deep water
   const start = f.save.player.x;
   for (let frame = 0; frame < 60; frame++) {
     movement.move(1 / 60, frame / 60, false);
-    movement.settle(1 / 60);
+    movement.settle();
   }
   assert.ok(f.save.player.x - start > 1.7 && f.save.player.x - start < 1.9);
   const water = world.waterAt(f.save.player.x, f.save.player.z)!;

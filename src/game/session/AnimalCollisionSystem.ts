@@ -10,6 +10,8 @@ import { GeneticTraits } from '../genetics/GeneticTraits';
 import { RabbitConformation } from '../genetics/RabbitConformation';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { playableWorldLimit } from '../WorldConfig';
+import { traceGround, walkOnExcavation } from '../GroundContact';
+import type { DigNode } from '../types';
 interface CollisionContext {
   playerRestrained?: () => boolean;
   playerHeading?: () => number;
@@ -69,10 +71,15 @@ export class AnimalCollisionSystem {
       bodies: PhysicalBody[] = [];
     const shape = RabbitConformation.shape(p.genes);
     const limit = playableWorldLimit(this.context.world.size);
-    const valid = (x: number, z: number, y: number, sheltered: boolean) =>
-      Math.abs(x) < limit &&
-      Math.abs(z) < limit &&
-      this.context.earth.canMoveTo(x, z, y, sheltered);
+    const surface = { heightAt: (x: number, z: number) => this.context.world.heightAt(x, z) };
+    const contact = (from: DigNode, x: number, z: number, tunnels: boolean) => {
+      if (Math.abs(x) >= limit || Math.abs(z) >= limit) return;
+      const point = tunnels
+        ? walkOnExcavation(this.context.earth, from, x, z)
+        : traceGround(from, x, z, surface);
+      // Решатель должен получить результат всего сдвига. Частичный сдвиг исказит его капсулы.
+      if (Math.hypot(point.x - x, point.z - z) <= 0.0001) return point;
+    };
     if (!this.context.playerRestrained?.())
       bodies.push({
         id: 0,
@@ -105,8 +112,10 @@ export class AnimalCollisionSystem {
         sheltered,
         moveTo: (x, z) => {
           if (GeneticTraits.mobility(actor.data.genes) === 0) return false;
-          if (!valid(x, z, y, sheltered)) return false;
-          actor.moveTo(x, z, this.context.earth.floorAt(x, z, y));
+          const from = { x: actor.x, y: actor.data.y ?? y, z: actor.z };
+          const point = contact(from, x, z, true);
+          if (!point) return false;
+          actor.moveTo(x, z, point.y);
           return true;
         },
       });
@@ -126,8 +135,9 @@ export class AnimalCollisionSystem {
         mass: GeneticTraits.mobility(member.data.genes) === 0 ? Infinity : 1,
         sheltered: false,
         moveTo: (x, z) => {
-          if (!valid(x, z, y, false)) return false;
-          member.moveTo(x, z, this.context.world.heightAt(x, z));
+          const point = contact(root.position, x, z, false);
+          if (!point) return false;
+          member.moveTo(x, z, point.y);
           return true;
         },
       });
@@ -157,10 +167,11 @@ export class AnimalCollisionSystem {
           sheltered,
           moveTo: (x, z) => {
             if (GeneticTraits.mobility(kit.genes) === 0) return false;
-            if (!valid(x, z, y, sheltered)) return false;
+            const point = contact(rig.root.position, x, z, true);
+            if (!point) return false;
             kit.x = x;
             kit.z = z;
-            kit.y = this.context.earth.floorAt(x, z, y);
+            kit.y = point.y;
             rig.root.position.set(x, kit.y, z);
             rig.root.userData.baseY = kit.y;
             return true;
@@ -184,12 +195,9 @@ export class AnimalCollisionSystem {
         sheltered,
         moveTo: (x, z) => {
           if (y - this.context.world.heightAt(predator.x, predator.z) > 0.15) return false;
-          if (!valid(x, z, y, sheltered)) return false;
-          predator.moveTo(
-            x,
-            z,
-            sheltered ? this.context.earth.floorAt(x, z, y) : this.context.world.heightAt(x, z),
-          );
+          const point = contact(predator.root.position, x, z, sheltered);
+          if (!point) return false;
+          predator.moveTo(x, z, point.y);
           return true;
         },
       });
@@ -211,10 +219,9 @@ export class AnimalCollisionSystem {
         mass: animal.profile.mass,
         sheltered: false,
         moveTo: (x, z) => {
-          if (!valid(x, z, animal.root.position.y, false)) return false;
-          animal.x = x;
-          animal.z = z;
-          animal.root.position.set(x, this.context.world.heightAt(x, z), z);
+          const point = contact(animal.root.position, x, z, false);
+          if (!point) return false;
+          animal.moveTo(x, z, point.y);
           return true;
         },
       });

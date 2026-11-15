@@ -63,7 +63,7 @@ function fixture() {
 
   function tick() {
     movement.move(1 / 60, time, false);
-    movement.settle(1 / 60);
+    movement.settle();
     player.root.position.set(save.player.x, save.player.y, save.player.z);
     player.root.userData.baseY = save.player.y;
     water.update(1 / 60, time, false);
@@ -187,7 +187,7 @@ test('standing at the lip of a dry entrance starts descent before sheltered beco
   p.z = entrance.z + 1.3;
   p.y = f.world.heightAt(p.x, p.z);
   assert.equal(f.earth.isSheltered(p.x, p.y, p.z), false);
-  f.movement.settle(1 / 60);
+  f.movement.settle();
   assert.ok(p.y < f.world.heightAt(p.x, p.z));
 });
 
@@ -212,7 +212,7 @@ test('a rabbit can walk in a dry tunnel underneath a pond without surface swimmi
   );
   f.player.root.rotation.y = -Math.PI / 2;
   movement.move(0.05, 1, false);
-  movement.settle(0.05);
+  movement.settle();
   const drySpeed = 4.5 * (0.82 + p.genes.speed * 0.06) * 0.68;
   assert.ok(Math.abs(p.x - 8 - drySpeed * 0.05) < 0.0001);
   assert.equal(f.player.root.userData.swimming, false);

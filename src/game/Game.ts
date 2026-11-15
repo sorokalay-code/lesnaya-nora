@@ -692,6 +692,7 @@ export class Game {
       this.runtime.elapsed,
       digging,
       walking,
+      this.groundAt,
     );
     this.player.root.visible = !this.view.isFirstPerson;
     this.renderer.render(this.scene, this.camera);

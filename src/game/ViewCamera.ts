@@ -195,6 +195,7 @@ export class ViewCamera {
     time = 0,
     digging = false,
     moving = false,
+    surfaceAt?: (x: number, z: number) => number,
   ): void {
     if (this.lookEnabled && !this.isLocked) {
       const step = clamp(time - this.lastLookTime, 0, 0.05);
@@ -236,10 +237,31 @@ export class ViewCamera {
         this.camera.position.copy(
           earth.cameraPoint(target, this.camera.position.clone().lerp(wanted, 0.35)),
         );
-    } else if (this.modeChanged) this.camera.position.copy(wanted);
-    else this.camera.position.lerp(wanted, 0.13);
+    } else {
+      if (surfaceAt) wanted = this.aboveSurface(target, wanted, surfaceAt);
+      if (!this.modeChanged) wanted = this.camera.position.clone().lerp(wanted, 0.13);
+      this.camera.position.copy(surfaceAt ? this.aboveSurface(target, wanted, surfaceAt) : wanted);
+    }
 
     this.camera.lookAt(target);
     this.modeChanged = false;
+  }
+
+  private aboveSurface(
+    target: THREE.Vector3,
+    desired: THREE.Vector3,
+    heightAt: (x: number, z: number) => number,
+  ): THREE.Vector3 {
+    const steps = Math.max(
+      1,
+      Math.ceil(Math.hypot(desired.x - target.x, desired.z - target.z) / 0.25),
+    );
+    const point = new THREE.Vector3();
+    for (let i = 1; i <= steps; i++) {
+      point.lerpVectors(target, desired, i / steps);
+      if (point.y < heightAt(point.x, point.z) + 0.2)
+        return point.lerpVectors(target, desired, (i - 1) / steps);
+    }
+    return desired;
   }
 }

@@ -87,21 +87,21 @@ export class FamilyMember extends Rabbit {
 
     const dx = this.targetX - this.x,
       dz = this.targetZ - this.z,
-      distance = Math.hypot(dx, dz),
-      moving = !this.resting && distance > 0.3 && GeneticTraits.mobility(this.data.genes) > 0;
-    if (moving) {
+      distance = Math.hypot(dx, dz);
+    let moving = false;
+    if (!this.resting && distance > 0.3 && GeneticTraits.mobility(this.data.genes) > 0) {
       const step = Math.min(
         distance,
         dt * (this.index % 2 ? 1.1 : 1.45) * GeneticTraits.mobility(this.data.genes),
       );
-      this.x += (dx / distance) * step;
-      this.z += (dz / distance) * step;
+      moving = this.surfaceStep(
+        this.x + (dx / distance) * step,
+        this.z + (dz / distance) * step,
+        dt,
+        groundAt,
+      );
       this.rig.root.rotation.y = Math.atan2(-dx, -dz);
-    }
-
-    this.rig.root.position.x = this.x;
-    this.rig.root.position.z = this.z;
-    this.rig.root.userData.baseY = groundAt(this.x, this.z);
+    } else this.surfaceStep(this.x, this.z, dt, groundAt);
     animateRabbit(this.rig, time + this.index * 2, moving, false, dt);
   }
 }

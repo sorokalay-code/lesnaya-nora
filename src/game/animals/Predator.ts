@@ -208,7 +208,7 @@ export abstract class Predator extends Animal<PredatorKind> {
         ? this.profile.runSpeed
         : this.profile.walkSpeed;
     const step = Math.min(speed * dt, Math.hypot(this.targetX - this.x, this.targetZ - this.z));
-    this.surfaceStep(
+    const moved = this.surfaceStep(
       THREE.MathUtils.clamp(
         this.x + Math.sin(angle) * step,
         -this.movementLimit,
@@ -240,7 +240,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       time,
       hunting || chasingPrey,
       dt,
-      step > 0.005,
+      moved,
       time < this.attackAnimUntil,
     );
     if (strike) return true;

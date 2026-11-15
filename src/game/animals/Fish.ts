@@ -16,9 +16,16 @@ export class Fish extends ForestAnimal {
     );
   }
 
-  protected override surfaceStep(x: number, z: number, _dt: number, groundAt: GroundHeight): void {
+  protected override surfaceStep(
+    x: number,
+    z: number,
+    _dt: number,
+    groundAt: GroundHeight,
+  ): boolean {
     const next = this.waterNavigation?.swimming(x, z);
+    const moving = !!next && (x !== this.x || z !== this.z);
     if (next) this.moveTo(x, z, Math.max(groundAt(x, z) + 0.15, next.level - 0.42));
     this.root.userData.swimming = true;
+    return moving;
   }
 }

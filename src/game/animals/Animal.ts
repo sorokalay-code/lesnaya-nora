@@ -1,5 +1,6 @@
 import type { Group } from 'three';
 import type { WaterNavigation } from '../WaterNavigation';
+import { traceGround } from '../GroundContact';
 
 export interface AnimalPosition {
   x: number;
@@ -24,7 +25,7 @@ export abstract class Animal<K extends string = string> {
     z: number,
     dt: number,
     groundAt: (x: number, z: number) => number,
-  ): void {
+  ): boolean {
     x = Math.max(-this.movementLimit, Math.min(this.movementLimit, x));
     z = Math.max(-this.movementLimit, Math.min(this.movementLimit, z));
     const water = this.waterNavigation;
@@ -42,10 +43,21 @@ export abstract class Animal<K extends string = string> {
         }
       }
     }
-    this.root.userData.swimming = !!this.swimSpeed && !!water?.swimming(x, z);
     const immersion =
       this.kind === 'snake' ? 0.06 : Number(this.root.userData.swimImmersion ?? 0.45);
-    this.moveTo(x, z, water?.height(x, z, immersion) ?? groundAt(x, z));
+    const support = (nx: number, nz: number) =>
+      water?.height(nx, nz, immersion) ?? groundAt(nx, nz);
+    const from = { x: this.x, y: support(this.x, this.z), z: this.z };
+    const point = traceGround(from, x, z, {
+      heightAt: support,
+      slopeLimit: water
+        ? (previous, nx, nz) =>
+            !water.terrain.waterAt(previous.x, previous.z) && !water.terrain.waterAt(nx, nz)
+        : undefined,
+    });
+    this.root.userData.swimming = !!this.swimSpeed && !!water?.swimming(point.x, point.z);
+    this.moveTo(point.x, point.z, point.y);
+    return point !== from;
   }
 
   get swimSpeed(): number {

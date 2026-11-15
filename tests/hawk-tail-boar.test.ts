@@ -74,7 +74,7 @@ test('сокол поднимает крольчиху, запрещает дв�
   assert.ok(held.y > 3);
   assert.equal(movement.requestJump(time), false);
   assert.equal(movement.move(1, time, false), false);
-  movement.settle(1);
+  movement.settle();
   assert.equal(s.save.player.y, held.y);
   assert.equal(s.save.player.x, held.x);
   s.hunting.update(1, time + 2, false);

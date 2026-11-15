@@ -241,8 +241,8 @@ export class RabbitActor extends Rabbit {
     }
 
     const near = Math.hypot(playerX - this.data.x, playerZ - this.data.z) < 3;
-    const moving = !near && this.activity !== 'rest';
-    if (moving) {
+    let moving = false;
+    if (!near && this.activity !== 'rest') {
       const direction = Math.atan2(this.targetX - this.data.x, this.targetZ - this.data.z);
       const nx =
         this.data.x +
@@ -259,17 +259,12 @@ export class RabbitActor extends Rabbit {
           GeneticTraits.mobility(this.data.genes) *
           (0.7 + this.data.genes.speed * 0.1);
       if (Math.hypot(nx, nz) < (this.movementLimit * 95) / 97) {
-        this.data.x = nx;
-        this.data.z = nz;
-      }
+        moving = this.surfaceStep(nx, nz, dt, groundAt);
+      } else this.surfaceStep(this.x, this.z, dt, groundAt);
 
       this.wanderAngle = direction;
-    }
+    } else this.surfaceStep(this.x, this.z, dt, groundAt);
 
-    this.rig.root.position.x = this.data.x;
-    this.rig.root.position.z = this.data.z;
-    this.rig.root.userData.baseY = groundAt(this.data.x, this.data.z);
-    this.data.y = this.rig.root.userData.baseY as number;
     const targetRotation = near
       ? Math.atan2(-(playerX - this.data.x), -(playerZ - this.data.z))
       : this.wanderAngle + Math.PI;

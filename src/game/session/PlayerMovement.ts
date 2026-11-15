@@ -2,6 +2,7 @@ import { JumpMotion } from './JumpMotion';
 import { playableWorldLimit } from '../WorldConfig';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { walkOnExcavation } from '../GroundContact';
 import type { PlayerRabbit } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
@@ -75,27 +76,33 @@ export class PlayerMovement {
 
   private advanceJump(dt: number): boolean {
     const step = this.jump.advance(dt);
-    const p = this.player.data;
-    // Малые шаги не позволяют рывку перескочить проверку стен тоннеля или границы карты.
-    const steps = Math.max(1, Math.ceil(Math.hypot(step.x, step.z) / 0.18));
-    for (let i = 0; i < steps; i++) {
-      const x = clamp(p.x + step.x / steps, -this.movementLimit, this.movementLimit),
-        z = clamp(p.z + step.z / steps, -this.movementLimit, this.movementLimit);
-      if (
-        this.earth.canMoveTo(x, p.z, p.y, this.sheltered) &&
-        this.canOccupy(x, p.z, p.y, this.player.root.rotation.y)
-      )
-        p.x = x;
-      if (
-        this.earth.canMoveTo(p.x, z, p.y, this.sheltered) &&
-        this.canOccupy(p.x, z, p.y, this.player.root.rotation.y)
-      )
-        p.z = z;
-    }
+    this.advanceOnGround(step.x, step.z);
     this.player.rig.root.userData.jumpHeight = step.height;
     this.player.rig.root.userData.jumpPitch = step.pitch;
     this.player.rig.root.userData.jumping = this.jump.active;
     if (step.landed) this.sound.play('step');
+    return true;
+  }
+
+  private advanceOnGround(dx: number, dz: number): boolean {
+    const p = this.player.data;
+    const x = clamp(p.x + dx, -this.movementLimit, this.movementLimit);
+    const z = clamp(p.z + dz, -this.movementLimit, this.movementLimit);
+    const immersion = RABBIT_SWIM_IMMERSION * p.genes.size;
+    const canOccupy = (nx: number, nz: number, y: number) =>
+      this.canOccupy(nx, nz, y, this.player.root.rotation.y);
+    let point = walkOnExcavation(this.earth, p, x, z, this.water, immersion, canOccupy);
+    // Если прямой шаг упирается в стену или склон, пробуем скользить вдоль него.
+    if (point === p && x !== p.x && z !== p.z) {
+      point = walkOnExcavation(this.earth, p, x, p.z, this.water, immersion, canOccupy);
+      if (point === p)
+        point = walkOnExcavation(this.earth, p, p.x, z, this.water, immersion, canOccupy);
+    }
+    if (point === p) return false;
+
+    p.x = point.x;
+    p.y = point.y;
+    p.z = point.z;
     return true;
   }
 
@@ -149,43 +156,28 @@ export class PlayerMovement {
       facingZ = -Math.cos(this.player.rig.root.rotation.y);
     const swimming = !this.sheltered && !!this.water?.swimming(p.x, p.z);
     const speedScale = swimming ? RABBIT_SWIM_SPEED / speed : this.sheltered ? 0.68 : 1;
-    const nx = clamp(
-        p.x + facingX * speed * dt * speedScale,
-        -this.movementLimit,
-        this.movementLimit,
-      ),
-      nz = clamp(p.z + facingZ * speed * dt * speedScale, -this.movementLimit, this.movementLimit);
-    if (
-      this.earth.canMoveTo(nx, p.z, p.y, this.sheltered) &&
-      this.canOccupy(nx, p.z, p.y, this.player.root.rotation.y)
-    )
-      p.x = nx;
-
-    if (
-      this.earth.canMoveTo(p.x, nz, p.y, this.sheltered) &&
-      this.canOccupy(p.x, nz, p.y, this.player.root.rotation.y)
-    )
-      p.z = nz;
-
-    if (!swimming && elapsed > this.footstepAt) {
+    const moved = this.advanceOnGround(
+      facingX * speed * dt * speedScale,
+      facingZ * speed * dt * speedScale,
+    );
+    if (moved && !swimming && elapsed > this.footstepAt) {
       this.footstepAt = elapsed + (sprint ? 0.17 : 0.28);
       this.sound.play('step');
     }
 
-    return true;
+    return moved;
   }
 
-  settle(dt: number): void {
+  settle(): void {
     if (AnimalRestraint.active(this.player.root)) return;
     const p = this.player.data;
-    const surfaceWater = !this.sheltered && this.water?.swimming(p.x, p.z);
+    const sheltered = this.sheltered;
+    const surfaceWater = !sheltered && this.water?.swimming(p.x, p.z);
     this.player.root.userData.swimming = !!surfaceWater && !this.jump.active;
-    const floor = this.earth.floorAt(p.x, p.z, p.y);
-    const target =
-      !this.sheltered && this.water
+    const floor = this.earth.floorAt(p.x, p.z, p.y, sheltered);
+    p.y =
+      !sheltered && this.water
         ? this.water.height(p.x, p.z, RABBIT_SWIM_IMMERSION * p.genes.size, floor)
         : floor;
-    if (surfaceWater && p.y < target - 0.5) p.y = target;
-    p.y += clamp(target - p.y, -dt * 3.5, dt * 2.4);
   }
 }
