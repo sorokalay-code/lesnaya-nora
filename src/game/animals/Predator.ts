@@ -11,7 +11,7 @@ import {
   type AppearanceOptions,
   type AppearanceTraits,
 } from '../AnimalAppearance';
-import type { Habitat, TerritoryIntent } from '../AnimalHabitats';
+import type { Habitat, HabitatPoint, TerritoryIntent } from '../AnimalHabitats';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
   get swimSpeed(): number {
@@ -121,6 +121,18 @@ export abstract class Predator extends Animal<PredatorKind> {
     return this.tunnelPosition !== undefined;
   }
 
+  get inDen(): boolean {
+    return false;
+  }
+
+  protected moveInDen(_dt: number, _time: number, _mayEnter: boolean): boolean {
+    return false;
+  }
+
+  protected territoryDestination(intent: TerritoryIntent, _time: number): HabitatPoint {
+    return intent.destination;
+  }
+
   moveTo(x: number, z: number, y: number): void {
     this.x = x;
     this.z = z;
@@ -165,6 +177,8 @@ export abstract class Predator extends Animal<PredatorKind> {
   ): boolean {
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.huntingPlayer = false;
+    if (this.moveInDen(dt, time, time >= this.retreatUntil)) return false;
+
     if (this.tunnelPosition) {
       this.x = this.tunnelPosition.x;
       this.z = this.tunnelPosition.z;
@@ -193,8 +207,9 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.targetX = prey.x;
       this.targetZ = prey.z;
     } else if (this.territory) {
-      this.targetX = this.territory.destination.x;
-      this.targetZ = this.territory.destination.z;
+      const destination = this.territoryDestination(this.territory, time);
+      this.targetX = destination.x;
+      this.targetZ = destination.z;
     } else if (Math.hypot(this.x - this.homeX, this.z - this.homeZ) > 20) {
       this.targetX = this.homeX;
       this.targetZ = this.homeZ;
@@ -232,7 +247,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
     const distance = Math.hypot(this.targetX - this.x, this.targetZ - this.z);
     const running = hunting || !!chasingPrey || time < this.retreatUntil;
-    const travelling = this.territory && distance > 7;
+    const travelling = this.territory && this.travelsToTerritory(distance);
     const speed = running
       ? this.profile.runSpeed
       : travelling
@@ -277,5 +292,9 @@ export abstract class Predator extends Animal<PredatorKind> {
     if (strike) return true;
 
     return false;
+  }
+
+  protected travelsToTerritory(distance: number): boolean {
+    return distance > 7;
   }
 }

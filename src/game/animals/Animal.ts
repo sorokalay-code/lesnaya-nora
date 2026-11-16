@@ -11,6 +11,7 @@ export interface AnimalPosition {
 /** Базовая сущность животного: единые координаты, здоровье и физическое перемещение. */
 export abstract class Animal<K extends string = string> {
   protected waterNavigation?: WaterNavigation;
+  protected surfaceAllowed?: (x: number, z: number, y: number) => boolean;
   protected movementLimit = 97;
 
   useWorldBounds(size: number): void {
@@ -51,6 +52,7 @@ export abstract class Animal<K extends string = string> {
     const from = { x: this.x, y: support(this.x, this.z), z: this.z };
     const point = traceGround(from, x, z, {
       heightAt: support,
+      canOccupy: this.surfaceAllowed,
       surfaceSpeed: true,
       slopeLimit: water
         ? (previous, nx, nz) =>

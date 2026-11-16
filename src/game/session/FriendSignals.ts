@@ -46,6 +46,7 @@ export class FriendSignals {
       (predator) =>
         predator.alive &&
         !predator.underground &&
+        !predator.inDen &&
         Math.hypot(predator.x - friend.x, predator.z - friend.z) < 20 &&
         Math.hypot(predator.x - player.x, predator.z - player.z) < 24,
     );

@@ -148,6 +148,7 @@ export interface SaveData {
   nextRemainsId?: number;
   deadPopulation?: string[];
   wolves?: Record<string, import('./session/WolfPopulation').WolfState>;
+  wolfDens?: Record<number, import('./WolfDen').WolfDenSite>;
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
   animalWasteDays?: Record<string, number>;

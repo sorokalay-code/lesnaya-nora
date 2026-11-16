@@ -189,7 +189,7 @@ export class WaterSimulation {
         bodyHeight: actor.profile.radius,
         swimSpeed: actor.swimSpeed,
         immersion: actor.kind === 'snake' ? 0.06 : actor.profile.radius * 0.9,
-        alive: () => actor.alive,
+        alive: () => actor.alive && !actor.inDen,
         condition: () => actor.health / actor.maxHealth,
         move: (x, y, z) => actor.moveTo(x, z, y),
         hurt: (damage) => {

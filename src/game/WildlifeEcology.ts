@@ -270,7 +270,8 @@ export class WildlifeEcology {
     time: number,
     lostKits: readonly RabbitActor[] = [],
   ): { x: number; z: number } | undefined {
-    if (predator.underground || !predator.alive || !predator.huntsWildlife) return;
+    if (predator.underground || predator.inDen || !predator.alive || !predator.huntsWildlife)
+      return;
     if (!predator.huntingOpen) {
       this.preyTargets.delete(predator);
       return;
@@ -324,6 +325,7 @@ export class WildlifeEcology {
                   p !== predator &&
                   p.alive &&
                   !p.underground &&
+                  !p.inDen &&
                   p.kind !== predator.kind &&
                   predator.canPursue(p.x, p.z) &&
                   Math.abs(p.root.position.y - predator.root.position.y) < 1.5 &&
@@ -365,7 +367,7 @@ export class WildlifeEcology {
       }
     }
 
-    const threats = predators.filter((p) => p.alive && !p.underground);
+    const threats = predators.filter((p) => p.alive && !p.underground && !p.inDen);
     for (const animal of this.animals) {
       const food = animal.foragingAllowed ? this.foodTargets.get(animal) : undefined;
       if (
@@ -382,6 +384,7 @@ export class WildlifeEcology {
       if (
         !predator.alive ||
         predator.underground ||
+        predator.inDen ||
         predator.huntingPlayer ||
         predator.attackCooldown > 0 ||
         !predator.canMelee

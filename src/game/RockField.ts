@@ -13,6 +13,7 @@ export class RockField {
     heightAt: (x: number, z: number) => number,
     canPlace: (x: number, z: number) => boolean,
     worldScale = 1,
+    recordFootprint?: (x: number, z: number, radius: number) => void,
   ) {
     const rng = new Random(seed + 18743),
       batches = new Map<string, Rock[]>();
@@ -34,6 +35,7 @@ export class RockField {
       const key = `${Math.floor(x / 24)},${Math.floor(z / 24)}:${kind}`;
       const batch = batches.get(key) ?? [];
       batch.push({ x, y, z, scale, rotation: rng.range(0, Math.PI * 2), kind });
+      if (scale > 0.7) recordFootprint?.(x, z, scale);
       batches.set(key, batch);
     }
     const templates = new Map<ModelName, THREE.Group>(),

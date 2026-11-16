@@ -39,6 +39,7 @@ export class FriendDefense {
       player.hidden ||
       !predator.huntingPlayer ||
       predator.underground ||
+      predator.inDen ||
       Math.hypot(predator.x - player.x, predator.z - player.z) > GUARD.pursuitRange
     )
       return false;

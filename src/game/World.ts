@@ -57,6 +57,7 @@ export class World {
   readonly resources: Resource[] = [];
   readonly waterSources: { x: number; z: number }[] = [];
   readonly treeLocations: { x: number; z: number }[] = [];
+  readonly shelterObstacles: { x: number; z: number; radius: number }[] = [];
   readonly landmarks: LandMark[];
   readonly layout: WorldLayout;
   readonly seed: number;
@@ -139,6 +140,7 @@ export class World {
       (x, z) => this.heightAt(x, z),
       (x, z) => this.biomeAt(x, z) !== 'garden' && !this.nearWater(x, z, 3),
       this.scale,
+      (x, z, radius) => this.shelterObstacles.push({ x, z, radius }),
     );
     this.buildResources();
     this.resourceInstances = new ResourceInstances(this.resources, this.chunks, (root) =>
@@ -327,6 +329,13 @@ export class World {
 
   addGroundHole(bounds: CaveBounds, distanceAt: (x: number, y: number, z: number) => number): void {
     this.groundOpenings?.update(bounds, distanceAt);
+    this.clearGroundCover(bounds, distanceAt);
+  }
+
+  clearGroundCover(
+    bounds: CaveBounds,
+    distanceAt: (x: number, y: number, z: number) => number,
+  ): void {
     this.groundCover?.clearOpening(bounds, distanceAt);
   }
 
@@ -386,6 +395,8 @@ export class World {
           const crown = g.getObjectByName('Foliage');
           if (crown) this.deciduousCrowns.push(crown);
         }
+        if (kind !== 'fern' && kind !== 'reed')
+          this.shelterObstacles.push({ x, z, radius: g.scale.x * 0.9 });
         this.trackFoliage(g);
         this.chunks.add(g, x, z);
       }
@@ -489,6 +500,7 @@ export class World {
       log.position.set(x, (start + end) / 2 + 0.19, z);
       log.castShadow = true;
       this.chunks.add(log, x, z);
+      this.shelterObstacles.push({ x, z, radius: length / 2 + 0.2 });
     }
   }
 

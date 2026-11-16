@@ -342,6 +342,8 @@ export class AnimalSimulation {
         prey,
         p.genes.size,
       );
+      if (predator.inDen) continue;
+
       const repelled = canDefend && this.friendDefense.repel(predator, p, time);
       if (!repelled) {
         if (strike) this.context.consequences.predatorAttack(predator.kind);

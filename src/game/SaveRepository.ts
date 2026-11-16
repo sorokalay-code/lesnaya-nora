@@ -5,6 +5,7 @@ import { validRemains } from './RemainsData';
 import { playerSex } from './RabbitSex';
 import { isColdNightGoal } from './ColdNightPlan';
 import { MAX_BURROW_FUR } from './BurrowFur';
+import { DEN_BED } from './WolfDen';
 
 export const SAVE_VERSION = 5;
 
@@ -354,6 +355,8 @@ export class SaveRepository {
     data.worldConfig.leaveRemains ??= true;
     if (data.wolves !== undefined && !validWolfStates(data.wolves, data.worldConfig.size))
       throw new Error('Сохранение содержит повреждённые данные волчьих стай.');
+    if (data.wolfDens !== undefined && !validWolfDens(data.wolfDens, data.worldConfig.size))
+      throw new Error('Сохранение содержит повреждённые данные волчьих логовищ.');
     if (data.wildlife !== undefined && !validHabitatSlots(data.wildlife))
       throw new Error('Сохранение содержит повреждённые места обитания животных.');
     if (data.coldNightOuting !== undefined && !validColdNightOuting(data, data.worldConfig.size))
@@ -478,12 +481,32 @@ function validWolfStates(value: unknown, size: number): boolean {
       typeof state.health === 'number' &&
       Number.isFinite(state.health) &&
       state.health > 0 &&
+      (state.denDepth === undefined ||
+        (typeof state.denDepth === 'number' && state.denDepth > 0 && state.denDepth <= DEN_BED)) &&
       typeof state.x === 'number' &&
       Math.abs(state.x) <= size &&
       typeof state.z === 'number' &&
       Math.abs(state.z) <= size
     );
   });
+}
+
+function validWolfDens(value: unknown, size: number): boolean {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([id, site]) =>
+        /^\d+$/.test(id) &&
+        isRecord(site) &&
+        typeof site.x === 'number' &&
+        Math.abs(site.x) < size &&
+        typeof site.z === 'number' &&
+        Math.abs(site.z) < size &&
+        typeof site.angle === 'number' &&
+        site.angle >= 0 &&
+        site.angle < 2 * Math.PI,
+    )
+  );
 }
 
 function validHabitatSlots(value: unknown): boolean {

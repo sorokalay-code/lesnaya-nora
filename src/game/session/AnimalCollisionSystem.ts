@@ -12,6 +12,7 @@ import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { playableWorldLimit } from '../WorldConfig';
 import { traceGround, walkOnExcavation } from '../GroundContact';
 import type { DigNode } from '../types';
+import type { WolfDens } from '../WolfDens';
 interface CollisionContext {
   playerRestrained?: () => boolean;
   playerHeading?: () => number;
@@ -23,6 +24,7 @@ interface CollisionContext {
   predators: Predator[];
   wildlife: ForestAnimal[];
   family: FamilyLifecycle;
+  wolfDens?: WolfDens;
 }
 /** Собирает физические тела сущностей и синхронизирует результат со сценой и сохранением. */
 export class AnimalCollisionSystem {
@@ -47,6 +49,16 @@ export class AnimalCollisionSystem {
       moveTo: () => false,
     };
     const candidate = { ...current, x, z, y };
+    if (
+      this.context.wolfDens?.canMove(
+        player,
+        x,
+        z,
+        y,
+        current.radius + (current.halfLength ?? 0),
+      ) === false
+    )
+      return false;
     for (const other of this.bodies) {
       if (
         other.id === 0 ||
@@ -179,6 +191,7 @@ export class AnimalCollisionSystem {
         });
       });
     this.context.predators.forEach((predator, i) => {
+      if (!predator.alive || predator.inDen) return;
       const y = predator.root.position.y,
         sheltered = predator.underground;
       const radius = predator.profile.radius;

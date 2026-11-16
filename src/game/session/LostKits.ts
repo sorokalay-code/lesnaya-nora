@@ -216,6 +216,7 @@ export class LostKits {
       (predator) =>
         predator.alive &&
         !predator.underground &&
+        !predator.inDen &&
         Math.hypot(predator.x - actor.x, predator.z - actor.z) < 10,
     );
     const heading = threat

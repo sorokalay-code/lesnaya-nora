@@ -21,6 +21,8 @@ import { defaultWorldConfig } from '../WorldConfig';
 import { isNightAt } from './WorldCalendar';
 import { AnimalHabitats } from '../AnimalHabitats';
 import { WolfPopulation } from './WolfPopulation';
+import { WolfDens } from '../WolfDens';
+import { DEN_DEPTH, DEN_HALF_WIDTH } from '../WolfDen';
 
 type LegacyPredatorSlot = PredatorKind | 'bear';
 
@@ -32,6 +34,7 @@ export class WorldPopulation {
   readonly wildlife: ForestAnimal[];
   readonly hawks: FlyingRaptor[];
   readonly ecology: WildlifeEcology;
+  readonly wolfDens: WolfDens;
 
   constructor(context: {
     scene: THREE.Scene;
@@ -97,11 +100,23 @@ export class WorldPopulation {
 
     this.predators = [];
     const habitats = new AnimalHabitats(context.world, context.save.seed, config.size);
+    this.wolfDens = new WolfDens(context.world, context.save, (model, den) => {
+      const { x, y, z } = den.entrance;
+      if (context.world.chunks) context.world.chunks.add(model, x, z);
+      else context.scene.add(model);
+      const radius = Math.hypot(DEN_DEPTH, DEN_HALF_WIDTH) + 0.5;
+      context.world.clearGroundCover?.(
+        { minX: x - radius, maxX: x + radius, minZ: z - radius, maxZ: z + radius, maxY: y + 1 },
+        (px, _py, pz) => -den.penetration(px, pz, 0.5),
+      );
+    });
     const wolves = new WolfPopulation({
       ...context,
       predators: this.predators,
       habitats,
+      dens: this.wolfDens,
       size: config.size,
+      count: config.creatures.wolf,
       onArrival: context.onWolfArrival,
       onDiscovery: context.onDenDiscovery,
     });

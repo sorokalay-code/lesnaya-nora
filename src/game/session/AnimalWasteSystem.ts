@@ -95,7 +95,7 @@ export class AnimalWasteSystem {
           animal.profile.radius > 0.8 ? 1.4 : 0.8,
         );
     for (const animal of this.context.predators)
-      if (animal.alive)
+      if (animal.alive && !animal.inDen)
         this.emit(
           `predator:${animal.kind}:${animal.origin.x}:${animal.origin.z}`,
           animal.root.position,

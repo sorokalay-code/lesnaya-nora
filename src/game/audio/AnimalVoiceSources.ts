@@ -45,7 +45,12 @@ export class AnimalVoiceSources {
       )
         yield this.actor(animal.root, animal.kind, animal.model);
     for (const predator of this.population.predators) {
-      if (!predator.alive || predator.kind === 'spider' || predator.kind === 'jumping-spider')
+      if (
+        !predator.alive ||
+        predator.inDen ||
+        predator.kind === 'spider' ||
+        predator.kind === 'jumping-spider'
+      )
         continue;
       yield this.actor(predator.root, predator.kind, predator.root.userData.model as ModelInstance);
     }

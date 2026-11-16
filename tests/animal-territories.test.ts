@@ -11,6 +11,10 @@ import { WildlifeForage } from '../src/game/WildlifeForage';
 import type { Biome, FoodKind, SaveData } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
+import { WolfDen } from '../src/game/WolfDen';
+import { WolfDens } from '../src/game/WolfDens';
+import { WorldRest } from '../src/game/session/WorldRest';
+import { GAME_MINUTES_PER_SECOND, isNightAt } from '../src/game/session/WorldCalendar';
 import { loadModels } from './model-fixture';
 
 await loadModels('wolf', 'deer', 'fox', 'marmot', 'beaver');
@@ -40,12 +44,12 @@ function start(): SaveData {
   return NewGameFactory.create(31415, 0, new RabbitFactory(new Random(2)), config);
 }
 
-function population(save: SaveData, notes: string[] = []) {
+function population(save: SaveData, notes: string[] = [], worldFor = terrain) {
   const scene = new Scene();
   return new WorldPopulation({
     save,
     scene,
-    world: terrain(scene),
+    world: worldFor(scene),
     rng: new Random(save.seed),
     markPartner() {},
     onDenDiscovery: () => notes.push('den'),
@@ -55,6 +59,26 @@ function population(save: SaveData, notes: string[] = []) {
       if (typeof id === 'string') (save.deadPopulation ??= []).push(id);
     },
   });
+}
+
+function roundTrip(save: SaveData): SaveData {
+  const entry = new Map<string, string>();
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => entry.get(key) ?? null,
+      setItem: (key: string, value: string) => entry.set(key, value),
+    },
+  });
+  try {
+    const repository = new SaveRepository('territory-test');
+    repository.store(save);
+    return repository.load();
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
 }
 
 test('wolves of a pack leave the same den during the evening and return to it after hunting', () => {
@@ -78,10 +102,12 @@ test('wolves of a pack leave the same den during the evening and return to it af
 
   simulate(1090, 23);
   assert.ok(pack.every((wolf) => wolf.huntingOpen));
+  assert.ok(pack.every((wolf) => !wolf.inDen));
   assert.ok(pack.filter((wolf) => distance(wolf, den) > 13).length >= 3);
   assert.ok(pack.every((wolf) => !wolf.canPursue(den.x + den.radius * 2, den.z)));
   simulate(1330, 37);
   assert.ok(pack.every((wolf) => !wolf.huntingOpen && distance(wolf, den) < 12));
+  assert.equal(pack.filter((wolf) => wolf.inDen).length, 2);
 });
 
 test('a lost wolf saves its vacant slot and returns near the den only after a day and away from the player', () => {
@@ -101,24 +127,7 @@ test('a lost wolf saves its vacant slot and returns near the den only after a da
   f.ecology.capture();
   assert.deepEqual(save.wolves?.[id], { state: 'vacant', replaceAt: due });
 
-  const entry = new Map<string, string>();
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  Object.defineProperty(globalThis, 'localStorage', {
-    configurable: true,
-    value: {
-      getItem: (key: string) => entry.get(key) ?? null,
-      setItem: (key: string, value: string) => entry.set(key, value),
-    },
-  });
-  let loaded: SaveData;
-  try {
-    const repository = new SaveRepository('territory-test');
-    repository.store(save);
-    loaded = repository.load();
-  } finally {
-    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
-    else Reflect.deleteProperty(globalThis, 'localStorage');
-  }
+  const loaded = roundTrip(save);
   const notes: string[] = [];
   const restored = population(loaded, notes);
   const advancing = (time: number, clock: number, x: number, z: number) => {
@@ -145,6 +154,117 @@ test('a lost wolf saves its vacant slot and returns near the den only after a da
   advancing(12, due + 32, 97, 97);
   assert.equal(restored.predators.length, 5);
   assert.deepEqual(notes, ['den', 'arrival']);
+});
+
+test('a covered wolf stays in the same den across a save and walks out through the entrance', () => {
+  const save = start();
+  save.clock = 720;
+  const forest = population(save);
+  const ground = () => 0;
+  const site = save.wolfDens?.[0];
+  assert.ok(site);
+  const den = new WolfDen(0, site, ground);
+  assert.ok(forest.wolfDens.heightForCamera(site.x, site.z) > den.entrance.y + 1);
+  const entry = den.point(0, 0.2);
+  assert.equal(forest.wolfDens.canMove(den.approach, entry.x, entry.z, entry.y, 0.2), false);
+  assert.equal(forest.wolfDens.canMove(den.approach, entry.x, entry.z, entry.y - 2, 0.2), true);
+
+  const wolf = forest.predators[0];
+  for (let frame = 1; frame <= 120; frame++) {
+    const time = frame * 0.1;
+    forest.ecology.prepareHabitats(time, save.clock, forest.predators);
+    wolf.update(0.1, time, 0, 0, true, false, ground);
+  }
+  assert.ok(wolf.inDen && den.penetration(wolf.x, wolf.z) > 1);
+  assert.equal(forest.ecology.targetFor(wolf, forest.predators, 12), undefined);
+  wolf.health = 42;
+  forest.ecology.capture();
+
+  const loaded = roundTrip(save);
+  const restored = population(loaded);
+  const resident = restored.predators[0];
+  assert.equal(resident.health, 42);
+  assert.ok(resident.inDen && distance(resident, wolf) < 0.01);
+  assert.deepEqual(loaded.wolfDens, save.wolfDens);
+  restored.ecology.prepareHabitats(1, 1090, restored.predators);
+  resident.update(0.3, 1, 0, 0, true, false, ground);
+  assert.ok(resident.inDen && distance(resident, den.entrance) < distance(wolf, den.entrance));
+  for (let frame = 2; frame < 20 && resident.inDen; frame++)
+    resident.update(0.3, frame * 0.3, 0, 0, true, false, ground);
+  assert.equal(resident.inDen, false);
+  assert.ok(distance(resident, den.entrance) < 0.8);
+  assert.ok(Math.abs(den.penetration(resident.x, resident.z)) < 0.01);
+
+  const sleepingSave = roundTrip(save);
+  sleepingSave.clock = 810;
+  const duringSleep = population(sleepingSave);
+  const sleeper = duringSleep.predators[0];
+  const asleep = new WorldRest({
+    save: sleepingSave,
+    state: { elapsed: 0 },
+    calendar: {
+      advance: (dt) => {
+        sleepingSave.clock += dt * GAME_MINUTES_PER_SECOND;
+      },
+      isNight: () => isNightAt(sleepingSave.clock),
+    },
+    family: { update() {}, advancePregnancy() {} },
+    animals: {
+      update(dt, time, night, mode) {
+        duringSleep.ecology.prepareHabitats(time, sleepingSave.clock, duringSleep.predators);
+        sleeper.update(dt, time, 0, 0, mode === 'rest', !night, ground);
+        return Infinity;
+      },
+    },
+    world: { update() {} },
+    items: { update() {} },
+    waste: { update() {} },
+    earth: { isSheltered: () => false },
+    lighting: { update() {} },
+    sound: { setWeather() {} },
+  });
+  asleep.advance(330);
+  assert.ok(sleeper.huntingOpen && !sleeper.inDen && distance(sleeper, den.entrance) > 5);
+});
+
+test('a legacy map label moves to the new entrance when the original spot is occupied', () => {
+  const save = start();
+  const home = new AnimalHabitats(terrain(), save.seed, 110).predator('wolf', 0)!;
+  save.discoveries = [{ x: home.x, z: home.z, label: 'Волчье логово' }];
+  const notes: string[] = [];
+  const forest = population(save, notes, (scene) => ({
+    ...terrain(scene),
+    treeLocations: [{ x: home.x, z: home.z }],
+  }));
+  const site = save.wolfDens?.[0];
+  assert.ok(site && distance(home, site) > 1);
+  forest.ecology.update(0, 1, save.clock, site.x, site.z, () => 0, forest.predators, false);
+  assert.deepEqual(save.discoveries, [{ x: site.x, z: site.z, label: 'Волчье логово' }]);
+  assert.deepEqual(notes, []);
+});
+
+test('invalid and waterlogged sites do not create a den or an obstacle', () => {
+  const save = start();
+  const world = { ...terrain(), heightAt: (x: number, z: number) => x * 2 + z * 2 };
+  const models: string[] = [];
+  const steep = new WolfDens(world, save, (model) => models.push(model.name));
+  assert.equal(steep.place(0, { x: 30, z: 30 }, 5), undefined);
+  const lake = new WolfDens(
+    {
+      ...world,
+      heightAt: () => 0,
+      waterAt: () => ({
+        body: { id: 'lake', kind: 'lake', level: 1, points: [], radius: 20, depth: 1 },
+        level: 1,
+        depth: 1,
+      }),
+    },
+    save,
+    (model) => models.push(model.name),
+  );
+  assert.equal(lake.place(0, { x: 30, z: 30 }, 11), undefined);
+  assert.deepEqual(models, []);
+  assert.equal(save.wolfDens, undefined);
 });
 
 test('roaming herds share feeding grounds while burrowing wildlife has a smaller local range', () => {

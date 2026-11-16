@@ -51,6 +51,7 @@ import { SessionQueries } from './session/SessionQueries';
 import { SessionSimulation, type SimulationState } from './session/SessionSimulation';
 import { WorldCalendar } from './session/WorldCalendar';
 import { WorldPopulation } from './session/WorldPopulation';
+import type { WolfDens } from './WolfDens';
 import { FoodStore, SeasonSystem, SurvivalSystem, WasteSystem } from './systems';
 import { type SaveData } from './types';
 import { AnimalRemains } from './AnimalRemains';
@@ -100,6 +101,7 @@ export class Game {
   private items!: GroundItems;
   private partnerSupport!: PartnerSupport;
   private collisions!: AnimalCollisionSystem;
+  private wolfDens!: WolfDens;
   private performanceMonitor!: PerformanceMonitor;
   private fullscreen!: FullscreenController;
   private input!: GameInputController;
@@ -126,6 +128,7 @@ export class Game {
   private running = false;
   private readonly animalState: AnimalState = {};
   private readonly groundAt = (x: number, z: number) => this.world.heightAt(x, z);
+  private readonly cameraGroundAt = (x: number, z: number) => this.wolfDens.heightForCamera(x, z);
 
   constructor(private readonly app: HTMLElement) {
     this.view = new ViewCamera(this.camera, this.renderer.domElement);
@@ -393,6 +396,7 @@ export class Game {
     this.families = population.families;
     this.predators = population.predators;
     this.ecology = population.ecology;
+    this.wolfDens = population.wolfDens;
     this.wildlife = population.wildlife;
     this.hawks = population.hawks;
     const lostKits = new LostKits({
@@ -519,6 +523,7 @@ export class Game {
       startMating: (mateId) => this.animals.startMating(mateId, this.runtime.elapsed, 'consensual'),
     });
     this.collisions = new AnimalCollisionSystem({
+      wolfDens: this.wolfDens,
       playerRestrained: () => AnimalRestraint.active(this.player.root),
       playerHeading: () => this.player.root.rotation.y,
       save: this.save,
@@ -740,7 +745,7 @@ export class Game {
       this.runtime.elapsed,
       digging,
       walking,
-      this.groundAt,
+      this.cameraGroundAt,
     );
     this.player.root.visible = !this.view.isFirstPerson;
     this.renderer.render(this.scene, this.camera);
