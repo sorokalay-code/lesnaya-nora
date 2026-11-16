@@ -373,7 +373,12 @@ export class Game {
     );
     this.scene.add(this.player.root);
     const population = new WorldPopulation({
-      onDeath: (animal) => this.remains?.record(animal),
+      onDeath: (animal) => {
+        this.remains?.record(animal);
+        if (animal instanceof Predator) this.attackSounds?.remove(animal);
+      },
+      onWolfArrival: (wolf) => this.attackSounds?.add(wolf),
+      onDenDiscovery: () => this.toast('На карте отмечено волчье логово.'),
       scene: this.scene,
       world: this.world,
       save: this.save,

@@ -11,15 +11,24 @@ interface Context {
 
 /** Подписывает животных на пространственные звуки атак; дальние события и плотные очереди не озвучиваются. */
 export class AttackSounds {
-  private sources: AttackSource[] = [];
+  private readonly sources = new Set<AttackSource>();
   private nextAt = -Infinity;
 
   constructor(private readonly context: Context) {}
 
   bind(sources: AttackSource[]): void {
     this.dispose();
-    this.sources = sources;
-    for (const source of sources) source.setAttackListener((event) => this.emit(event));
+    for (const source of sources) this.add(source);
+  }
+
+  add(source: AttackSource): void {
+    if (this.sources.has(source)) return;
+    this.sources.add(source);
+    source.setAttackListener((event) => this.emit(event));
+  }
+
+  remove(source: AttackSource): void {
+    if (this.sources.delete(source)) source.setAttackListener();
   }
 
   emit(event: AttackCue): void {
@@ -42,7 +51,7 @@ export class AttackSounds {
 
   dispose(): void {
     for (const source of this.sources) source.setAttackListener();
-    this.sources = [];
+    this.sources.clear();
     this.nextAt = -Infinity;
   }
 }

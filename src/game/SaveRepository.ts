@@ -346,6 +346,10 @@ export class SaveRepository {
 
     data.worldConfig ??= defaultWorldConfig();
     data.worldConfig.leaveRemains ??= true;
+    if (data.wolves !== undefined && !validWolfStates(data.wolves, data.worldConfig.size))
+      throw new Error('Сохранение содержит повреждённые данные волчьих стай.');
+    if (data.wildlife !== undefined && !validHabitatSlots(data.wildlife))
+      throw new Error('Сохранение содержит повреждённые места обитания животных.');
     if (data.coldNightOuting !== undefined && !validColdNightOuting(data, data.worldConfig.size))
       throw new Error('Сохранение содержит повреждённый план вылазки.');
     if (data.remains !== undefined && !validRemains(data.remains))
@@ -401,6 +405,44 @@ function validColdNightOuting(save: SaveData, size: number): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validWolfStates(value: unknown, size: number): boolean {
+  if (!isRecord(value)) return false;
+  return Object.entries(value).every(([id, state]) => {
+    if (!/^predator:\d+$/.test(id) || !isRecord(state)) return false;
+    if (state.state === 'vacant')
+      return (
+        typeof state.replaceAt === 'number' &&
+        Number.isFinite(state.replaceAt) &&
+        state.replaceAt >= 0
+      );
+    return (
+      state.state === 'alive' &&
+      typeof state.health === 'number' &&
+      Number.isFinite(state.health) &&
+      state.health > 0 &&
+      typeof state.x === 'number' &&
+      Math.abs(state.x) <= size &&
+      typeof state.z === 'number' &&
+      Math.abs(state.z) <= size
+    );
+  });
+}
+
+function validHabitatSlots(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  const slots = new Set<string>();
+  for (const animal of value) {
+    if (!isRecord(animal) || typeof animal.kind !== 'string') return false;
+    const slot = animal.habitatSlot;
+    if (slot === undefined) continue;
+    if (typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0) return false;
+    const key = `${animal.kind}:${slot}`;
+    if (slots.has(key)) return false;
+    slots.add(key);
+  }
+  return true;
 }
 
 function isStoredSlot(value: unknown): value is StoredSaveSlot {

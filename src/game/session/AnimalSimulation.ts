@@ -200,6 +200,7 @@ export class AnimalSimulation {
     this.updateRabbits(dt, time, mate);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
+    this.context.ecology.prepareHabitats?.(time, this.context.save.clock, this.context.predators);
     const closestThreat = this.updatePredators(dt, time, night, combat, canAttackFamily);
     this.updateUndergroundTraffic(dt, time, night, canAttackFamily, resting);
     this.friendDefense.updateEscorts(
@@ -350,7 +351,8 @@ export class AnimalSimulation {
           if (rodent) this.rodentHunting.strike(predator, rodent, time);
         } else {
           if (strike) this.context.consequences.predatorAttack(predator.kind);
-          if (canAttackFamily) this.context.consequences.threatenKits(predator, time);
+          if (canAttackFamily && predator.huntingOpen)
+            this.context.consequences.threatenKits(predator, time);
         }
       }
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));

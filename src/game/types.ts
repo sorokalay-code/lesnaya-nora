@@ -151,6 +151,7 @@ export interface SaveData {
   remains?: import('./RemainsData').RemainsData[];
   nextRemainsId?: number;
   deadPopulation?: string[];
+  wolves?: Record<string, import('./session/WolfPopulation').WolfState>;
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
   animalWasteDays?: Record<string, number>;
@@ -238,6 +239,7 @@ export interface WildlifeSocial {
 
 export interface WildlifeData {
   appearance?: AppearanceTraits;
+  habitatSlot?: number;
   id: number;
   kind: WildlifeKind;
   x: number;

@@ -11,6 +11,7 @@ import {
   type AppearanceOptions,
   type AppearanceTraits,
 } from '../AnimalAppearance';
+import type { Habitat, TerritoryIntent } from '../AnimalHabitats';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
   get swimSpeed(): number {
@@ -18,6 +19,7 @@ export abstract class Predator extends Animal<PredatorKind> {
   }
 
   private attackListener?: AttackListener;
+  private territory?: TerritoryIntent;
   readonly appearance: AppearanceTraits;
   readonly origin: { x: number; z: number };
   targetX: number;
@@ -75,6 +77,26 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   get canMelee(): boolean {
     return true;
+  }
+
+  get homeTerritory(): Habitat | undefined {
+    return this.territory?.home;
+  }
+
+  get huntingOpen(): boolean {
+    return this.territory?.hunting ?? true;
+  }
+
+  followTerritory(intent: TerritoryIntent): void {
+    this.territory = intent;
+  }
+
+  canPursue(x: number, z: number): boolean {
+    const intent = this.territory;
+    if (!intent) return true;
+    return (
+      intent.hunting && Math.hypot(x - intent.home.x, z - intent.home.z) < intent.home.radius * 1.15
+    );
   }
 
   protected specialApproach(
@@ -160,9 +182,11 @@ export abstract class Predator extends Animal<PredatorKind> {
       time >= this.retreatUntil &&
       !hidden &&
       dist < this.range * activity * (1 + scent * 0.4) &&
+      this.canPursue(px, pz) &&
       this.canHuntPlayer(dist, day);
     this.huntingPlayer = hunting;
-    const chasingPrey = !hunting && time >= this.retreatUntil && prey !== undefined;
+    const chasingPrey =
+      !hunting && time >= this.retreatUntil && prey && this.canPursue(prey.x, prey.z);
     if (time < this.retreatUntil) {
       this.targetX = this.retreatX;
       this.targetZ = this.retreatZ;
@@ -172,6 +196,9 @@ export abstract class Predator extends Animal<PredatorKind> {
     } else if (chasingPrey) {
       this.targetX = prey.x;
       this.targetZ = prey.z;
+    } else if (this.territory) {
+      this.targetX = this.territory.destination.x;
+      this.targetZ = this.territory.destination.z;
     } else if (Math.hypot(this.x - this.homeX, this.z - this.homeZ) > 20) {
       this.targetX = this.homeX;
       this.targetZ = this.homeZ;
@@ -199,7 +226,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       : this.specialApproach(
           dt,
           time,
-          hunting || chasingPrey,
+          hunting || !!chasingPrey,
           groundAt,
           { x: px, z: pz },
           playerSize,
@@ -207,11 +234,15 @@ export abstract class Predator extends Animal<PredatorKind> {
     if (special !== undefined) return special;
 
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-    const speed =
-      hunting || chasingPrey || time < this.retreatUntil
-        ? this.profile.runSpeed
+    const distance = Math.hypot(this.targetX - this.x, this.targetZ - this.z);
+    const running = hunting || !!chasingPrey || time < this.retreatUntil;
+    const travelling = this.territory && distance > 7;
+    const speed = running
+      ? this.profile.runSpeed
+      : travelling
+        ? Math.max(this.profile.walkSpeed, this.profile.runSpeed * 0.64)
         : this.profile.walkSpeed;
-    const step = Math.min(speed * dt, Math.hypot(this.targetX - this.x, this.targetZ - this.z));
+    const step = Math.min(speed * dt, distance);
     const moved = this.surfaceStep(
       THREE.MathUtils.clamp(
         this.x + Math.sin(angle) * step,
@@ -242,7 +273,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     animatePredator(
       this.root,
       time,
-      hunting || chasingPrey,
+      running || !!travelling,
       dt,
       moved,
       time < this.attackAnimUntil,

@@ -19,6 +19,8 @@ import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
 import { defaultWorldConfig } from '../WorldConfig';
 import { isNightAt } from './WorldCalendar';
+import { AnimalHabitats } from '../AnimalHabitats';
+import { WolfPopulation } from './WolfPopulation';
 
 type LegacyPredatorSlot = PredatorKind | 'bear';
 
@@ -38,6 +40,8 @@ export class WorldPopulation {
     rng: Random;
     markPartner: (actor: RabbitActor, active: boolean) => void;
     onDeath?: (animal: ForestAnimal | Predator) => void;
+    onWolfArrival?: (wolf: Predator) => void;
+    onDenDiscovery?: () => void;
   }) {
     const config = context.save.worldConfig ?? defaultWorldConfig();
     const scale = config.size / 110;
@@ -92,6 +96,15 @@ export class WorldPopulation {
     }
 
     this.predators = [];
+    const habitats = new AnimalHabitats(context.world, context.save.seed, config.size);
+    const wolves = new WolfPopulation({
+      ...context,
+      predators: this.predators,
+      habitats,
+      size: config.size,
+      onArrival: context.onWolfArrival,
+      onDiscovery: context.onDenDiscovery,
+    });
     const groundKinds: LegacyPredatorSlot[] = [
       'dog',
       'bear',
@@ -113,6 +126,12 @@ export class WorldPopulation {
     }
     for (const kind of groundKinds) for (let i = 0; i < remaining[kind]; i++) kinds.push(kind);
 
+    let wolfIndex = 0;
+    const slots = new Map<PredatorKind, number>();
+    // Сначала размещаем стаи: лисьи и звериные участки учитывают их логова.
+    for (const [i, kind] of kinds.entries())
+      if (kind === 'wolf') wolves.register(`predator:${i}`, wolfIndex++);
+
     for (const [i, kind] of kinds.entries()) {
       const a = context.rng.range(0, Math.PI * 2),
         d = context.rng.range(27, 82);
@@ -121,11 +140,15 @@ export class WorldPopulation {
         scale;
       const z =
         (i === 0 && kind === 'dog' ? 31 : i === 1 && kind === 'dog' ? 29 : Math.sin(a) * d) * scale;
-      if (kind === 'bear') continue;
-      const predator = createPredatorActor(kind, x, z, context.rng);
+      if (kind === 'bear' || kind === 'wolf') continue;
+      const slot = slots.get(kind) ?? 0;
+      slots.set(kind, slot + 1);
+      const home = habitats.predator(kind, slot);
+      const predator = createPredatorActor(kind, home?.x ?? x, home?.z ?? z, context.rng);
       predator.root.userData.remainsIdentity = `predator:${i}`;
       predator.useWorldBounds(config.size);
-      predator.root.position.y = context.world.heightAt(x, z);
+      predator.root.position.y = context.world.heightAt(predator.x, predator.z);
+      if (home) predator.followTerritory(habitats.intent(home, context.save.clock));
       this.predators.push(predator);
       context.scene.add(predator.root);
     }
@@ -212,6 +235,7 @@ export class WorldPopulation {
       context.rng,
       context.save,
       context.onDeath,
+      { habitats, wolves },
     );
     this.ecology.populate();
     this.wildlife = this.ecology.animals;
@@ -229,18 +253,20 @@ export class WorldPopulation {
       const identity = `scolopendra:${index}`;
       if (context.save.deadPopulation?.includes(identity)) continue;
       const rng = new Random(context.save.seed + 48291 + index * 613);
+      const home = habitats.predator('scolopendra', index);
       for (let attempt = 0; attempt < 40; attempt++) {
         const angle = rng.range(0, Math.PI * 2);
         const distance = rng.range(15, 76) * scale;
-        const x = Math.cos(angle) * distance;
-        const z = Math.sin(angle) * distance;
+        const x = home?.x ?? Math.cos(angle) * distance;
+        const z = home?.z ?? Math.sin(angle) * distance;
         if ((context.world.waterAt?.(x, z)?.depth ?? 0) > 0.08) continue;
-        if (attempt < 28 && context.world.biomeAt(x, z) !== 'forest') continue;
+        if (!home && attempt < 28 && context.world.biomeAt(x, z) !== 'forest') continue;
 
         const animal = AnimalFactory.predator('scolopendra', x, z, rng);
         animal.useWorldBounds(config.size);
         animal.root.position.y = context.world.heightAt(x, z);
         animal.root.userData.remainsIdentity = identity;
+        if (home) animal.followTerritory(habitats.intent(home, context.save.clock));
         this.predators.push(animal);
         context.scene.add(animal.root);
         break;

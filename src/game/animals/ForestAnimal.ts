@@ -10,6 +10,7 @@ import {
   type AppearanceOptions,
   type AppearanceTraits,
 } from '../AnimalAppearance';
+import type { Habitat, HabitatPoint } from '../AnimalHabitats';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
   get swimSpeed(): number {
@@ -20,6 +21,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   readonly model: ModelInstance;
   readonly defense: number;
   socialId = 0;
+  habitatSlot?: number;
+  habitat?: Habitat;
+  destination?: HabitatPoint;
+  foragingAllowed = true;
   social: WildlifeSocial = { trust: 0 };
   protected legs: THREE.Object3D[] = [];
   private readonly speed: number;
@@ -172,6 +177,9 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     } else if (food && !escort && time > this.fleeingUntil) {
       this.targetX = food.x;
       this.targetZ = food.z;
+    } else if (this.destination && time >= this.fleeingUntil) {
+      this.targetX = this.destination.x;
+      this.targetZ = this.destination.z;
     } else if (
       time > this.nextTarget ||
       Math.hypot(this.targetX - this.x, this.targetZ - this.z) < 0.5

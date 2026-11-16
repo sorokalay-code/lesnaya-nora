@@ -38,7 +38,12 @@ export class RodentHunting {
       for (const prey of this.sources.rodents()) {
         const { x, z } = prey.root.position;
         const distance = Math.hypot(x - predator.x, z - predator.z);
-        if (distance >= closest || !this.available(prey, canAttackFamily)) continue;
+        if (
+          distance >= closest ||
+          !predator.canPursue(x, z) ||
+          !this.available(prey, canAttackFamily)
+        )
+          continue;
         closest = distance;
         pursuit.prey = prey;
       }
@@ -46,7 +51,12 @@ export class RodentHunting {
     }
 
     const prey = pursuit.prey;
-    if (prey && this.available(prey, canAttackFamily)) return prey;
+    if (
+      prey &&
+      predator.canPursue(prey.root.position.x, prey.root.position.z) &&
+      this.available(prey, canAttackFamily)
+    )
+      return prey;
   }
 
   strike(predator: Predator, prey: HawkVictim, time: number): void {
