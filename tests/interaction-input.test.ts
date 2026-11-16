@@ -46,8 +46,8 @@ test('Escape closes panels and opens the main menu directly from the world', () 
   assert.equal(input.action('Escape', menu), 'close-panels');
   assert.equal(input.action('Escape', { ...menu, editable: true }), 'close-panels');
   assert.equal(input.action('Escape', game), 'menu');
-  assert.equal(input.action('KeyP', game), 'menu');
-  assert.equal(input.action('KeyP', { ...menu, gameMenu: 'burrow' }), 'menu-back');
+  assert.equal(input.action('KeyP', game), undefined);
+  assert.equal(input.action('KeyP', { ...menu, gameMenu: 'burrow' }), undefined);
   assert.equal(input.action('KeyP', { ...menu, editable: true }), undefined);
 });
 

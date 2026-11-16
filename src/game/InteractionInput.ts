@@ -17,7 +17,7 @@ export interface InteractionContext {
 export class InteractionInput {
   action(code: string, context: InteractionContext, composing = false): string | undefined {
     if (!context.playing) return;
-    const pause = code === 'Escape' || (code === 'KeyP' && !context.editable && !composing);
+    const pause = code === 'Escape';
     if (pause && context.dialogPageOpen) return 'dialog-back';
 
     if (pause && context.gameMenu === 'burrow') return 'menu-back';

@@ -17,6 +17,7 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
   let locked = false,
     closed = 0,
     opened = 0,
+    pooped = 0,
     saves = 0;
   const ui = {
     get state() {
@@ -61,6 +62,7 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
       if (action === 'controls-help')
         store.setState({ gameMenu: 'settings', settingsTab: 'controls' });
       if (action === 'save') saves++;
+      if (action === 'poop') pooped++;
     },
   } as unknown as InputContext;
   let input: DesktopInput | undefined;
@@ -84,6 +86,9 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     key('Escape');
     assert.equal(ui.panelsOpen, false);
     assert.equal(closed, 1);
+    key('KeyP');
+    assert.equal(ui.panelsOpen, false);
+    assert.equal(pooped, 1);
     context.keys.add('KeyW');
     key('KeyI');
     assert.equal(context.keys.has('KeyW'), true);
