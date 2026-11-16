@@ -4,10 +4,10 @@ import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { Genealogy } from '../genetics/Genealogy';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import * as THREE from 'three';
-import { RabbitFactory, RabbitKit } from '../animals';
+import { RabbitFactory, RabbitKit, type GroundHeight, type RabbitActor } from '../animals';
 import type { Soundscape } from '../Audio';
 import type { Excavation } from '../Excavation';
-import { TRAUMA_MUTATION_RISK, type FamilyCare } from '../FamilyCare';
+import { FamilyCare, TRAUMA_MUTATION_RISK } from '../FamilyCare';
 import { KitWander } from '../KitWander';
 import { ModelAssets } from '../ModelAssets';
 import { type RabbitAction, type RabbitRig } from '../Models';
@@ -17,6 +17,8 @@ import type { World } from '../World';
 import { GAME_MINUTES_PER_SECOND } from './WorldCalendar';
 import { NEST_BEDDING_RADIUS } from '../NestBedding';
 import { FamilyRelocation, RELOCATION_DETAIL } from './FamilyRelocation';
+import { playerSex } from '../RabbitSex';
+import { PartnerMaternity } from './PartnerMaternity';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
   onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
@@ -40,10 +42,15 @@ export class FamilyLifecycle {
   readonly wander: KitWander;
   readonly relocation: FamilyRelocation;
   private readonly movement: KitMovement;
+  private readonly maternity: PartnerMaternity;
 
   constructor(private readonly context: FamilyContext) {
     this.wander = new KitWander(new Random(context.save.seed + 7741));
     this.movement = new KitMovement(context, this.wander);
+    this.maternity = new PartnerMaternity({
+      ...context,
+      canFeed: (kit) => this.canFeed(kit),
+    });
     this.relocation = new FamilyRelocation(context.save, context.earth, (kit) => {
       const actor = this.actors.get(kit.id);
       return !!actor && AnimalRestraint.active(actor.root);
@@ -112,10 +119,15 @@ export class FamilyLifecycle {
   }
 
   advancePregnancy(minutes: number): void {
+    const { save } = this.context;
     const pregnancyEvent = this.context.care.advance(minutes);
     if (pregnancyEvent === 'warning') {
       this.context.sound.play('baby');
-      this.context.toast('Скоро роды. Вернись в гнездо внутри выкопанного хода!');
+      this.context.toast(
+        save.pregnancy?.motherId === undefined
+          ? 'Скоро роды. Вернись в гнездо внутри выкопанного хода!'
+          : 'У партнёрши скоро роды. Подготовь гнездо в норе: она сама отправится туда.',
+      );
     }
 
     if (pregnancyEvent === 'birth') this.birth();
@@ -164,9 +176,7 @@ export class FamilyLifecycle {
         kit.nestId = undefined;
         this.context.sound.play('baby');
         this.context.toast(
-          RabbitFamily.sex(kit) === 'female'
-            ? `${kit.name} выросла и живёт самостоятельно. В панели «Семья» можно продолжить историю за неё.`
-            : `${kit.name} вырос и отправился жить самостоятельно.`,
+          `${kit.name} теперь живёт самостоятельно. В панели «Семья» можно продолжить историю за этого персонажа.`,
         );
       }
 
@@ -221,17 +231,22 @@ export class FamilyLifecycle {
   }
 
   birth(): void {
-    const pregnancy = this.context.save.pregnancy;
+    const { save, care } = this.context;
+    const pregnancy = save.pregnancy;
     if (!pregnancy) return;
 
-    const father = this.context.save.partners.find((p) => p.id === pregnancy.fatherId);
-    if (!father) {
-      this.context.save.pregnancy = null;
+    const motherId = pregnancy.motherId;
+    const mate = save.partners.find((rabbit) => rabbit.id === (motherId ?? pregnancy.fatherId));
+    if (!mate || (motherId !== undefined && (mate.health ?? 100) <= 0)) {
+      save.pregnancy = null;
       return;
     }
 
+    const mother = motherId === undefined ? save.player : mate;
+    const father = motherId === undefined ? mate : save.player;
+    const nest =
+      motherId === undefined ? care.birthNest() : care.birthNestAt(this.maternity.position(mate));
     const count = this.context.rng.int(2, 5);
-    const nest = this.context.care.birthNest();
     if (!nest) {
       this.context.save.stats.stillborn = (this.context.save.stats.stillborn ?? 0) + count;
       this.context.save.pregnancy = null;
@@ -253,31 +268,37 @@ export class FamilyLifecycle {
         name,
         sex,
         genes: this.context.genetics.inherit(
-          this.context.save.player.genes,
+          mother.genes,
           father.genes,
-          Genealogy.related(this.context.save.player.lineage, father.lineage),
+          Genealogy.related(mother.lineage, father.lineage),
           pregnancy.trauma ? TRAUMA_MUTATION_RISK : 0,
         ),
         lineage: Genealogy.child('child:' + this.context.save.seed + ':' + id, [
           {
-            name: this.context.save.player.name ?? 'Мама',
+            name: mother.name ?? 'Мама',
             lineage:
-              this.context.save.player.lineage ??
-              Genealogy.founder('player:' + this.context.save.seed),
+              mother.lineage ??
+              Genealogy.founder(motherId === undefined ? 'player:' + save.seed : 'wild:' + mate.id),
           },
-          { name: father.name, lineage: father.lineage ?? Genealogy.founder('wild:' + father.id) },
+          {
+            name: father.name ?? 'Папа',
+            lineage:
+              father.lineage ??
+              Genealogy.founder(motherId === undefined ? 'wild:' + mate.id : 'player:' + save.seed),
+          },
         ]),
         age: 0,
         hunger: 85,
         health: 100,
-        father: father.name,
+        father: father.name ?? 'Папа',
+        motherId,
         homeX: home.x,
         homeY: home.y,
         homeZ: home.z,
         x: home.x + Math.cos(id * 2.4) * 0.7,
         y: home.y,
         z: home.z + Math.sin(id * 2.4) * 0.7,
-        nestId: nest?.id,
+        nestId: nest.id,
         alive: true,
       };
       this.context.save.kits.push(kit);
@@ -298,22 +319,15 @@ export class FamilyLifecycle {
   feed(vegetables = false): void {
     const { save, care, earth } = this.context;
     const p = save.player;
+    const male = playerSex(p) === 'male';
+    if (!vegetables && male) {
+      this.maternity.requestNursing();
+      return;
+    }
     const nest = vegetables ? undefined : care.birthNest(NEST_BEDDING_RADIUS);
     const network = nest ? earth.burrowAt(nest)?.network : undefined;
     const nursingInNest = network !== undefined && earth.burrowAt(p)?.network === network;
-    const young = save.kits.filter((kit) => {
-      if (!kit.alive || kit.health <= 0 || kit.age >= 3) return false;
-      const actor = this.actors.get(kit.id);
-      if (actor && AnimalRestraint.active(actor.root)) return false;
-
-      const x = kit.x ?? kit.homeX;
-      const y = kit.y ?? kit.homeY;
-      const z = kit.z ?? kit.homeZ;
-      if (!nursingInNest) return Math.hypot(x - p.x, y - p.y, z - p.z) < 4;
-
-      // Кормление из гнезда охватывает гуляющих по связным ходам малышей.
-      return earth.isSheltered(x, y, z) && earth.burrowAt({ x, y, z })?.network === network;
-    });
+    const young = care.youngNear(p, nest, (kit) => this.canFeed(kit));
     if (!young.length) {
       this.context.toast(
         nursingInNest
@@ -326,7 +340,11 @@ export class FamilyLifecycle {
     if (vegetables) {
       const ready = young.filter((k) => k.age >= 0.8);
       if (!ready.length) {
-        this.context.toast('Крольчата ещё слишком малы для овощей. Пока корми их молоком.');
+        this.context.toast(
+          male
+            ? 'Крольчатам пока нужно молоко. Попроси партнёршу покормить их.'
+            : 'Крольчата ещё слишком малы для овощей. Пока корми их молоком.',
+        );
         return;
       }
 
@@ -345,7 +363,7 @@ export class FamilyLifecycle {
       this.context.playAction('eat', 1.5);
       this.context.sound.play('baby');
       this.context.toast(
-        `Ты принесла ${FOOD[kind].label.toLowerCase()} ${ready.length} подросшим крольчатам.`,
+        `Кормление: ${FOOD[kind].label.toLowerCase()} для ${ready.length} подросших крольчат.`,
       );
       return;
     }
@@ -356,10 +374,7 @@ export class FamilyLifecycle {
     }
 
     this.context.save.player.milk = clamp(this.context.save.player.milk - 12, 0, 100);
-    for (const kit of young) {
-      kit.hunger = clamp(kit.hunger + 35, 0, 100);
-      kit.health = clamp(kit.health + 6, 0, 100);
-    }
+    FamilyCare.nurse(young);
 
     this.context.playAction('nurse', 2.8);
     this.context.sound.play('baby');
@@ -368,5 +383,14 @@ export class FamilyLifecycle {
         ? `Из гнезда покормила молоком ${young.length} крольчат в норе.`
         : `Ты покормила молоком ${young.length} крольчат. Их здоровье укрепилось.`,
     );
+  }
+
+  updateMother(actor: RabbitActor, dt: number, time: number, groundAt: GroundHeight): boolean {
+    return this.maternity.update(actor, dt, time, groundAt);
+  }
+
+  private canFeed(kit: KitData): boolean {
+    const actor = this.actors.get(kit.id);
+    return !actor || !AnimalRestraint.active(actor.root);
   }
 }

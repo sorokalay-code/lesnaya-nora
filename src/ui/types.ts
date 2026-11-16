@@ -9,6 +9,7 @@ import type {
   MateCommand,
   MateMessage,
   PartnerTraits,
+  RabbitSex,
   SaveData,
   Season,
 } from '../game/types';
@@ -23,8 +24,15 @@ export interface PromptPart {
 }
 export interface HudView {
   playerName?: string;
+  playerSex?: RabbitSex;
   familyCount?: number;
-  lineageMembers?: { id: number; name: string; relationship: string; generation: number }[];
+  lineageMembers?: {
+    id: number;
+    name: string;
+    relationship: string;
+    generation: number;
+    sex: RabbitSex;
+  }[];
   airlift?: import('../game/session/HawkHunting').AirliftView;
   rabbitChase?: import('../game/session/RabbitReproductiveThreat').RabbitChaseView;
   web?: WebView;
@@ -41,7 +49,7 @@ export interface HudView {
   capacity: number;
   milk: number;
   materials: SaveData['materials'];
-  mate?: { name: string };
+  mate?: { name: string; sex?: RabbitSex };
   young: {
     id: number;
     name: string;
@@ -63,13 +71,20 @@ export type DialogViewModel = (
   | { type: 'help' }
   | { type: 'remove'; kind: 'stash' | 'nest'; items: number }
   | { type: 'self'; player: SaveData['player']; pregnant: boolean }
-  | { type: 'mate'; partner: PartnerTraits; command: MateCommand; messages: MateMessage[] }
+  | {
+      type: 'mate';
+      partner: PartnerTraits;
+      command: MateCommand;
+      messages: MateMessage[];
+      canRequestNursing?: boolean;
+    }
   | {
       type: 'partner';
       partner: PartnerTraits;
       score: number;
       line?: string;
       paired: boolean;
+      canCourt?: boolean;
       question?: DialogQuestion;
     }
   | {

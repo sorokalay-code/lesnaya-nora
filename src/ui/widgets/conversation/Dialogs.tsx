@@ -97,10 +97,15 @@ export function DialogView({
           </div>
         </>
       );
-    case 'self':
+    case 'self': {
+      const male = data.player.sex === 'male';
       return (
         <>
-          <Heading eyebrow="МОЯ КРОЛЬЧИХА" title="Твоя история" onAction={onAction} />
+          <Heading
+            eyebrow={male ? 'МОЙ КРОЛ' : 'МОЯ КРОЛЬЧИХА'}
+            title="Твоя история"
+            onAction={onAction}
+          />
           <GeneticsPanel data={data.genetics} />
           <p className="dialog-meta">
             Окрас: {coatName(data.player.genes.coat)} · возраст {data.player.age.toFixed(1)} игровых
@@ -111,7 +116,7 @@ export function DialogView({
               ['Здоровье', data.player.health],
               ['Силы', data.player.energy],
               ['Сытость', data.player.hunger],
-              ['Молоко', data.player.milk],
+              ...(male ? [] : [['Молоко', data.player.milk]]),
             ].map(([label, value]) => (
               <span key={label}>
                 {label} {fmt(Number(value))}%
@@ -120,11 +125,14 @@ export function DialogView({
           </div>
           <p className="speech">
             {data.pregnant
-              ? 'Ты ждёшь крольчат. Для родов нужно гнездо внутри выкопанной земли.'
+              ? male
+                ? 'Партнёрша ждёт крольчат. Подготовь для неё подземное гнездо.'
+                : 'Ты ждёшь крольчат. Для родов нужно гнездо внутри выкопанной земли.'
               : 'Лес полон тропинок и новых встреч.'}
           </p>
         </>
       );
+    }
     case 'bag':
       return (
         <>

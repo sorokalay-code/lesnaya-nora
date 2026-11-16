@@ -43,7 +43,7 @@ export function MobileControls({ store }: { store: UIStore }) {
         <span>↻</span>
         <h1>Поверни устройство</h1>
         <p>Лесная нора играется в горизонтальном положении.</p>
-        <small>Игра на паузе — крольчиха в безопасности.</small>
+        <small>Игра на паузе — персонаж в безопасности.</small>
         <FullscreenButton store={store} />
         <MenuTrigger store={store} />
       </div>

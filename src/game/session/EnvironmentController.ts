@@ -187,7 +187,7 @@ export class EnvironmentController {
     nest.insulated = true;
     this.context.updateNest?.(nest);
     this.context.sound.play('nest');
-    toast('Тёплая спальня готова. Здесь крольчиха быстрее согревается.');
+    toast('Тёплая спальня готова. Здесь можно быстрее согреться.');
     this.context.persist();
   }
 

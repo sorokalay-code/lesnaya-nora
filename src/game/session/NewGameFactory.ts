@@ -1,5 +1,5 @@
 import { RabbitFactory } from '../animals';
-import { type SaveData } from '../types';
+import { type RabbitSex, type SaveData } from '../types';
 import { Genealogy } from '../genetics/Genealogy';
 import { Random, hash2 } from '../Random';
 import { defaultWorldConfig, validWorldConfig, type WorldConfig } from '../WorldConfig';
@@ -12,6 +12,7 @@ export class NewGameFactory {
     seasonIndex: number,
     factory: RabbitFactory,
     config: WorldConfig = defaultWorldConfig(),
+    sex: RabbitSex = 'female',
   ): SaveData {
     if (!validWorldConfig(config)) throw new Error('Проверь настройки нового мира.');
 
@@ -27,6 +28,7 @@ export class NewGameFactory {
       clock: (startDay - 1) * 1440 + 7 * 60,
       day: startDay,
       player: {
+        sex,
         x: 0,
         y: 0,
         z: 0,
@@ -43,7 +45,7 @@ export class NewGameFactory {
         hidden: false,
         dirtiness: 0,
         poison: 0,
-        milk: 35,
+        milk: sex === 'female' ? 35 : 0,
       },
       inventory: {
         clover: 2,
@@ -62,7 +64,11 @@ export class NewGameFactory {
       gnawedRoots: {},
       kits: [],
       partners: factory
-        .partners(worldConfig.creatures.rabbit, worldConfig.neighborFamilySize)
+        .partners(
+          worldConfig.creatures.rabbit,
+          worldConfig.neighborFamilySize,
+          sex === 'male' ? 'female' : 'male',
+        )
         .map((partner) => ({
           ...partner,
           x: partner.x * scale,

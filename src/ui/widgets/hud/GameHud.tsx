@@ -26,9 +26,7 @@ function Toolbar({ store }: { store: UIStore }) {
       <div className="topbar">
         <div className="brand">
           <span className="brand-icon">✦</span>
-          <span>
-            ЛЕСНАЯ НОРА<small>история дикой крольчихи</small>
-          </span>
+          <span>ЛЕСНАЯ НОРА</span>
         </div>
         <div id="world-info" className="world-info">
           {hud?.worldInfo.map((text) => (
@@ -45,7 +43,8 @@ function Toolbar({ store }: { store: UIStore }) {
         <Button className="avatar-chip" onClick={() => dispatch('self-profile')}>
           <span className="avatar-face">🐰</span>
           <span>
-            {hud?.playerName ?? 'Ты'} <small>крольчиха</small>
+            {hud?.playerName ?? 'Ты'}{' '}
+            <small>{hud?.playerSex === 'male' ? 'крол' : 'крольчиха'}</small>
           </span>
         </Button>
         <Button
@@ -55,8 +54,8 @@ function Toolbar({ store }: { store: UIStore }) {
         >
           <span className="avatar-face">{hud?.mate ? '🐰' : '♡'}</span>
           <span>
-            {hud?.mate?.name ?? 'Партнёр'}
-            <small>Tab · {hud?.mate ? 'команды и чат' : 'пока не найден'}</small>
+            {hud?.mate?.name ?? 'Семейная пара'}
+            <small>Tab · {hud?.mate ? 'команды и чат' : 'пока нет пары'}</small>
           </span>
         </Button>
       </div>
@@ -76,11 +75,15 @@ function StatusPanel({ store }: { store: UIStore }) {
 
   if (!hud) return null;
 
+  const male = hud.playerSex === 'male';
+  const pregnancyLabel = male ? 'Беременность партнёрши' : 'Беременность';
   const pregnancy =
     hud.pregnancyProgress === undefined ? null : (
       <div className="pregnancy-progress">
-        <span>Беременность · {hud.pregnancyProgress}%</span>
-        <Meter className="kit-growth-meter" label="Беременность" value={hud.pregnancyProgress} />
+        <span>
+          {pregnancyLabel} · {hud.pregnancyProgress}%
+        </span>
+        <Meter className="kit-growth-meter" label={pregnancyLabel} value={hud.pregnancyProgress} />
       </div>
     );
 
@@ -110,14 +113,16 @@ function StatusPanel({ store }: { store: UIStore }) {
         {!!hud.lineageMembers?.length && (
           <>
             <h3>Продолжить линию</h3>
-            <p>Выбери взрослую крольчиху, чтобы посмотреть гены или играть за неё.</p>
+            <p>Выбери взрослого члена семьи, чтобы посмотреть гены или продолжить игру за него.</p>
             {hud.lineageMembers.map((member) => (
               <Button
                 className="lineage-member"
                 key={member.id}
                 onClick={() => dispatch('family-member:' + member.id)}
               >
-                <b>♀ {member.name}</b>
+                <b>
+                  {member.sex === 'male' ? '♂' : '♀'} {member.name}
+                </b>
                 <small>
                   {member.relationship} · поколение {member.generation} ›
                 </small>
@@ -187,7 +192,8 @@ function StatusPanel({ store }: { store: UIStore }) {
           </div>
           <div className="inventory">
             <b>
-              ЕДА {hud.carried}/{hud.capacity} · МОЛОКО {Math.round(hud.milk)}%
+              ЕДА {hud.carried}/{hud.capacity}
+              {!male && ` · МОЛОКО ${Math.round(hud.milk)}%`}
             </b>
             <div>
               {hud.inventory.length ? (
@@ -217,7 +223,9 @@ function StatusPanel({ store }: { store: UIStore }) {
             <span>Гнёзда: {hud.nests}</span>
           </div>
           {hud.birthWarning && (
-            <div className="birth-warning">⚠ Скоро роды: вернись в подземное гнездо</div>
+            <div className="birth-warning">
+              ⚠ Скоро роды: {male ? 'подготовь гнездо для партнёрши' : 'вернись в подземное гнездо'}
+            </div>
           )}
         </div>
       </ScrollContainer>

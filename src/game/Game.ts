@@ -211,6 +211,7 @@ export class Game {
     const worldConfig = structuredClone(this.ui.state.worldConfig);
     const seed = worldConfig.map?.seed ?? Math.floor(Math.random() * 2_147_483_647);
     const seasonIndex = this.ui.state.startSeason;
+    const sex = this.ui.state.startSex;
     this.rng = new Random(seed + 53);
     this.factory = new RabbitFactory(this.rng);
     this.ui.showOverlay({ type: 'loading', title: 'Готовим лес…' });
@@ -222,7 +223,7 @@ export class Game {
       return;
     }
 
-    this.save = NewGameFactory.create(seed, seasonIndex, this.factory, worldConfig);
+    this.save = NewGameFactory.create(seed, seasonIndex, this.factory, worldConfig, sex);
     this.activeAdventureId = this.saves.createAdventureId();
     this.activeAdventureName = adventureName;
     this.setupWorld();
@@ -231,7 +232,7 @@ export class Game {
     this.sessionUI.persist(false);
     this.sound.unlock();
     this.view.lock();
-    this.toast('Исследуй лес, копай землю лапами и найди партнёра.');
+    this.toast('Исследуй лес, копай нору и найди пару.');
   }
 
   private async loadGame(slotId?: string): Promise<void> {
@@ -490,8 +491,7 @@ export class Game {
       persist: () => this.sessionUI.persist(false),
       markPartner: (actor, active) => this.decorations.markPartner(actor, active),
       familyStash: () => this.partnerSupport.familyStash(),
-      startMating: (fatherId) =>
-        this.animals.startMating(fatherId, this.runtime.elapsed, 'consensual'),
+      startMating: (mateId) => this.animals.startMating(mateId, this.runtime.elapsed, 'consensual'),
     });
     this.collisions = new AnimalCollisionSystem({
       playerRestrained: () => AnimalRestraint.active(this.player.root),

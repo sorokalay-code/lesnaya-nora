@@ -133,8 +133,7 @@ export function RabbitConversationView({
         <div className="dialog-choices">
           {button('compliment', 'Ты мне нравишься')}
           {button('gift', 'Подарить еду')}
-          {rabbitSex(p) === 'male' &&
-            adultRabbit(p) &&
+          {data.canCourt &&
             button(
               'court',
               data.paired ? 'Планировать новых крольчат' : 'Предложить создать семью',
@@ -160,10 +159,10 @@ export function RabbitConversationView({
     ? 'Я рядом. Скажи, чем помочь нашей семье.'
     : (data.line ??
       (data.paired
-        ? 'Я вернулся домой. Рад тебя видеть!'
+        ? 'Мы дома. Как хорошо, что ты здесь!'
         : p.temperament === 'осторожный'
           ? 'Сначала давай узнаем друг друга получше.'
-          : 'Рад тебя видеть! О чём поговорим?'));
+          : 'Как хорошо, что мы встретились! О чём поговорим?'));
   return (
     <>
       <p className="speech">«{line}»</p>
@@ -189,7 +188,7 @@ export function RabbitConversationView({
             </span>
             <span>♡ Доверие {Math.round(p.trust)}/100</span>
             <span>{p.temperament}</span>
-            {mate && <span>Твой партнёр</span>}
+            {mate && <span>{rabbitSex(p) === 'female' ? 'Твоя партнёрша' : 'Твой партнёр'}</span>}
           </div>
           <div className="conversation-grid">
             {data.type === 'partner' &&
@@ -207,7 +206,7 @@ export function RabbitConversationView({
                   'talk',
                   '☏',
                   'Поговорить',
-                  data.question ? 'У него есть вопрос к тебе' : 'Семья, еда и лесные новости',
+                  data.question ? 'Есть вопрос к тебе' : 'Семья, еда и лесные новости',
                 )}
                 {link('relationship', '♡', 'Отношения', 'Подарки, совместимость и семья')}
               </>
@@ -215,7 +214,10 @@ export function RabbitConversationView({
             {link('profile', '❀', 'Гены и родословная', 'Особенности и известные предки')}
           </div>
           {mate && (
-            <div className="dialog-choices">{button('mate-talk', 'Поговорить о семье')}</div>
+            <div className="dialog-choices">
+              {button('mate-talk', 'Поговорить о семье')}
+              {data.canRequestNursing && button('feed', 'Попросить покормить крольчат')}
+            </div>
           )}
         </>
       )}

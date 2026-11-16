@@ -5,16 +5,17 @@ import { ModelAssets } from '../ModelAssets';
 import { CoatDirt } from '../CoatDirt';
 import { RabbitAppearance } from '../genetics/RabbitAppearance';
 import { RabbitGait } from '../RabbitGait';
+import { playerSex } from '../RabbitSex';
 
-/** Крольчиха игрока использует координаты и здоровье непосредственно из сохранения. */
+/** Персонаж игрока использует пол, координаты и здоровье из сохранения. */
 export class PlayerRabbit extends Rabbit {
   constructor(readonly data: SaveData['player']) {
-    super(data, data.genes, false, data);
+    super(data, data.genes, false, data, playerSex(data));
   }
 
   refreshAppearance(): void {
     CoatDirt.forget(this.rig);
-    const replacement = createRabbit(this.data.genes);
+    const replacement = createRabbit(this.data.genes, false, playerSex(this.data));
     RabbitAppearance.rebind(replacement.root, this.root);
     RabbitGait.reset(this.root);
     ModelAssets.shared.replace(this.rig, replacement);

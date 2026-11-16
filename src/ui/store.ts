@@ -4,6 +4,7 @@ import type { BurrowView } from './presenters/BurrowPresenter';
 import { GRAPHICS_PRESETS, type GraphicsSettings } from '../game/GraphicsSettings';
 import { defaultWorldConfig, type WorldConfig } from '../game/WorldConfig';
 import { defaultMapGeneration } from '../game/MapGeneration';
+import type { RabbitSex } from '../game/types';
 
 import { createStore } from 'zustand/vanilla';
 import type {
@@ -50,6 +51,7 @@ export interface UIState {
   showControls: boolean;
   firstPerson: boolean;
   startSeason: number;
+  startSex: RabbitSex;
   worldConfig: WorldConfig;
   worldSettingsTab: WorldSettingsTab;
   message: string;
@@ -85,6 +87,7 @@ export function createUIStore(dispatch: UIAction) {
     showControls: true,
     firstPerson: false,
     startSeason: 0,
+    startSex: 'female',
     worldConfig: { ...defaultWorldConfig(), map: defaultMapGeneration() },
     worldSettingsTab: 'map',
     message: '',

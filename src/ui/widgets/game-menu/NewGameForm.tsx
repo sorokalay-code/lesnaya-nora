@@ -1,4 +1,4 @@
-import { Button, FieldLabel, Input } from '../../shared/ui';
+import { Button, FieldLabel, Input, Select } from '../../shared/ui';
 import { flushSync } from 'react-dom';
 import { useStore } from 'zustand';
 import { validWorldConfig } from '../../../game/WorldConfig';
@@ -10,6 +10,7 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
   const config = useStore(store, (state) => state.worldConfig);
   const dispatch = useStore(store, (state) => state.dispatch);
   const adventureName = useStore(store, (state) => state.adventureName);
+  const startSex = useStore(store, (state) => state.startSex);
 
   return (
     <form
@@ -40,15 +41,26 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
               onChange={(event) => store.setState({ adventureName: event.target.value })}
             />
           </FieldLabel>
+          <FieldLabel separateControl>
+            Играть за
+            <Select
+              value={startSex}
+              onChange={({ target }) => {
+                if (target.value === 'female' || target.value === 'male')
+                  store.setState({ startSex: target.value });
+              }}
+            >
+              <option value="female">Крольчиху</option>
+              <option value="male">Крола</option>
+            </Select>
+          </FieldLabel>
           <div className="config-actions">
             <Button type="submit" variant={replacesStory ? 'danger' : 'primary'}>
               Начать новую игру
             </Button>
           </div>
         </div>
-        <p>
-          Создай свой лес. Крольчиха и её гены будут случайными; возможны врождённые особенности.
-        </p>
+        <p>Внешность и гены персонажа случайны; возможны врождённые особенности.</p>
         {replacesStory && (
           <p className="new-game-warning">
             Новое приключение создаст отдельное сохранение; другие миры останутся доступны.

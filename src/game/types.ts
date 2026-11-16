@@ -37,6 +37,7 @@ export interface PartnerTraits {
   sex?: RabbitSex;
   age?: number;
   pregnancy?: { fatherId: number; dueAt: number };
+  nextNursingAt?: number;
   nextMatingAt?: number;
   health?: number;
   lineage?: Lineage;
@@ -56,6 +57,11 @@ export interface PartnerTraits {
 
 export type RabbitSex = 'female' | 'male';
 
+export type FamilyPregnancy = { progress: number; warned?: boolean } & (
+  | { fatherId: number; motherId?: never; trauma?: true }
+  | { motherId: number; fatherId?: never; trauma?: never }
+);
+
 export interface KitData {
   sex?: 'female' | 'male';
   wasPlayer?: true;
@@ -73,6 +79,7 @@ export interface KitData {
   hunger: number;
   health: number;
   father: string;
+  motherId?: number;
   homeX: number;
   homeY: number;
   homeZ: number;
@@ -141,6 +148,7 @@ export interface SaveData {
   clock: number;
   day: number;
   player: {
+    sex?: RabbitSex;
     name?: string;
     originKitId?: number;
     lineage?: Lineage;
@@ -178,7 +186,7 @@ export interface SaveData {
   kits: KitData[];
   partners: PartnerTraits[];
   harvested: number[];
-  pregnancy: { fatherId: number; progress: number; warned?: boolean; trauma?: true } | null;
+  pregnancy: FamilyPregnancy | null;
   stats: {
     births: number;
     grown: number;

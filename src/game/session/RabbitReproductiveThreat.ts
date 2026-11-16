@@ -6,7 +6,7 @@ import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { GeneticTraits } from '../genetics/GeneticTraits';
 import { animateRabbit } from '../Models';
 import { SWIM_DEPTH } from '../WaterNavigation';
-import { adultRabbit, rabbitSex } from '../RabbitSex';
+import { adultRabbit, playerSex, rabbitSex } from '../RabbitSex';
 
 const CHASE = {
   checkSeconds: 4,
@@ -74,6 +74,7 @@ export class RabbitReproductiveThreat {
     const player = this.save.player;
     if (
       !allowed ||
+      playerSex(player) !== 'female' ||
       this.save.pregnancy ||
       player.health <= 0 ||
       player.hidden ||

@@ -6,7 +6,7 @@ import type { World } from '../World';
 import { partnerScore, type ForestAnimal, type RabbitActor } from '../animals';
 import type { FoodKind, KitData, MateCommand, PartnerTraits, SaveData } from '../types';
 import { FOOD } from '../types';
-import { adultRabbit, rabbitSex } from '../RabbitSex';
+import { playerSex, potentialMate } from '../RabbitSex';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 import { ConversationFocus } from './ConversationFocus';
 import { ForestConversation } from './ForestConversation';
@@ -33,7 +33,7 @@ interface InteractionContext {
   persist: () => void;
   markPartner: (actor: RabbitActor, active: boolean) => void;
   familyStash: () => StashData | undefined;
-  startMating: (fatherId: number) => boolean;
+  startMating: (mateId: number) => boolean;
 }
 /** Управляет разговорами, отношениями и семейными командами через порт интерфейса. */
 export class InteractionController {
@@ -108,6 +108,7 @@ export class InteractionController {
       score: this.compatibility(p),
       line,
       paired: this.context.save.mateId === p.id,
+      canCourt: potentialMate(this.context.save.player, p),
       question: this.rabbitDialogue.question(p),
     });
     this.update(0);
@@ -116,12 +117,16 @@ export class InteractionController {
   openMatePanel(): void {
     const actor = this.context.rabbits.find((r) => r.data.id === this.context.save.mateId);
     if (actor && AnimalRestraint.active(actor.root)) {
-      this.context.toast('Партнёра держит сокол: сейчас он не может отвечать.');
+      this.context.toast('Сокол держит твою пару: сейчас общение недоступно.');
       return;
     }
     const mate = this.context.save.partners.find((p) => p.id === this.context.save.mateId);
     if (!mate) {
-      this.context.toast('Партнёра пока нет. Подойди к кролу и нажми E, чтобы познакомиться.');
+      this.context.toast(
+        playerSex(this.context.save.player) === 'male'
+          ? 'Пары пока нет. Подойди к крольчихе и нажми E, чтобы познакомиться.'
+          : 'Пары пока нет. Подойди к кролу и нажми E, чтобы познакомиться.',
+      );
       return;
     }
 
@@ -139,6 +144,7 @@ export class InteractionController {
         LineageGraphPresenter.build(this.context.save, mate.lineage?.id),
       ),
       partner: mate,
+      canRequestNursing: playerSex(this.context.save.player) === 'male',
       command: this.context.save.mateCommand ?? 'forage',
       messages: this.context.save.mateMessages ?? [],
     });
@@ -188,11 +194,15 @@ export class InteractionController {
           };
     }
 
+    const mate = this.context.save.partners.find(
+      (rabbit) => rabbit.id === this.context.save.mateId,
+    );
+    const name = mate?.name ?? 'Твоя пара';
     const line = {
-      follow: 'Партнёр идёт за тобой.',
-      stay: 'Партнёр подождёт здесь.',
-      forage: 'Партнёр отправился собирать припасы.',
-      home: 'Партнёр возвращается домой.',
+      follow: `${name} идёт за тобой.`,
+      stay: `${name} подождёт здесь.`,
+      forage: `${name} теперь собирает припасы.`,
+      home: `${name} возвращается домой.`,
     }[command];
     this.context.sound.play('chirp');
     this.context.toast(line);
@@ -212,8 +222,8 @@ export class InteractionController {
       mate.temperament === 'заботливый'
         ? 'Я рядом и помогу нашей семье.'
         : mate.temperament === 'осторожный'
-          ? 'Я услышал тебя. Буду внимателен.'
-          : 'Я тебя услышал. Скоро увидимся!';
+          ? 'Спасибо за сообщение. Буду начеку.'
+          : 'Спасибо за сообщение. Скоро увидимся!';
     chat.push({ from: 'partner', text: reply, clock: this.context.save.clock });
     if (chat.length > 20) chat.splice(0, chat.length - 20);
 
@@ -241,6 +251,10 @@ export class InteractionController {
 
     let line = '';
     if (action === 'divorce' && this.context.save.mateId === p.id) {
+      if (this.context.save.pregnancy?.motherId === p.id) {
+        this.openPartner(p, 'Давай сначала позаботимся о гнезде и дождёмся родов.');
+        return;
+      }
       this.context.save.mateId = undefined;
       p.trust = clamp(p.trust - 15, 0, 100);
       this.context.save.mateCommand = 'forage';
@@ -276,8 +290,8 @@ export class InteractionController {
       p.trust = clamp(p.trust + (p.preference === 'bond' ? 13 : 8), 0, 100);
       line =
         p.temperament === 'осторожный'
-          ? 'Спасибо... Мне приятно, что ты это сказала.'
-          : 'Ты тоже мне нравишься. Я рад нашей встрече!';
+          ? 'Спасибо… Мне приятно это слышать.'
+          : 'Ты тоже мне нравишься. Как хорошо, что мы встретились!';
     }
 
     if (action === 'gift') {
@@ -296,13 +310,13 @@ export class InteractionController {
     }
 
     if (action === 'court') {
-      if (rabbitSex(p) !== 'male' || !adultRabbit(p)) {
-        this.openPartner(p, 'Мы можем дружить и общаться. Для создания пары нужен взрослый крол.');
+      if (!potentialMate(this.context.save.player, p)) {
+        this.openPartner(p, 'Мы можем дружить. Семью могут создать взрослые крол и крольчиха.');
         return;
       }
       const candidate = this.context.rabbits.find((actor) => actor.data.id === p.id);
-      if (candidate?.root.userData.wildMating) {
-        this.openPartner(p, 'Сейчас я занят. Давай поговорим позже.');
+      if (candidate?.root.userData.wildMating || p.pregnancy) {
+        this.openPartner(p, 'Сейчас не время. Давай поговорим позже.');
         return;
       }
       if (p.genes.anatomy.fangs) {
@@ -318,31 +332,32 @@ export class InteractionController {
       }
 
       if (this.context.save.pregnancy) {
-        this.openPartner(p, 'Ты уже ждёшь крольчат. Сейчас надо позаботиться о них.');
+        this.openPartner(p, 'В семье уже ждут крольчат. Сейчас надо позаботиться о гнезде.');
         return;
       }
 
       const score = this.compatibility(p);
       if (score < 55) {
         p.trust = clamp(p.trust + 3, 0, 100);
-        this.openPartner(p, 'Я пока не готов. Давай ещё поговорим и лучше узнаем друг друга.');
+        this.openPartner(p, 'Давай ещё поговорим и лучше узнаем друг друга.');
         return;
       }
 
       if (!this.context.startMating(p.id)) {
-        this.openPartner(p, 'Сейчас не получится. Попробуй позже.');
+        this.openPartner(p, 'Сейчас не получится. Подойди ближе и попробуй ещё раз.');
         return;
       }
 
       this.context.save.mateId = p.id;
       this.context.save.mateCommand = this.context.familyStash() ? 'forage' : 'follow';
-      this.context.save.mateMessages = [];
+      this.context.save.mateMessages ??= [];
       const actor = this.context.rabbits.find((r) => r.data.id === p.id);
       if (actor) this.context.markPartner(actor, true);
 
       this.context.sound.play('baby');
       this.context.ui.closeDialog();
       this.dialogPartner = undefined;
+      this.context.persist();
       this.context.toast(`Ты и ${p.name} стали парой. Скоро в семье появятся крольчата!`);
       return;
     }
@@ -379,7 +394,8 @@ export class InteractionController {
     const kit = this.dialogKit;
     if (!kit) return;
     if (action === 'child-follow' && GeneticTraits.mobility(kit.genes) === 0) {
-      this.openKit(kit, 'Мама, без лап я не могу идти. Побудь рядом и помоги мне с едой.');
+      const parent = playerSex(this.context.save.player) === 'male' ? 'Папа' : 'Мама';
+      this.openKit(kit, `${parent}, без лап я не могу идти. Побудь рядом и помоги мне с едой.`);
       return;
     }
 

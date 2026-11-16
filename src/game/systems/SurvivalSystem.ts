@@ -1,6 +1,7 @@
 import { Random } from '../Random';
 import { EnergyRecovery } from './EnergyRecovery';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { playerSex } from '../RabbitSex';
 import { FOOD, type FoodKind, type SaveData } from '../types';
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 /** Обновляет потребности, температуру, загрязнение, отравление и здоровье крольчихи. */
@@ -70,7 +71,7 @@ export class SurvivalSystem {
     else if (p.hunger > 55 && p.energy > 55 && p.thirst > 50 && p.poison < 15)
       p.health = clamp(p.health + dt * 0.025, 0, 100);
 
-    if (p.hunger > 45 && p.thirst > 40 && p.poison < 30)
+    if (playerSex(p) === 'female' && p.hunger > 45 && p.thirst > 40 && p.poison < 30)
       p.milk = clamp(p.milk + dt * 0.055, 0, 100);
   }
 

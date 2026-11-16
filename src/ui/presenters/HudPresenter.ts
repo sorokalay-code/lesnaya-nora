@@ -4,6 +4,7 @@ import type { ForestAnimal } from '../../game/animals';
 import { animalNames } from '../../game/animals/names';
 import type { Excavation } from '../../game/Excavation';
 import { FamilyCare, GESTATION_DAYS } from '../../game/FamilyCare';
+import { playerSex, rabbitSex } from '../../game/RabbitSex';
 import { RabbitFamily } from '../../game/session/RabbitFamily';
 import type { GroundPickup } from '../../game/GroundItems';
 import type { FoodStore, SeasonSystem } from '../../game/systems';
@@ -62,6 +63,7 @@ export class HudPresenter {
         ];
     const swimming = !underground && (world.waterAt?.(p.x, p.z)?.depth ?? 0) > SWIM_DEPTH;
     const insideNest = !!nest && underground && atUndergroundNest(earth, p, nest);
+    const sex = playerSex(p);
     const dig: PromptPart = swimming
       ? { text: 'Плыви к берегу · в воде нельзя прыгать и копать' }
       : firstPerson
@@ -74,7 +76,11 @@ export class HudPresenter {
       if (earth.moistureAt(p) === 'damp')
         prompt.push({ text: 'Сырой грунт · согревание медленнее' });
       if (firstPerson) prompt.push({ key: ']', text: 'Копать вверх' });
-      if (insideNest && young.length) prompt.push({ key: 'F', text: 'Кормить из гнезда' });
+      if (insideNest && young.length)
+        prompt.push({
+          key: 'F',
+          text: sex === 'male' ? 'Попросить покормить крольчат' : 'Кормить из гнезда',
+        });
       if (root?.available && (!('mesh' in root) || root.mesh.visible)) {
         prompt.push({ key: 'Q', text: 'Грызть корень' });
         if (!('tree' in root)) prompt.push({ key: 'T', text: 'Унести растение' });
@@ -106,14 +112,16 @@ export class HudPresenter {
     });
     return {
       playerName: p.name,
+      playerSex: sex,
       familyCount: save.kits.filter((k) => k.alive && k.health > 0).length,
       lineageMembers: save.kits
-        .filter((k) => k.alive && k.health > 0 && k.age >= 3 && RabbitFamily.sex(k) === 'female')
+        .filter((k) => k.alive && k.health > 0 && k.age >= 3)
         .map((k) => ({
           id: k.id,
           name: k.name,
           relationship: RabbitFamily.relationship(save, k),
           generation: k.lineage?.generation ?? 1,
+          sex: RabbitFamily.sex(k),
         })),
       nearbyShelter: {
         stash: stash ? { items: stashItemCount(stash) } : undefined,
@@ -141,7 +149,7 @@ export class HudPresenter {
       capacity: store.capacity,
       milk: p.milk,
       materials: { ...save.materials },
-      mate: mate ? { name: mate.name } : undefined,
+      mate: mate ? { name: mate.name, sex: rabbitSex(mate) } : undefined,
       young: young.map((kit) => {
         const growth = FamilyCare.growth(kit);
         return {
@@ -156,8 +164,8 @@ export class HudPresenter {
       familyText: young.length
         ? `${young.length} малышей нуждаются в заботе`
         : mate
-          ? 'Партнёр помогает семье и приносит припасы'
-          : 'Найди партнёра и создай семью',
+          ? `${mate.name} помогает семье и приносит припасы`
+          : 'Найди пару и создай семью',
       grown: save.stats.grown,
       nests: save.nests.length,
       pregnancyProgress: save.pregnancy

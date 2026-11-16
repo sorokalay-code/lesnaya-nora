@@ -2,6 +2,7 @@ import { defaultWorldConfig, validWorldConfig } from './WorldConfig';
 import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
+import { playerSex } from './RabbitSex';
 
 export const SAVE_VERSION = 5;
 
@@ -270,11 +271,23 @@ export class SaveRepository {
       throw new Error('Сохранение содержит неполные или повреждённые гены. Начни новую историю.');
 
     if (
+      (data.player.sex !== undefined &&
+        data.player.sex !== 'female' &&
+        data.player.sex !== 'male') ||
       (data.pregnancy != null &&
-        (!Number.isSafeInteger(data.pregnancy.fatherId) ||
-          !Number.isFinite(data.pregnancy.progress) ||
+        (!Number.isFinite(data.pregnancy.progress) ||
           data.pregnancy.progress < 0 ||
-          (data.pregnancy.trauma !== undefined && data.pregnancy.trauma !== true))) ||
+          (data.pregnancy.warned !== undefined && typeof data.pregnancy.warned !== 'boolean') ||
+          (data.pregnancy.motherId !== undefined
+            ? playerSex(data.player) !== 'male' ||
+              data.pregnancy.fatherId !== undefined ||
+              data.pregnancy.trauma !== undefined ||
+              !Number.isSafeInteger(data.pregnancy.motherId) ||
+              data.pregnancy.motherId !== data.mateId ||
+              !data.partners.some((rabbit) => rabbit.id === data.mateId && rabbit.sex === 'female')
+            : playerSex(data.player) !== 'female' ||
+              !Number.isSafeInteger(data.pregnancy.fatherId) ||
+              (data.pregnancy.trauma !== undefined && data.pregnancy.trauma !== true)))) ||
       data.nests.some(
         (nest) => !nest || (nest.insulated !== undefined && nest.insulated !== true),
       ) ||
@@ -283,6 +296,8 @@ export class SaveRepository {
       data.kits.some(
         (kit) =>
           (kit.sex !== undefined && kit.sex !== 'female' && kit.sex !== 'male') ||
+          (kit.motherId !== undefined &&
+            (!Number.isSafeInteger(kit.motherId) || kit.motherId < 0)) ||
           (kit.command === 'relocate' && !data.nests.some((nest) => nest.id === kit.nestId)) ||
           (kit.condition !== undefined &&
             (!kit.condition ||
@@ -308,6 +323,10 @@ export class SaveRepository {
           (rabbit.age !== undefined && (!Number.isFinite(rabbit.age) || rabbit.age < 0)) ||
           (rabbit.nextMatingAt !== undefined &&
             (!Number.isFinite(rabbit.nextMatingAt) || rabbit.nextMatingAt < 0)) ||
+          (rabbit.nextNursingAt !== undefined &&
+            (rabbit.sex !== 'female' ||
+              !Number.isFinite(rabbit.nextNursingAt) ||
+              rabbit.nextNursingAt < 0)) ||
           (rabbit.pregnancy !== undefined &&
             (!rabbit.pregnancy ||
               rabbit.sex !== 'female' ||

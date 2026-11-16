@@ -6,6 +6,7 @@ import { AnimalRestraint } from './animals/AnimalRestraint';
 import type { Excavation } from './Excavation';
 import { GeneticTraits } from './genetics/GeneticTraits';
 import { Random } from './Random';
+import { rabbitSex } from './RabbitSex';
 import type { WasteSystem } from './systems/WasteSystem';
 import type { DigNode, KitData, SaveData } from './types';
 
@@ -215,10 +216,12 @@ export class PartnerCare {
       this.lastHouseTask = 'kit';
       child.dirtiness = 0;
       CoatDirt.update(rig, 0);
-      this.context.toast(actor.data.name + ' заботливо почистил шерсть: ' + child.name + '.');
+      const action = rabbitSex(actor.data) === 'female' ? 'почистила' : 'почистил';
+      this.context.toast(`${actor.data.name} заботливо ${action} шерсть: ${child.name}.`);
     } else if (waste && this.context.waste.clean(waste.id)) {
       this.lastHouseTask = 'waste';
-      this.context.toast(actor.data.name + ' убрал нечистоты в семейном убежище.');
+      const action = rabbitSex(actor.data) === 'female' ? 'убрала' : 'убрал';
+      this.context.toast(`${actor.data.name} ${action} нечистоты в семейном убежище.`);
     }
     this.task = undefined;
     this.nextCareAt = time + CARE_INTERVALS[GeneticTraits.cleanliness(actor.data.genes)];

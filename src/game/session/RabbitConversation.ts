@@ -1,4 +1,5 @@
 import type { PartnerTraits, SaveData } from '../types';
+import { playerSex } from '../RabbitSex';
 
 export interface DialogQuestion {
   prompt: string;
@@ -29,7 +30,10 @@ export class RabbitConversation {
         {
           action: 'rabbit-answer-care',
           label: {
-            заботливый: 'Сначала поем сама, накоплю молоко и покормлю малышей',
+            заботливый:
+              playerSex(this.save.player) === 'male'
+                ? 'Принесу еду и помогу устроить гнездо, чтобы партнёрша могла покормить малышей'
+                : 'Сначала поем, накоплю молоко и покормлю малышей',
             осторожный: 'Сначала познакомлюсь; местоположение гнезда сохраню в секрете',
             смелый: 'Уведём малышей в глубокий ход и переждём',
             любопытный: 'Осмотримся вместе и запомним дорогу домой',
@@ -44,7 +48,7 @@ export class RabbitConversation {
             любопытный: 'Побежим куда глаза глядят, без припасов',
           }[partner.temperament],
         },
-        { action: 'rabbit-answer-listen', label: 'А как бы ты поступил?' },
+        { action: 'rabbit-answer-listen', label: 'А что предложишь ты?' },
       ],
     };
   }
@@ -54,7 +58,7 @@ export class RabbitConversation {
     this.asking = undefined;
     if (action === 'rabbit-answer-risk') {
       partner.trust = Math.max(0, partner.trust - 3);
-      return 'Я бы не стал так рисковать. Мне спокойнее, когда мы заботимся о безопасности семьи.';
+      return 'Так рисковать не стоит. Мне спокойнее, когда мы заботимся о безопасности семьи.';
     }
     const rewarded = this.save.clock - (partner.lastConversationAt ?? -Infinity) >= 120;
     if (rewarded) {
@@ -62,7 +66,7 @@ export class RabbitConversation {
       partner.trust = Math.min(100, partner.trust + (action === 'rabbit-answer-care' ? 10 : 5));
     }
     return action === 'rabbit-answer-listen'
-      ? 'Я сначала прислушался бы к лесу, позаботился о малышах и выбрал дорогу рядом с укрытием. А потом можно идти вместе.'
+      ? 'Давай сначала прислушаемся к лесу, проверим малышей и выберем тропу рядом с укрытием.'
       : rewarded
         ? 'Мне близок твой ответ. С тобой я чувствую, что мы можем позаботиться друг о друге.'
         : 'Я помню твой ответ. Давай вернёмся к разговору после прогулки.';

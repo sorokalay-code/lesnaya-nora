@@ -51,6 +51,7 @@ export function ActionMenu({ store }: { store: UIStore }) {
   const dispatch = useStore(store, (s) => s.dispatch),
     shelter = useStore(store, (s) => s.hud?.nearbyShelter);
   const touch = useStore(store, (s) => s.touch);
+  const male = useStore(store, (s) => s.hud?.playerSex === 'male');
   const panel = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     if (open) panel.current?.querySelector('button')?.focus();
@@ -86,7 +87,11 @@ export function ActionMenu({ store }: { store: UIStore }) {
             <div>
               {group.actions.map(([action, label, key]) => (
                 <Button key={action} onClick={() => dispatch(action)}>
-                  {action === 'feed' && shelter?.nest?.inside ? 'Кормить молоком из гнезда' : label}
+                  {action === 'feed' && male
+                    ? 'Попросить партнёршу покормить крольчат'
+                    : action === 'feed' && shelter?.nest?.inside
+                      ? 'Кормить молоком из гнезда'
+                      : label}
                   {key && !touch && <kbd>{key}</kbd>}
                 </Button>
               ))}

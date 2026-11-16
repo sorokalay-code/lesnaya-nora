@@ -94,16 +94,21 @@ export class RabbitFactory {
     return genes;
   }
 
-  partners(count: number, maxFamilySize = 5): PartnerTraits[] {
+  partners(
+    count: number,
+    maxFamilySize = 5,
+    first: PartnerTraits['sex'] = 'male',
+  ): PartnerTraits[] {
     const out: PartnerTraits[] = [];
     for (let i = 0; i < count; i++) {
       const a = this.rng.range(0, Math.PI * 2),
         d = this.rng.range(15, 72);
+      const female = i % 2 === (first === 'female' ? 0 : 1);
       out.push({
         id: i,
-        sex: i % 2 === 0 ? 'male' : 'female',
+        sex: female ? 'female' : 'male',
         lineage: Genealogy.founder('wild:' + i),
-        name: this.rng.pick(i % 2 ? FEMALE_RABBIT_NAMES : MALE_RABBIT_NAMES),
+        name: this.rng.pick(female ? FEMALE_RABBIT_NAMES : MALE_RABBIT_NAMES),
         x: Math.cos(a) * d,
         z: Math.sin(a) * d,
         genes: this.genes(),

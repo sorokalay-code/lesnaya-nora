@@ -30,7 +30,7 @@ export class PartnerSupport {
   ) {}
 
   familyStash(): StashData | undefined {
-    // Домом служит только готовый склад в укрытом ходе; расстояние считаем от крольчихи.
+    // Домом служит только готовый склад в укрытом ходе; расстояние считаем от игрока.
     const player = this.save.player;
     let nearest: StashData | undefined;
     let distance = Infinity;
@@ -139,7 +139,10 @@ export class PartnerSupport {
 
       this.save.partnerCargo = { grass: 0, twigs: 0, fur: 0 };
       this.domesticUntil = time + this.rng.range(12, 20);
-      return { kind: 'delivered', text: `Партнёр принёс в тайник ${delivered.join(' и ')}.` };
+      return {
+        kind: 'delivered',
+        text: `${actor.data.name}: в тайнике теперь есть ${delivered.join(' и ')}.`,
+      };
     }
 
     if (this.target?.type === 'food' && !this.target.resource.available) this.target = undefined;
@@ -225,6 +228,6 @@ export class PartnerSupport {
     }
 
     this.target = undefined;
-    return { kind: 'gathered', text: 'Партнёр нашёл припасы и несёт их домой.' };
+    return { kind: 'gathered', text: `${actor.data.name} несёт припасы домой.` };
   }
 }

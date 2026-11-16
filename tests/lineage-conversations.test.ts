@@ -29,7 +29,10 @@ import { InteractionInput } from '../src/game/InteractionInput';
 import { GeneticsPresenter } from '../src/ui/presenters/GeneticsPresenter';
 import { LineageGraphPresenter } from '../src/ui/presenters/LineageGraphPresenter';
 import type { KitData } from '../src/game/types';
-import type { Excavation } from '../src/game/Excavation';
+import { Excavation } from '../src/game/Excavation';
+import { defaultWorldConfig } from '../src/game/WorldConfig';
+import { playerSex } from '../src/game/RabbitSex';
+import { SurvivalSystem } from '../src/game/systems/SurvivalSystem';
 import type { World } from '../src/game/World';
 import type { Soundscape } from '../src/game/Audio';
 import { loadModels } from './model-fixture';
@@ -161,14 +164,12 @@ test('управление взрослой дочерью сохраняет м
   assert.equal(player.root.position.y, -3);
 });
 
-test('смена героини повторно проверяет возраст, пол, жизнь, беременность и захват', () => {
+test('смена персонажа повторно проверяет возраст, жизнь, беременность и захват', () => {
   const f = fixture();
   f.daughter.age = 2.99;
   assert.equal(f.succession.switchTo(1), false);
   f.daughter.age = 3;
   f.daughter.sex = 'male';
-  assert.equal(f.succession.switchTo(1), false);
-  f.daughter.sex = 'female';
   f.daughter.health = 0;
   assert.equal(f.succession.switchTo(1), false);
   f.daughter.health = 100;
@@ -182,7 +183,12 @@ test('смена героини повторно проверяет возрас
   assert.equal(f.succession.switchTo(1), false);
   AnimalRestraint.release(f.family.rigs.get(1)!.root);
   assert.equal(f.succession.switchTo(1), true);
-  assert.equal(f.changes(), 1);
+  assert.equal(playerSex(f.save.player), 'male');
+  assert.equal(f.player.root.userData.sex, 'male');
+  assert.equal(f.succession.switchTo(f.save.kits[0].id), true);
+  assert.equal(playerSex(f.save.player), 'female');
+  assert.equal(f.save.kits[0].sex, 'male');
+  assert.equal(f.changes(), 2);
 });
 
 test('мутации выбранной дочери продолжают анимироваться после замены модели', () => {
@@ -271,6 +277,109 @@ function matingSimulation(f: ReturnType<typeof fixture>, actor: RabbitActor) {
     toast() {},
   } as unknown as ConstructorParameters<typeof AnimalSimulation>[0]);
 }
+
+test('крол может завести семью; партнёрша доходит до гнезда, рожает и кормит своих малышей', () => {
+  const f = fixture();
+  const config = defaultWorldConfig();
+  config.creatures.rabbit = 1;
+  const save = NewGameFactory.create(892, 0, new RabbitFactory(new Random(892)), config, 'male');
+  save.player.genes = gene();
+  const player = new PlayerRabbit(save.player);
+  assert.equal(player.root.userData.sex, 'male');
+  const [mother] = save.partners;
+  assert.equal(mother.sex, 'female');
+  mother.genes = gene();
+  const actor = AnimalFactory.rabbit(mother, new Random(4));
+  actor.moveTo(2.5, 0, 0);
+  save.player.x = 4;
+  const mating = matingSimulation({ ...f, save, player }, actor);
+  assert.equal(mating.startMating(mother.id, 0, 'forced'), false);
+  assert.equal(mating.startMating(mother.id, 0, 'consensual'), true);
+  assert.deepEqual(save.pregnancy, { motherId: mother.id, progress: 0 });
+  save.mateId = mother.id;
+  save.mateCommand = 'follow';
+
+  save.excavation = [
+    { x: 0, y: -0.5, z: 0 },
+    { x: -2, y: -1.1, z: 0 },
+    { x: -4, y: -1.7, z: 0 },
+    { x: -6, y: -2.3, z: 0 },
+  ];
+  const world = {
+    heightAt: () => 0,
+    rootAt: () => undefined,
+    addGroundHole() {},
+  } as unknown as World;
+  const earth = new Excavation(f.scene, world, save);
+  const nest = { id: 1, x: -6, y: earth.floorAt(-6, 0, -2.3, true), z: 0, quality: 100 };
+  save.nests.push(nest);
+  const care = new FamilyCare(save, earth);
+  const family = new FamilyLifecycle({
+    save,
+    earth,
+    care,
+    world,
+    scene: f.scene,
+    rng: new Random(12),
+    genetics: new RabbitFactory(new Random(17)),
+    sound: { play() {} } as Soundscape,
+    temperature: () => 20,
+    persist() {},
+    toast() {},
+    playAction() {},
+  });
+  family.advancePregnancy(1440);
+  assert.equal(save.pregnancy?.warned, true);
+  assert.ok(care.birthNestAt(nest));
+  for (let frame = 1; frame < 450 && !care.birthNestAt(motherPosition()); frame++)
+    family.updateMother(actor, 1 / 30, 4 + frame / 30, () => 0);
+  assert.equal(care.birthNestAt(motherPosition())?.id, nest.id);
+  family.advancePregnancy(0.31 * 1440);
+  assert.equal(save.pregnancy, null);
+  assert.ok(save.kits.length >= 2 && save.kits.length <= 5);
+  assert.equal(save.stats.births, save.kits.length);
+  assert.equal(save.mateCommand, 'follow');
+  assert.ok(
+    save.kits.every(
+      (kit) =>
+        kit.motherId === mother.id &&
+        kit.father === 'Папа' &&
+        kit.nestId === nest.id &&
+        kit.lineage?.ancestors.some((ancestor) => ancestor.id === player.data.lineage?.id) &&
+        kit.lineage?.ancestors.some((ancestor) => ancestor.id === mother.lineage?.id),
+    ),
+  );
+
+  const [child] = save.kits;
+  const other = { ...child, id: 99, motherId: 99, hunger: 50 };
+  save.kits.push(other);
+  child.hunger = 70;
+  family.feed();
+  assert.equal(child.hunger, 70);
+  assert.equal(
+    family.updateMother(actor, 0.05, 23, () => 0),
+    true,
+  );
+  assert.equal(child.hunger, 100);
+  assert.equal(other.hunger, 50);
+  assert.equal(save.player.milk, 0);
+  new SurvivalSystem(save, new Random(7)).tick(10, 10, false, 20, true, () => {});
+  assert.equal(save.player.milk, 0);
+
+  child.age = 1;
+  child.hunger = 50;
+  child.x = player.x;
+  child.y = player.data.y;
+  child.z = player.z;
+  save.inventory.carrot = 1;
+  family.feed(true);
+  assert.equal(save.inventory.carrot, 0);
+  assert.equal(child.hunger, 78);
+
+  function motherPosition() {
+    return { x: mother.x, y: mother.y ?? 0, z: mother.z };
+  }
+});
 
 test('крол без анатомических мутаций может начать погоню', () => {
   const { save } = fixture();
@@ -451,6 +560,51 @@ test('выбранная героиня и её семейная история 
     assert.equal(restored.kits[0].name, 'Мама');
     assert.equal(restored.kits[0].wasPlayer, true);
     assert.equal(restored.kits[0].condition?.energy, 24);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
+
+test('сохранение восстанавливает беременную партнёршу и читает прежние записи без пола игрока', () => {
+  const f = fixture();
+  const { save } = f;
+  const mate = save.partners[1];
+  let raw = '';
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      setItem: (_key: string, value: string) => {
+        raw = value;
+      },
+      getItem: () => raw,
+    },
+  });
+  try {
+    const repository = new SaveRepository();
+    delete save.player.sex;
+    repository.store(save);
+    assert.equal(playerSex(repository.load().player), 'female');
+
+    save.player.sex = 'male';
+    save.player.milk = 0;
+    save.mateId = mate.id;
+    save.mateCommand = 'stay';
+    save.pregnancy = { motherId: mate.id, progress: 0.94, warned: true };
+    mate.nextNursingAt = save.clock + 12;
+    f.daughter.motherId = mate.id;
+    repository.store(save);
+    const restored = repository.load();
+    assert.equal(restored.player.sex, 'male');
+    assert.deepEqual(restored.pregnancy, save.pregnancy);
+    assert.equal(restored.partners[1].nextNursingAt, mate.nextNursingAt);
+    assert.equal(restored.kits[0].motherId, mate.id);
+    assert.equal(restored.mateCommand, 'stay');
+
+    save.mateId = save.partners[0].id;
+    repository.store(save);
+    assert.throws(() => repository.load(), /семейной линии/);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
     else Reflect.deleteProperty(globalThis, 'localStorage');
