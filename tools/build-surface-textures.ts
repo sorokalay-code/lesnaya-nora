@@ -37,6 +37,12 @@ export function surfacePixel(kind: SurfaceTexture, x: number, y: number): [numbe
     const value = 230 + strand * 7 + grain * 5 + mottling * 9;
     return [value, value, value];
   }
+  if (kind === 'frog') {
+    const mottling = smoothNoise(x / 8, y / 8, 2917) - 0.5;
+    const flecks = hash2(Math.floor(x / 4), Math.floor(y / 4), 3911) - 0.5;
+    const value = 226 + mottling * 22 + flecks * 12 + grain * 7;
+    return [value, value, value];
+  }
   if (kind === 'feather') {
     const value = 234 + Math.cos(((x + y) * Math.PI) / 8) * 10 + wave * 4;
     return [value, value, value];

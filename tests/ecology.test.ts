@@ -4,11 +4,13 @@ import * as THREE from 'three';
 import { createForestAnimal, createPredatorActor } from '../src/game/animals';
 import type { ModelInstance } from '../src/game/ModelAssets';
 import { Random } from '../src/game/Random';
+import { defaultWorldConfig } from '../src/game/WorldConfig';
 import { WildlifeEcology } from '../src/game/WildlifeEcology';
 import type { Resource, World } from '../src/game/World';
+import type { SaveData } from '../src/game/types';
 import { loadModels } from './model-fixture';
 
-await loadModels('deer', 'moose', 'squirrel', 'bear', 'wolf', 'fox');
+await loadModels('deer', 'moose', 'squirrel', 'bear', 'wolf', 'fox', 'frog');
 
 class SocialRandom extends Random {
   override chance(): boolean {
@@ -42,6 +44,47 @@ test('peaceful animals walk to plants and graze them', () => {
   scene.add(deer.root);
   ecology.update(0.1, 1, 300, 80, 80, () => 0, []);
   assert.equal(food.available, false);
+});
+
+test('frogs spawn near swamp water and do not graze plants', () => {
+  const config = defaultWorldConfig();
+  for (const kind of Object.keys(config.creatures) as (keyof typeof config.creatures)[])
+    config.creatures[kind] = 0;
+  config.creatures.frog = 1;
+  const food = {
+    x: 40.3,
+    z: 30.2,
+    kind: 'clover',
+    available: true,
+    mesh: new THREE.Group(),
+  } as Resource;
+  const wetland = {
+    seed: 42,
+    resources: [food],
+    waterSources: [
+      { x: 40, z: 30 },
+      { x: -40, z: -30 },
+    ],
+    nearWater: () => true,
+    waterAt: () => ({ level: 2, depth: 0.7 }),
+    heightAt: () => 0,
+    biomeAt: (x: number) => (x > 0 ? 'swamp' : 'forest'),
+    harvest: (resource: Resource) => {
+      resource.available = false;
+    },
+  } as unknown as World;
+  const save = { seed: 42, worldConfig: config } as SaveData;
+  const scene = new THREE.Scene();
+  const ecology = new WildlifeEcology(scene, wetland, new Random(11), save);
+  ecology.populate();
+
+  assert.equal(ecology.animals.length, 1);
+  const frog = ecology.animals[0];
+  assert.equal(frog.kind, 'frog');
+  assert.ok(Math.hypot(frog.x - 40, frog.z - 30) <= 4.5);
+  assert.ok(Math.abs(frog.root.position.y - 1.86) < 0.001);
+  ecology.update(0.1, 1, 1, frog.x, frog.z, () => 0, []);
+  assert.equal(food.available, true);
 });
 
 test('predators hunt peaceful animals and a moose strikes back when attacked', () => {

@@ -23,7 +23,7 @@ export type WildlifeEvent = {
   subject: string;
 };
 const FIELD_WILDLIFE = ['mole', 'marmot', 'pheasant'] as const;
-const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE, 'roe-deer'] as const;
+const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE, 'roe-deer', 'frog'] as const;
 
 /** Моделирует питание, охоту, конфликты, защиту и восстановление популяции животных. */
 
@@ -84,18 +84,33 @@ export class WildlifeEcology {
     pz: number,
     initial = false,
   ): ForestAnimal | undefined {
-    if ((kind === 'fish' || kind === 'duck') && !this.world.waterSources.length) return;
+    if ((kind === 'fish' || kind === 'duck' || kind === 'frog') && !this.world.waterSources.length)
+      return;
     const size = this.save?.worldConfig?.size ?? 110;
     const scale = size / 110;
     const additional = ADDITIONAL_WILDLIFE.some((species) => species === kind);
     const fieldAnimal = FIELD_WILDLIFE.some((species) => species === kind);
+    const swampSources =
+      kind === 'frog'
+        ? this.world.waterSources.filter(
+            (source) => this.world.biomeAt(source.x, source.z) === 'swamp',
+          )
+        : [];
     // Новые соседние виды не сдвигают случайный поток прежней стартовой популяции.
     const rng = additional ? this.newWildlifeRng : this.rng;
     let x = 0,
       z = 0,
       found = false;
     for (let attempt = 0; attempt < 35; attempt++) {
-      if (kind === 'fish') {
+      if (kind === 'frog') {
+        const source = rng.pick(swampSources.length ? swampSources : this.world.waterSources);
+        const angle = rng.range(0, Math.PI * 2);
+        const distance = rng.range(1.5, 4.5);
+        x = source.x + Math.sin(angle) * distance;
+        z = source.z + Math.cos(angle) * distance;
+        if (!this.world.nearWater?.(x, z, 1.5)) continue;
+        if (!initial && Math.hypot(x - px, z - pz) < 26) continue;
+      } else if (kind === 'fish') {
         const water = rng.pick(this.world.waterSources);
         x = water.x + rng.range(-1.4, 1.4);
         z = water.z + rng.range(-1.4, 1.4);
@@ -110,14 +125,14 @@ export class WildlifeEcology {
           d = kind === 'duck' ? rng.range(1.5, 6) : rng.range(4, 8);
         x = pond.x + Math.sin(a) * d;
         z = pond.z + Math.cos(a) * d;
-      } else {
+      } else if (kind !== 'frog') {
         x = rng.range(-90, 90) * scale;
         z = rng.range(-90, 90) * scale;
       }
 
       const biome = this.world.biomeAt(x, z);
       if (fieldAnimal && biome !== 'meadow') continue;
-      if (additional && this.world.nearWater?.(x, z, 0.5)) continue;
+      if (additional && kind !== 'frog' && this.world.nearWater?.(x, z, 0.5)) continue;
       if (
         Math.abs(x) > 97 * scale ||
         Math.abs(z) > 97 * scale ||
@@ -134,6 +149,7 @@ export class WildlifeEcology {
         kind !== 'bear' &&
         kind !== 'duck' &&
         kind !== 'mouse' &&
+        kind !== 'frog' &&
         !fieldAnimal &&
         biome !== 'forest'
       )
@@ -145,7 +161,7 @@ export class WildlifeEcology {
 
     // При преобладании лугов или огородов лес может отсутствовать. Стартовые животные
     // используют свободную сушу, а не исчезают вопреки выбранной численности.
-    if (!found && initial && kind !== 'fish' && kind !== 'duck') {
+    if (!found && initial && kind !== 'fish' && kind !== 'duck' && kind !== 'frog') {
       for (let attempt = 0; attempt < 100; attempt++) {
         x = rng.range(-90, 90) * scale;
         z = rng.range(-90, 90) * scale;
@@ -169,7 +185,12 @@ export class WildlifeEcology {
   private place(animal: ForestAnimal, x: number, z: number): void {
     if (typeof this.world.waterAt === 'function') animal.useWater(this.water);
     const water = this.world.waterAt?.(x, z);
-    const level = animal.kind === 'fish' && water ? water.level - 0.42 : this.world.heightAt(x, z);
+    const level =
+      animal.kind === 'fish' && water
+        ? water.level - 0.42
+        : water && animal.profile.swimImmersion !== undefined
+          ? water.level - animal.profile.swimImmersion
+          : this.world.heightAt(x, z);
     animal.moveTo(x, z, level);
   }
 
@@ -247,7 +268,7 @@ export class WildlifeEcology {
     if (time >= this.nextFoodSearch) {
       this.nextFoodSearch = time + 3;
       for (const animal of this.animals) {
-        if (animal.kind === 'fish') continue;
+        if (animal.kind === 'fish' || animal.kind === 'frog') continue;
         const current = this.foodTargets.get(animal);
         if (current?.available) continue;
 
@@ -375,7 +396,8 @@ export class WildlifeEcology {
         ] as WildlifeKind[]
       ).filter(
         (kind) =>
-          (this.world.waterSources.length > 0 || (kind !== 'duck' && kind !== 'fish')) &&
+          (this.world.waterSources.length > 0 ||
+            (kind !== 'duck' && kind !== 'fish' && kind !== 'frog')) &&
           this.animals.filter((animal) => animal.kind === kind).length < counts[kind],
       );
       if (candidates.length) {

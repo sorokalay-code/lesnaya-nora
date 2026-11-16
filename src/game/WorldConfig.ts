@@ -30,6 +30,7 @@ export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max
   { kind: 'duck', label: 'Утки', max: 50 },
   { kind: 'mouse', label: 'Мыши', max: 100 },
   { kind: 'fish', label: 'Мирные рыбы', max: 100 },
+  { kind: 'frog', label: 'Лягушки', max: 120 },
   { kind: 'beaver', label: 'Бобры', max: 90 },
   { kind: 'moose', label: 'Лоси', max: 60 },
   { kind: 'boar', label: 'Кабаны', max: 60 },
@@ -62,6 +63,7 @@ export const ADDED_ANIMALS = [
   'roe-deer',
   'scolopendra',
   'owl',
+  'frog',
 ] as const satisfies readonly CreatureKind[];
 export const SEASONS: readonly Season[] = ['Весна', 'Лето', 'Осень', 'Зима'];
 export const BIOME_OPTIONS: readonly { value: BiomePreference; label: string }[] = [
@@ -98,6 +100,7 @@ export function defaultWorldConfig(): WorldConfig {
       duck: 5,
       mouse: 9,
       fish: 12,
+      frog: 8,
       moose: 3,
       boar: 4,
       badger: 3,

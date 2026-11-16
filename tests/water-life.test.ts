@@ -83,6 +83,16 @@ test('non-swimming wildlife skirts deep water while swimmers cross it below the 
   }
   assert.ok(swam);
   assert.ok(beaver.x > 12);
+
+  const frog = AnimalFactory.forest('frog', 8, -7, new Random(46));
+  frog.useWater(navigation);
+  frog.moveTo(8, -7, navigation.height(8, -7, 0.14));
+  frog.update(0.05, 1, (x, z) => world.heightAt(x, z), []);
+  const water = world.waterAt(frog.x, frog.z)!;
+  assert.equal(frog.root.userData.swimming, true);
+  assert.equal(frog.model.activeName, 'swim');
+  assert.ok(frog.root.position.y > world.heightAt(frog.x, frog.z));
+  assert.ok(frog.root.position.y < water.level);
 });
 
 function scene(playerAt = { x: -40, z: -70 }) {
@@ -215,6 +225,7 @@ test('swimming clips and efficient fish LOD are included in the real GLBs', () =
     'dog',
     'snake',
     'pike',
+    'frog',
   ] as const) {
     const model = ModelAssets.shared.create(kind);
     const variants = model.variants ?? [model];

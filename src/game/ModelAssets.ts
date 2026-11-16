@@ -54,6 +54,7 @@ export const CREATURE_NAMES = [
   'duck',
   'mouse',
   'fish',
+  'frog',
   'moose',
   'boar',
 ] as const;

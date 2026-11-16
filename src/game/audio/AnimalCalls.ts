@@ -98,6 +98,10 @@ export class AnimalCalls {
         call(2150, 1630, 0.08, 0.1, 0.16);
       },
       snake: () => breath(2900, 0.38, 0.19),
+      frog: () => {
+        call(420, 270, 0.12, 0.18);
+        call(390, 240, 0.13, 0.16, 0.17);
+      },
     };
     voices[kind]();
     if (activity === 'move' || activity === 'eat') breath(1900, 0.12, 0.06, 0.4);

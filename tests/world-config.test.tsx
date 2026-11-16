@@ -277,7 +277,7 @@ test('every selected species spawns with its own count even without forest or tr
   for (let time = 0; time < 1000; time += 50)
     f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
   assert.equal(f.population.wildlife.filter((animal) => animal.kind === 'deer').length, 2);
-  assert.equal(f.population.wildlife.length, 32);
+  assert.equal(f.population.wildlife.length, 34);
 });
 
 test('save round trip preserves configured terrain, plants, populations and calendar; defaults survive', () => {
@@ -329,6 +329,15 @@ test('save round trip preserves configured terrain, plants, populations and cale
     assert.equal(restored.layout.gardens.length, 3);
     assert.equal(new MapPresenter().build(restored, loaded).size, 83);
     assert.ok(restored.resources.length > 0);
+    const previousSave = JSON.parse(stored) as {
+      slots: { save: { worldConfig: { creatures: Record<string, number> } } }[];
+    };
+    delete previousSave.slots[0].save.worldConfig.creatures.frog;
+    stored = JSON.stringify(previousSave);
+    assert.equal(
+      repository.load().worldConfig?.creatures.frog,
+      defaultWorldConfig().creatures.frog,
+    );
     const catalog = JSON.parse(stored) as { slots: { save: Record<string, unknown> }[] };
     catalog.slots[0].save.worldConfig = { ...config, size: 'huge' };
     stored = JSON.stringify(catalog);

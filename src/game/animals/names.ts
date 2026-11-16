@@ -3,6 +3,7 @@ export const animalNames = {
   duck: 'Утка',
   mouse: 'Мышь',
   fish: 'Рыба',
+  frog: 'Лягушка',
   boar: 'Кабан',
   deer: 'Олень',
   'roe-deer': 'Косуля',

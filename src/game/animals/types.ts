@@ -15,7 +15,8 @@ export type WildlifeKind =
   | 'marmot'
   | 'pheasant'
   | 'chipmunk'
-  | 'fish';
+  | 'fish'
+  | 'frog';
 export interface PredatorProfile {
   swimSpeed?: number;
   health: number;
@@ -35,6 +36,7 @@ export interface PredatorProfile {
 }
 export interface WildlifeProfile {
   swimSpeed?: number;
+  swimImmersion?: number;
   health: number;
   defense: number;
   speed: number;

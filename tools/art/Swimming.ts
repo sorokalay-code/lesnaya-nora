@@ -10,6 +10,7 @@ export const SWIMMING_MODELS = new Set([
   'wolf',
   'dog',
   'snake',
+  'frog',
 ]);
 
 /** Гребки попеременно вытянутыми лапами без наземного подскока; клип сохраняется в обоих GLB LOD. */

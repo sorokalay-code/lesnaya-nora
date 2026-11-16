@@ -48,6 +48,8 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.model = model;
     this.appearance = AnimalAppearance.normalize(appearance);
     AnimalAppearance.apply(model, this.appearance);
+    if (profile.swimImmersion !== undefined)
+      this.root.userData.swimImmersion = profile.swimImmersion;
     this.profile = {
       ...profile,
       radius: profile.radius * this.appearance.size * this.appearance.bodyWidth,

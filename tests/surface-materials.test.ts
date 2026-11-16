@@ -15,6 +15,8 @@ test('surface patterns match animal coverings and preserve eyes and hard details
   assert.equal(animalSurface('rabbit', 'fur_base'), 'coat');
   assert.equal(animalSurface('boar', 'boar_palette'), 'coat');
   assert.equal(animalSurface('duck', 'fur_base'), 'feather');
+  assert.equal(animalSurface('frog', 'frog_body'), 'frog');
+  assert.equal(animalSurface('frog', 'eye_iris'), undefined);
   assert.equal(animalSurface('pike', 'pike_palette'), 'scales');
   assert.equal(animalSurface('spider', 'chitin'), 'chitin');
   for (const material of ['eye', 'eye_shine', 'tooth', 'beak', 'antler', 'pink'])

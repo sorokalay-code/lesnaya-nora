@@ -1,6 +1,7 @@
 import { Duck } from './Duck';
 import { Mouse } from './Mouse';
 import { Fish } from './Fish';
+import { Frog } from './Frog';
 import { Random } from '../Random';
 import type { PartnerTraits, PredatorKind } from '../types';
 import { RabbitActor } from './RabbitActor';
@@ -67,6 +68,7 @@ export class AnimalFactory {
     duck: Duck,
     mouse: Mouse,
     fish: Fish,
+    frog: Frog,
     deer: Deer,
     'roe-deer': RoeDeer,
     squirrel: Squirrel,

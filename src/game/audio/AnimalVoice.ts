@@ -20,7 +20,8 @@ export type AnimalVoiceKind =
   | 'marmot'
   | 'pheasant'
   | 'chipmunk'
-  | 'snake';
+  | 'snake'
+  | 'frog';
 export type AnimalActivity = 'rest' | 'move' | 'eat' | 'alert' | 'young';
 export interface AnimalVoiceCue {
   kind: AnimalVoiceKind;

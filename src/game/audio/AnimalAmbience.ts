@@ -35,6 +35,7 @@ const INTERVALS: Record<AnimalVoiceKind, number> = {
   pheasant: 25,
   chipmunk: 20,
   snake: 45,
+  frog: 15,
 };
 
 /** Редко озвучивает реальных соседей с личными паузами, учётом времени суток, расстояния и подземного положения. */
@@ -64,6 +65,7 @@ export class AnimalAmbience {
       if (distance > 30 || this.context.sheltered(position) !== sheltered) continue;
       if (night && (source.kind === 'hawk' || source.kind === 'squirrel')) continue;
       if (!night && source.kind === 'owl') continue;
+      if (!night && source.kind === 'frog' && this.context.rng.chance(0.9)) continue;
       if (!night && source.kind === 'wolf' && this.context.rng.chance(0.85)) continue;
       const weight = this.context.rng.next() * 12 - distance * 0.25;
       if (weight > score) {

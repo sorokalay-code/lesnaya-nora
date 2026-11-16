@@ -135,7 +135,7 @@ export class RemainsVisuals {
           ? 1.8
           : ['deer', 'roe-deer', 'bear'].includes(kind)
             ? 1.5
-            : ['squirrel', 'hedgehog', 'mole', 'chipmunk'].includes(kind)
+            : ['squirrel', 'hedgehog', 'mole', 'chipmunk', 'frog'].includes(kind)
               ? 0.55
               : ['rabbit', 'beaver', 'pike'].includes(kind)
                 ? 0.8

@@ -836,14 +836,23 @@ function furItem() {
   }
   return root;
 }
-function smallWildlife(kind: 'duck' | 'mouse' | 'fish') {
+function smallWildlife(kind: 'duck' | 'mouse' | 'fish' | 'frog') {
   const model = group(new THREE.Group(), kind);
   const root = group(model, 'Visual');
   const body = mat(
     kind + '_body',
-    kind === 'duck' ? 0x8d7969 : kind === 'mouse' ? 0x887363 : 0x7f9c8e,
+    kind === 'duck'
+      ? 0x8d7969
+      : kind === 'mouse'
+        ? 0x887363
+        : kind === 'frog'
+          ? 0x718c45
+          : 0x7f9c8e,
   );
-  const pale = mat(kind + '_belly', kind === 'fish' ? 0xc9d9b8 : 0xc6b39b);
+  const pale = mat(
+    kind + '_belly',
+    kind === 'fish' ? 0xc9d9b8 : kind === 'frog' ? 0xa2ad78 : 0xc6b39b,
+  );
   if (kind === 'duck') {
     ell(root, body, 'Body', [0, 0.26, 0], [0.25, 0.23, 0.42]);
     const head = group(root, 'Head', 0, 0.56, -0.24);
@@ -855,6 +864,81 @@ function smallWildlife(kind: 'duck' | 'mouse' | 'fish') {
       const leg = group(root, side < 0 ? 'LegFL' : 'LegFR', side * 0.11, 0.18, 0);
       ell(leg, mat('duck_feet', 0xe6a33f), 'Foot', [0, -0.13, -0.05], [0.063, 0.038, 0.11]);
     }
+  } else if (kind === 'frog') {
+    ell(root, body, 'Body', [0, 0.24, 0.04], [0.3, 0.2, 0.39]);
+    ell(root, pale, 'Belly', [0, 0.13, -0.02], [0.23, 0.075, 0.3]);
+    const head = group(root, 'Head', 0, 0.37, -0.27);
+    ell(head, body, 'HeadShape', [0, 0, -0.035], [0.28, 0.19, 0.25]);
+    for (const side of [-1, 1]) {
+      ell(head, body, 'EyeRidge', [side * 0.18, 0.12, -0.045], [0.1, 0.12, 0.1]);
+      ell(
+        head,
+        mat('eye_iris', 0xd7c86d),
+        `Eye${side < 0 ? 'L' : 'R'}`,
+        [side * 0.19, 0.17, -0.075],
+        [0.061, 0.068, 0.061],
+      );
+      ell(
+        head,
+        eye,
+        `EyePupil${side < 0 ? 'L' : 'R'}`,
+        [side * 0.19, 0.177, -0.126],
+        [0.024, 0.035, 0.017],
+      );
+      ell(head, shine, 'EyeGlint', [side * 0.18, 0.194, -0.14], [0.009, 0.012, 0.008]);
+      ell(
+        head,
+        mat('frog_nostril', 0x405330),
+        'Nostril',
+        [side * 0.065, -0.025, -0.25],
+        [0.012, 0.009, 0.01],
+      );
+    }
+    curve(
+      head,
+      mat('frog_mouth', 0x465337),
+      'Mouth',
+      [
+        [-0.16, -0.09, -0.235],
+        [0, -0.11, -0.258],
+        [0.16, -0.09, -0.235],
+      ],
+      0.007,
+    );
+    for (const side of [-1, 1])
+      for (const front of [true, false]) {
+        const leg = group(
+          root,
+          `Leg${front ? 'F' : 'B'}${side < 0 ? 'L' : 'R'}`,
+          side * (front ? 0.2 : 0.22),
+          0.16,
+          front ? -0.19 : 0.22,
+        );
+        ell(
+          leg,
+          body,
+          front ? 'Foreleg' : 'Thigh',
+          [side * (front ? -0.035 : 0.045), -0.01, front ? 0.015 : -0.025],
+          front ? [0.07, 0.11, 0.15] : [0.12, 0.13, 0.22],
+          [front ? -0.15 : 0.2, 0, side * 0.12],
+        );
+        ell(
+          leg,
+          body,
+          'Foot',
+          [side * 0.045, -0.075, front ? -0.075 : 0.14],
+          front ? [0.07, 0.025, 0.1] : [0.1, 0.025, 0.14],
+        );
+        for (let toe = -1; toe <= 1; toe++)
+          stick(
+            leg,
+            body,
+            `Toe${toe + 2}`,
+            [side * 0.045 + toe * 0.025, -0.08, front ? -0.1 : 0.21],
+            [side * 0.045 + toe * 0.05, -0.085, front ? -0.16 : 0.29],
+            0.009,
+          );
+      }
   } else if (kind === 'mouse') {
     ell(root, body, 'Body', [0, 0.11, 0.015], [0.093, 0.085, 0.145]);
     const head = group(root, 'Head', 0, 0.116, -0.123);
@@ -1563,6 +1647,7 @@ const models = {
   duck: () => smallWildlife('duck'),
   mouse: () => smallWildlife('mouse'),
   fish: () => smallWildlife('fish'),
+  frog: () => smallWildlife('frog'),
   beaver: () => peaceful('beaver'),
   moose: () => peaceful('moose'),
   nest,
@@ -1621,6 +1706,7 @@ const creatures = new Set([
   'beaver',
   'duck',
   'mouse',
+  'frog',
   'fish',
   'moose',
 ]);
@@ -1718,6 +1804,7 @@ for (const [name, build] of Object.entries(models)) {
                         'boar',
                         'duck',
                         'mouse',
+                        'frog',
                       ].includes(name)
                     ? peacefulClips(name, model)
                     : []);

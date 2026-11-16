@@ -33,6 +33,7 @@ test('every creature and family prop loads from a GLB with mesh geometry', () =>
         'squirrel',
         'hedgehog',
         'beaver',
+        'frog',
         'moose',
       ].includes(name)
     )
