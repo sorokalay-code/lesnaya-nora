@@ -42,6 +42,7 @@ export class SessionQueries {
       .filter((r) => {
         const actor = this.context.rabbits.find((a) => a.data.id === r.id);
         return (
+          !r.lost &&
           (r.health ?? 100) > 0 &&
           (!actor || !AnimalRestraint.active(actor.root)) &&
           Math.hypot(r.x - p.x, r.z - p.z) < radius &&

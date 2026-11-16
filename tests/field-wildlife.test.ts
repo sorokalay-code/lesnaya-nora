@@ -7,14 +7,13 @@ import { AnimalVoiceSources } from '../src/game/audio/AnimalVoiceSources';
 import { AnimalCalls } from '../src/game/audio/AnimalCalls';
 import { Random } from '../src/game/Random';
 import { HawkHunting } from '../src/game/session/HawkHunting';
-import { RodentHunting } from '../src/game/session/RodentHunting';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { isNightAt } from '../src/game/session/WorldCalendar';
 import { ADDED_ANIMALS, CREATURE_OPTIONS } from '../src/game/WorldConfig';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { loadModels } from './model-fixture';
 
-await loadModels('rabbit', 'mouse', 'chipmunk', 'owl', 'scolopendra', 'roe-deer');
+await loadModels('rabbit', 'mouse', 'chipmunk', 'owl', 'roe-deer');
 
 function forest() {
   const rng = new Random(54);
@@ -92,35 +91,6 @@ test('owl strikes an exposed rabbit but leaves it alone in a burrow', () => {
   assert.equal(hunt.playerView, undefined);
 });
 
-test('scolopendra pursues only mice and rabbits, and cannot bite into a tunnel', () => {
-  const { context, rng, mouse, chipmunk } = forest();
-  const predator = AnimalFactory.predator('scolopendra', 0, 0, rng);
-  const attacks: string[] = [];
-  const hunt = new RodentHunting({
-    ...context,
-    consequences: { predatorAttack: (kind) => attacks.push(kind) },
-  });
-  for (let frame = 0; frame < 60; frame++) {
-    const t = frame / 60;
-    const target = hunt.target(predator, t, true);
-    predator.update(1 / 60, t, 0, 0, true, true, () => 0, 0, 1, target?.root.position);
-    if (target) hunt.strike(predator, target, t);
-  }
-  assert.ok(mouse.health < mouse.maxHealth);
-  assert.equal(chipmunk.health, chipmunk.maxHealth);
-
-  mouse.health = 0;
-  predator.attackCooldown = 0;
-  context.player.root.position.set(predator.x, -1.2, predator.z);
-  assert.equal(hunt.target(predator, 3, true), undefined);
-  context.player.root.position.y = 0;
-  assert.equal(hunt.target(predator, 4, false), undefined);
-  const rabbit = hunt.target(predator, 5, true);
-  assert.ok(rabbit?.player);
-  hunt.strike(predator, rabbit, 5);
-  assert.deepEqual(attacks, ['scolopendra']);
-});
-
 test('roe deer is a peaceful species with dedicated model clips and wildlife voices', () => {
   const { context, rng } = forest();
   const roeDeer = AnimalFactory.forest('roe-deer', 12, 4, rng);
@@ -170,15 +140,18 @@ test('older world configurations gain new wildlife, while explicit zero stays ze
     const counts: Partial<NonNullable<typeof context.save.worldConfig>['creatures']> =
       context.save.worldConfig!.creatures;
     for (const kind of ADDED_ANIMALS) delete counts[kind];
-    counts.scolopendra = 0;
+    counts['owl'] = 0;
+    Reflect.set(counts, 'scolopendra', 3);
+    Reflect.set(context.save, 'remains', [{ kind: 'scolopendra', id: 4 }]);
+    context.save.deadPopulation = ['scolopendra:0', 'owl:0'];
     repository.store(context.save);
-    const loaded = repository.load().worldConfig!.creatures;
-    for (const kind of ADDED_ANIMALS) if (kind !== 'scolopendra') assert.ok(loaded[kind] > 0, kind);
-    assert.equal(loaded.scolopendra, 0);
-    assert.equal(
-      CREATURE_OPTIONS.find(({ kind }) => kind === 'scolopendra')?.label,
-      'подстилочная',
-    );
+    const loaded = repository.load();
+    const creatures = loaded.worldConfig!.creatures;
+    for (const kind of ADDED_ANIMALS) if (kind !== 'owl') assert.ok(creatures[kind] > 0, kind);
+    assert.equal(creatures.owl, 0);
+    assert.equal(Object.hasOwn(creatures, 'scolopendra'), false);
+    assert.deepEqual(loaded.remains, []);
+    assert.deepEqual(loaded.deadPopulation, ['owl:0']);
     assert.equal(CREATURE_OPTIONS.find(({ kind }) => kind === 'roe-deer')?.label, 'Косули');
   } finally {
     if (storage) Object.defineProperty(globalThis, 'localStorage', storage);

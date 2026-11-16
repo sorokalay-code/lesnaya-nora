@@ -27,7 +27,6 @@ import { createBoarModel } from './art/BoarAsset';
 import { createPikeModel, pikeClips } from './art/PikeAsset';
 import { swimmingClip, SWIMMING_MODELS } from './art/Swimming';
 import { createFieldModel, fieldClips, type FieldModel } from './art/FieldWildlife';
-import { createScolopendra, scolopendraClips } from './art/ScolopendraAsset';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1622,7 +1621,6 @@ function isFieldModel(name: string): name is FieldModel {
 
 const models = {
   ...fieldModels,
-  scolopendra: () => createScolopendra(),
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
   'jumping-spider': () => createSpiderModel(false, true),
@@ -1685,7 +1683,6 @@ const models = {
 };
 const creatures = new Set([
   ...Object.keys(fieldModels),
-  'scolopendra',
   'pike',
   'boar',
   'jumping-spider',
@@ -1760,14 +1757,11 @@ for (const [name, build] of Object.entries(models)) {
     creatures.has(name) ? 8 : 4,
   );
   const model = build();
-  const addedClips =
-    name === 'scolopendra'
-      ? scolopendraClips()
-      : isFieldModel(name)
-        ? name === 'owl'
-          ? hawkClips()
-          : fieldClips(name, model)
-        : undefined;
+  const addedClips = isFieldModel(name)
+    ? name === 'owl'
+      ? hawkClips()
+      : fieldClips(name, model)
+    : undefined;
   const animations =
     addedClips ??
     (name === 'pike'
@@ -1826,28 +1820,21 @@ for (const [name, build] of Object.entries(models)) {
     const arachnid = name === 'spider' || name === 'jumping-spider';
     const distant = isFieldModel(name)
       ? createFieldModel(name, true)
-      : name === 'scolopendra'
-        ? createScolopendra(true)
-        : name === 'pike'
-          ? createPikeModel(true)
-          : name === 'boar'
-            ? createBoarModel(true)
-            : arachnid
-              ? createSpiderModel(true, name === 'jumping-spider')
-              : name === 'lynx'
-                ? createLynxModel(true)
-                : build();
-    const distantBody = name === 'scolopendra' && distant.getObjectByName('Visual');
-    if (distantBody) mergeParts(distantBody, true);
-    else mergeParts(distant, arachnid);
+      : name === 'pike'
+        ? createPikeModel(true)
+        : name === 'boar'
+          ? createBoarModel(true)
+          : arachnid
+            ? createSpiderModel(true, name === 'jumping-spider')
+            : name === 'lynx'
+              ? createLynxModel(true)
+              : build();
+    mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,
-      animations:
-        name === 'scolopendra'
-          ? scolopendraClips(true)
-          : arachnid
-            ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
-            : animations,
+      animations: arachnid
+        ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
+        : animations,
     })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }

@@ -57,7 +57,7 @@ export class RemainsVisuals {
     const root = new THREE.Group();
     root.name = 'animal-body';
     const lying = new THREE.Group();
-    const arthropod = ['spider', 'jumping-spider', 'scolopendra'].includes(data.kind);
+    const arthropod = ['spider', 'jumping-spider'].includes(data.kind);
     // Крылья остаются на земле, а не встают вертикально при повороте птицы на бок.
     lying.rotation.z =
       arthropod || ['hawk', 'owl', 'pheasant'].includes(data.kind) ? 0 : Math.PI / 2;
@@ -76,7 +76,7 @@ export class RemainsVisuals {
       this.skeletons.set(data.kind, geometry);
     }
     const root = new THREE.Group();
-    const arthropod = ['spider', 'jumping-spider', 'scolopendra'].includes(data.kind);
+    const arthropod = ['spider', 'jumping-spider'].includes(data.kind);
     root.name = arthropod ? 'animal-exoskeleton' : 'animal-skeleton';
     const mesh = new THREE.Mesh(geometry, arthropod ? this.chitin : this.bone);
     mesh.scale.copy(data.scale);
@@ -113,14 +113,6 @@ export class RemainsVisuals {
         bone(point(x - 0.11, z), point(x + 0.11, z), 0.02);
       }
       skull(0.12, 0.2, -0.1);
-    } else if (kind === 'scolopendra') {
-      for (let i = 0; i < 12; i++) {
-        const z = -0.64 + i * 0.11;
-        bone(point(0, z), point(0, z + 0.11), 0.075);
-        for (const side of [-1, 1])
-          bone(point(side * 0.05, z), point(side * 0.25, z + 0.07), 0.014);
-      }
-      skull(0.13, 0.1, -0.77);
     } else if (kind === 'spider' || kind === 'jumping-spider') {
       skull(0.18, 0.32, 0);
       for (const side of [-1, 1])

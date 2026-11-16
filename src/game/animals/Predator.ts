@@ -71,10 +71,6 @@ export abstract class Predator extends Animal<PredatorKind> {
     return true;
   }
 
-  get huntsRodents(): boolean {
-    return false;
-  }
-
   get canMelee(): boolean {
     return true;
   }

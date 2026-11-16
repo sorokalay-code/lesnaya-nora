@@ -81,6 +81,11 @@ export class DesktopInput implements InputController {
 
   private keyDown = (event: KeyboardEvent): void => {
     const { ui, view, action, keys } = this.context;
+    if (event.code === 'Escape' && ui.state.lineageFullscreen) {
+      event.preventDefault();
+      if (!event.repeat) action('lineage-close');
+      return;
+    }
     if (event.code === 'F5') {
       event.preventDefault();
       if (!event.repeat) action('save');

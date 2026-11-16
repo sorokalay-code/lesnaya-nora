@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {
   createForestAnimal,
   Predator,
+  RabbitActor,
   type ForestAnimal,
   type GroundHeight,
   type WildlifeKind,
@@ -18,7 +19,7 @@ import type { AnimalHabitats, Habitat } from './AnimalHabitats';
 import type { WolfPopulation } from './session/WolfPopulation';
 import { WildlifeForage } from './WildlifeForage';
 
-type Target = ForestAnimal | Predator;
+type Target = ForestAnimal | Predator | RabbitActor;
 export type WildlifeEvent = {
   kind: 'hunt' | 'fight' | 'defend' | 'arrival';
   x: number;
@@ -267,6 +268,7 @@ export class WildlifeEcology {
     predator: Predator,
     predators: readonly Predator[],
     time: number,
+    lostKits: readonly RabbitActor[] = [],
   ): { x: number; z: number } | undefined {
     if (predator.underground || !predator.alive || !predator.huntsWildlife) return;
     if (!predator.huntingOpen) {
@@ -278,7 +280,7 @@ export class WildlifeEcology {
     if (
       current &&
       (time > current.until ||
-        !current.target.alive ||
+        !this.canHunt(current.target) ||
         AnimalRestraint.active(current.target.root) ||
         !predator.canPursue(current.target.x, current.target.z) ||
         Math.hypot(current.target.x - predator.x, current.target.z - predator.z) > 22)
@@ -289,20 +291,31 @@ export class WildlifeEcology {
 
     if (!current && time >= (this.nextPreySearch.get(predator) ?? -Infinity)) {
       this.nextPreySearch.set(predator, time + 0.68);
-      const prey = this.animals
-        .filter(
-          (a) =>
-            a.alive &&
-            a.kind !== 'fish' &&
-            !AnimalRestraint.active(a.root) &&
-            predator.canPursue(a.x, a.z) &&
-            Math.hypot(a.x - predator.x, a.z - predator.z) < 14,
-        )
-        .sort(
-          (a, b) =>
-            Math.hypot(a.x - predator.x, a.z - predator.z) -
-            Math.hypot(b.x - predator.x, b.z - predator.z),
-        )[0];
+      let lost: RabbitActor | undefined;
+      let nearest = 14;
+      for (const kit of lostKits) {
+        if (!this.canHunt(kit) || AnimalRestraint.active(kit.root)) continue;
+        const distance = Math.hypot(kit.x - predator.x, kit.z - predator.z);
+        if (distance >= nearest || !predator.canPursue(kit.x, kit.z)) continue;
+        lost = kit;
+        nearest = distance;
+      }
+      const prey =
+        lost ??
+        this.animals
+          .filter(
+            (a) =>
+              a.alive &&
+              a.kind !== 'fish' &&
+              !AnimalRestraint.active(a.root) &&
+              predator.canPursue(a.x, a.z) &&
+              Math.hypot(a.x - predator.x, a.z - predator.z) < 14,
+          )
+          .sort(
+            (a, b) =>
+              Math.hypot(a.x - predator.x, a.z - predator.z) -
+              Math.hypot(b.x - predator.x, b.z - predator.z),
+          )[0];
       const rival =
         !prey && this.rng.chance(0.4)
           ? predators
@@ -378,7 +391,7 @@ export class WildlifeEcology {
       const victim = this.preyTargets.get(predator)?.target;
       if (
         !victim ||
-        !victim.alive ||
+        !this.canHunt(victim) ||
         AnimalRestraint.active(victim.root) ||
         !predator.canPursue(victim.x, victim.z)
       )
@@ -401,6 +414,11 @@ export class WildlifeEcology {
           z: predator.z,
           subject: `${predator.kind} и ${victim.kind}`,
         });
+      } else if (victim instanceof RabbitActor) {
+        victim.health = Math.max(0, victim.health - damage);
+        victim.data.health = victim.health;
+        if (!victim.alive)
+          events.push({ kind: 'hunt', x: victim.x, z: victim.z, subject: victim.data.name });
       } else {
         const counter = victim.receiveAttack(damage, time, predator);
         if (counter) {
@@ -471,6 +489,14 @@ export class WildlifeEcology {
   }
 
   private readonly risk = (x: number, z: number) => this.territories?.habitats.riskAt(x, z) ?? 0;
+
+  private canHunt(target: Target): boolean {
+    return (
+      target.alive &&
+      (!(target instanceof RabbitActor) ||
+        (!!target.data.lost && target.root.userData.lostKitExposed === true))
+    );
+  }
 
   capture(): void {
     if (!this.save) return;

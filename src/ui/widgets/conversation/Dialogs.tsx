@@ -106,7 +106,7 @@ export function DialogView({
             title="Твоя история"
             onAction={onAction}
           />
-          <GeneticsPanel data={data.genetics} />
+          <GeneticsPanel data={data.genetics} onAction={onAction} />
           <p className="dialog-meta">
             Окрас: {coatName(data.player.genes.coat)} · возраст {data.player.age.toFixed(1)} игровых
             дней

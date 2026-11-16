@@ -29,8 +29,8 @@ import type { PlayerConsequences } from './PlayerConsequences';
 import { WaterSimulation } from './WaterSimulation';
 import type { AnimalRemains } from '../AnimalRemains';
 import { WildRabbitBreeding } from './WildRabbitBreeding';
+import type { LostKits } from './LostKits';
 import { playerSex, potentialMate } from '../RabbitSex';
-import { RodentHunting } from './RodentHunting';
 
 const MATING_DURATION = 3.1;
 const MATING_REACH = 3;
@@ -40,6 +40,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  lostKits?: LostKits;
   remains?: AnimalRemains;
   resetInput?: () => void;
   canGrabPlayer?: () => boolean;
@@ -78,7 +79,6 @@ export class AnimalSimulation {
   private readonly friendDefense: FriendDefense;
   private readonly friendMarks?: FriendMarks;
   private readonly rabbitPredation: RabbitPredation;
-  private readonly rodentHunting: RodentHunting;
   private readonly ambience?: AnimalAmbience;
   private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
@@ -98,7 +98,6 @@ export class AnimalSimulation {
       protectPlayer: (time) => this.friendDefense.interruptStrike(context.save.player, time, false),
     });
     this.rabbitPredation = new RabbitPredation(context);
-    this.rodentHunting = new RodentHunting(context);
     if (typeof context.world.waterAt === 'function')
       this.water = new WaterSimulation({
         ...context,
@@ -122,7 +121,6 @@ export class AnimalSimulation {
 
   avatarChanged(): void {
     this.hawkHunting.resetTargets();
-    this.rodentHunting.resetTargets();
     this.water?.resetTargets();
   }
 
@@ -196,6 +194,7 @@ export class AnimalSimulation {
       mate ?? this.reproductiveThreat.actor ?? pursuing,
       canAttackFamily,
     );
+    this.context.lostKits?.update(time);
     this.wildBreeding.update(dt, time, mate ?? this.reproductiveThreat.actor);
     this.updateRabbits(dt, time, mate);
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
@@ -250,7 +249,9 @@ export class AnimalSimulation {
         this.wildBreeding.busy(rabbit)
       )
         continue;
-      if (rabbit.data.id === this.context.save.mateId) {
+      if (rabbit.data.lost && this.context.lostKits) {
+        if (rabbit.alive) this.context.lostKits.move(rabbit, dt, time);
+      } else if (rabbit.data.id === this.context.save.mateId) {
         const event = this.context.family?.updateMother?.(rabbit, dt, time, this.context.groundAt)
           ? undefined
           : this.context.partnerSupport.update(rabbit, dt, time, this.context.groundAt);
@@ -320,24 +321,20 @@ export class AnimalSimulation {
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
       if (!predator.alive) continue;
-      const rodent =
-        combat && predator.huntsRodents
-          ? this.rodentHunting.target(predator, time, canAttackFamily)
-          : undefined;
-      const prey = predator.huntsRodents
-        ? rodent?.root.position
-        : combat
-          ? this.context.ecology.targetFor(predator, this.context.predators, time)
-          : undefined;
+      const prey = combat
+        ? this.context.ecology.targetFor(
+            predator,
+            this.context.predators,
+            time,
+            this.context.lostKits?.prey,
+          )
+        : undefined;
       const strike = predator.update(
         dt,
         time,
         p.x,
         p.z,
-        predator.huntsRodents ||
-          p.hidden ||
-          !canAttackFamily ||
-          AnimalRestraint.active(this.context.player.root),
+        p.hidden || !canAttackFamily || AnimalRestraint.active(this.context.player.root),
         !night,
         this.context.groundAt,
         p.dirtiness / 100,
@@ -347,13 +344,9 @@ export class AnimalSimulation {
       );
       const repelled = canDefend && this.friendDefense.repel(predator, p, time);
       if (!repelled) {
-        if (predator.huntsRodents) {
-          if (rodent) this.rodentHunting.strike(predator, rodent, time);
-        } else {
-          if (strike) this.context.consequences.predatorAttack(predator.kind);
-          if (canAttackFamily && predator.huntingOpen)
-            this.context.consequences.threatenKits(predator, time);
-        }
+        if (strike) this.context.consequences.predatorAttack(predator.kind);
+        if (canAttackFamily && predator.huntingOpen)
+          this.context.consequences.threatenKits(predator, time);
       }
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
@@ -410,6 +403,7 @@ export class AnimalSimulation {
     for (const rabbit of this.context.rabbits)
       if (
         !rabbit.solitary &&
+        !rabbit.data.lost &&
         rabbit !== this.reproductiveThreat.actor &&
         rabbit.data.id !== this.context.state.mating?.mateId &&
         !AnimalRestraint.active(rabbit.root) &&

@@ -1,2 +1,2 @@
 export { DialogView } from './Dialogs';
-export { GeneticsPanel } from './GeneticsPanel';
+export { GeneticsPanel, LineageView } from './GeneticsPanel';

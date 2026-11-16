@@ -26,6 +26,7 @@ import { FamilyRelocation } from '../src/game/session/FamilyRelocation';
 import { burrowWarming } from '../src/game/BurrowClimate';
 import { nestHasKits } from '../src/game/session/ShelterController';
 import { SurvivalSystem } from '../src/game/systems/SurvivalSystem';
+import { BurrowFur, MAX_BURROW_FUR } from '../src/game/BurrowFur';
 
 await loadModels('fox', 'rabbit');
 
@@ -54,6 +55,28 @@ function fixture(nodes?: DigNode[]) {
   if (origin) Object.assign(save.player, floor(origin));
   return { save, earth, world };
 }
+
+test('fur uses supplies, warms the nearby tunnel and survives reconstruction', () => {
+  const { save, earth } = fixture();
+  const spot = { x: save.player.x, y: save.player.y, z: save.player.z };
+  const far = floor(save.excavation[6]);
+  const fur = new BurrowFur(save, earth);
+  save.materials.fur = MAX_BURROW_FUR + 1;
+  assert.equal(fur.heatAt(spot), 0);
+  for (let amount = 1; amount <= MAX_BURROW_FUR; amount++) {
+    const patch = fur.spread();
+    assert.equal(typeof patch === 'object' && patch.amount, amount);
+    assert.equal(fur.heatAt(spot), amount);
+  }
+  assert.equal(fur.spread(), 'full');
+  assert.equal(save.materials.fur, 1);
+  assert.equal(fur.heatAt(far), 0);
+  assert.equal(new BurrowFur(structuredClone(save), earth).heatAt(spot), MAX_BURROW_FUR);
+  assert.ok(burrowWarming('damp', false, 2) > burrowWarming('damp', false, 1));
+  Object.assign(save.player, { x: 25, y: 0 });
+  assert.equal(fur.spread(), 'outside');
+  assert.equal(save.materials.fur, 1);
+});
 
 test('burrow plan compares dry nests and damp ground during rain and near water', () => {
   const { save, earth, world } = fixture();

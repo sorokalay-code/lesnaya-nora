@@ -1,18 +1,29 @@
 import { lazy, Suspense, useState } from 'react';
-import { Disclosure } from '../../shared/ui';
+import { Button, Disclosure } from '../../shared/ui';
 import type { GeneticsView } from '../../presenters/GeneticsPresenter';
+import type { UIAction } from '../../types';
 
 const LineageGraph = lazy(() =>
   import('./LineageGraph').then((module) => ({ default: module.LineageGraph })),
 );
 
+export function LineageView({ graph }: { graph: NonNullable<GeneticsView['lineageGraph']> }) {
+  return (
+    <Suspense fallback={<p role="status">Загружаю граф родословной…</p>}>
+      <LineageGraph graph={graph} />
+    </Suspense>
+  );
+}
+
 /** Раскрываемая карточка генов и известных предков не загромождает обычный разговор. */
 export function GeneticsPanel({
   data,
   expanded = false,
+  onAction,
 }: {
   data?: GeneticsView;
   expanded?: boolean;
+  onAction?: UIAction;
 }) {
   const [graphOpen, setGraphOpen] = useState(false);
   if (!data) return null;
@@ -63,9 +74,14 @@ export function GeneticsPanel({
           onToggle={(event) => setGraphOpen(event.currentTarget.open)}
         >
           {graphOpen && (
-            <Suspense fallback={<p role="status">Загружаю граф родословной…</p>}>
-              <LineageGraph graph={data.lineageGraph} />
-            </Suspense>
+            <>
+              {onAction && (
+                <Button data-lineage-expand onClick={() => onAction('lineage-expand')}>
+                  На весь экран
+                </Button>
+              )}
+              <LineageView graph={data.lineageGraph} />
+            </>
           )}
         </Disclosure>
       )}

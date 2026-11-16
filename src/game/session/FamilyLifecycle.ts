@@ -19,8 +19,10 @@ import { NEST_BEDDING_RADIUS } from '../NestBedding';
 import { FamilyRelocation, RELOCATION_DETAIL } from './FamilyRelocation';
 import { playerSex } from '../RabbitSex';
 import { PartnerMaternity } from './PartnerMaternity';
+import type { BurrowFur } from '../BurrowFur';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 interface FamilyContext {
+  burrowFur?: BurrowFur;
   onDeath?: (root: THREE.Group, genes: import('../types').Genes) => void;
   save: SaveData;
   scene: THREE.Scene;
@@ -183,7 +185,11 @@ export class FamilyLifecycle {
       if (kit.age < 3) {
         kit.hunger = clamp(kit.hunger - dt * 0.08 * GeneticTraits.metabolism(kit.genes), 0, 100);
         const nest = this.context.save.nests.find((n) => n.id === kit.nestId);
-        const temperature = this.context.temperature() + GeneticTraits.coldProtection(kit.genes);
+        const floorFur = currentRig
+          ? (this.context.burrowFur?.heatAt(currentRig.root.position) ?? 0)
+          : 0;
+        const temperature =
+          this.context.temperature() + GeneticTraits.coldProtection(kit.genes) + floorFur * 0.6;
         if (!nest && temperature < 9)
           kit.health = clamp(
             kit.health - (dt * 0.17 * 0.8) / GeneticTraits.resilience(kit.genes),

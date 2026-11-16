@@ -6,7 +6,6 @@ export { Hawk } from './Hawk';
 export { FlyingRaptor } from './FlyingRaptor';
 export { Frog } from './Frog';
 export { Owl } from './Owl';
-export { Scolopendra } from './Scolopendra';
 export { PlayerRabbit } from './PlayerRabbit';
 export { Pike } from './Pike';
 export { Predator } from './Predator';

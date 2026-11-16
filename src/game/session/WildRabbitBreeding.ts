@@ -53,7 +53,7 @@ export class WildRabbitBreeding {
     const existingCount = rabbits.length;
     for (let index = 0; index < existingCount; index++) {
       const actor = rabbits[index];
-      if (!actor.alive) continue;
+      if (!actor.alive || actor.data.lost) continue;
       if (actor.data.age !== undefined && actor.data.age < 3) {
         actor.data.age = Math.min(3, actor.data.age + days);
         actor.updateGrowth();
@@ -180,6 +180,7 @@ export class WildRabbitBreeding {
         id: id++,
         sex,
         age: 0,
+        wildParentId: mother.data.id,
         name: sex === 'female' ? 'Лапушка' : 'Пушок',
         x: mother.x,
         y: mother.root.position.y,

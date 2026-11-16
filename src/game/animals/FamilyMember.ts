@@ -50,6 +50,8 @@ export class FamilyMember extends Rabbit {
     this.data = {
       id: 100000 + parent.id * 100 + index,
       sex,
+      age: young ? 1.2 : undefined,
+      wildParentId: young ? parent.id : undefined,
       name: names[(parent.id + index) % names.length],
       x: this.x,
       z: this.z,

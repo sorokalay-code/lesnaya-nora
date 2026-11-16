@@ -40,7 +40,6 @@ export const CREATURE_NAMES = [
   'snake',
   'hawk',
   'owl',
-  'scolopendra',
   'badger',
   'mole',
   'marmot',

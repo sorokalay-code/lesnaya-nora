@@ -67,7 +67,8 @@ export class AnimalAmbience {
       if (!night && source.kind === 'owl') continue;
       if (!night && source.kind === 'frog' && this.context.rng.chance(0.9)) continue;
       if (!night && source.kind === 'wolf' && this.context.rng.chance(0.85)) continue;
-      const weight = this.context.rng.next() * 12 - distance * 0.25;
+      const weight =
+        this.context.rng.next() * 12 - distance * 0.25 + (source.activity === 'lost' ? 25 : 0);
       if (weight > score) {
         chosen = source;
         score = weight;
@@ -86,7 +87,9 @@ export class AnimalAmbience {
     this.context.sound({ kind: chosen.kind, activity: chosen.activity, volume, pan });
     this.cooldowns.set(
       chosen.root,
-      time + INTERVALS[chosen.kind] * this.context.rng.range(0.8, 1.4),
+      time +
+        (chosen.activity === 'lost' ? 4 : INTERVALS[chosen.kind]) *
+          this.context.rng.range(0.8, 1.4),
     );
     this.nextAt = time + this.context.rng.range(2.8, 5.5);
   }

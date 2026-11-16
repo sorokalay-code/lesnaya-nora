@@ -33,6 +33,7 @@ export class RabbitFamily {
 
   static relationship(save: SaveData, kit: KitData): string {
     const female = this.sex(kit) === 'female';
+    if (kit.adopted) return female ? 'Твоя приёмная дочь' : 'Твой приёмный сын';
     const player = save.player.lineage;
     if (!player || !kit.lineage) return female ? 'Твоя дочь' : 'Твой сын';
     const parents = (line: NonNullable<KitData['lineage']>) =>

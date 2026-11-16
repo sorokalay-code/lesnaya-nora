@@ -8,6 +8,8 @@ import { AttackSounds } from './audio/AttackSounds';
 import { AnimalRestraint } from './animals/AnimalRestraint';
 import { LineageSuccession } from './session/LineageSuccession';
 import { Excavation } from './Excavation';
+import { BurrowFur } from './BurrowFur';
+import { LostKits } from './session/LostKits';
 import { ExcavationTraffic } from './ExcavationTraffic';
 import { FamilyCare } from './FamilyCare';
 import { GroundItems } from './GroundItems';
@@ -296,6 +298,7 @@ export class Game {
     }
 
     this.earth = new Excavation(this.scene, this.world, this.save);
+    const burrowFur = new BurrowFur(this.save, this.earth);
     this.decorations = new SceneDecorations({
       scene: this.scene,
       world: this.world,
@@ -311,6 +314,7 @@ export class Game {
     this.care = new FamilyCare(this.save, this.earth);
     this.items = new GroundItems(this.world, this.save);
     this.family = new FamilyLifecycle({
+      burrowFur,
       onDeath: (root, genes) => this.remains?.record({ kind: 'rabbit', root, genes }),
       save: this.save,
       scene: this.scene,
@@ -391,6 +395,15 @@ export class Game {
     this.ecology = population.ecology;
     this.wildlife = population.wildlife;
     this.hawks = population.hawks;
+    const lostKits = new LostKits({
+      save: this.save,
+      rabbits: this.rabbits,
+      families: this.families,
+      predators: this.predators,
+      world: this.world,
+      earth: this.earth,
+      addKit: (kit) => this.family.add(kit),
+    });
     this.attackSounds = new AttackSounds({
       sound: this.sound,
       listener: () => this.save.player,
@@ -409,6 +422,7 @@ export class Game {
     });
 
     this.save.nests.forEach((n) => this.decorations.addNest(n));
+    this.save.burrowFur?.forEach((patch) => this.decorations.updateFur(patch));
     this.save.stashes.forEach((s) => this.decorations.addStash(s));
     this.save.kits.filter((k) => k.alive).forEach((k) => this.family.add(k));
     this.queries = new SessionQueries({
@@ -437,6 +451,8 @@ export class Game {
       closePanels: () => this.interactions.close(),
     });
     this.environment = new EnvironmentController({
+      burrowFur,
+      updateFur: (patch) => this.decorations.updateFur(patch),
       waste: this.waste,
       persist: () => this.sessionUI.persist(false),
       save: this.save,
@@ -515,6 +531,8 @@ export class Game {
       family: this.family,
     });
     this.sessionUI = new SessionInterface({
+      lostKits,
+      burrowFur,
       coldNight,
       canSave: () => !this.animals?.hasCaptures,
       airliftView: () => this.animals?.airliftView,
@@ -550,6 +568,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.actions = new SessionActions({
+      lostKits,
       coldNight: new ColdNightActions({
         outing: coldNight,
         ui: this.ui,
@@ -591,6 +610,7 @@ export class Game {
       inspectBurrow: () => this.sessionUI.inspectBurrow(),
     });
     this.animals = new AnimalSimulation({
+      lostKits,
       remains: this.remains,
       resetInput: () => this.input.clear(),
       canGrabPlayer: () => !this.web.trapped,
@@ -633,6 +653,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.simulation = new SessionSimulation({
+      burrowFur,
       web: this.web,
       decorations: this.decorations,
       interactions: this.interactions,

@@ -68,6 +68,7 @@ export class GameUI {
     const sameSubject =
       ConversationNavigation.subject(this.state.dialog) === ConversationNavigation.subject(dialog);
     this.store.setState({
+      lineageFullscreen: false,
       conversationPage:
         focus === 'message' && dialog.type === 'mate'
           ? 'chat'
@@ -86,7 +87,11 @@ export class GameUI {
   }
 
   closeDialog() {
-    this.store.setState({ dialog: undefined, conversationPage: 'overview' });
+    this.store.setState({
+      dialog: undefined,
+      conversationPage: 'overview',
+      lineageFullscreen: false,
+    });
   }
 
   openDialogPage(page: string): void {
@@ -104,6 +109,7 @@ export class GameUI {
     this.store.setState({
       journal: structuredClone(journal),
       dialog: undefined,
+      lineageFullscreen: false,
       gameMenu: undefined,
       eventsOpen: false,
       familyOpen: false,
@@ -125,6 +131,7 @@ export class GameUI {
 
   closePanels(next?: Pick<Partial<typeof this.state>, 'overlay' | 'gameMenu' | 'statusOpen'>) {
     this.store.setState({
+      lineageFullscreen: false,
       dialog: undefined,
       journal: undefined,
       gameMenu: undefined,

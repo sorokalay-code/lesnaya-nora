@@ -23,6 +23,7 @@ export interface PromptPart {
   text: string;
 }
 export interface HudView {
+  floorFur?: number;
   playerName?: string;
   playerSex?: RabbitSex;
   familyCount?: number;

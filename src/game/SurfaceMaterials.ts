@@ -22,6 +22,6 @@ export function animalSurface(model: ModelName, material: string): SurfaceTextur
   if (model === 'frog') return 'frog';
   if (['hawk', 'owl', 'duck', 'pheasant'].includes(model)) return 'feather';
   if (model === 'snake' || model === 'fish' || model === 'pike') return 'scales';
-  if (['spider', 'jumping-spider', 'scolopendra'].includes(model)) return 'chitin';
+  if (['spider', 'jumping-spider'].includes(model)) return 'chitin';
   return 'coat';
 }

@@ -19,6 +19,7 @@ import {
 import type { UIStore, WorldSettingsTab } from '../../store';
 import { defaultMapGeneration } from '../../../game/MapGeneration';
 import { WorldMapSettings } from './WorldMapSettings';
+import { CreatureIcon } from './CreatureIcon';
 
 export const WORLD_SETTINGS_TABS: readonly { value: WorldSettingsTab; label: string }[] = [
   { value: 'map', label: 'Карта' },
@@ -162,9 +163,12 @@ function PopulationSettings({ config, update }: SettingsSectionProps) {
       <div className="creature-grid">
         {CREATURE_OPTIONS.map(({ kind, label, max }) => (
           <FieldLabel separateControl className="creature-input" key={kind}>
-            <span>
-              {label}
-              <small>0–{max}</small>
+            <span className="creature-name">
+              <CreatureIcon kind={kind} />
+              <span>
+                {label}
+                <small>0–{max}</small>
+              </span>
             </span>
             <Input
               type="number"

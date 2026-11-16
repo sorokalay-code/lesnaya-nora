@@ -249,30 +249,6 @@ export class WorldPopulation {
     });
     for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
 
-    for (let index = 0; index < config.creatures.scolopendra; index++) {
-      const identity = `scolopendra:${index}`;
-      if (context.save.deadPopulation?.includes(identity)) continue;
-      const rng = new Random(context.save.seed + 48291 + index * 613);
-      const home = habitats.predator('scolopendra', index);
-      for (let attempt = 0; attempt < 40; attempt++) {
-        const angle = rng.range(0, Math.PI * 2);
-        const distance = rng.range(15, 76) * scale;
-        const x = home?.x ?? Math.cos(angle) * distance;
-        const z = home?.z ?? Math.sin(angle) * distance;
-        if ((context.world.waterAt?.(x, z)?.depth ?? 0) > 0.08) continue;
-        if (!home && attempt < 28 && context.world.biomeAt(x, z) !== 'forest') continue;
-
-        const animal = AnimalFactory.predator('scolopendra', x, z, rng);
-        animal.useWorldBounds(config.size);
-        animal.root.position.y = context.world.heightAt(x, z);
-        animal.root.userData.remainsIdentity = identity;
-        if (home) animal.followTerritory(habitats.intent(home, context.save.clock));
-        this.predators.push(animal);
-        context.scene.add(animal.root);
-        break;
-      }
-    }
-
     for (let index = 0; index < config.creatures.owl; index++) {
       const identity = `owl:${index}`;
       if (context.save.deadPopulation?.includes(identity)) continue;

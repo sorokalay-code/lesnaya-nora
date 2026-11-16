@@ -25,7 +25,7 @@ export function burrowMoisture(
   return damp ? 'damp' : 'dry';
 }
 
-export function burrowWarming(moisture: BurrowMoisture, insulated: boolean): number {
+export function burrowWarming(moisture: BurrowMoisture, insulated: boolean, fur = 0): number {
   const soil = moisture === 'damp' ? DAMP_WARMING_MULTIPLIER : 1;
-  return soil * (insulated ? INSULATED_WARMING_MULTIPLIER : 1);
+  return soil * (insulated ? INSULATED_WARMING_MULTIPLIER : 1) * (1 + fur * 0.2);
 }

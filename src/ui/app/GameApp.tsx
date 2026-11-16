@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import { useStore } from 'zustand';
 import type { UIState, UIStore } from '../store';
 import { WorldMap } from '../widgets/world-map';
-import { DialogView } from '../widgets/conversation';
+import { DialogView, LineageView } from '../widgets/conversation';
 
 const UIContext = createContext<UIStore | null>(null);
 function useUI<T>(selector: (state: UIState) => T): T {
@@ -66,6 +66,18 @@ function Panels() {
     focus = useUI((state) => state.focus);
   const panel = useRef<HTMLElement>(null);
   const closeMap = useRef<HTMLButtonElement>(null);
+  const closeLineage = useRef<HTMLButtonElement>(null);
+  const wasExpanded = useRef(false);
+  const lineageFullscreen = useUI((state) => state.lineageFullscreen);
+  const graph = lineageFullscreen ? dialog?.genetics?.lineageGraph : undefined;
+  useLayoutEffect(() => {
+    if (graph) closeLineage.current?.focus({ preventScroll: true });
+    else if (wasExpanded.current)
+      panel.current
+        ?.querySelector<HTMLElement>('[data-lineage-expand]')
+        ?.focus({ preventScroll: true });
+    wasExpanded.current = !!graph;
+  }, [graph]);
   const mapOpen = journal?.mode === 'map';
   useLayoutEffect(() => {
     if (mapOpen) closeMap.current?.focus({ preventScroll: true });
@@ -94,7 +106,7 @@ function Panels() {
         id="dialog"
 
         aria-label="Общение"
-        className={`dialog-panel ${dialog && ['animal', 'partner', 'mate', 'kit'].includes(dialog.type) ? 'conversation-panel' : ''} ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog ? '' : 'hidden'}`}
+        className={`dialog-panel ${dialog && ['animal', 'partner', 'mate', 'kit'].includes(dialog.type) ? 'conversation-panel' : ''} ${dialog?.type === 'remove' ? 'confirmation-panel' : ''} ${dialog && !graph ? '' : 'hidden'}`}
       >
         {dialog && (
           <DialogView
@@ -106,6 +118,17 @@ function Panels() {
           />
         )}
       </Dialog>
+      {graph && (
+        <Dialog className="lineage-fullscreen" aria-labelledby="lineage-fullscreen-title">
+          <header>
+            <h2 id="lineage-fullscreen-title">Родословная</h2>
+            <Button ref={closeLineage} onClick={() => dispatch('lineage-close')}>
+              ← Назад
+            </Button>
+          </header>
+          <LineageView graph={graph} />
+        </Dialog>
+      )}
       <ScrollContainer
         className={`journal ${journal ? '' : 'hidden'}`}
         label={journal?.mode === 'map' ? 'Карта леса' : 'Лесной дневник'}

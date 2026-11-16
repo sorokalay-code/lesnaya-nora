@@ -27,12 +27,14 @@ import { GAME_MINUTES_PER_SECOND, WorldCalendar } from './WorldCalendar';
 import { WorldRest } from './WorldRest';
 import { atUndergroundNest } from '../NestBedding';
 import { burrowWarming } from '../BurrowClimate';
+import type { BurrowFur } from '../BurrowFur';
 export interface SimulationState {
   elapsed: number;
   digHeld: boolean;
 }
 
 interface Context {
+  burrowFur?: BurrowFur;
   web: SpiderEncounter;
   decorations: SceneDecorations;
   interactions: InteractionController;
@@ -140,7 +142,11 @@ export class SessionSimulation {
       air,
       warmed,
       () => this.context.consequences.makeWaste('diarrhea'),
-      burrowWarming(sheltered ? this.context.earth.moistureAt(p) : 'dry', insulated),
+      burrowWarming(
+        sheltered ? this.context.earth.moistureAt(p) : 'dry',
+        insulated,
+        sheltered ? this.context.burrowFur?.heatAt(p) : undefined,
+      ),
     );
     this.context.waste.update(dt, p.x, p.y, p.z);
     CoatDirt.update(this.context.player, p.dirtiness);

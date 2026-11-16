@@ -32,7 +32,6 @@ import { Mole } from './Mole';
 import { Marmot } from './Marmot';
 import { Pheasant } from './Pheasant';
 import { Chipmunk } from './Chipmunk';
-import { Scolopendra } from './Scolopendra';
 import { Hawk } from './Hawk';
 import { Owl } from './Owl';
 import type { FlyingRaptor, RaptorKind } from './FlyingRaptor';
@@ -47,7 +46,6 @@ export class AnimalFactory {
   }
 
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {
-    scolopendra: Scolopendra,
     'jumping-spider': JumpingSpider,
     spider: Spider,
     fox: Fox,

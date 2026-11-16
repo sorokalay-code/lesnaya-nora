@@ -313,3 +313,28 @@
     grid-template-columns: 1fr;
   }
 }
+.lineage-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: max(var(--ui-space-16), env(safe-area-inset-top))
+    max(var(--ui-space-16), env(safe-area-inset-right))
+    max(var(--ui-space-16), env(safe-area-inset-bottom))
+    max(var(--ui-space-16), env(safe-area-inset-left));
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  pointer-events: auto;
+}
+
+.lineage-fullscreen header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-12);
+}
+
+.lineage-fullscreen h2 {
+  margin: 0;
+}

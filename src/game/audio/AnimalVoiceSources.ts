@@ -26,7 +26,10 @@ export class AnimalVoiceSources {
 
   *all(): Iterable<VoiceActor> {
     for (const rabbit of this.population.rabbits)
-      if (rabbit.alive) yield this.actor(rabbit.rig.root, 'rabbit', rabbit.rig);
+      if (rabbit.alive)
+        yield rabbit.data.lost
+          ? { root: rabbit.root, kind: 'rabbit', activity: 'lost' }
+          : this.actor(rabbit.rig.root, 'rabbit', rabbit.rig, (rabbit.data.age ?? 3) < 3);
     for (const member of this.population.families)
       if (member.alive) yield this.actor(member.rig.root, 'rabbit', member.rig, member.young);
     for (const kit of this.population.save.kits) {
@@ -42,12 +45,7 @@ export class AnimalVoiceSources {
       )
         yield this.actor(animal.root, animal.kind, animal.model);
     for (const predator of this.population.predators) {
-      if (
-        !predator.alive ||
-        predator.kind === 'spider' ||
-        predator.kind === 'jumping-spider' ||
-        predator.kind === 'scolopendra'
-      )
+      if (!predator.alive || predator.kind === 'spider' || predator.kind === 'jumping-spider')
         continue;
       yield this.actor(predator.root, predator.kind, predator.root.userData.model as ModelInstance);
     }

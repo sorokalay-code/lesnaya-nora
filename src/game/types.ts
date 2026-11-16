@@ -7,15 +7,7 @@ export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
 export type PredatorKind =
-  | 'fox'
-  | 'wolf'
-  | 'dog'
-  | 'lynx'
-  | 'weasel'
-  | 'snake'
-  | 'spider'
-  | 'jumping-spider'
-  | 'scolopendra';
+  'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'snake' | 'spider' | 'jumping-spider';
 export type Weather = 'clear' | 'cloudy' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 
@@ -42,6 +34,8 @@ export interface Genes {
 }
 
 export interface PartnerTraits {
+  wildParentId?: number;
+  lost?: { since: number; lastClock: number; hunger: number };
   sex?: RabbitSex;
   age?: number;
   pregnancy?: { fatherId: number; dueAt: number };
@@ -71,6 +65,7 @@ export type FamilyPregnancy = { progress: number; warned?: boolean } & (
 );
 
 export interface KitData {
+  adopted?: true;
   sex?: 'female' | 'male';
   wasPlayer?: true;
   condition?: Pick<
@@ -148,6 +143,7 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  burrowFur?: import('./BurrowFur').FurPatch[];
   remains?: import('./RemainsData').RemainsData[];
   nextRemainsId?: number;
   deadPopulation?: string[];

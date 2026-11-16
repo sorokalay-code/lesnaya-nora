@@ -32,7 +32,8 @@ export function RabbitConversationView({
   const link = (page: ConversationPage, icon: string, title: string, description: string) => (
     <SectionLink key={page} {...{ page, icon, title, description, onAction }} />
   );
-  if (page === 'profile') return <GeneticsPanel data={data.genetics} expanded />;
+  if (page === 'profile')
+    return <GeneticsPanel data={data.genetics} expanded onAction={onAction} />;
   if (mate && page === 'commands')
     return (
       <>

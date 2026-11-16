@@ -6,6 +6,7 @@ import { World } from '../World';
 import { RabbitActor } from '../animals';
 import { type NestData, type StashData } from '../types';
 import { NEST_FUR_COST } from '../NestBedding';
+import type { FurPatch } from '../BurrowFur';
 
 interface Context {
   scene: THREE.Scene;
@@ -19,6 +20,7 @@ const NEST_VISUAL_SCALE = 1.18;
 export class SceneDecorations {
   private readonly nestMeshes = new Map<number, THREE.Group>();
   private readonly stashMeshes = new Map<number, THREE.Group>();
+  private readonly furMeshes = new Map<FurPatch, THREE.Group>();
   private readonly placements = new Map<THREE.Group, NestData | StashData>();
   private revision = -1;
 
@@ -57,6 +59,25 @@ export class SceneDecorations {
     this.place(mesh, s);
     this.stashMeshes.set(s.id, mesh);
     this.context.scene.add(mesh);
+  }
+
+  updateFur(patch: FurPatch): void {
+    let mesh = this.furMeshes.get(patch);
+    if (!mesh) {
+      mesh = new THREE.Group();
+      mesh.position.set(patch.x, patch.y + 0.035, patch.z);
+      this.furMeshes.set(patch, mesh);
+      this.context.scene.add(mesh);
+    }
+    for (let index = mesh.children.length; index < patch.amount; index++) {
+      const angle = index * 2.4;
+      const tuft = ModelAssets.shared.create('fur_tuft').root;
+      const radius = index ? 0.16 + index * 0.065 : 0;
+      tuft.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+      tuft.rotation.y = angle;
+      tuft.scale.set(1.8, 0.65, 1.8);
+      mesh.add(tuft);
+    }
   }
 
   removeNest(id: number): void {

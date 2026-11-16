@@ -16,6 +16,11 @@ export class AnimalCalls {
 
     const voices: Record<AnimalVoiceKind, () => void> = {
       rabbit: () => {
+        if (activity === 'lost') {
+          call(1350, 910, 0.16, 0.46);
+          call(1550, 1000, 0.12, 0.4, 0.2);
+          return;
+        }
         breath(1100, 0.08, 0.15);
         breath(1450, 0.07, 0.1, 0.12);
         if (activity === 'young') call(850, 650, 0.1, 0.12, 0.05);

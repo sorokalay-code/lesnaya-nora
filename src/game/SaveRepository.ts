@@ -4,6 +4,7 @@ import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
 import { playerSex } from './RabbitSex';
 import { isColdNightGoal } from './ColdNightPlan';
+import { MAX_BURROW_FUR } from './BurrowFur';
 
 export const SAVE_VERSION = 5;
 
@@ -297,6 +298,7 @@ export class SaveRepository {
       data.kits.some(
         (kit) =>
           (kit.sex !== undefined && kit.sex !== 'female' && kit.sex !== 'male') ||
+          (kit.adopted !== undefined && kit.adopted !== true) ||
           (kit.motherId !== undefined &&
             (!Number.isSafeInteger(kit.motherId) || kit.motherId < 0)) ||
           (kit.command === 'relocate' && !data.nests.some((nest) => nest.id === kit.nestId)) ||
@@ -311,6 +313,7 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённое состояние семейной линии.');
 
     if (data.worldConfig?.creatures && typeof data.worldConfig.creatures === 'object') {
+      Reflect.deleteProperty(data.worldConfig.creatures, 'scolopendra');
       const defaults = defaultWorldConfig().creatures;
       for (const kind of ['duck', 'mouse', 'fish', ...ADDED_ANIMALS] as const) {
         if (data.worldConfig.creatures[kind] === undefined)
@@ -322,6 +325,9 @@ export class SaveRepository {
         (rabbit) =>
           (rabbit.sex !== undefined && rabbit.sex !== 'female' && rabbit.sex !== 'male') ||
           (rabbit.age !== undefined && (!Number.isFinite(rabbit.age) || rabbit.age < 0)) ||
+          (rabbit.wildParentId !== undefined &&
+            (!Number.isSafeInteger(rabbit.wildParentId) || rabbit.wildParentId < 0)) ||
+          (rabbit.lost !== undefined && ((rabbit.age ?? 3) >= 3 || !validLostKit(rabbit.lost))) ||
           (rabbit.nextMatingAt !== undefined &&
             (!Number.isFinite(rabbit.nextMatingAt) || rabbit.nextMatingAt < 0)) ||
           (rabbit.nextNursingAt !== undefined &&
@@ -352,13 +358,23 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые места обитания животных.');
     if (data.coldNightOuting !== undefined && !validColdNightOuting(data, data.worldConfig.size))
       throw new Error('Сохранение содержит повреждённый план вылазки.');
+    if (data.burrowFur !== undefined && !validFurPatches(data.burrowFur))
+      throw new Error('Сохранение содержит повреждённые данные утепления норы.');
+    if (Array.isArray(data.remains))
+      data.remains = data.remains.filter(
+        (entry: unknown) => !isRecord(entry) || entry.kind !== 'scolopendra',
+      );
+    if (Array.isArray(data.deadPopulation))
+      data.deadPopulation = data.deadPopulation.filter(
+        (id: unknown) => typeof id !== 'string' || !/^scolopendra:\d+$/.test(id),
+      );
     if (data.remains !== undefined && !validRemains(data.remains))
       throw new Error('Сохранение содержит повреждённые останки животных.');
     if (
       data.deadPopulation !== undefined &&
       (!Array.isArray(data.deadPopulation) ||
         !data.deadPopulation.every(
-          (id) => typeof id === 'string' && /^(predator|hawk|owl|scolopendra|pike):\d+$/.test(id),
+          (id) => typeof id === 'string' && /^(predator|hawk|owl|pike):\d+$/.test(id),
         ))
     )
       throw new Error('Сохранение содержит повреждённое состояние популяции.');
@@ -373,6 +389,46 @@ export class SaveRepository {
     );
     return data;
   }
+}
+
+function validLostKit(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const { hunger, since, lastClock } = value;
+  return (
+    typeof hunger === 'number' &&
+    Number.isFinite(hunger) &&
+    hunger >= 0 &&
+    hunger <= 100 &&
+    typeof since === 'number' &&
+    Number.isFinite(since) &&
+    since >= 0 &&
+    typeof lastClock === 'number' &&
+    Number.isFinite(lastClock) &&
+    lastClock >= since
+  );
+}
+
+function validFurPatches(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  const positions = new Set<string>();
+  return value.every((entry: unknown) => {
+    if (!isRecord(entry)) return false;
+    const { x, y, z, amount } = entry;
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(z) ||
+      typeof amount !== 'number' ||
+      !Number.isSafeInteger(amount) ||
+      amount < 1 ||
+      amount > MAX_BURROW_FUR
+    )
+      return false;
+    const position = `${x}:${y}:${z}`;
+    if (positions.has(position)) return false;
+    positions.add(position);
+    return true;
+  });
 }
 
 function validColdNightOuting(save: SaveData, size: number): boolean {

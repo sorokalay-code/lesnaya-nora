@@ -23,7 +23,8 @@ export function KitConversationView({
       {label}
     </ActionButton>
   );
-  if (page === 'profile') return <GeneticsPanel data={data.genetics} expanded />;
+  if (page === 'profile')
+    return <GeneticsPanel data={data.genetics} expanded onAction={onAction} />;
   if (page === 'succession')
     return (
       <>

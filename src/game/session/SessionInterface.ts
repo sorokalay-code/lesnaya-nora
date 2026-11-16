@@ -17,7 +17,12 @@ import { WorldCalendar } from './WorldCalendar';
 import type { WebView } from './SpiderEncounter';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 
+import type { LostKits } from './LostKits';
+import type { BurrowFur } from '../BurrowFur';
+
 interface Context {
+  lostKits?: LostKits;
+  burrowFur?: BurrowFur;
   coldNight?: ColdNightPlan;
   canSave?: () => boolean;
   airliftView?: () => import('./HawkHunting').AirliftView | undefined;
@@ -72,6 +77,9 @@ export class SessionInterface {
     hud.web = this.context.webView?.();
     hud.airlift = this.context.airliftView?.();
     hud.rabbitChase = this.context.rabbitChaseView?.();
+    hud.floorFur = this.context.burrowFur?.heatAt(p);
+    const lost = this.context.lostKits?.nearby();
+    if (lost) hud.prompt = [{ key: 'E', text: `Приютить крольчонка (${lost.data.name})` }];
     if (hud.airlift) hud.prompt = [];
     if (hud.web) hud.prompt = [{ key: 'E', text: 'Многократно нажимай, чтобы вырваться' }];
     this.context.ui.setHud(hud);

@@ -2,6 +2,16 @@
   margin-top: var(--ui-space-12);
 }
 
+.lineage-fullscreen .lineage-graph {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.lineage-fullscreen .lineage-graph-canvas {
+  height: auto;
+  min-height: 0;
+}
+
 .lineage-graph-empty,
 .lineage-graph-note {
   color: var(--ui-text-muted);

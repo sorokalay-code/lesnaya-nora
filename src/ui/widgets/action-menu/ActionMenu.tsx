@@ -51,6 +51,8 @@ export function ActionMenu({ store }: { store: UIStore }) {
   const dispatch = useStore(store, (s) => s.dispatch),
     shelter = useStore(store, (s) => s.hud?.nearbyShelter);
   const touch = useStore(store, (s) => s.touch);
+  const underground = useStore(store, (s) => s.hud?.underground);
+  const floorFur = useStore(store, (s) => s.hud?.floorFur);
   const male = useStore(store, (s) => s.hud?.playerSex === 'male');
   const panel = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -100,8 +102,17 @@ export function ActionMenu({ store }: { store: UIStore }) {
         ))}
         <section className="action-group shelter-actions">
           <h3>Убежище рядом</h3>
-          <p>Подойди к складу или гнезду, чтобы разобрать его.</p>
+          <p>
+            {underground
+              ? `Пуха для обогрева поблизости · ${floorFur ?? 0}`
+              : 'Подойди к складу или гнезду, чтобы разобрать его.'}
+          </p>
           <div>
+            {underground && (
+              <Button onClick={() => dispatch('spread-fur')}>
+                Разложить пух <small>Пух × 1</small>
+              </Button>
+            )}
             {shelter?.nest?.inside && (
               <Button disabled={shelter.nest.insulated} onClick={() => dispatch('insulate-nest')}>
                 {shelter.nest.insulated ? 'Тёплая спальня' : 'Утеплить гнездо'}

@@ -14,10 +14,13 @@ import type { ViewCamera } from '../ViewCamera';
 import type { World } from '../World';
 import type { SessionQueries } from './SessionQueries';
 import { GeneticTraits } from '../genetics/GeneticTraits';
+import { MAX_BURROW_FUR, type BurrowFur, type FurPatch } from '../BurrowFur';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const REST_MINUTES = 330;
 
 interface EnvironmentContext {
+  burrowFur?: BurrowFur;
+  updateFur?: (patch: FurPatch) => void;
   waste: WasteSystem;
   persist: () => void;
   save: SaveData;
@@ -49,6 +52,7 @@ export class EnvironmentController {
     fur: () => this.pluckFur(),
     nest: () => this.buildNest(),
     'insulate-nest': () => this.insulateNest(),
+    'spread-fur': () => this.spreadFur(),
     dig: () => this.dig('aim'),
     'dig-down': () => this.dig('down'),
     'dig-up': () => this.dig('up'),
@@ -130,6 +134,28 @@ export class EnvironmentController {
     this.context.playAction('pluck', 1.7);
     this.context.toast('Ты собрала немного собственного пуха для гнезда.');
     return;
+  }
+
+  private spreadFur(): void {
+    const patch = this.context.burrowFur?.spread();
+    if (!patch) return;
+    if (typeof patch === 'string') {
+      this.context.toast(
+        {
+          outside: 'Спустись в укрытый ход, чтобы разложить пух.',
+          empty: 'В багаже нет пуха. Сначала собери его или возьми из тайника.',
+          full: 'Этот участок уже утеплён. Перейди в другой ход.',
+        }[patch],
+      );
+      return;
+    }
+
+    this.context.updateFur?.(patch);
+    this.context.sound.play('nest');
+    this.context.toast(
+      `Пух разложен. Подстилка на этом участке ${patch.amount}/${MAX_BURROW_FUR}.`,
+    );
+    this.context.persist();
   }
 
   private buildNest(): void {
@@ -334,7 +360,9 @@ export class EnvironmentController {
     p.thirst = clamp(p.thirst - 20, 0, 100);
     p.bladder = clamp(p.bladder + 15, 0, 100);
     const insulated = !!nest?.insulated && atUndergroundNest(this.context.earth, p, nest);
-    p.bodyTemp = clamp(insulated ? Math.max(p.bodyTemp + 1.5, 38.6) : p.bodyTemp + 1.5, 28, 39);
+    const extraWarmth = (this.context.burrowFur?.heatAt(p) ?? 0) * 0.15;
+    const afterSleep = p.bodyTemp + 1.5 + extraWarmth;
+    p.bodyTemp = clamp(insulated ? Math.max(afterSleep, 38.6) : afterSleep, 28, 39);
 
     p.health = 100;
     this.context.playAction('lie', 2.8);

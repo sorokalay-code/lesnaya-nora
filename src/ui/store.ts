@@ -21,6 +21,7 @@ import type {
 export type WorldSettingsTab = 'map' | 'nature' | 'population' | 'calendar';
 
 export interface UIState {
+  lineageFullscreen?: boolean;
   conversationPage: ConversationPage;
   gameMenu?: GameMenuPage;
   settingsTab: SettingsTab;
@@ -118,6 +119,7 @@ export function socialDialogOpen(state: UIState): boolean {
 /** Состояние остаётся HUD; разговоры останавливают только бой, меню — всю симуляцию. */
 export function simulationPaused(state: UIState): boolean {
   return (
+    !!state.lineageFullscreen ||
     state.familyOpen ||
     !!state.gameMenu ||
     (state.journal?.mode === 'map' && !!state.journal.map.outing) ||

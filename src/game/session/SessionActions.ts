@@ -14,8 +14,10 @@ import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 import { LineageGraphPresenter } from '../../ui/presenters/LineageGraphPresenter';
 import { SessionMenus } from './SessionMenus';
 import type { ColdNightActions } from './ColdNightActions';
+import type { LostKits } from './LostKits';
 
 interface Context {
+  lostKits?: LostKits;
   coldNight?: ColdNightActions;
   restrained?: () => boolean;
   web: SpiderEncounter;
@@ -52,6 +54,11 @@ export class SessionActions {
   }
 
   execute(action: string): void {
+    if (action === 'lineage-expand' || action === 'lineage-close') {
+      if (this.context.ui.state.dialog?.genetics?.lineageGraph)
+        this.context.ui.store.setState({ lineageFullscreen: action === 'lineage-expand' });
+      return;
+    }
     if (
       this.context.restrained?.() &&
       ![
@@ -88,7 +95,7 @@ export class SessionActions {
     }
     if (
       this.context.web.trapped &&
-      ['dig', 'dig-down', 'dig-up', 'hop', 'insulate-nest'].includes(action)
+      ['dig', 'dig-down', 'dig-up', 'hop', 'insulate-nest', 'spread-fur'].includes(action)
     )
       return;
     if (action === 'status-panel') {
@@ -293,6 +300,14 @@ export class SessionActions {
         return;
       }
 
+      const adopted = this.context.lostKits?.adopt();
+      if (adopted) {
+        this.context.toast(`${adopted.name} теперь в твоей семье и пойдёт за тобой.`);
+        this.context.persist(false);
+        this.context.refreshHud();
+        return;
+      }
+
       const kit = this.context.queries.kit();
       if (kit) {
         this.context.interactions.openKit(kit);
@@ -317,6 +332,7 @@ export class SessionActions {
 
     if (this.context.inventory.execute(action)) return;
 
-    if (this.context.environment.execute(action) && action === 'sleep') this.context.refreshHud();
+    if (this.context.environment.execute(action) && ['sleep', 'spread-fur'].includes(action))
+      this.context.refreshHud();
   }
 }

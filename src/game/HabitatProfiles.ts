@@ -48,5 +48,4 @@ export const PREDATOR_HABITATS: Readonly<Partial<Record<PredatorKind, HabitatPro
   weasel: { mode: 'burrow', radius: 17, biomes: cover },
   dog: { mode: 'range', radius: 22, biomes: ['garden', 'meadow'] },
   snake: { mode: 'range', radius: 16, biomes: ['swamp', 'meadow'] },
-  scolopendra: { mode: 'range', radius: 14, biomes: woodland },
 };

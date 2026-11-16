@@ -350,6 +350,19 @@
   font-size: 10px;
   color: var(--ui-text-muted);
 }
+
+.creature-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-8);
+}
+
+.creature-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 1.65em;
+  font-size: 1.2em;
+}
 .world-size-presets button[aria-pressed='true'] {
   border-color: var(--ui-accent);
   background: var(--ui-selection);

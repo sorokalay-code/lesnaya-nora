@@ -48,7 +48,6 @@ export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max
   { kind: 'snake', label: 'Змеи', max: 90 },
   { kind: 'spider', label: 'Пауки с паутиной', max: 45 },
   { kind: 'jumping-spider', label: 'Пауки-прыгуны', max: 45 },
-  { kind: 'scolopendra', label: 'подстилочная', max: 30 },
   { kind: 'hawk', label: 'Соколы', max: 30 },
   { kind: 'owl', label: 'Совы (только ночью)', max: 20 },
   { kind: 'pike', label: 'Щуки', max: 45 },
@@ -61,7 +60,6 @@ export const ADDED_ANIMALS = [
   'pheasant',
   'chipmunk',
   'roe-deer',
-  'scolopendra',
   'owl',
   'frog',
 ] as const satisfies readonly CreatureKind[];
@@ -117,7 +115,6 @@ export function defaultWorldConfig(): WorldConfig {
       snake: 3,
       spider: 3,
       'jumping-spider': 2,
-      scolopendra: 3,
       hawk: 1,
       owl: 2,
       pike: 3,
