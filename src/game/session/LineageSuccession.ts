@@ -127,6 +127,7 @@ export class LineageSuccession {
         save.materials[material] += cargo[material];
     }
     save.mateId = undefined;
+    if (save.coldNightOuting) delete save.coldNightOuting.helperId;
     save.mateCommand = undefined;
     save.mateStay = undefined;
     save.mateMessages = [];

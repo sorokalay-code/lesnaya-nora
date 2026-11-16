@@ -1,7 +1,12 @@
 import type { Camera } from 'three';
 import type { Soundscape } from '../Audio';
 import type { DigDirection, Excavation } from '../Excavation';
-import { atUndergroundNest, NEST_BEDDING_RADIUS, NEST_FUR_COST } from '../NestBedding';
+import {
+  atUndergroundNest,
+  FUR_COOLDOWN_SECONDS,
+  NEST_BEDDING_RADIUS,
+  NEST_FUR_COST,
+} from '../NestBedding';
 import type { RabbitAction, RabbitRig } from '../Models';
 import type { FoodStore, SurvivalSystem, WasteSystem } from '../systems';
 import { FOOD, type NestData, type SaveData } from '../types';
@@ -118,7 +123,7 @@ export class EnvironmentController {
       return;
     }
 
-    this.furCooldown = 25;
+    this.furCooldown = FUR_COOLDOWN_SECONDS;
     p.energy = clamp(p.energy - 5, 0, 100);
     this.context.save.materials.fur++;
     this.context.sound.play('pickup');

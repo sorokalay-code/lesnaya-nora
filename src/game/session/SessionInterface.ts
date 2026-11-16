@@ -2,6 +2,7 @@ import { GameUI } from '../../ui/GameUI';
 import { HudPresenter } from '../../ui/presenters/HudPresenter';
 import { MapPresenter } from '../../ui/presenters/MapPresenter';
 import { BurrowPresenter } from '../../ui/presenters/BurrowPresenter';
+import type { ColdNightPlan } from '../ColdNightPlan';
 import { Soundscape } from '../Audio';
 import { Excavation } from '../Excavation';
 import { GroundItems } from '../GroundItems';
@@ -17,6 +18,7 @@ import type { WebView } from './SpiderEncounter';
 import type { FamilyLifecycle } from './FamilyLifecycle';
 
 interface Context {
+  coldNight?: ColdNightPlan;
   canSave?: () => boolean;
   airliftView?: () => import('./HawkHunting').AirliftView | undefined;
   rabbitChaseView?: () => import('./RabbitReproductiveThreat').RabbitChaseView | undefined;
@@ -106,8 +108,19 @@ export class SessionInterface {
         this.context.save,
         this.context.earth,
         this.context.family.relocation,
+        this.context.coldNight,
       ),
     });
+  }
+
+  refreshMap(): void {
+    const { ui, save } = this.context;
+    const journal = ui.state.journal;
+    if (journal?.mode === 'map') {
+      ui.store.setState({
+        journal: { mode: 'map', map: { ...journal.map, outing: this.mapPresenter.outing(save) } },
+      });
+    }
   }
 
   persist(notify: boolean, manual = false): void {

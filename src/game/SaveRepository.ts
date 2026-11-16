@@ -3,6 +3,7 @@ import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
 import { playerSex } from './RabbitSex';
+import { isColdNightGoal } from './ColdNightPlan';
 
 export const SAVE_VERSION = 5;
 
@@ -345,6 +346,8 @@ export class SaveRepository {
 
     data.worldConfig ??= defaultWorldConfig();
     data.worldConfig.leaveRemains ??= true;
+    if (data.coldNightOuting !== undefined && !validColdNightOuting(data, data.worldConfig.size))
+      throw new Error('Сохранение содержит повреждённый план вылазки.');
     if (data.remains !== undefined && !validRemains(data.remains))
       throw new Error('Сохранение содержит повреждённые останки животных.');
     if (
@@ -366,6 +369,34 @@ export class SaveRepository {
     );
     return data;
   }
+}
+
+function validColdNightOuting(save: SaveData, size: number): boolean {
+  const outing: unknown = save.coldNightOuting;
+  if (!isRecord(outing) || !isColdNightGoal(outing.goal)) return false;
+  if (
+    !Number.isSafeInteger(outing.stashId) ||
+    !save.stashes.some((stash) => stash?.id === outing.stashId)
+  )
+    return false;
+  if (
+    outing.helperId !== undefined &&
+    (!Number.isSafeInteger(outing.helperId) ||
+      outing.helperId !== save.mateId ||
+      save.mateCommand !== 'forage' ||
+      !save.partners.some((rabbit) => rabbit.id === outing.helperId))
+  )
+    return false;
+
+  const marker = outing.waypoint;
+  return (
+    marker === undefined ||
+    (isRecord(marker) &&
+      typeof marker.x === 'number' &&
+      Math.abs(marker.x) <= size &&
+      typeof marker.z === 'number' &&
+      Math.abs(marker.z) <= size)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

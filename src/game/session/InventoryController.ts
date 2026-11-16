@@ -40,6 +40,7 @@ export class InventoryController {
     else if (action.startsWith('drop:')) this.dropFood(action);
     else if (action.startsWith('consume:') || action.startsWith('consume-stash:'))
       this.consume(action);
+    else if (action === 'retrieve-fur') this.retrieveFur();
     else if (action === 'eat') this.openBag();
     else if (action === 'store' || action === 'retrieve') this.transfer(action);
     else return false;
@@ -204,8 +205,9 @@ export class InventoryController {
     const stash = this.context.queries.stash();
 
     const stored = (Object.keys(FOOD) as FoodKind[]).filter((k) => (stash?.food[k] ?? 0) > 0);
+    const storedFur = stash?.materials?.fur ?? 0;
 
-    if (!items.length && !stored.length && !materials.length) {
+    if (!items.length && !stored.length && !materials.length && !storedFur) {
       this.context.toast('Запасы пусты. Найди растения или ветки и нажми E.');
       return;
     }
@@ -218,8 +220,21 @@ export class InventoryController {
       inventory: this.context.save.inventory,
       materials: this.context.save.materials,
       stored: stash?.food ?? {},
+      storedFur,
     });
     return;
+  }
+
+  private retrieveFur(): void {
+    if (this.context.ui.state.dialog?.type !== 'bag') return;
+    const materials = this.context.queries.stash()?.materials;
+    if (!materials?.fur) return;
+
+    this.context.save.materials.fur += materials.fur;
+    materials.fur = 0;
+    this.context.sound.play('pickup');
+    this.context.closePanels();
+    this.context.toast('Пух из тайника теперь в багаже.');
   }
 
   private transfer(action: string): void {

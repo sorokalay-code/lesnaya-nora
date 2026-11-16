@@ -167,6 +167,8 @@ export class InteractionController {
     )
       return;
 
+    if (this.context.save.coldNightOuting) delete this.context.save.coldNightOuting.helperId;
+
     if ((command === 'home' || command === 'forage') && !this.context.familyStash()) {
       this.context.save.mateCommand = 'follow';
       this.context.toast(
@@ -256,6 +258,7 @@ export class InteractionController {
         return;
       }
       this.context.save.mateId = undefined;
+      if (this.context.save.coldNightOuting) delete this.context.save.coldNightOuting.helperId;
       p.trust = clamp(p.trust - 15, 0, 100);
       this.context.save.mateCommand = 'forage';
       this.context.save.mateStay = undefined;

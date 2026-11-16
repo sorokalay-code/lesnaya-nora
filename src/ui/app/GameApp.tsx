@@ -9,7 +9,7 @@ import { GameHud, LowHealthVignette } from '../widgets/hud';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { UIState, UIStore } from '../store';
-import type { MapViewModel } from '../types';
+import { WorldMap } from '../widgets/world-map';
 import { DialogView } from '../widgets/conversation';
 
 const UIContext = createContext<UIStore | null>(null);
@@ -65,6 +65,11 @@ function Panels() {
     page = useUI((state) => state.conversationPage),
     focus = useUI((state) => state.focus);
   const panel = useRef<HTMLElement>(null);
+  const closeMap = useRef<HTMLButtonElement>(null);
+  const mapOpen = journal?.mode === 'map';
+  useLayoutEffect(() => {
+    if (mapOpen) closeMap.current?.focus({ preventScroll: true });
+  }, [mapOpen]);
   useLayoutEffect(() => {
     if (!dialog) return;
 
@@ -110,6 +115,7 @@ function Panels() {
             <div className="journal-head">
               <h2>{journal.mode === 'map' ? 'Карта леса' : 'Лесной дневник'}</h2>
               <Button
+                ref={mapOpen ? closeMap : undefined}
                 aria-label="Закрыть"
                 onClick={() => dispatch(journal.mode === 'map' ? 'map' : 'journal')}
               >
@@ -117,7 +123,7 @@ function Panels() {
               </Button>
             </div>
             {journal.mode === 'map' ? (
-              <WorldMap data={journal.map} />
+              <WorldMap data={journal.map} dispatch={dispatch} />
             ) : (
               <>
                 <div className="journal-stat">
@@ -173,83 +179,6 @@ function Panels() {
           </>
         )}
       </ScrollContainer>
-    </>
-  );
-}
-
-function WorldMap({ data }: { data: MapViewModel }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const ctx = canvas.current?.getContext('2d');
-    if (!ctx) return;
-    const position = (n: number) => (n / (data.size * 2) + 0.5) * 420;
-    data.colors.forEach((color, index) => {
-      ctx.fillStyle = color;
-      ctx.fillRect((index % 60) * 7, Math.floor(index / 60) * 7, 7, 7);
-    });
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    for (const body of data.water) {
-      const color = body.kind === 'lake' ? '#438da2' : body.kind === 'bog' ? '#566b51' : '#68b1c4';
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      const [start, ...rest] = body.outline ?? body.points;
-      const radius = (body.radius / data.size) * 210;
-      ctx.beginPath();
-      if (rest.length === 0) {
-        ctx.arc(position(start.x), position(start.z), radius, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.moveTo(position(start.x), position(start.z));
-        for (const point of rest) ctx.lineTo(position(point.x), position(point.z));
-        if (body.outline) {
-          ctx.closePath();
-          ctx.fill();
-        } else {
-          ctx.lineWidth = radius * 2;
-          ctx.stroke();
-        }
-      }
-    }
-    for (const landmark of data.landmarks) {
-      ctx.fillStyle = '#f8e9cc';
-      ctx.beginPath();
-      ctx.arc(position(landmark.x), position(landmark.z), 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = '11px sans-serif';
-      ctx.fillText(landmark.label, position(landmark.x) + 8, position(landmark.z) + 4);
-    }
-
-    for (const opening of data.openings) {
-      ctx.fillStyle = '#513d2b';
-      ctx.beginPath();
-      ctx.arc(position(opening.x), position(opening.z), 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#24382b';
-    ctx.lineWidth = 2;
-    ctx.save();
-    ctx.translate(position(data.player.x), position(data.player.z));
-    ctx.rotate(data.player.heading);
-    ctx.beginPath();
-    ctx.moveTo(0, -12);
-    ctx.lineTo(7, 8);
-    ctx.lineTo(0, 4);
-    ctx.lineTo(-7, 8);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }, [data]);
-  return (
-    <>
-      <p>
-        Белая стрелка показывает твоё положение и направление взгляда. Тёмные круги — входы в норы.
-        Голубое — вода, серое — горы.
-      </p>
-      <canvas ref={canvas} width={420} height={420} />
     </>
   );
 }

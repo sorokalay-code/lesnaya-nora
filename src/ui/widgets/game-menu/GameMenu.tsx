@@ -4,6 +4,7 @@ import { Button, Dialog, ScrollContainer, Tabs } from '../../shared/ui';
 import type { UIStore } from '../../store';
 import type { GameMenuPage } from '../../types';
 import { BurrowPanel } from './BurrowPanel';
+import { ColdNightCard } from './ColdNightCard';
 import { FullscreenButton } from './FullscreenButton';
 import { GameSettings } from './GameSettings';
 import { NewGameForm } from './NewGameForm';
@@ -140,7 +141,11 @@ export function GameMenu({ store }: { store: UIStore }) {
             className="pause-scroll pause-burrow-content"
             label="План и обустройство норы"
           >
-            <BurrowPanel data={burrow} relocate={(id) => dispatch(`relocate-family:${id}`)} />
+            <BurrowPanel
+              data={burrow}
+              relocate={(id) => dispatch(`relocate-family:${id}`)}
+              outing={burrow.coldNight && <ColdNightCard data={burrow.coldNight} store={store} />}
+            />
           </ScrollContainer>
         )}
       </Dialog>

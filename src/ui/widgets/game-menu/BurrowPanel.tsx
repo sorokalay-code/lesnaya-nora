@@ -1,25 +1,33 @@
 import { Button, Disclosure, Notice } from '../../shared/ui';
 import type { BurrowView } from '../../presenters/BurrowPresenter';
+import type { ReactNode } from 'react';
 import './BurrowPanel.css';
 
 /** Показывает снимок обустройства норы; правила и обход ходов остаются в движке. */
 export function BurrowPanel({
   data,
   relocate,
+  outing,
 }: {
   data: BurrowView;
   relocate?: (nestId: number) => void;
+  outing?: ReactNode;
 }) {
   if (data.state !== 'burrow')
     return (
-      <Notice heading={data.state === 'empty' ? 'Здесь начнётся твой дом' : 'Подойди к своей норе'}>
-        <p>
-          {data.state === 'empty'
-            ? 'Переключись на вид от первого лица и выкопай вход. Затем спустись по склону и продли ход.'
-            : 'План доступен внутри выкопанного хода или рядом с его входом. Отдельные норы оцениваются независимо.'}
-        </p>
-        <p>Открой «План норы» снова: здесь появятся выходы, гнёзда и кладовые.</p>
-      </Notice>
+      <div className="burrow-panel">
+        <Notice
+          heading={data.state === 'empty' ? 'Здесь начнётся твой дом' : 'Подойди к своей норе'}
+        >
+          <p>
+            {data.state === 'empty'
+              ? 'Переключись на вид от первого лица и выкопай вход. Затем спустись по склону и продли ход.'
+              : 'План доступен внутри выкопанного хода или рядом с его входом. Отдельные норы оцениваются независимо.'}
+          </p>
+          <p>Открой «План норы» снова: здесь появятся выходы, гнёзда и кладовые.</p>
+        </Notice>
+        {outing}
+      </div>
     );
 
   const next = data.steps.find((step) => !step.complete);
@@ -46,6 +54,7 @@ export function BurrowPanel({
           <dd>{data.food} шт.</dd>
         </div>
       </dl>
+      {outing}
       <div className="burrow-layout">
         <div>
           <BurrowMap data={data.map} />

@@ -1,9 +1,11 @@
 import { BurrowPlanner, type BurrowNest } from '../../game/BurrowPlanner';
+import type { ColdNightPlan } from '../../game/ColdNightPlan';
 import type { BurrowMoisture } from '../../game/BurrowClimate';
 import { NEST_ENTRANCE_MARGIN } from '../../game/BurrowSafety';
 import type { Excavation } from '../../game/Excavation';
 import { RELOCATION_DETAIL, type FamilyRelocation } from '../../game/session/FamilyRelocation';
 import type { DigNode, SaveData } from '../../game/types';
+import { ColdNightPresenter, type ColdNightView } from './ColdNightPresenter';
 
 interface BurrowMarker {
   position: DigNode;
@@ -18,7 +20,7 @@ const NEST_STATUS: Record<BurrowNest['placement'], string> = {
   interior: 'В глубине ходов',
 };
 
-export type BurrowView =
+export type BurrowView = (
   | { state: 'empty' | 'away' }
   | {
       state: 'burrow';
@@ -45,7 +47,8 @@ export type BurrowView =
         moisture: BurrowMoisture;
         relocation?: { available: boolean; detail: string };
       }[];
-    };
+    }
+) & { coldNight?: ColdNightView };
 
 /** Готовит снимок плана норы и объясняет обустройство без передачи игрового графа в React. */
 export class BurrowPresenter {
@@ -53,14 +56,18 @@ export class BurrowPresenter {
     save: SaveData,
     earth: Excavation,
     relocation?: Pick<FamilyRelocation, 'status'>,
+    outing?: ColdNightPlan,
   ): BurrowView {
     const plan = BurrowPlanner.inspect(save, earth);
-    if (!plan) return { state: save.excavation.length ? 'away' : 'empty' };
+    const coldNight = outing && ColdNightPresenter.build(outing, plan);
+    const outingView = coldNight ? { coldNight } : {};
+    if (!plan) return { state: save.excavation.length ? 'away' : 'empty', ...outingView };
     const exitCount = plan.network.exits.length;
     const food = plan.stashes.reduce((sum, stash) => sum + stash.food, 0);
     const round = (value: number) => Math.round(value * 10) / 10;
     return {
       state: 'burrow',
+      ...outingView,
       length: round(plan.length),
       depth: round(plan.depth),
       exitCount,

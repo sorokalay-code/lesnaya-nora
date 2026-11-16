@@ -110,6 +110,7 @@ export type DialogViewModel = (
       inventory: SaveData['inventory'];
       materials: SaveData['materials'];
       stored: Partial<Record<FoodKind, number>>;
+      storedFur?: number;
     }
 ) & { genetics?: GeneticsView };
 
@@ -120,6 +121,10 @@ export interface MapViewModel {
   landmarks: { x: number; z: number; label: string }[];
   openings: { x: number; z: number }[];
   player: { x: number; z: number; heading: number };
+  outing?: {
+    home: { x: number; z: number; id: number };
+    waypoint?: { x: number; z: number };
+  };
 }
 export type { SaveSlotSummary };
 export type JournalViewModel =

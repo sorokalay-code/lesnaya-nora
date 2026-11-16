@@ -1,0 +1,13 @@
+.world-map[data-markable='true'] {
+  cursor: crosshair;
+}
+
+.outing-map-tools {
+  margin-top: var(--ui-space-12);
+}
+
+.outing-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-8);
+}

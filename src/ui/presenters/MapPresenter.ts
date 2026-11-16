@@ -37,6 +37,18 @@ export class MapPresenter {
         .map(({ x, z }) => ({ x, z })),
       // На карте ось Z направлена вниз, поэтому север соответствует углу 0.
       player: { x: save.player.x, z: save.player.z, heading: Math.atan2(facing.x, -facing.z) },
+      outing: this.outing(save),
+    };
+  }
+
+  outing(save: SaveData): MapViewModel['outing'] {
+    const outing = save.coldNightOuting;
+    const stash = outing && save.stashes.find(({ id }) => id === outing.stashId);
+    if (!stash || !outing) return;
+
+    return {
+      home: { id: stash.id, x: stash.x, z: stash.z },
+      waypoint: outing.waypoint,
     };
   }
 }

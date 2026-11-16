@@ -158,6 +158,7 @@ export function DialogView({
                   `↘ Выбросить ${kind === 'twigs' ? 'ветку' : kind === 'fur' ? 'пух' : 'траву'} · ${data.materials[kind]}`,
                 ),
               )}
+            {!!data.storedFur && choice('retrieve-fur', `Взять пух из тайника · ${data.storedFur}`)}
             {(Object.keys(FOOD) as FoodKind[])
               .filter((kind) => (data.stored[kind] ?? 0) > 0)
               .map((kind) =>

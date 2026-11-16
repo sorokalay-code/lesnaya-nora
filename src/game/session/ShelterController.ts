@@ -27,6 +27,7 @@ export function nestHasKits(save: SaveData, nest: NestData): boolean {
 }
 
 interface Context {
+  cancelOuting?: () => void;
   save: SaveData;
   queries: Pick<SessionQueries, 'stash' | 'nest'>;
   decorations: Pick<SceneDecorations, 'removeStash' | 'removeNest'>;
@@ -111,6 +112,7 @@ export class ShelterController {
       if (index < 0) return;
       this.context.save.stashes.splice(index, 1);
       this.context.decorations.removeStash(pending.id);
+      if (this.context.save.coldNightOuting?.stashId === pending.id) this.context.cancelOuting?.();
     }
     this.context.persist();
     this.context.menu();

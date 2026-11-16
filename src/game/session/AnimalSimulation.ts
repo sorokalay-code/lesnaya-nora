@@ -415,6 +415,7 @@ export class AnimalSimulation {
           if (actors[i] instanceof RabbitActor && save.mateId === actors[i].data.id) {
             if (save.pregnancy?.motherId === save.mateId) save.pregnancy = null;
             save.mateId = undefined;
+            if (save.coldNightOuting) delete save.coldNightOuting.helperId;
             save.mateStay = undefined;
             save.mateCommand = undefined;
             save.mateMessages = [];

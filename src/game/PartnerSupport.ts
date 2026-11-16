@@ -1,16 +1,19 @@
 import { RabbitActor, type GroundHeight } from './animals';
 import { AnimalRestraint } from './animals/AnimalRestraint';
+import { isColdNightFood, type ColdNightPlan } from './ColdNightPlan';
 import { Excavation } from './Excavation';
 import { GroundItems, type GroundPickup } from './GroundItems';
 import { animateRabbit, setRabbitAction } from './Models';
+import { FUR_COOLDOWN_SECONDS } from './NestBedding';
 import type { PartnerCare } from './PartnerCare';
 import { Random } from './Random';
 import { RABBIT_BODY } from './RabbitBody';
-import { FOOD, type SaveData, type StashData } from './types';
+import { FOOD, type ColdNightGoal, type DigNode, type SaveData, type StashData } from './types';
 import { World, type Resource } from './World';
 
 type ForageTarget = { type: 'food'; resource: Resource } | { type: 'branch'; item: GroundPickup };
 export type PartnerEvent = { kind: 'gathered' | 'delivered'; text: string };
+const PANTRY_APPROACH_SECONDS = 0.5;
 
 /** Автомат состояний партнёра: поиск припасов, доставка в тайник и семейные команды. */
 
@@ -19,6 +22,8 @@ export class PartnerSupport {
   private nextSearch = 0;
   private nextFur = 0;
   private domesticUntil = 0;
+  private outingTask?: { goal: ColdNightGoal; stash: StashData };
+  private pantryApproach?: { pantry: StashData; destination: DigNode; until: number };
 
   constructor(
     private readonly save: SaveData,
@@ -27,6 +32,7 @@ export class PartnerSupport {
     private readonly items: GroundItems,
     private readonly rng: Random,
     private readonly homeLife?: PartnerCare,
+    private readonly coldNight?: ColdNightPlan,
   ) {}
 
   familyStash(): StashData | undefined {
@@ -60,7 +66,15 @@ export class PartnerSupport {
       actor.navigateMate(dt, time, this.save.player, this.earth, groundAt);
       return;
     }
-    const stash = this.familyStash();
+    const order = this.coldNight?.orderFor(actor.data.id, time);
+    if (this.outingTask?.goal !== order?.goal || this.outingTask?.stash !== order?.stash) {
+      this.outingTask = order;
+      this.target = undefined;
+      this.nextSearch = 0;
+      this.pantryApproach = undefined;
+    }
+
+    const stash = order?.stash ?? this.familyStash();
     const home = stash ?? this.save.player;
     let command = this.save.mateCommand ?? 'forage';
     if (!stash) {
@@ -73,6 +87,7 @@ export class PartnerSupport {
     const cargo = (this.save.partnerCargo ??= { grass: 0, twigs: 0, fur: 0 });
     const unloaded = !cargo.food && !cargo.grass && !cargo.twigs && !cargo.fur;
     if (
+      !order &&
       this.homeLife?.update(
         actor,
         home,
@@ -111,16 +126,12 @@ export class PartnerSupport {
 
     if (!stash) return;
 
-    if (cargo.food || cargo.grass || cargo.twigs || cargo.fur) {
-      actor.navigateMate(dt, time, stash, this.earth, groundAt);
-      if (
-        Math.hypot(
-          actor.data.x - stash.x,
-          ((actor.rig.root.userData.baseY as number) ?? 0) - stash.y,
-          actor.data.z - stash.z,
-        ) > 1.5
-      )
-        return;
+    if (!unloaded) {
+      const destination = order
+        ? this.outingPantryDestination(actor, stash, groundAt, time)
+        : stash;
+      actor.navigateMate(dt, time, destination, this.earth, groundAt);
+      if (!this.atPantry(actor, stash, groundAt, !!order)) return;
 
       const delivered: string[] = [];
       if (cargo.food) {
@@ -145,6 +156,23 @@ export class PartnerSupport {
       };
     }
 
+    if (order?.ready) {
+      this.coldNight?.dismissHelper();
+      return;
+    }
+
+    if (order?.goal === 'fur') {
+      const destination = this.outingPantryDestination(actor, stash, groundAt, time);
+      actor.navigateMate(dt, time, destination, this.earth, groundAt);
+      if (time >= this.nextFur && this.atPantry(actor, stash, groundAt, true)) {
+        this.nextFur = time + FUR_COOLDOWN_SECONDS;
+        cargo.fur = 1;
+        setRabbitAction(actor.rig, 'pluck', time + actor.data.id, 1.5);
+      }
+
+      return;
+    }
+
     if (this.target?.type === 'food' && !this.target.resource.available) this.target = undefined;
 
     if (
@@ -158,10 +186,12 @@ export class PartnerSupport {
       const food = this.world.resources.filter(
         (r) =>
           r.available &&
-          ['clover', 'carrot', 'cabbage', 'berries', 'acorn'].includes(r.kind) &&
+          (order
+            ? isColdNightFood(r.kind)
+            : ['clover', 'carrot', 'cabbage', 'berries', 'acorn'].includes(r.kind)) &&
           Math.hypot(r.x - home.x, r.z - home.z) < 60,
       );
-      const branches = this.items.availableBranches(home.x, home.z, 55);
+      const branches = order ? [] : this.items.availableBranches(home.x, home.z, 55);
       if (branches.length && (this.rng.chance(0.45) || !food.length)) {
         const item = branches.sort(
           (a, b) =>
@@ -180,6 +210,16 @@ export class PartnerSupport {
     }
 
     if (!this.target) {
+      if (order) {
+        actor.navigateMate(
+          dt,
+          time,
+          this.outingPantryDestination(actor, stash, groundAt, time),
+          this.earth,
+          groundAt,
+        );
+        return;
+      }
       const handled = this.homeLife?.update(actor, home, dt, time, groundAt, true);
       if (this.homeLife?.busy) return;
       if (!handled) actor.navigateMate(dt, time, home, this.earth, groundAt);
@@ -222,12 +262,53 @@ export class PartnerSupport {
       cargo.twigs = 1;
     }
 
-    if (time >= this.nextFur) {
+    if (!order && time >= this.nextFur) {
       cargo.fur = 1;
       this.nextFur = time + this.rng.range(65, 105);
     }
 
     this.target = undefined;
     return { kind: 'gathered', text: `${actor.data.name} несёт припасы домой.` };
+  }
+
+  private outingPantryDestination(
+    actor: RabbitActor,
+    stash: StashData,
+    groundAt: GroundHeight,
+    time: number,
+  ): DigNode {
+    if (this.pantryApproach?.pantry === stash && time < this.pantryApproach.until)
+      return this.pantryApproach.destination;
+
+    const { x, z } = actor.data;
+    const y = (actor.rig.root.userData.baseY as number | undefined) ?? groundAt(x, z);
+    let destination: DigNode = stash;
+    if (
+      this.earth.isSheltered(x, y, z) &&
+      this.earth.burrowAt({ x, y, z })?.network !== this.earth.burrowAt(stash)?.network
+    ) {
+      // Между отдельными норами путь проходит через поверхность.
+      destination = { x: stash.x, y: groundAt(stash.x, stash.z), z: stash.z };
+    }
+
+    this.pantryApproach = { pantry: stash, destination, until: time + PANTRY_APPROACH_SECONDS };
+    return destination;
+  }
+
+  private atPantry(
+    actor: RabbitActor,
+    stash: StashData,
+    groundAt: GroundHeight,
+    connected: boolean,
+  ): boolean {
+    const { x, z } = actor.data;
+    const y = (actor.rig.root.userData.baseY as number | undefined) ?? groundAt(x, z);
+    if (Math.hypot(x - stash.x, y - stash.y, z - stash.z) > 1.5) return false;
+    if (!connected) return true;
+
+    return (
+      this.earth.isSheltered(x, y, z) &&
+      this.earth.burrowAt({ x, y, z })?.network === this.earth.burrowAt(stash)?.network
+    );
   }
 }

@@ -13,8 +13,10 @@ import type { SpiderEncounter } from './SpiderEncounter';
 import { GeneticsPresenter } from '../../ui/presenters/GeneticsPresenter';
 import { LineageGraphPresenter } from '../../ui/presenters/LineageGraphPresenter';
 import { SessionMenus } from './SessionMenus';
+import type { ColdNightActions } from './ColdNightActions';
 
 interface Context {
+  coldNight?: ColdNightActions;
   restrained?: () => boolean;
   web: SpiderEncounter;
   grooming: FamilyGrooming;
@@ -100,6 +102,10 @@ export class SessionActions {
     if (action === 'burrow-plan') {
       this.menus.showGame('burrow');
       this.context.inspectBurrow();
+      return;
+    }
+    if (action.startsWith('cold-night:')) {
+      if (!this.context.web.trapped) this.context.coldNight?.execute(action);
       return;
     }
     if (action.startsWith('relocate-family:')) {

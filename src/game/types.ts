@@ -126,6 +126,13 @@ export interface DropData {
   kind: FoodKind | MaterialKind;
 }
 export type MateCommand = 'forage' | 'follow' | 'stay' | 'home';
+export type ColdNightGoal = 'food' | 'fur';
+export interface ColdNightOuting {
+  stashId: number;
+  goal: ColdNightGoal;
+  waypoint?: { x: number; z: number };
+  helperId?: number;
+}
 export interface MateMessage {
   from: 'player' | 'partner';
   text: string;
@@ -178,6 +185,7 @@ export interface SaveData {
   gnawedBark?: Record<string, number>;
   mateId?: number;
   mateCommand?: MateCommand;
+  coldNightOuting?: ColdNightOuting;
   mateStay?: { x: number; y: number; z: number };
   mateMessages?: MateMessage[];
   partnerCargo?: { food?: FoodKind; grass: number; twigs: number; fur: number };

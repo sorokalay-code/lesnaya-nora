@@ -25,6 +25,7 @@ export interface UIState {
   gameMenu?: GameMenuPage;
   settingsTab: SettingsTab;
   burrow?: BurrowView;
+  coldNightPantryId?: number;
   graphics: GraphicsSettings;
   soundMuted: boolean;
   saveNotice?: string;
@@ -119,6 +120,7 @@ export function simulationPaused(state: UIState): boolean {
   return (
     state.familyOpen ||
     !!state.gameMenu ||
+    (state.journal?.mode === 'map' && !!state.journal.map.outing) ||
     state.eventsOpen ||
     state.dialog?.type === 'remove' ||
     state.dialog?.type === 'help' ||

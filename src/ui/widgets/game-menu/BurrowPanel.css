@@ -20,6 +20,22 @@
   color: var(--ui-text-muted);
 }
 
+.burrow-outing {
+  margin-block: var(--ui-space-16);
+}
+
+.burrow-outing .ui-field-label {
+  margin-top: var(--ui-space-8);
+  max-width: 24rem;
+}
+
+.burrow-outing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-8);
+  margin-top: var(--ui-space-12);
+}
+
 .burrow-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 115px), 1fr));

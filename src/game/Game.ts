@@ -14,6 +14,8 @@ import { GroundItems } from './GroundItems';
 import { ModelAssets } from './ModelAssets';
 import { setRabbitAction, type RabbitAction, type RabbitRig } from './Models';
 import { PartnerSupport } from './PartnerSupport';
+import { ColdNightPlan } from './ColdNightPlan';
+import { ColdNightActions } from './session/ColdNightActions';
 import { PerformanceMonitor } from './PerformanceMonitor';
 import { Random } from './Random';
 import { SaveRepository } from './SaveRepository';
@@ -331,6 +333,7 @@ export class Game {
         if (!this.earth.isSheltered(w.x, w.y, w.z)) this.world.fertilize(w.x, w.z, this.save.clock);
       },
     );
+    const coldNight = new ColdNightPlan(this.save, this.earth, this.world.size);
     this.partnerSupport = new PartnerSupport(
       this.save,
       this.world,
@@ -347,6 +350,7 @@ export class Game {
         },
         new Random(this.save.seed + 7593),
       ),
+      coldNight,
     );
     this.consequences = new PlayerConsequences({
       save: this.save,
@@ -506,6 +510,7 @@ export class Game {
       family: this.family,
     });
     this.sessionUI = new SessionInterface({
+      coldNight,
       canSave: () => !this.animals?.hasCaptures,
       airliftView: () => this.animals?.airliftView,
       rabbitChaseView: () => this.animals?.rabbitChaseView,
@@ -530,6 +535,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.shelters = new ShelterController({
+      cancelOuting: () => coldNight.cancel(),
       save: this.save,
       queries: this.queries,
       decorations: this.decorations,
@@ -539,6 +545,14 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.actions = new SessionActions({
+      coldNight: new ColdNightActions({
+        outing: coldNight,
+        ui: this.ui,
+        inspectBurrow: () => this.sessionUI.inspectBurrow(),
+        refreshMap: () => this.sessionUI.refreshMap(),
+        persist: () => this.sessionUI.persist(false),
+        toast: (text) => this.toast(text),
+      }),
       restrained: () => AnimalRestraint.active(this.player.root),
       web: this.web,
       grooming: new FamilyGrooming({

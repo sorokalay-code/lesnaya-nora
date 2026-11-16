@@ -2,6 +2,7 @@ import type { Excavation } from './Excavation';
 import type { DigNode, NestData } from './types';
 
 export const NEST_FUR_COST = 6;
+export const FUR_COOLDOWN_SECONDS = 25;
 export const NEST_BEDDING_RADIUS = 2.3;
 export const INSULATED_WARMING_MULTIPLIER = 2;
 
