@@ -23,7 +23,7 @@ export type WildlifeEvent = {
   subject: string;
 };
 const FIELD_WILDLIFE = ['mole', 'marmot', 'pheasant'] as const;
-const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE] as const;
+const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE, 'roe-deer'] as const;
 
 /** Моделирует питание, охоту, конфликты, защиту и восстановление популяции животных. */
 
@@ -128,6 +128,7 @@ export class WildlifeEcology {
 
       if (
         kind !== 'deer' &&
+        kind !== 'roe-deer' &&
         kind !== 'moose' &&
         kind !== 'beaver' &&
         kind !== 'bear' &&

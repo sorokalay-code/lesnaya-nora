@@ -47,6 +47,7 @@ export const CREATURE_NAMES = [
   'pheasant',
   'chipmunk',
   'deer',
+  'roe-deer',
   'squirrel',
   'hedgehog',
   'beaver',

@@ -31,6 +31,12 @@ export function surfacePixel(kind: SurfaceTexture, x: number, y: number): [numbe
     const value = 233 + strand * 9 + grain * 7;
     return [value, value, value];
   }
+  if (kind === 'roe-deer') {
+    const strand = Math.sin((x * Math.PI) / 2 + Math.sin((y * Math.PI) / 16) * 1.3);
+    const mottling = smoothNoise(x / 7, y / 7, 1289) - 0.5;
+    const value = 230 + strand * 7 + grain * 5 + mottling * 9;
+    return [value, value, value];
+  }
   if (kind === 'feather') {
     const value = 234 + Math.cos(((x + y) * Math.PI) / 8) * 10 + wave * 4;
     return [value, value, value];

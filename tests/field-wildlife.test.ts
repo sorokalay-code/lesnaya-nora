@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { AnimalFactory, PlayerRabbit, RabbitFactory } from '../src/game/animals';
 import { Owl } from '../src/game/animals/Owl';
 import { AnimalVoiceSources } from '../src/game/audio/AnimalVoiceSources';
+import { AnimalCalls } from '../src/game/audio/AnimalCalls';
 import { Random } from '../src/game/Random';
 import { HawkHunting } from '../src/game/session/HawkHunting';
 import { RodentHunting } from '../src/game/session/RodentHunting';
@@ -13,7 +14,7 @@ import { ADDED_ANIMALS, CREATURE_OPTIONS } from '../src/game/WorldConfig';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { loadModels } from './model-fixture';
 
-await loadModels('rabbit', 'mouse', 'chipmunk', 'owl', 'scolopendra');
+await loadModels('rabbit', 'mouse', 'chipmunk', 'owl', 'scolopendra', 'roe-deer');
 
 function forest() {
   const rng = new Random(54);
@@ -120,6 +121,39 @@ test('scolopendra pursues only mice and rabbits, and cannot bite into a tunnel',
   assert.deepEqual(attacks, ['scolopendra']);
 });
 
+test('roe deer is a peaceful species with dedicated model clips and wildlife voices', () => {
+  const { context, rng } = forest();
+  const roeDeer = AnimalFactory.forest('roe-deer', 12, 4, rng);
+  const voices = new AnimalVoiceSources({
+    save: context.save,
+    rabbits: [],
+    families: [],
+    wildlife: [roeDeer],
+    predators: [],
+    hawks: [],
+  });
+
+  assert.equal(roeDeer.kind, 'roe-deer');
+  assert.equal(roeDeer.defense, 0);
+  assert.equal(roeDeer.receiveAttack(1, 0, { x: 11, z: 4 }), 0);
+  assert.equal(roeDeer.model.root.name, 'roe-deer');
+  assert.ok(roeDeer.model.clips.has('walk'));
+  assert.ok(roeDeer.model.clips.has('graze'));
+  assert.ok([...voices.all()].some(({ kind }) => kind === 'roe-deer'));
+});
+
+test('roe deer voices synthesize a bark and a breath', () => {
+  const sounds: string[] = [];
+  const calls = new AnimalCalls({
+    noise: () => sounds.push('breath'),
+    vocal: () => sounds.push('bark'),
+  });
+
+  calls.play({ kind: 'roe-deer', activity: 'alert', volume: 1, pan: 0 });
+
+  assert.deepEqual(sounds, ['bark', 'breath']);
+});
+
 test('older world configurations gain new wildlife, while explicit zero stays zero', () => {
   const { context } = forest();
   const values = new Map<string, string>();
@@ -145,6 +179,7 @@ test('older world configurations gain new wildlife, while explicit zero stays ze
       CREATURE_OPTIONS.find(({ kind }) => kind === 'scolopendra')?.label,
       'подстилочная',
     );
+    assert.equal(CREATURE_OPTIONS.find(({ kind }) => kind === 'roe-deer')?.label, 'Косули');
   } finally {
     if (storage) Object.defineProperty(globalThis, 'localStorage', storage);
     else Reflect.deleteProperty(globalThis, 'localStorage');

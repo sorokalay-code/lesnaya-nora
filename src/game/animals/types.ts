@@ -1,6 +1,7 @@
 export type GroundHeight = (x: number, z: number) => number;
 export type WildlifeKind =
   | 'deer'
+  | 'roe-deer'
   | 'squirrel'
   | 'hedgehog'
   | 'beaver'

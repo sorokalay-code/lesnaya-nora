@@ -35,6 +35,7 @@ import { Scolopendra } from './Scolopendra';
 import { Hawk } from './Hawk';
 import { Owl } from './Owl';
 import type { FlyingRaptor, RaptorKind } from './FlyingRaptor';
+import { RoeDeer } from './RoeDeer';
 
 type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: AppearanceOptions) => T;
 
@@ -67,6 +68,7 @@ export class AnimalFactory {
     mouse: Mouse,
     fish: Fish,
     deer: Deer,
+    'roe-deer': RoeDeer,
     squirrel: Squirrel,
     hedgehog: Hedgehog,
     beaver: Beaver,

@@ -5,6 +5,7 @@ export const animalNames = {
   fish: 'Рыба',
   boar: 'Кабан',
   deer: 'Олень',
+  'roe-deer': 'Косуля',
   squirrel: 'Белка',
   hedgehog: 'Ёж',
   beaver: 'Бобр',

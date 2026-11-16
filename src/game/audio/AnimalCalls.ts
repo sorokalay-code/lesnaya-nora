@@ -3,7 +3,7 @@ import type { NaturalVoices } from './NaturalVoices';
 
 /** Синтезирует тихие голоса и шорохи настоящих соседей: дыхание, фырканье, стрекот и дальние зовы. */
 export class AnimalCalls {
-  constructor(private readonly voices: NaturalVoices) {}
+  constructor(private readonly voices: Pick<NaturalVoices, 'noise' | 'vocal'>) {}
 
   play(cue: AnimalVoiceCue): void {
     const { kind, activity, pan } = cue;
@@ -42,6 +42,10 @@ export class AnimalCalls {
       deer: () => {
         breath(620, 0.29, 0.3);
         if (activity === 'alert') call(410, 230, 0.22, 0.17);
+      },
+      'roe-deer': () => {
+        call(520, 390, 0.13, activity === 'alert' ? 0.24 : 0.14);
+        breath(950, 0.1, 0.13, 0.15);
       },
       moose: () => {
         call(115, 82, 0.55, 0.25);

@@ -277,7 +277,7 @@ test('every selected species spawns with its own count even without forest or tr
   for (let time = 0; time < 1000; time += 50)
     f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
   assert.equal(f.population.wildlife.filter((animal) => animal.kind === 'deer').length, 2);
-  assert.equal(f.population.wildlife.length, 30);
+  assert.equal(f.population.wildlife.length, 32);
 });
 
 test('save round trip preserves configured terrain, plants, populations and calendar; defaults survive', () => {

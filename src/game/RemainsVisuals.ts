@@ -19,11 +19,11 @@ export class RemainsVisuals {
     if (data.appearance) AnimalAppearance.apply(model, data.appearance);
     // У длинношеих видов голова опускается к плечам: поза живой модели сбоку
     // оставляла бы заметный просвет между черепом и корпусом.
-    if (data.kind === 'deer' || data.kind === 'moose') {
+    if (data.kind === 'deer' || data.kind === 'roe-deer' || data.kind === 'moose') {
       for (const variant of model.variants ?? [model]) {
         const head = variant.root.getObjectByName('Head');
         if (head) {
-          head.position.y -= data.kind === 'deer' ? 0.35 : 0.45;
+          head.position.y -= data.kind === 'moose' ? 0.45 : data.kind === 'deer' ? 0.35 : 0.22;
           head.position.z += 0.12;
         }
       }
@@ -133,7 +133,7 @@ export class RemainsVisuals {
       const large =
         kind === 'moose'
           ? 1.8
-          : ['deer', 'bear'].includes(kind)
+          : ['deer', 'roe-deer', 'bear'].includes(kind)
             ? 1.5
             : ['squirrel', 'hedgehog', 'mole', 'chipmunk'].includes(kind)
               ? 0.55
@@ -168,7 +168,7 @@ export class RemainsVisuals {
             bone(point(0, end * length * 0.65), joint);
             bone(joint, point(side * 0.55 * large, end * length * 0.7 - 0.35 * large));
           }
-        if (kind === 'deer' || kind === 'moose')
+        if (kind === 'deer' || kind === 'roe-deer' || kind === 'moose')
           for (const side of [-1, 1]) {
             bone(point(side * 0.15, -length - 0.1), point(side * 0.55, -length - 0.6));
             bone(point(side * 0.38, -length - 0.4), point(side * 0.7, -length - 0.3));

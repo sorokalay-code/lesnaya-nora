@@ -19,6 +19,7 @@ const INTERVALS: Record<AnimalVoiceKind, number> = {
   hedgehog: 22,
   beaver: 30,
   deer: 28,
+  'roe-deer': 32,
   moose: 42,
   boar: 28,
   fox: 32,

@@ -20,6 +20,7 @@ const interests = {
   fish: 'Здесь спокойно под водой.',
   boar: 'Я ищу корм под листвой. Пройдёшь тихо, не разбрасывая мои находки?',
   deer: 'Я люблю тихие тропы. Как ты ведёшь себя, когда слышишь шорох?',
+  'roe-deer': 'Я держусь опушек и убегаю при резком шуме. Ты умеешь двигаться тихо?',
   moose: 'Малыши пугаются резких движений. Как нам пройти рядом с твоей семьёй?',
   squirrel: 'Я собираю припасы. Поделишься клевером или морковкой?',
   hedgehog: 'После долгой прогулки я проголодался. У тебя есть безопасное угощение?',
@@ -43,6 +44,7 @@ const friendStories: Record<ForestAnimal['kind'], string> = {
   fish: 'У поворота реки всегда прохладнее. Летом я прячусь там в тени корней.',
   boar: 'Когда земля промокнет после дождя, я нахожу под листьями самые вкусные корни.',
   deer: 'На рассвете я знаю тропу, где почти не слышно шагов. Веду по ней малышей к воде.',
+  'roe-deer': 'На опушке я нахожу молодые побеги и сразу замечаю, если в траве кто-то шевельнулся.',
   moose:
     'Люблю первые тёплые дни у болота: новые побеги там появляются раньше, чем на сухой опушке.',
   squirrel:
@@ -118,7 +120,10 @@ export class ForestConversation {
   respond(animal: ForestAnimal, action: string): string {
     if (action.startsWith('animal-friend-')) return this.friendReply(animal, action);
     if (action === 'animal-question') {
-      animal.social.request = animal.kind === 'deer' || animal.kind === 'moose' ? 'quiet' : 'food';
+      animal.social.request =
+        animal.kind === 'deer' || animal.kind === 'roe-deer' || animal.kind === 'moose'
+          ? 'quiet'
+          : 'food';
       return 'Хорошо, давай познакомимся поближе. У меня тоже есть вопрос к тебе.';
     }
     if (action === 'animal-answer-later') {
@@ -142,7 +147,7 @@ export class ForestConversation {
     if (action === 'animal-path') return this.discover(animal);
     if (action === 'animal-danger') {
       this.bond(animal, 4);
-      return animal.kind === 'deer' || animal.kind === 'moose'
+      return animal.kind === 'deer' || animal.kind === 'roe-deer' || animal.kind === 'moose'
         ? 'В поле смотри в небо, а вечером — на опушку. Когда мы подружимся, я буду предупреждать тебя о хищниках рядом.'
         : 'Под деревьями спокойнее. Следи за запахом и не оставляй отходы у гнезда.';
     }

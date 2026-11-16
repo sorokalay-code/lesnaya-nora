@@ -14,4 +14,5 @@ export { Rabbit } from './Rabbit';
 export { RabbitActor } from './RabbitActor';
 export { RabbitFactory, partnerScore } from './RabbitFactory';
 export { RabbitKit } from './RabbitKit';
+export { RoeDeer } from './RoeDeer';
 export type { GroundHeight, PredatorProfile, WildlifeKind, WildlifeProfile } from './types';

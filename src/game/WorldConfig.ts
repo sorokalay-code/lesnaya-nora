@@ -24,6 +24,7 @@ export interface WorldConfig {
 export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max: number }[] = [
   { kind: 'rabbit', label: 'Кролики-соседи', max: 120 },
   { kind: 'deer', label: 'Олени', max: 90 },
+  { kind: 'roe-deer', label: 'Косули', max: 90 },
   { kind: 'squirrel', label: 'Белки', max: 90 },
   { kind: 'hedgehog', label: 'Ежи', max: 90 },
   { kind: 'duck', label: 'Утки', max: 50 },
@@ -58,6 +59,7 @@ export const ADDED_ANIMALS = [
   'marmot',
   'pheasant',
   'chipmunk',
+  'roe-deer',
   'scolopendra',
   'owl',
 ] as const satisfies readonly CreatureKind[];
@@ -89,6 +91,7 @@ export function defaultWorldConfig(): WorldConfig {
     creatures: {
       rabbit: 16,
       deer: 6,
+      'roe-deer': 8,
       squirrel: 9,
       hedgehog: 8,
       beaver: 5,

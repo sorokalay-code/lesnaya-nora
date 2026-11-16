@@ -531,6 +531,7 @@ function peaceful(kind) {
     visual = group(root, 'Visual');
   const data = {
     deer: [0xa9784f, 1.13, 0.53, 0.87],
+    'roe-deer': [0x9c6947, 0.91, 0.42, 0.68],
     moose: [0x70523e, 1.65, 0.72, 1.08],
     squirrel: [0xb66f3e, 0.43, 0.28, 0.39],
     hedgehog: [0x765b44, 0.34, 0.43, 0.55],
@@ -544,7 +545,11 @@ function peaceful(kind) {
     base,
     'Body',
     [0, by, 0.06],
-    [bw, kind === 'moose' ? 0.67 : kind === 'deer' ? 0.54 : by * 0.78, bl],
+    [
+      bw,
+      kind === 'moose' ? 0.67 : kind === 'deer' ? 0.54 : kind === 'roe-deer' ? 0.4 : by * 0.78,
+      bl,
+    ],
   );
   const head = group(
     visual,
@@ -554,11 +559,13 @@ function peaceful(kind) {
       ? 2.38
       : kind === 'deer'
         ? 1.93
-        : kind === 'squirrel'
-          ? 0.78
-          : kind === 'beaver'
-            ? 0.66
-            : 0.36,
+        : kind === 'roe-deer'
+          ? 1.5
+          : kind === 'squirrel'
+            ? 0.78
+            : kind === 'beaver'
+              ? 0.66
+              : 0.36,
     kind === 'moose' ? -1.1 : kind === 'deer' ? -0.81 : -0.5,
   );
   ell(
@@ -570,7 +577,9 @@ function peaceful(kind) {
       ? [0.48, 0.39, 0.48]
       : kind === 'deer'
         ? [0.38, 0.35, 0.37]
-        : [0.3, 0.25, 0.31],
+        : kind === 'roe-deer'
+          ? [0.31, 0.28, 0.33]
+          : [0.3, 0.25, 0.31],
   );
   ell(
     head,
@@ -580,10 +589,10 @@ function peaceful(kind) {
     kind === 'moose' ? [0.34, 0.23, 0.4] : [0.2, 0.14, 0.21],
   );
   for (const side of [-1, 1]) {
-    const w = kind === 'moose' ? 0.36 : kind === 'deer' ? 0.29 : 0.23;
+    const w = kind === 'moose' ? 0.36 : kind === 'deer' ? 0.29 : kind === 'roe-deer' ? 0.24 : 0.23;
     mini(head, eye, `Eye${side}`, [side * w, 0.07, -0.25], [0.048, 0.054, 0.04]);
     mini(head, shine, `Glint${side}`, [side * w - 0.012, 0.09, -0.286], [0.014, 0.015, 0.009]);
-    if (kind === 'moose' || kind === 'deer') {
+    if (kind === 'moose' || kind === 'deer' || kind === 'roe-deer') {
       ell(
         head,
         base,
@@ -592,7 +601,13 @@ function peaceful(kind) {
         [0.21, 0.12, 0.13],
         [0, 0, side * 0.3],
       );
-      const antler = group(head, `Antler${side}`, side * 0.24, 0.35, 0.04);
+      const antler = group(
+        head,
+        `Antler${side}`,
+        side * (kind === 'roe-deer' ? 0.2 : 0.24),
+        0.35,
+        0.04,
+      );
       const horn = mat('antler', kind === 'moose' ? 0xb9a078 : 0xc7ad82);
       if (kind === 'moose') {
         ell(
@@ -610,6 +625,17 @@ function peaceful(kind) {
             `Tine${side}_${i}`,
             [side * (0.2 + i * 0.22), 0.66 + (i % 2) * 0.09, 0],
             [0.065, 0.31, 0.07],
+          );
+      } else if (kind === 'roe-deer') {
+        stick(antler, horn, `Beam${side}`, [0, 0, 0], [side * 0.18, 0.4, 0], 0.035);
+        for (let i = 0; i < 2; i++)
+          stick(
+            antler,
+            horn,
+            `Tine${side}_${i}`,
+            [side * (0.08 + i * 0.07), 0.16 + i * 0.12, 0],
+            [side * (0.21 + i * 0.07), 0.32 + i * 0.12, -0.06],
+            0.023,
           );
       } else {
         stick(antler, horn, `Beam${side}`, [0, 0, 0], [side * 0.3, 0.78, 0], 0.045);
@@ -642,27 +668,41 @@ function peaceful(kind) {
     ell(tail, base, 'TailFur', [0, 0.47, 0.35], [0.25, 0.62, 0.32], [0.4, 0, 0]);
     ell(tail, light, 'TailTip', [0, 1.0, 0.48], [0.2, 0.2, 0.21]);
   } else if (kind === 'beaver') ell(visual, dark, 'Paddle', [0, 0.2, 0.97], [0.3, 0.07, 0.63]);
-  else mini(visual, light, 'Tail', [0, by + 0.08, bl + 0.04], [0.16, 0.15, 0.18]);
+  else {
+    if (kind === 'roe-deer')
+      ell(visual, pale(0xf0eee6), 'RumpPatch', [0, by + 0.04, bl * 0.8], [bw * 0.48, 0.13, 0.09]);
+    mini(
+      visual,
+      kind === 'roe-deer' ? pale(0xf0eee6) : light,
+      'Tail',
+      [0, by + 0.08, bl + 0.04],
+      [0.16, 0.15, 0.18],
+    );
+  }
   const legY =
     kind === 'moose'
       ? 1.2
       : kind === 'deer'
         ? 0.91
-        : kind === 'squirrel'
-          ? 0.3
-          : kind === 'beaver'
-            ? 0.31
-            : 0.23;
+        : kind === 'roe-deer'
+          ? 0.65
+          : kind === 'squirrel'
+            ? 0.3
+            : kind === 'beaver'
+              ? 0.31
+              : 0.23;
   const legLen =
     kind === 'moose'
       ? 1.1
       : kind === 'deer'
         ? 0.82
-        : kind === 'squirrel'
-          ? 0.26
-          : kind === 'beaver'
+        : kind === 'roe-deer'
+          ? 0.58
+          : kind === 'squirrel'
             ? 0.26
-            : 0.17;
+            : kind === 'beaver'
+              ? 0.26
+              : 0.17;
   for (const side of [-1, 1])
     for (const back of [false, true]) {
       const name = `Leg${back ? 'B' : 'F'}${side < 0 ? 'L' : 'R'}`;
@@ -676,7 +716,7 @@ function peaceful(kind) {
       );
       ell(
         leg,
-        kind === 'deer' || kind === 'moose' ? dark : base,
+        kind === 'deer' || kind === 'roe-deer' || kind === 'moose' ? dark : base,
         `${name}Foot`,
         [0, -legLen, -0.07],
         [0.14, 0.07, 0.18],
@@ -1517,6 +1557,7 @@ const models = {
   snake,
   hawk,
   deer: () => peaceful('deer'),
+  'roe-deer': () => peaceful('roe-deer'),
   squirrel: () => peaceful('squirrel'),
   hedgehog: () => peaceful('hedgehog'),
   duck: () => smallWildlife('duck'),
@@ -1574,6 +1615,7 @@ const creatures = new Set([
   'snake',
   'hawk',
   'deer',
+  'roe-deer',
   'squirrel',
   'hedgehog',
   'beaver',
@@ -1668,6 +1710,7 @@ for (const [name, build] of Object.entries(models)) {
                   ? hawkClips()
                   : [
                         'deer',
+                        'roe-deer',
                         'squirrel',
                         'hedgehog',
                         'beaver',

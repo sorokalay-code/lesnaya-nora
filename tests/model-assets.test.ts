@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import { MODEL_NAMES, ModelAssets } from '../src/game/ModelAssets';
+import { animalSurface } from '../src/game/SurfaceMaterials';
 import { animateRabbit, createRabbit, setRabbitAction } from '../src/game/Models';
 import { loadModels } from './model-fixture';
 import { DEFAULT_GENES } from '../src/game/genetics/GeneticTraits';
@@ -28,6 +29,7 @@ test('every creature and family prop loads from a GLB with mesh geometry', () =>
         'snake',
         'hawk',
         'deer',
+        'roe-deer',
         'squirrel',
         'hedgehog',
         'beaver',
@@ -36,6 +38,11 @@ test('every creature and family prop loads from a GLB with mesh geometry', () =>
     )
       assert.ok(model.clips.size > 0, `${name} has no animations`);
   }
+});
+
+test('roe deer uses its dedicated fur surface while antlers retain their material', () => {
+  assert.equal(animalSurface('roe-deer', 'fur_base'), 'roe-deer');
+  assert.equal(animalSurface('roe-deer', 'antler'), undefined);
 });
 
 test('rabbit instances have independent coat materials and animated digging paws', () => {
