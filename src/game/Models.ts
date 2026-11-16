@@ -116,8 +116,8 @@ export function animatePredator(
     rate,
   );
 }
-export function createHawk(): THREE.Group {
-  const model = ModelAssets.shared.create('hawk');
+export function createRaptor(kind: 'hawk' | 'owl'): THREE.Group {
+  const model = ModelAssets.shared.create(kind);
   model.root.userData.model = model;
   return model.root;
 }

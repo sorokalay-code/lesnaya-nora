@@ -7,7 +7,7 @@ import type { ForestAnimal } from '../animals';
 import {
   createPredatorActor,
   FamilyMember,
-  Hawk,
+  FlyingRaptor,
   Predator,
   RabbitActor,
   RabbitFactory,
@@ -18,6 +18,7 @@ import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
 import { defaultWorldConfig } from '../WorldConfig';
+import { isNightAt } from './WorldCalendar';
 
 type LegacyPredatorSlot = PredatorKind | 'bear';
 
@@ -27,7 +28,7 @@ export class WorldPopulation {
   readonly families: FamilyMember[];
   readonly predators: Predator[];
   readonly wildlife: ForestAnimal[];
-  readonly hawks: Hawk[];
+  readonly hawks: FlyingRaptor[];
   readonly ecology: WildlifeEcology;
 
   constructor(context: {
@@ -218,11 +219,53 @@ export class WorldPopulation {
       const angle = index * 2.4;
       const x = (index === 0 ? 32 : Math.cos(angle) * 60) * scale;
       const z = (index === 0 ? -30 : Math.sin(angle) * 60) * scale;
-      const hawk = new Hawk(x, z, context.rng, AnimalAppearance.seeded('hawk', x, z));
+      const hawk = AnimalFactory.raptor('hawk', x, z, context.rng);
       hawk.useWorldBounds(config.size);
       return hawk;
     });
     for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
+
+    for (let index = 0; index < config.creatures.scolopendra; index++) {
+      const identity = `scolopendra:${index}`;
+      if (context.save.deadPopulation?.includes(identity)) continue;
+      const rng = new Random(context.save.seed + 48291 + index * 613);
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const angle = rng.range(0, Math.PI * 2);
+        const distance = rng.range(15, 76) * scale;
+        const x = Math.cos(angle) * distance;
+        const z = Math.sin(angle) * distance;
+        if ((context.world.waterAt?.(x, z)?.depth ?? 0) > 0.08) continue;
+        if (attempt < 28 && context.world.biomeAt(x, z) !== 'forest') continue;
+
+        const animal = AnimalFactory.predator('scolopendra', x, z, rng);
+        animal.useWorldBounds(config.size);
+        animal.root.position.y = context.world.heightAt(x, z);
+        animal.root.userData.remainsIdentity = identity;
+        this.predators.push(animal);
+        context.scene.add(animal.root);
+        break;
+      }
+    }
+
+    for (let index = 0; index < config.creatures.owl; index++) {
+      const identity = `owl:${index}`;
+      if (context.save.deadPopulation?.includes(identity)) continue;
+      const angle = index * 2.4 + 1.5;
+      const radius = (index < 2 ? 26 : 64) * scale;
+      const rng = new Random(context.save.seed + 58121 + index * 613);
+      const owl = AnimalFactory.raptor(
+        'owl',
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        rng,
+      );
+      owl.useWorldBounds(config.size);
+      owl.root.userData.remainsIdentity = identity;
+      owl.updatePresence(isNightAt(context.save.clock), context.scene, (x, z) =>
+        context.world.heightAt(x, z),
+      );
+      this.hawks.push(owl);
+    }
     // Постоянные номера стартовых хищников не дают воскресить их при загрузке мира.
     for (const [prefix, actors] of [
       ['predator', this.predators],
@@ -235,12 +278,10 @@ export class WorldPopulation {
         actors[index].root.userData.remainsIdentity = identity;
         if (!context.save.deadPopulation?.includes(identity)) continue;
         const animal = actors[index];
-        ModelAssets.shared.release(animal.root);
-        animal.root.removeFromParent();
-        if (animal instanceof Hawk) {
-          animal.shadow.geometry.dispose();
-          animal.shadow.material.dispose();
-          animal.shadow.removeFromParent();
+        if (animal instanceof FlyingRaptor) animal.dispose();
+        else {
+          ModelAssets.shared.release(animal.root);
+          animal.root.removeFromParent();
         }
         actors.splice(index, 1);
       }

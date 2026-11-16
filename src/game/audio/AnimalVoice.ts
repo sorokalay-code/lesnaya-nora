@@ -13,6 +13,12 @@ export type AnimalVoiceKind =
   | 'lynx'
   | 'bear'
   | 'hawk'
+  | 'owl'
+  | 'badger'
+  | 'mole'
+  | 'marmot'
+  | 'pheasant'
+  | 'chipmunk'
   | 'snake';
 export type AnimalActivity = 'rest' | 'move' | 'eat' | 'alert' | 'young';
 export interface AnimalVoiceCue {

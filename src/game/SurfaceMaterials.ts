@@ -16,8 +16,8 @@ export type SurfaceTexture = (typeof SURFACE_TEXTURES)[number];
 /** Выбирает нейтральный рисунок, сохраняя окрасы вида, генетические узоры и цветовые вариации. */
 export function animalSurface(model: ModelName, material: string): SurfaceTexture | undefined {
   if (/eye|pupil|shine|tooth|teeth|tusk|beak|horn|antler|pink|claw/i.test(material)) return;
-  if (model === 'hawk' || model === 'duck') return 'feather';
+  if (['hawk', 'owl', 'duck', 'pheasant'].includes(model)) return 'feather';
   if (model === 'snake' || model === 'fish' || model === 'pike') return 'scales';
-  if (model === 'spider' || model === 'jumping-spider') return 'chitin';
+  if (['spider', 'jumping-spider', 'scolopendra'].includes(model)) return 'chitin';
   return 'coat';
 }

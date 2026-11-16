@@ -3,6 +3,9 @@ export { AnimalFactory, createForestAnimal, createPredatorActor } from './Animal
 export { FamilyMember } from './FamilyMember';
 export { ForestAnimal } from './ForestAnimal';
 export { Hawk } from './Hawk';
+export { FlyingRaptor } from './FlyingRaptor';
+export { Owl } from './Owl';
+export { Scolopendra } from './Scolopendra';
 export { PlayerRabbit } from './PlayerRabbit';
 export { Pike } from './Pike';
 export { Predator } from './Predator';

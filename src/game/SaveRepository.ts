@@ -1,4 +1,4 @@
-import { defaultWorldConfig, validWorldConfig } from './WorldConfig';
+import { ADDED_ANIMALS, defaultWorldConfig, validWorldConfig } from './WorldConfig';
 import type { SaveData } from './types';
 import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
@@ -312,7 +312,7 @@ export class SaveRepository {
 
     if (data.worldConfig?.creatures && typeof data.worldConfig.creatures === 'object') {
       const defaults = defaultWorldConfig().creatures;
-      for (const kind of ['duck', 'mouse', 'fish'] as const) {
+      for (const kind of ['duck', 'mouse', 'fish', ...ADDED_ANIMALS] as const) {
         if (data.worldConfig.creatures[kind] === undefined)
           data.worldConfig.creatures[kind] = defaults[kind];
       }
@@ -354,7 +354,7 @@ export class SaveRepository {
       data.deadPopulation !== undefined &&
       (!Array.isArray(data.deadPopulation) ||
         !data.deadPopulation.every(
-          (id) => typeof id === 'string' && /^(predator|hawk|pike):\d+$/.test(id),
+          (id) => typeof id === 'string' && /^(predator|hawk|owl|scolopendra|pike):\d+$/.test(id),
         ))
     )
       throw new Error('Сохранение содержит повреждённое состояние популяции.');

@@ -7,7 +7,15 @@ export type Biome = 'forest' | 'meadow' | 'swamp' | 'garden';
 export type FoodKind =
   'clover' | 'carrot' | 'cabbage' | 'mushroom' | 'berries' | 'toadstool' | 'bitterleaf' | 'acorn';
 export type PredatorKind =
-  'fox' | 'wolf' | 'dog' | 'lynx' | 'weasel' | 'snake' | 'spider' | 'jumping-spider';
+  | 'fox'
+  | 'wolf'
+  | 'dog'
+  | 'lynx'
+  | 'weasel'
+  | 'snake'
+  | 'spider'
+  | 'jumping-spider'
+  | 'scolopendra';
 export type Weather = 'clear' | 'cloudy' | 'rain' | 'mist' | 'snow';
 export type Season = 'Весна' | 'Лето' | 'Осень' | 'Зима';
 

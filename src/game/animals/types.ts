@@ -9,6 +9,11 @@ export type WildlifeKind =
   | 'bear'
   | 'duck'
   | 'mouse'
+  | 'badger'
+  | 'mole'
+  | 'marmot'
+  | 'pheasant'
+  | 'chipmunk'
   | 'fish';
 export interface PredatorProfile {
   swimSpeed?: number;

@@ -228,7 +228,12 @@ test('every selected species spawns with its own count even without forest or tr
   const f = fixture(config);
   assert.equal(f.save.partners.length, 2);
   assert.equal(f.population.families.length, 0);
-  assert.equal(f.population.hawks.length, 2);
+  assert.equal(f.population.hawks.filter(({ kind }) => kind === 'hawk').length, 2);
+  assert.equal(f.population.hawks.filter(({ kind }) => kind === 'owl').length, 2);
+  assert.equal(
+    f.population.hawks.filter(({ kind, present }) => kind === 'owl' && present).length,
+    0,
+  );
   assert.equal(f.water.pikes.length, 2);
   assert.equal(
     f.population.predators.some((animal) => String(animal.kind) === 'bear'),
@@ -245,7 +250,14 @@ test('every selected species spawns with its own count even without forest or tr
     assert.ok(Math.hypot(animal.x - start.x, animal.z - start.z) > 0.1);
   }
   for (const { kind } of CREATURE_OPTIONS) {
-    if (kind === 'rabbit' || kind === 'hawk' || kind === 'pike' || kind === 'butterfly') continue;
+    if (
+      kind === 'rabbit' ||
+      kind === 'hawk' ||
+      kind === 'owl' ||
+      kind === 'pike' ||
+      kind === 'butterfly'
+    )
+      continue;
     assert.equal(
       [...f.population.predators, ...f.population.wildlife].filter((animal) => animal.kind === kind)
         .length,
@@ -265,7 +277,7 @@ test('every selected species spawns with its own count even without forest or tr
   for (let time = 0; time < 1000; time += 50)
     f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
   assert.equal(f.population.wildlife.filter((animal) => animal.kind === 'deer').length, 2);
-  assert.equal(f.population.wildlife.length, 20);
+  assert.equal(f.population.wildlife.length, 30);
 });
 
 test('save round trip preserves configured terrain, plants, populations and calendar; defaults survive', () => {

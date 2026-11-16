@@ -13,6 +13,7 @@ import { World, type Resource } from './World';
 import type { SaveData } from './types';
 import { AnimalRestraint } from './animals/AnimalRestraint';
 import { defaultWorldConfig } from './WorldConfig';
+import { animalNames } from './animals/names';
 
 type Target = ForestAnimal | Predator;
 export type WildlifeEvent = {
@@ -21,24 +22,15 @@ export type WildlifeEvent = {
   z: number;
   subject: string;
 };
-const names: Record<WildlifeKind, string> = {
-  bear: 'Медведь',
-  duck: 'Утка',
-  mouse: 'Мышь',
-  fish: 'Рыба',
-  boar: 'кабан',
-  deer: 'олень',
-  squirrel: 'белка',
-  hedgehog: 'ёж',
-  beaver: 'бобр',
-  moose: 'лось',
-};
+const FIELD_WILDLIFE = ['mole', 'marmot', 'pheasant'] as const;
+const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE] as const;
 
 /** Моделирует питание, охоту, конфликты, защиту и восстановление популяции животных. */
 
 export class WildlifeEcology {
   readonly animals: ForestAnimal[] = [];
   private readonly water: WaterNavigation;
+  private readonly newWildlifeRng: Random;
   private foodTargets = new Map<ForestAnimal, Resource>();
   private preyTargets = new Map<Predator, { target: Target; until: number }>();
   private nextFoodSearch = 0;
@@ -52,6 +44,7 @@ export class WildlifeEcology {
     private readonly onDeath?: (animal: ForestAnimal | Predator) => void,
   ) {
     this.water = new WaterNavigation(world);
+    this.newWildlifeRng = new Random((save?.seed ?? world.seed ?? 0) + 82473);
   }
 
   populate(): void {
@@ -80,6 +73,7 @@ export class WildlifeEcology {
       'duck',
       'mouse',
       'fish',
+      ...ADDITIONAL_WILDLIFE,
     ] as const)
       for (let i = 0; i < counts[kind]; i++) this.spawn(kind, 0, 0, true);
   }
@@ -93,31 +87,37 @@ export class WildlifeEcology {
     if ((kind === 'fish' || kind === 'duck') && !this.world.waterSources.length) return;
     const size = this.save?.worldConfig?.size ?? 110;
     const scale = size / 110;
+    const additional = ADDITIONAL_WILDLIFE.some((species) => species === kind);
+    const fieldAnimal = FIELD_WILDLIFE.some((species) => species === kind);
+    // Новые соседние виды не сдвигают случайный поток прежней стартовой популяции.
+    const rng = additional ? this.newWildlifeRng : this.rng;
     let x = 0,
       z = 0,
       found = false;
     for (let attempt = 0; attempt < 35; attempt++) {
       if (kind === 'fish') {
-        const water = this.rng.pick(this.world.waterSources);
-        x = water.x + this.rng.range(-1.4, 1.4);
-        z = water.z + this.rng.range(-1.4, 1.4);
+        const water = rng.pick(this.world.waterSources);
+        x = water.x + rng.range(-1.4, 1.4);
+        z = water.z + rng.range(-1.4, 1.4);
         if ((this.world.waterAt?.(x, z)?.depth ?? 0) < 0.6) continue;
         if (!initial && Math.hypot(x - px, z - pz) < 26) continue;
         found = true;
         break;
       }
       if ((kind === 'beaver' || kind === 'duck') && this.world.waterSources.length) {
-        const pond = this.rng.pick(this.world.waterSources),
-          a = this.rng.range(0, Math.PI * 2),
-          d = kind === 'duck' ? this.rng.range(1.5, 6) : this.rng.range(4, 8);
+        const pond = rng.pick(this.world.waterSources),
+          a = rng.range(0, Math.PI * 2),
+          d = kind === 'duck' ? rng.range(1.5, 6) : rng.range(4, 8);
         x = pond.x + Math.sin(a) * d;
         z = pond.z + Math.cos(a) * d;
       } else {
-        x = this.rng.range(-90, 90) * scale;
-        z = this.rng.range(-90, 90) * scale;
+        x = rng.range(-90, 90) * scale;
+        z = rng.range(-90, 90) * scale;
       }
 
       const biome = this.world.biomeAt(x, z);
+      if (fieldAnimal && biome !== 'meadow') continue;
+      if (additional && this.world.nearWater?.(x, z, 0.5)) continue;
       if (
         Math.abs(x) > 97 * scale ||
         Math.abs(z) > 97 * scale ||
@@ -133,6 +133,7 @@ export class WildlifeEcology {
         kind !== 'bear' &&
         kind !== 'duck' &&
         kind !== 'mouse' &&
+        !fieldAnimal &&
         biome !== 'forest'
       )
         continue;
@@ -145,16 +146,16 @@ export class WildlifeEcology {
     // используют свободную сушу, а не исчезают вопреки выбранной численности.
     if (!found && initial && kind !== 'fish' && kind !== 'duck') {
       for (let attempt = 0; attempt < 100; attempt++) {
-        x = this.rng.range(-90, 90) * scale;
-        z = this.rng.range(-90, 90) * scale;
-        if (Math.hypot(x, z) < 9 || this.world.nearWater(x, z, 1)) continue;
+        x = rng.range(-90, 90) * scale;
+        z = rng.range(-90, 90) * scale;
+        if (Math.hypot(x, z) < 9 || this.world.nearWater?.(x, z, 1)) continue;
         found = true;
         break;
       }
     }
     if (!found) return;
 
-    const animal = createForestAnimal(kind, x, z, this.rng);
+    const animal = createForestAnimal(kind, x, z, rng);
     animal.useWorldBounds(size);
     animal.socialId = this.save ? (this.save.nextWildlifeId ??= 1) : this.animals.length + 1;
     if (this.save) this.save.nextWildlifeId = animal.socialId + 1;
@@ -314,11 +315,21 @@ export class WildlifeEcology {
         const counter = victim.receiveAttack(damage, time, predator);
         if (counter) {
           predator.receiveAttack(counter, time, victim);
-          events.push({ kind: 'defend', x: victim.x, z: victim.z, subject: names[victim.kind] });
+          events.push({
+            kind: 'defend',
+            x: victim.x,
+            z: victim.z,
+            subject: animalNames[victim.kind],
+          });
         }
 
         if (!victim.alive)
-          events.push({ kind: 'hunt', x: victim.x, z: victim.z, subject: names[victim.kind] });
+          events.push({
+            kind: 'hunt',
+            x: victim.x,
+            z: victim.z,
+            subject: animalNames[victim.kind],
+          });
       }
 
       this.preyTargets.delete(predator);
@@ -359,6 +370,7 @@ export class WildlifeEcology {
           'duck',
           'mouse',
           'fish',
+          ...ADDITIONAL_WILDLIFE,
         ] as WildlifeKind[]
       ).filter(
         (kind) =>
@@ -369,7 +381,7 @@ export class WildlifeEcology {
         const kind = this.rng.pick(candidates);
         const animal = this.spawn(kind, px, pz);
         if (animal)
-          events.push({ kind: 'arrival', x: animal.x, z: animal.z, subject: names[kind] });
+          events.push({ kind: 'arrival', x: animal.x, z: animal.z, subject: animalNames[kind] });
       }
     }
 

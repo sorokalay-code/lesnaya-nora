@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { FamilyMember, ForestAnimal, Hawk, Predator, RabbitActor } from '../animals';
+import type { FamilyMember, FlyingRaptor, ForestAnimal, Predator, RabbitActor } from '../animals';
 import type { Excavation } from '../Excavation';
 import { setRabbitAction, type RabbitRig } from '../Models';
 import { Random } from '../Random';
@@ -21,7 +21,7 @@ interface Context {
   families: FamilyMember[];
   wildlife: ForestAnimal[];
   predators: Predator[];
-  hawks: Hawk[];
+  hawks: FlyingRaptor[];
 }
 
 /** Потребности животных и санитария гнезда обновляются редко и независимо от кадровой частоты. */
@@ -104,7 +104,7 @@ export class AnimalWasteSystem {
           0.8,
         );
     for (const [index, bird] of this.context.hawks.entries()) {
-      if (bird.alive && this.budget.ready(`bird:${index}`, 0.7))
+      if (bird.present && this.budget.ready(`bird:${index}`, 0.7))
         this.aerial.release(bird.x, bird.root.position.y, bird.z);
     }
   }

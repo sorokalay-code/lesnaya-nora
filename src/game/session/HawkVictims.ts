@@ -2,7 +2,7 @@ import type { Object3D } from 'three';
 import {
   FamilyMember,
   type ForestAnimal,
-  type Hawk,
+  type FlyingRaptor,
   type Predator,
   type RabbitActor,
 } from '../animals';
@@ -30,7 +30,7 @@ export interface HawkPopulation {
   families: FamilyMember[];
   wildlife: ForestAnimal[];
   predators: Predator[];
-  hawks: Hawk[];
+  hawks: FlyingRaptor[];
   family?: Pick<FamilyLifecycle, 'rigs'>;
 }
 
@@ -38,7 +38,15 @@ export interface HawkPopulation {
 export class HawkVictims {
   constructor(private readonly population: HawkPopulation) {}
 
-  *all(includeLargeWildlife = false): Iterable<HawkVictim> {
+  all(includeLargeWildlife = false): Iterable<HawkVictim> {
+    return this.candidates(includeLargeWildlife, false);
+  }
+
+  rodents(): Iterable<HawkVictim> {
+    return this.candidates(false, true);
+  }
+
+  private *candidates(includeLargeWildlife: boolean, rodentsOnly: boolean): Iterable<HawkVictim> {
     const p = this.population.save.player;
     yield {
       root: this.population.player.root,
@@ -83,10 +91,6 @@ export class HawkVictims {
           actor.data.health = actor.health;
           if (actor instanceof FamilyMember)
             (this.population.save.familyHealth ??= {})[actor.data.id] = actor.health;
-          if (!actor.alive) {
-            if (this.population.save.mateId === actor.data.id)
-              this.population.save.mateId = undefined;
-          }
         },
       };
     }
@@ -116,8 +120,9 @@ export class HawkVictims {
       // mass — вес для наземных столкновений, а не килограммы; переносимость определяют габариты.
       if (
         animal.kind === 'fish' ||
+        (rodentsOnly && animal.kind !== 'mouse') ||
         !animal.alive ||
-        (!includeLargeWildlife && animal.profile.radius > 0.43)
+        (!rodentsOnly && !includeLargeWildlife && animal.profile.radius > 0.43)
       )
         continue;
       yield {

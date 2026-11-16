@@ -5,6 +5,11 @@ import { SectionLink } from './ConversationLayout';
 import type { WildlifeKind } from '../../../game/animals';
 
 const greetings: Record<WildlifeKind, string> = {
+  badger: 'Ищу что-нибудь вкусное под листьями.',
+  mole: 'У земли столько разных запахов. Откуда идёшь?',
+  marmot: 'Здесь хороший обзор. Если кто-то спугнёт меня, я свистну.',
+  pheasant: 'За высокой травой спокойно. Можешь подойти.',
+  chipmunk: 'Я запоминаю места, где лежат семена.',
   deer: 'Я прислушиваюсь к лесу. Если хрустнет ветка — лучше отойти.',
   squirrel: 'Сегодня ищу орехи и молодые побеги.',
   hedgehog: 'Иду не спеша. Лес большой, торопиться некуда.',

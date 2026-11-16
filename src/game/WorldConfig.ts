@@ -2,7 +2,8 @@ import type { WildlifeKind } from './animals/types';
 import type { Biome, PredatorKind, Season } from './types';
 import { validMapGeneration, type MapGeneration } from './MapGeneration';
 
-export type CreatureKind = 'rabbit' | PredatorKind | WildlifeKind | 'hawk' | 'pike' | 'butterfly';
+export type CreatureKind =
+  'rabbit' | PredatorKind | WildlifeKind | 'hawk' | 'owl' | 'pike' | 'butterfly';
 export type BiomePreference = 'mixed' | Biome;
 export type SeasonLengths = Record<Season, number>;
 
@@ -31,6 +32,11 @@ export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max
   { kind: 'beaver', label: 'Бобры', max: 90 },
   { kind: 'moose', label: 'Лоси', max: 60 },
   { kind: 'boar', label: 'Кабаны', max: 60 },
+  { kind: 'badger', label: 'Барсуки', max: 35 },
+  { kind: 'mole', label: 'Кроты', max: 60 },
+  { kind: 'marmot', label: 'Сурки', max: 45 },
+  { kind: 'pheasant', label: 'Фазаны', max: 50 },
+  { kind: 'chipmunk', label: 'Бурундуки', max: 70 },
   { kind: 'fox', label: 'Лисы', max: 90 },
   { kind: 'wolf', label: 'Волки', max: 60 },
   { kind: 'dog', label: 'Собаки', max: 60 },
@@ -40,10 +46,21 @@ export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max
   { kind: 'snake', label: 'Змеи', max: 90 },
   { kind: 'spider', label: 'Пауки с паутиной', max: 45 },
   { kind: 'jumping-spider', label: 'Пауки-прыгуны', max: 45 },
+  { kind: 'scolopendra', label: 'подстилочная', max: 30 },
   { kind: 'hawk', label: 'Соколы', max: 30 },
+  { kind: 'owl', label: 'Совы (только ночью)', max: 20 },
   { kind: 'pike', label: 'Щуки', max: 45 },
   { kind: 'butterfly', label: 'Бабочки', max: 240 },
 ];
+export const ADDED_ANIMALS = [
+  'badger',
+  'mole',
+  'marmot',
+  'pheasant',
+  'chipmunk',
+  'scolopendra',
+  'owl',
+] as const satisfies readonly CreatureKind[];
 export const SEASONS: readonly Season[] = ['Весна', 'Лето', 'Осень', 'Зима'];
 export const BIOME_OPTIONS: readonly { value: BiomePreference; label: string }[] = [
   { value: 'mixed', label: 'Смешанный мир (как сейчас)' },
@@ -80,6 +97,11 @@ export function defaultWorldConfig(): WorldConfig {
       fish: 12,
       moose: 3,
       boar: 4,
+      badger: 3,
+      mole: 5,
+      marmot: 4,
+      pheasant: 4,
+      chipmunk: 5,
       fox: 6,
       wolf: 3,
       dog: 2,
@@ -89,7 +111,9 @@ export function defaultWorldConfig(): WorldConfig {
       snake: 3,
       spider: 3,
       'jumping-spider': 2,
+      scolopendra: 3,
       hawk: 1,
+      owl: 2,
       pike: 3,
       butterfly: 38,
     },

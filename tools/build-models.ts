@@ -26,6 +26,8 @@ import { rabbitLocomotion } from './art/RabbitLocomotion';
 import { createBoarModel } from './art/BoarAsset';
 import { createPikeModel, pikeClips } from './art/PikeAsset';
 import { swimmingClip, SWIMMING_MODELS } from './art/Swimming';
+import { createFieldModel, fieldClips, type FieldModel } from './art/FieldWildlife';
+import { createScolopendra, scolopendraClips } from './art/ScolopendraAsset';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1481,7 +1483,22 @@ for (const species of SHRUB_SPECIES) {
     writeTreeTexture(`${species}-foliage`, SHRUB_TEXTURE_SIZE, shrubFoliagePixels(species));
   }
 }
+const fieldModels = {
+  badger: () => createFieldModel('badger'),
+  mole: () => createFieldModel('mole'),
+  marmot: () => createFieldModel('marmot'),
+  pheasant: () => createFieldModel('pheasant'),
+  chipmunk: () => createFieldModel('chipmunk'),
+  owl: () => createFieldModel('owl'),
+} satisfies Record<FieldModel, () => THREE.Group>;
+
+function isFieldModel(name: string): name is FieldModel {
+  return Object.hasOwn(fieldModels, name);
+}
+
 const models = {
+  ...fieldModels,
+  scolopendra: () => createScolopendra(),
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
   'jumping-spider': () => createSpiderModel(false, true),
@@ -1541,6 +1558,8 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  ...Object.keys(fieldModels),
+  'scolopendra',
   'pike',
   'boar',
   'jumping-spider',
@@ -1613,8 +1632,17 @@ for (const [name, build] of Object.entries(models)) {
     creatures.has(name) ? 8 : 4,
   );
   const model = build();
+  const addedClips =
+    name === 'scolopendra'
+      ? scolopendraClips()
+      : isFieldModel(name)
+        ? name === 'owl'
+          ? hawkClips()
+          : fieldClips(name, model)
+        : undefined;
   const animations =
-    name === 'pike'
+    addedClips ??
+    (name === 'pike'
       ? pikeClips()
       : name === 'fish'
         ? [
@@ -1649,7 +1677,7 @@ for (const [name, build] of Object.entries(models)) {
                         'mouse',
                       ].includes(name)
                     ? peacefulClips(name, model)
-                    : [];
+                    : []);
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
   mergeParts(model, !creatures.has(name) && !isTreeSpecies(name) && !isShrubSpecies(name));
   const buffer = (await new GLTFExporter().parseAsync(model, {
@@ -1666,22 +1694,30 @@ for (const [name, build] of Object.entries(models)) {
     sphere = new THREE.SphereGeometry(1, 8, 5);
     smallSphere = new THREE.SphereGeometry(1, 6, 4);
     const arachnid = name === 'spider' || name === 'jumping-spider';
-    const distant =
-      name === 'pike'
-        ? createPikeModel(true)
-        : name === 'boar'
-          ? createBoarModel(true)
-          : arachnid
-            ? createSpiderModel(true, name === 'jumping-spider')
-            : name === 'lynx'
-              ? createLynxModel(true)
-              : build();
-    mergeParts(distant, arachnid);
+    const distant = isFieldModel(name)
+      ? createFieldModel(name, true)
+      : name === 'scolopendra'
+        ? createScolopendra(true)
+        : name === 'pike'
+          ? createPikeModel(true)
+          : name === 'boar'
+            ? createBoarModel(true)
+            : arachnid
+              ? createSpiderModel(true, name === 'jumping-spider')
+              : name === 'lynx'
+                ? createLynxModel(true)
+                : build();
+    const distantBody = name === 'scolopendra' && distant.getObjectByName('Visual');
+    if (distantBody) mergeParts(distantBody, true);
+    else mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,
-      animations: arachnid
-        ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
-        : animations,
+      animations:
+        name === 'scolopendra'
+          ? scolopendraClips(true)
+          : arachnid
+            ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
+            : animations,
     })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }

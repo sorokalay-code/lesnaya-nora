@@ -156,6 +156,11 @@ export class NaturalVoices {
     if (kind === 'spider' || kind === 'jumping-spider') {
       this.noise(2100 * variation, 0.15, 0.23 * volume, 0, pan);
       this.noise(3300, 0.065, 0.14 * volume, 0.045, pan);
+    } else if (kind === 'scolopendra') {
+      this.noise(1550 * variation, 0.13, 0.22 * volume, 0, pan);
+      this.noise(2600, 0.07, 0.14 * volume, 0.04, pan);
+    } else if (kind === 'owl') {
+      this.noise(570 * variation, 0.22, 0.24 * volume, 0, pan);
     } else if (kind === 'snake') {
       this.noise(2700 * variation, 0.3, 0.35 * volume, 0, pan);
     } else if (kind === 'hawk') {

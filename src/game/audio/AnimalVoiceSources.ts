@@ -1,5 +1,5 @@
 import type { Object3D } from 'three';
-import type { RabbitActor, FamilyMember, ForestAnimal, Predator, Hawk } from '../animals';
+import type { RabbitActor, FamilyMember, ForestAnimal, Predator, FlyingRaptor } from '../animals';
 import type { ModelInstance } from '../ModelAssets';
 import type { SaveData } from '../types';
 import type { FamilyLifecycle } from '../session/FamilyLifecycle';
@@ -11,7 +11,7 @@ export interface VoicePopulation {
   families: readonly FamilyMember[];
   wildlife: readonly ForestAnimal[];
   predators: readonly Predator[];
-  hawks: readonly Hawk[];
+  hawks: readonly FlyingRaptor[];
   family?: Pick<FamilyLifecycle, 'rigs'>;
 }
 export interface VoiceActor {
@@ -42,13 +42,18 @@ export class AnimalVoiceSources {
       )
         yield this.actor(animal.root, animal.kind, animal.model);
     for (const predator of this.population.predators) {
-      if (!predator.alive || predator.kind === 'spider' || predator.kind === 'jumping-spider')
+      if (
+        !predator.alive ||
+        predator.kind === 'spider' ||
+        predator.kind === 'jumping-spider' ||
+        predator.kind === 'scolopendra'
+      )
         continue;
       yield this.actor(predator.root, predator.kind, predator.root.userData.model as ModelInstance);
     }
     for (const hawk of this.population.hawks)
-      if (hawk.alive)
-        yield this.actor(hawk.root, 'hawk', hawk.root.userData.model as ModelInstance);
+      if (hawk.present)
+        yield this.actor(hawk.root, hawk.kind, hawk.root.userData.model as ModelInstance);
   }
 
   private actor(

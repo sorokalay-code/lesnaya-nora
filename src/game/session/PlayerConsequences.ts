@@ -29,6 +29,13 @@ export class PlayerConsequences {
       this.context.toast('Щука укусила! Выбирайся из воды на берег.');
       return;
     }
+    if (kind === 'scolopendra') {
+      p.health = clamp(p.health - 12 / GeneticTraits.resilience(p.genes), 0, 100);
+      p.poison = clamp(p.poison + 8 / GeneticTraits.immunity(p.genes), 0, 100);
+      this.context.sound.play('danger');
+      this.context.toast('Сколопендра укусила! Отойди от неё или спрячься в норе.');
+      return;
+    }
     p.health = clamp(
       p.health -
         ((kind === 'hawk'

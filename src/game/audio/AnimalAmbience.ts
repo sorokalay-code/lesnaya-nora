@@ -27,6 +27,12 @@ const INTERVALS: Record<AnimalVoiceKind, number> = {
   lynx: 38,
   bear: 42,
   hawk: 30,
+  owl: 24,
+  badger: 35,
+  mole: 26,
+  marmot: 27,
+  pheasant: 25,
+  chipmunk: 20,
   snake: 45,
 };
 
@@ -56,6 +62,7 @@ export class AnimalAmbience {
       );
       if (distance > 30 || this.context.sheltered(position) !== sheltered) continue;
       if (night && (source.kind === 'hawk' || source.kind === 'squirrel')) continue;
+      if (!night && source.kind === 'owl') continue;
       if (!night && source.kind === 'wolf' && this.context.rng.chance(0.85)) continue;
       const weight = this.context.rng.next() * 12 - distance * 0.25;
       if (weight > score) {

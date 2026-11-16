@@ -33,7 +33,7 @@ test('saved deaths exclude the same initial predator and hawk when rebuilding a 
   const save = game();
   save.partners = [];
   save.wildlife = [];
-  save.deadPopulation = ['predator:0', 'hawk:0'];
+  save.deadPopulation = ['predator:0', 'hawk:0', 'owl:0', 'scolopendra:0'];
   const scene = new THREE.Scene();
   const world = {
     treeLocations: [],
@@ -47,10 +47,17 @@ test('saved deaths exclude the same initial predator and hawk when rebuilding a 
     rng: new Random(60),
     markPartner() {},
   });
-  assert.equal(population.hawks.length, 0);
+  assert.equal(population.hawks.filter((bird) => bird.kind === 'hawk').length, 0);
+  assert.equal(population.hawks.filter((bird) => bird.kind === 'owl').length, 1);
+  assert.equal(population.hawks[0].root.userData.remainsIdentity, 'owl:1');
   assert.ok(population.predators.length > 0);
   assert.ok(
     !population.predators.some((animal) => animal.root.userData.remainsIdentity === 'predator:0'),
+  );
+  assert.ok(
+    !population.predators.some(
+      (animal) => animal.root.userData.remainsIdentity === 'scolopendra:0',
+    ),
   );
 });
 

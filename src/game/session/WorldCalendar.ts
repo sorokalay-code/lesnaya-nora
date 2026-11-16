@@ -4,6 +4,12 @@ import { SeasonSystem } from '../systems';
 import { type SaveData, type Season, type Weather } from '../types';
 
 export const GAME_MINUTES_PER_SECOND = 6;
+
+export function isNightAt(clock: number): boolean {
+  const timeOfDay = clock % 1440;
+  return timeOfDay < 300 || timeOfDay >= 1260;
+}
+
 const WINTER_WEATHER: readonly Weather[] = [
   'clear',
   'cloudy',
@@ -45,8 +51,7 @@ export class WorldCalendar {
   }
 
   isNight(): boolean {
-    const t = this.context.save.clock % 1440;
-    return t < 300 || t >= 1260;
+    return isNightAt(this.context.save.clock);
   }
 
   season(): Season {

@@ -26,6 +26,15 @@ import { JumpingSpider } from './JumpingSpider';
 import { AnimalAppearance, type AppearanceOptions } from '../AnimalAppearance';
 import { Pike } from './Pike';
 import type { WaterBody } from '../WaterMap';
+import { Badger } from './Badger';
+import { Mole } from './Mole';
+import { Marmot } from './Marmot';
+import { Pheasant } from './Pheasant';
+import { Chipmunk } from './Chipmunk';
+import { Scolopendra } from './Scolopendra';
+import { Hawk } from './Hawk';
+import { Owl } from './Owl';
+import type { FlyingRaptor, RaptorKind } from './FlyingRaptor';
 
 type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: AppearanceOptions) => T;
 
@@ -36,6 +45,7 @@ export class AnimalFactory {
   }
 
   private static readonly predators: Record<PredatorKind, Constructor<Predator>> = {
+    scolopendra: Scolopendra,
     'jumping-spider': JumpingSpider,
     spider: Spider,
     fox: Fox,
@@ -46,6 +56,11 @@ export class AnimalFactory {
     snake: Snake,
   };
   private static readonly wildlife: Record<WildlifeKind, Constructor<ForestAnimal>> = {
+    badger: Badger,
+    mole: Mole,
+    marmot: Marmot,
+    pheasant: Pheasant,
+    chipmunk: Chipmunk,
     boar: Boar,
     bear: Bear,
     duck: Duck,
@@ -57,6 +72,15 @@ export class AnimalFactory {
     beaver: Beaver,
     moose: Moose,
   };
+
+  private static readonly raptors: Record<RaptorKind, Constructor<FlyingRaptor>> = {
+    hawk: Hawk,
+    owl: Owl,
+  };
+
+  static raptor(kind: RaptorKind, x: number, z: number, rng: Random): FlyingRaptor {
+    return new this.raptors[kind](x, z, rng, AnimalAppearance.seeded(kind, x, z));
+  }
 
   static predator(
     kind: PredatorKind,

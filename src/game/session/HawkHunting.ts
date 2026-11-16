@@ -1,4 +1,4 @@
-import type { Hawk } from '../animals';
+import type { FlyingRaptor } from '../animals';
 import { animateHawk } from '../Models';
 import type { World } from '../World';
 import type { Excavation } from '../Excavation';
@@ -13,7 +13,7 @@ export interface AirliftView {
   height: number;
 }
 interface Context extends HawkPopulation {
-  world: Pick<World, 'heightAt' | 'hasCover'>;
+  world: Pick<World, 'heightAt' | 'hasCover'> & Partial<Pick<World, 'scene'>>;
   earth: Pick<Excavation, 'isSheltered' | 'floorAt'>;
   resetInput?: () => void;
   canGrabPlayer?: () => boolean;
@@ -28,12 +28,13 @@ interface Hunt {
   phase?: CarryPhase;
 }
 
-/** Координирует соколов и реальные жертвы: во время захвата автономный ИИ и управление не двигают добычу. */
+/** Выбирает добычу для хищных птиц и ведёт воздушный захват сокола до приземления. */
 export class HawkHunting {
   private readonly sources: HawkVictims;
   private readonly targeting = new HawkTargeting();
-  private readonly hunts = new Map<Hawk, Hunt>();
-  private readonly searches = new WeakMap<Hawk, number>();
+  private readonly hunts = new Map<FlyingRaptor, Hunt>();
+  private readonly searches = new WeakMap<FlyingRaptor, number>();
+  private readonly groundAt = (x: number, z: number) => this.context.world.heightAt(x, z);
 
   constructor(private readonly context: Context) {
     this.sources = new HawkVictims(context);
@@ -63,9 +64,15 @@ export class HawkHunting {
         };
   }
 
-  update(dt: number, time: number, combat: boolean): void {
+  update(dt: number, time: number, combat: boolean, night = false): void {
     for (const hawk of this.context.hawks) {
+      hawk.updatePresence(night, this.context.world.scene, this.groundAt);
       let hunt = this.hunts.get(hawk);
+      if (!hawk.present && !hunt?.carry) {
+        this.hunts.delete(hawk);
+        this.searches.delete(hawk);
+        continue;
+      }
       if (hunt?.carry) {
         if (!hunt.victim.alive()) {
           this.release(hawk, hunt);
@@ -112,7 +119,7 @@ export class HawkHunting {
       }
       if (!hawk.alive) continue;
       if (!combat) {
-        hawk.update(dt, time, 0, 0, false, (x, z) => this.context.world.heightAt(x, z));
+        hawk.update(dt, time, 0, 0, false, this.groundAt);
         continue;
       }
       const abandoned =
@@ -129,7 +136,11 @@ export class HawkHunting {
       }
       if (!hawk.isDiving(time) && hawk.readyToHunt && time >= (this.searches.get(hawk) ?? 0)) {
         this.searches.set(hawk, time + HAWK_HUNT.searchSeconds);
-        const victim = this.targeting.choose(this.sources.all(), hawk, (v) => this.available(v));
+        const victim = this.targeting.choose(
+          hawk.diet === 'rodents' ? this.sources.rodents() : this.sources.all(),
+          hawk,
+          (v) => this.available(v),
+        );
         if (
           victim &&
           (!hunt ||
@@ -142,14 +153,31 @@ export class HawkHunting {
         }
       }
       const target = hunt?.victim.root.position;
-      const grabbed = hawk.update(dt, time, target?.x ?? 0, target?.z ?? 0, !!target, (x, z) =>
-        this.context.world.heightAt(x, z),
+      const grabbed = hawk.update(
+        dt,
+        time,
+        target?.x ?? 0,
+        target?.z ?? 0,
+        !!target,
+        this.groundAt,
       );
       if (grabbed && hunt && this.available(hunt.victim)) {
         if (hunt.victim.player && this.context.protectPlayer?.(time)) {
           hawk.cancelDive();
           this.hunts.delete(hawk);
           this.searches.set(hawk, time + HAWK_HUNT.retrySeconds);
+          continue;
+        }
+        if (hawk.strikeDamage !== undefined) {
+          hunt.victim.hurt(hawk.strikeDamage);
+          if (hunt.victim.player) this.context.impactSound?.();
+          if (hunt.victim.related)
+            this.context.toast(
+              hunt.victim.player
+                ? 'Сова ударила с воздуха! Спрячься под кронами или в норе.'
+                : `Сова атаковала члена семьи: ${hunt.victim.name}.`,
+            );
+          this.hunts.delete(hawk);
           continue;
         }
         const start = {
@@ -185,7 +213,7 @@ export class HawkHunting {
     );
   }
 
-  private release(hawk: Hawk, hunt: Hunt): void {
+  private release(hawk: FlyingRaptor, hunt: Hunt): void {
     const p = hunt.victim.root.position;
     hunt.victim.move(
       p.x,

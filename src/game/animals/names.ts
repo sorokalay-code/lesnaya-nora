@@ -9,4 +9,9 @@ export const animalNames = {
   hedgehog: 'Ёж',
   beaver: 'Бобр',
   moose: 'Лось',
+  badger: 'Барсук',
+  mole: 'Крот',
+  marmot: 'Сурок',
+  pheasant: 'Фазан',
+  chipmunk: 'Бурундук',
 };

@@ -6,8 +6,8 @@ import { PartnerSupport } from '../PartnerSupport';
 import { Random } from '../Random';
 import { WildlifeEcology } from '../WildlifeEcology';
 import { World } from '../World';
-import type { ForestAnimal } from '../animals';
-import { FamilyMember, Hawk, Predator, RabbitActor } from '../animals';
+import type { FlyingRaptor, ForestAnimal } from '../animals';
+import { FamilyMember, Predator, RabbitActor } from '../animals';
 import { SeasonSystem } from '../systems';
 import { type SaveData } from '../types';
 import { AnimalCollisionSystem } from './AnimalCollisionSystem';
@@ -30,6 +30,7 @@ import { WaterSimulation } from './WaterSimulation';
 import type { AnimalRemains } from '../AnimalRemains';
 import { WildRabbitBreeding } from './WildRabbitBreeding';
 import { playerSex, potentialMate } from '../RabbitSex';
+import { RodentHunting } from './RodentHunting';
 
 const MATING_DURATION = 3.1;
 const MATING_REACH = 3;
@@ -58,7 +59,7 @@ interface Context {
   families: FamilyMember[];
   predators: Predator[];
   wildlife: ForestAnimal[];
-  hawks: Hawk[];
+  hawks: FlyingRaptor[];
   ecology: WildlifeEcology;
   traffic: ExcavationTraffic;
   collisions: AnimalCollisionSystem;
@@ -77,6 +78,7 @@ export class AnimalSimulation {
   private readonly friendDefense: FriendDefense;
   private readonly friendMarks?: FriendMarks;
   private readonly rabbitPredation: RabbitPredation;
+  private readonly rodentHunting: RodentHunting;
   private readonly ambience?: AnimalAmbience;
   private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
@@ -96,6 +98,7 @@ export class AnimalSimulation {
       protectPlayer: (time) => this.friendDefense.interruptStrike(context.save.player, time, false),
     });
     this.rabbitPredation = new RabbitPredation(context);
+    this.rodentHunting = new RodentHunting(context);
     if (typeof context.world.waterAt === 'function')
       this.water = new WaterSimulation({
         ...context,
@@ -119,11 +122,13 @@ export class AnimalSimulation {
 
   avatarChanged(): void {
     this.hawkHunting.resetTargets();
+    this.rodentHunting.resetTargets();
     this.water?.resetTargets();
   }
 
   dispose(): void {
     this.friendMarks?.dispose();
+    for (const hawk of this.context.hawks) hawk.dispose();
   }
 
   get airliftView() {
@@ -205,9 +210,9 @@ export class AnimalSimulation {
     this.updateEcology(dt, time, combat);
     if (!resting) this.context.collisions.resolve(this.context.state.mating?.mateId);
     this.water?.update(dt, time, canAttackFamily);
-    this.context.animalWaste?.update(dt, time);
     this.grazeRabbits(dt, time);
-    this.hawkHunting.update(dt, time, canAttackFamily);
+    this.hawkHunting.update(dt, time, canAttackFamily, night);
+    this.context.animalWaste?.update(dt, time);
     this.context.family?.collectDead?.();
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
     for (const pike of this.water?.pikes ?? []) if (!pike.alive) this.context.remains?.record(pike);
@@ -314,15 +319,24 @@ export class AnimalSimulation {
     let closestThreat = Infinity;
     for (const predator of this.context.predators) {
       if (!predator.alive) continue;
-      const prey = combat
-        ? this.context.ecology.targetFor(predator, this.context.predators, time)
-        : undefined;
+      const rodent =
+        combat && predator.huntsRodents
+          ? this.rodentHunting.target(predator, time, canAttackFamily)
+          : undefined;
+      const prey = predator.huntsRodents
+        ? rodent?.root.position
+        : combat
+          ? this.context.ecology.targetFor(predator, this.context.predators, time)
+          : undefined;
       const strike = predator.update(
         dt,
         time,
         p.x,
         p.z,
-        p.hidden || !canAttackFamily || AnimalRestraint.active(this.context.player.root),
+        predator.huntsRodents ||
+          p.hidden ||
+          !canAttackFamily ||
+          AnimalRestraint.active(this.context.player.root),
         !night,
         this.context.groundAt,
         p.dirtiness / 100,
@@ -331,9 +345,14 @@ export class AnimalSimulation {
         p.genes.size,
       );
       const repelled = canDefend && this.friendDefense.repel(predator, p, time);
-      if (strike && !repelled) this.context.consequences.predatorAttack(predator.kind);
-
-      if (canAttackFamily && !repelled) this.context.consequences.threatenKits(predator, time);
+      if (!repelled) {
+        if (predator.huntsRodents) {
+          if (rodent) this.rodentHunting.strike(predator, rodent, time);
+        } else {
+          if (strike) this.context.consequences.predatorAttack(predator.kind);
+          if (canAttackFamily) this.context.consequences.threatenKits(predator, time);
+        }
+      }
       closestThreat = Math.min(closestThreat, Math.hypot(predator.x - p.x, predator.z - p.z));
     }
     return closestThreat;
@@ -452,7 +471,7 @@ export class AnimalSimulation {
       animal.root.visible = animal.alive && Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
 
     for (const hawk of this.context.hawks) {
-      const visible = hawk.alive && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
+      const visible = hawk.present && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
       hawk.root.visible = visible;
       hawk.shadow.visible = visible && !this.sheltered;
     }

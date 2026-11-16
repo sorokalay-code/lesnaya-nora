@@ -1,0 +1,152 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import * as THREE from 'three';
+import { AnimalFactory, PlayerRabbit, RabbitFactory } from '../src/game/animals';
+import { Owl } from '../src/game/animals/Owl';
+import { AnimalVoiceSources } from '../src/game/audio/AnimalVoiceSources';
+import { Random } from '../src/game/Random';
+import { HawkHunting } from '../src/game/session/HawkHunting';
+import { RodentHunting } from '../src/game/session/RodentHunting';
+import { NewGameFactory } from '../src/game/session/NewGameFactory';
+import { isNightAt } from '../src/game/session/WorldCalendar';
+import { ADDED_ANIMALS, CREATURE_OPTIONS } from '../src/game/WorldConfig';
+import { SaveRepository } from '../src/game/SaveRepository';
+import { loadModels } from './model-fixture';
+
+await loadModels('rabbit', 'mouse', 'chipmunk', 'owl', 'scolopendra');
+
+function forest() {
+  const rng = new Random(54);
+  const save = NewGameFactory.create(31, 0, new RabbitFactory(rng));
+  const scene = new THREE.Scene();
+  save.player.x = 60;
+  const player = new PlayerRabbit(save.player).rig;
+  player.root.position.set(60, 0, 0);
+  const mouse = AnimalFactory.forest('mouse', 3, 0, rng);
+  const chipmunk = AnimalFactory.forest('chipmunk', 0.5, 0, rng);
+  mouse.moveTo(3, 0, 0);
+  chipmunk.moveTo(0.5, 0, 0);
+  const owl = new Owl(0, 0, rng);
+  const world = {
+    scene,
+    heightAt: () => 0,
+    hasCover: () => false,
+    waterAt: () => undefined,
+  };
+  const context = {
+    world,
+    save,
+    player,
+    earth: { isSheltered: (_x: number, y: number) => y < -0.2, floorAt: () => 0 },
+    hawks: [owl],
+    predators: [],
+    wildlife: [mouse, chipmunk],
+    rabbits: [],
+    families: [],
+    toast() {},
+  };
+  return { context, owl, scene, mouse, chipmunk, rng };
+}
+
+test('owl is absent during the day, hunts mice at night, and leaves at sunrise', () => {
+  const { context, owl, scene, mouse, chipmunk } = forest();
+  const hunt = new HawkHunting(context);
+  const voices = new AnimalVoiceSources(context);
+  hunt.update(0.25, 1, true, isNightAt(1260 - 1));
+  assert.equal(owl.root.parent, null);
+  assert.equal(owl.shadow.parent, null);
+  assert.ok(![...voices.all()].some(({ kind }) => kind === 'owl'));
+  assert.equal(mouse.health, mouse.maxHealth);
+
+  for (let frame = 0; frame < 100; frame++)
+    hunt.update(0.05, frame * 0.05 + 2, true, isNightAt(1260));
+  assert.equal(owl.root.parent, scene);
+  assert.equal(owl.shadow.parent, scene);
+  assert.ok([...voices.all()].some(({ kind }) => kind === 'owl'));
+  assert.ok(mouse.health < mouse.maxHealth);
+  assert.equal(chipmunk.health, chipmunk.maxHealth);
+  assert.equal(hunt.busy, false);
+
+  const position = owl.root.position.clone();
+  hunt.update(0.1, 10, true, isNightAt(1440 + 300));
+  assert.equal(owl.root.parent, null);
+  assert.equal(owl.shadow.parent, null);
+  assert.ok(![...voices.all()].some(({ kind }) => kind === 'owl'));
+  assert.deepEqual(owl.root.position.toArray(), position.toArray());
+});
+
+test('owl strikes an exposed rabbit but leaves it alone in a burrow', () => {
+  const { context, owl } = forest();
+  context.wildlife.length = 0;
+  const player = context.save.player;
+  Object.assign(player, { x: 2, y: -2 });
+  context.player.root.position.set(2, -2, 0);
+  const hunt = new HawkHunting(context);
+  for (let frame = 0; frame < 90; frame++) hunt.update(0.05, frame * 0.05, true, true);
+  assert.equal(player.health, 100);
+  Object.assign(player, { x: owl.x + 2, y: 0, z: owl.z });
+  context.player.root.position.set(player.x, player.y, player.z);
+  for (let frame = 90; frame < 240; frame++) hunt.update(0.05, frame * 0.05, true, true);
+  assert.ok(player.health < 100);
+  assert.equal(hunt.playerView, undefined);
+});
+
+test('scolopendra pursues only mice and rabbits, and cannot bite into a tunnel', () => {
+  const { context, rng, mouse, chipmunk } = forest();
+  const predator = AnimalFactory.predator('scolopendra', 0, 0, rng);
+  const attacks: string[] = [];
+  const hunt = new RodentHunting({
+    ...context,
+    consequences: { predatorAttack: (kind) => attacks.push(kind) },
+  });
+  for (let frame = 0; frame < 60; frame++) {
+    const t = frame / 60;
+    const target = hunt.target(predator, t, true);
+    predator.update(1 / 60, t, 0, 0, true, true, () => 0, 0, 1, target?.root.position);
+    if (target) hunt.strike(predator, target, t);
+  }
+  assert.ok(mouse.health < mouse.maxHealth);
+  assert.equal(chipmunk.health, chipmunk.maxHealth);
+
+  mouse.health = 0;
+  predator.attackCooldown = 0;
+  context.player.root.position.set(predator.x, -1.2, predator.z);
+  assert.equal(hunt.target(predator, 3, true), undefined);
+  context.player.root.position.y = 0;
+  assert.equal(hunt.target(predator, 4, false), undefined);
+  const rabbit = hunt.target(predator, 5, true);
+  assert.ok(rabbit?.player);
+  hunt.strike(predator, rabbit, 5);
+  assert.deepEqual(attacks, ['scolopendra']);
+});
+
+test('older world configurations gain new wildlife, while explicit zero stays zero', () => {
+  const { context } = forest();
+  const values = new Map<string, string>();
+  const storage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  });
+  try {
+    const repository = new SaveRepository('field-wildlife');
+    const counts: Partial<NonNullable<typeof context.save.worldConfig>['creatures']> =
+      context.save.worldConfig!.creatures;
+    for (const kind of ADDED_ANIMALS) delete counts[kind];
+    counts.scolopendra = 0;
+    repository.store(context.save);
+    const loaded = repository.load().worldConfig!.creatures;
+    for (const kind of ADDED_ANIMALS) if (kind !== 'scolopendra') assert.ok(loaded[kind] > 0, kind);
+    assert.equal(loaded.scolopendra, 0);
+    assert.equal(
+      CREATURE_OPTIONS.find(({ kind }) => kind === 'scolopendra')?.label,
+      'подстилочная',
+    );
+  } finally {
+    if (storage) Object.defineProperty(globalThis, 'localStorage', storage);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
