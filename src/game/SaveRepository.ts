@@ -361,6 +361,8 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые данные волчьих логовищ.');
     if (data.wildlife !== undefined && !validHabitatSlots(data.wildlife))
       throw new Error('Сохранение содержит повреждённые места обитания животных.');
+    if (!validMammalPopulation(data))
+      throw new Error('Сохранение содержит повреждённые данные выводков млекопитающих.');
     if (
       data.wildlifeShelters !== undefined &&
       !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
@@ -384,7 +386,8 @@ export class SaveRepository {
       data.deadPopulation !== undefined &&
       (!Array.isArray(data.deadPopulation) ||
         !data.deadPopulation.every(
-          (id) => typeof id === 'string' && /^(predator|hawk|owl|pike):\d+$/.test(id),
+          (id) =>
+            typeof id === 'string' && /^(predator|hawk|owl|pike|mammal|wildlife):\d+$/.test(id),
         ))
     )
       throw new Error('Сохранение содержит повреждённое состояние популяции.');
@@ -513,6 +516,125 @@ function validWolfDens(value: unknown, size: number): boolean {
         site.angle >= 0 &&
         site.angle < 2 * Math.PI,
     )
+  );
+}
+
+function validMammalPopulation(data: SaveData): boolean {
+  const counter = data.nextMammalId;
+  if (counter !== undefined && !positiveId(counter)) return false;
+  if (data.marmotImmigrationAt !== undefined && !validMinute(data.marmotImmigrationAt))
+    return false;
+
+  const liveIds = new Set<number>();
+  const socialIds = new Set(data.wildlife?.map((animal) => animal.id));
+  const addId = (id: unknown) => {
+    if (!positiveId(id) || counter === undefined || id >= counter || liveIds.has(id)) return false;
+    liveIds.add(id);
+    return true;
+  };
+
+  for (const wolf of Object.values(data.wolves ?? {}))
+    if (wolf.state === 'alive') {
+      if (wolf.individual !== undefined && !addId(wolf.individual)) return false;
+      if (wolf.origin !== undefined && (!wolf.individual || !validMammalOrigin(wolf.origin)))
+        return false;
+    }
+  for (const animal of data.wildlife ?? []) {
+    if (animal.mammalId !== undefined && (animal.kind !== 'marmot' || !addId(animal.mammalId)))
+      return false;
+    if (
+      animal.mammalOrigin !== undefined &&
+      (!animal.mammalId || !validMammalOrigin(animal.mammalOrigin))
+    )
+      return false;
+  }
+
+  const nurseries = data.mammalNurseries;
+  if (nurseries !== undefined && !isRecord(nurseries)) return false;
+  const size = data.worldConfig?.size ?? 110;
+  for (const [key, state] of Object.entries(nurseries ?? {})) {
+    if (!/^(wolf|marmot):\d+$/.test(key) || !isRecord(state) || !validMinute(state.nextAt))
+      return false;
+    if (!Array.isArray(state.young) || state.young.length > 2) return false;
+    const parents = state.parents;
+    if ((parents !== undefined || state.young.length) && !validMammalParents(parents)) return false;
+    if (state.dueAt !== undefined && (!parents || !validMinute(state.dueAt) || state.young.length))
+      return false;
+    const wolf = key.startsWith('wolf:');
+    for (const young of state.young) {
+      if (!isRecord(young) || !addId(young.id)) return false;
+      if (
+        !validMinute(young.bornAt) ||
+        !validMinute(young.lastCare) ||
+        !validMinute(young.checkedAt) ||
+        young.lastCare < young.bornAt ||
+        young.checkedAt < young.lastCare ||
+        typeof young.health !== 'number' ||
+        !Number.isFinite(young.health) ||
+        young.health <= 0 ||
+        typeof young.x !== 'number' ||
+        !(Math.abs(young.x) <= size) ||
+        typeof young.z !== 'number' ||
+        !(Math.abs(young.z) <= size)
+      )
+        return false;
+      if (wolf) {
+        if (
+          young.socialId !== undefined ||
+          young.inside !== undefined ||
+          (young.denDepth !== undefined &&
+            (typeof young.denDepth !== 'number' ||
+              !(young.denDepth > 0 && young.denDepth <= DEN_BED)))
+        )
+          return false;
+      } else {
+        if (
+          young.denDepth !== undefined ||
+          (young.inside !== undefined && young.inside !== true) ||
+          !positiveId(young.socialId) ||
+          socialIds.has(young.socialId) ||
+          (young.social !== undefined && !validNurserySocial(young.social))
+        )
+          return false;
+        socialIds.add(young.socialId);
+      }
+    }
+  }
+  return true;
+}
+
+function validMammalOrigin(value: unknown): boolean {
+  return isRecord(value) && validMinute(value.bornAt) && validMammalParents(value.parents);
+}
+
+function validMammalParents(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value[0] !== value[1] &&
+    value.every((id) => typeof id === 'string' && /^(wildlife|predator|mammal):\d+$/.test(id))
+  );
+}
+
+function positiveId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function validMinute(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function validNurserySocial(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    typeof value.trust !== 'number' ||
+    !(value.trust >= 0 && value.trust <= 100)
+  )
+    return false;
+  if (value.request !== undefined && value.request !== 'food' && value.request !== 'quiet')
+    return false;
+  return ['escortUntil', 'lastGreetingAt', 'lastBondAt', 'lastGiftAt', 'lastHelpDay'].every(
+    (key) => value[key] === undefined || validMinute(value[key]),
   );
 }
 

@@ -385,6 +385,8 @@ export class Game {
         if (animal instanceof Predator) this.attackSounds?.remove(animal);
       },
       onWolfArrival: (wolf) => this.attackSounds?.add(wolf),
+      onWolfBirth: (wolf) => this.attackSounds?.add(wolf),
+      onWolfDeparture: (wolf) => this.attackSounds?.remove(wolf),
       onDenDiscovery: () => this.toast('На карте отмечено волчье логово.'),
       onDenWarning: () => this.toast('Волки охраняют логово. Отойди от входа!'),
       scene: this.scene,

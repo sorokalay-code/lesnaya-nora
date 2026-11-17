@@ -30,6 +30,13 @@ export class Wolf extends Predator {
   private depth = 0;
   private atApproach = false;
   private leavingApproach = false;
+  private nurseryTarget?: HabitatPoint;
+  private huntRadius?: number;
+
+  stayWithLitter(target?: HabitatPoint, huntRadius?: number): void {
+    this.nurseryTarget = target;
+    this.huntRadius = huntRadius;
+  }
 
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(
@@ -85,7 +92,19 @@ export class Wolf extends Predator {
   }
 
   override canPursue(x: number, z: number): boolean {
-    return !this.inDen && !this.leavingApproach && super.canPursue(x, z);
+    if (this.juvenile || this.inDen || this.leavingApproach || !super.canPursue(x, z)) return false;
+    const entrance = this.access?.den.entrance;
+    return (
+      !this.huntRadius || !entrance || Math.hypot(x - entrance.x, z - entrance.z) < this.huntRadius
+    );
+  }
+
+  override get canMelee(): boolean {
+    return !this.juvenile;
+  }
+
+  override get huntingOpen(): boolean {
+    return !this.juvenile && super.huntingOpen;
   }
 
   warnIntruder(time: number): void {
@@ -93,11 +112,12 @@ export class Wolf extends Predator {
   }
 
   override get defenseRival(): Predator | undefined {
-    if (!this.inDen && !this.leavingApproach) return this.access?.defense.rivalFor(this);
+    if (!this.juvenile && !this.inDen && !this.leavingApproach)
+      return this.access?.defense.rivalFor(this);
   }
 
   protected override defendsPlayer(x: number, z: number): boolean {
-    if (this.inDen || this.leavingApproach) return false;
+    if (this.juvenile || this.inDen || this.leavingApproach) return false;
     const target = this.access?.defense.playerTargetFor(this);
     return target?.x === x && target?.z === z;
   }
@@ -115,6 +135,10 @@ export class Wolf extends Predator {
     const { den, entry, approach } = access;
     if (this.leavingApproach && this.near(approach, 0.65)) this.leavingApproach = false;
     if (this.leavingApproach) return approach;
+    if (this.nurseryTarget && this.nurseryTarget !== den.entrance) {
+      this.atApproach = false;
+      return this.routeTo(this.nurseryTarget, time, access);
+    }
     if (intent.hunting) {
       this.atApproach = false;
       return this.routeTo(intent.destination, time, access);
@@ -129,6 +153,7 @@ export class Wolf extends Predator {
   }
 
   protected override travelsToTerritory(distance: number): boolean {
+    if (this.juvenile) return false;
     if (!this.huntingOpen && this.access && !this.access.restInside) return distance > 7;
     return distance > (this.access && !this.atApproach ? 1.5 : 7);
   }
@@ -137,7 +162,10 @@ export class Wolf extends Predator {
     const access = this.access;
     if (!access) return false;
 
-    const entering = !this.huntingOpen && access.restInside && !access.defense.targetFor(this);
+    const stayInside = this.nurseryTarget
+      ? this.nurseryTarget === access.den.entrance
+      : !this.huntingOpen && access.restInside;
+    const entering = stayInside && (this.juvenile || !access.defense.targetFor(this));
     if (
       !this.inDen &&
       !(entering && mayEnter && this.atApproach && this.near(access.entry, ENTRANCE_REACH))
@@ -145,7 +173,7 @@ export class Wolf extends Predator {
       return false;
 
     const depth = this.depth;
-    const step = dt * CHAMBER_WALK_SPEED;
+    const step = dt * CHAMBER_WALK_SPEED * this.growthScale;
     this.depth = entering ? Math.min(DEN_BED, depth + step) : Math.max(0, depth - step);
     this.placeInDen();
     if (this.depth === 0) {
@@ -161,7 +189,10 @@ export class Wolf extends Predator {
     const { den, member, entry } = this.access;
     const point = this.depth === 0 ? entry : den.chamberPoint(this.depth, member);
     this.moveTo(point.x, point.z, point.y);
-    const outward = this.huntingOpen || this.access.defense.targetFor(this);
+    const outward =
+      (this.nurseryTarget && this.nurseryTarget !== den.entrance) ||
+      this.huntingOpen ||
+      this.access.defense.targetFor(this);
     this.root.rotation.y = den.site.angle + (outward ? 0 : Math.PI);
     this.root.userData.swimming = false;
   }

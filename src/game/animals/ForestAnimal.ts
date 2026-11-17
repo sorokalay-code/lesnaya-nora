@@ -42,6 +42,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private guard?: { target: { x: number; z: number }; until: number };
   private escort?: { x: number; z: number };
   private routine?: WildlifeRoutine;
+  mammalId?: number;
 
   protected constructor(
     kind: WildlifeKind,
@@ -87,6 +88,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     return this.routine?.inside ?? false;
   }
 
+  get shelter(): WildlifeRoutine['shelter'] {
+    return this.routine?.shelter;
+  }
+
   useRoutine(routine: WildlifeRoutine, inside = false): void {
     this.routine = routine;
     const at = inside ? routine.restore() : undefined;
@@ -129,7 +134,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.targetX = this.x + (this.x - attacker.x) * 3;
     this.targetZ = this.z + (this.z - attacker.z) * 3;
     this.fleeingUntil = time + 4;
-    if (this.defense > 0 && this.health > this.maxHealth * 0.3) {
+    if (!this.juvenile && this.defense > 0 && this.health > this.maxHealth * 0.3) {
       this.fightingUntil = time + 2;
       this.fleeingUntil = 0;
       return this.defense;
@@ -273,7 +278,8 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     groundAt: GroundHeight,
   ): boolean {
     const angle = Math.atan2(x - this.x, z - this.z);
-    const step = Math.min(Math.hypot(x - this.x, z - this.z), dt * this.speed * (rushing ? 2 : 1));
+    const speed = this.speed * Math.sqrt(this.growthScale);
+    const step = Math.min(Math.hypot(x - this.x, z - this.z), dt * speed * (rushing ? 2 : 1));
     const moving = this.surfaceStep(
       this.x + Math.sin(angle) * step,
       this.z + Math.cos(angle) * step,

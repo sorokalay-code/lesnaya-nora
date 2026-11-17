@@ -94,8 +94,8 @@ export class AnimalFactory {
     return new this.predators[kind](x, z, rng, appearance ?? AnimalAppearance.seeded(kind, x, z));
   }
 
-  static wolf(x: number, z: number, rng: Random): Wolf {
-    return new Wolf(x, z, rng, AnimalAppearance.seeded('wolf', x, z));
+  static wolf(x: number, z: number, rng: Random, appearance?: AppearanceOptions): Wolf {
+    return new Wolf(x, z, rng, appearance ?? AnimalAppearance.seeded('wolf', x, z));
   }
 
   static rabbit(data: PartnerTraits, rng: Random): RabbitActor {

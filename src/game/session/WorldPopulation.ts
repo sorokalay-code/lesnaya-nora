@@ -45,6 +45,8 @@ export class WorldPopulation {
     markPartner: (actor: RabbitActor, active: boolean) => void;
     onDeath?: (animal: ForestAnimal | Predator) => void;
     onWolfArrival?: (wolf: Predator) => void;
+    onWolfBirth?: (wolf: Predator) => void;
+    onWolfDeparture?: (wolf: Predator) => void;
     onDenDiscovery?: () => void;
     onDenWarning?: () => void;
   }) {
@@ -120,6 +122,8 @@ export class WorldPopulation {
       size: config.size,
       count: config.creatures.wolf,
       onArrival: context.onWolfArrival,
+      onBirth: context.onWolfBirth,
+      onDeparture: context.onWolfDeparture,
       onDiscovery: context.onDenDiscovery,
       onDenWarning: context.onDenWarning,
     });
@@ -149,6 +153,7 @@ export class WorldPopulation {
     // Сначала размещаем стаи: лисьи и звериные участки учитывают их логова.
     for (const [i, kind] of kinds.entries())
       if (kind === 'wolf') wolves.register(`predator:${i}`, wolfIndex++);
+    wolves.restoreYoung();
 
     for (const [i, kind] of kinds.entries()) {
       const a = context.rng.range(0, Math.PI * 2),

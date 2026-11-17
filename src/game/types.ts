@@ -148,6 +148,9 @@ export interface SaveData {
   nextRemainsId?: number;
   deadPopulation?: string[];
   wolves?: Record<string, import('./session/WolfPopulation').WolfState>;
+  mammalNurseries?: Record<string, import('./MammalNursery').NurseryState>;
+  nextMammalId?: number;
+  marmotImmigrationAt?: number;
   wolfDens?: Record<number, import('./WolfDen').WolfDenSite>;
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
@@ -236,6 +239,8 @@ export interface WildlifeSocial {
 }
 
 export interface WildlifeData {
+  mammalId?: number;
+  mammalOrigin?: import('./MammalNursery').MammalOrigin;
   appearance?: AppearanceTraits;
   habitatSlot?: number;
   inShelter?: true;

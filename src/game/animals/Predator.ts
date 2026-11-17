@@ -265,7 +265,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       : travelling
         ? Math.max(this.profile.walkSpeed, this.profile.runSpeed * 0.64)
         : this.profile.walkSpeed;
-    const step = Math.min(speed * dt, distance);
+    const step = Math.min(speed * dt * Math.sqrt(this.growthScale), distance);
     const moved = this.surfaceStep(
       THREE.MathUtils.clamp(
         this.x + Math.sin(angle) * step,

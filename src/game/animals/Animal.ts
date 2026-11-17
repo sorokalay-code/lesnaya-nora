@@ -1,7 +1,8 @@
-import type { Group } from 'three';
+import type { Group, Object3D, Vector3 } from 'three';
 import type { WaterNavigation } from '../WaterNavigation';
 import { traceGround } from '../GroundContact';
 import { GroundPose } from '../GroundPose';
+import type { MammalOrigin } from '../MammalNursery';
 
 export interface AnimalPosition {
   x: number;
@@ -13,6 +14,31 @@ export abstract class Animal<K extends string = string> {
   protected waterNavigation?: WaterNavigation;
   protected surfaceAllowed?: (x: number, z: number, y: number) => boolean;
   protected movementLimit = 97;
+  private scaleAtMaturity?: Vector3;
+  private heads?: { object: Object3D; scale: Vector3 }[];
+  growthScale = 1;
+  mammalOrigin?: MammalOrigin;
+
+  get juvenile(): boolean {
+    return this.growthScale < 1;
+  }
+
+  updateGrowth(progress: number): void {
+    if (progress === 1 && !this.juvenile) return;
+    if (!this.scaleAtMaturity) {
+      this.scaleAtMaturity = this.root.scale.clone();
+      this.heads = [];
+      this.root.traverse((object) => {
+        if (object.name === 'Head') this.heads?.push({ object, scale: object.scale.clone() });
+      });
+    }
+
+    this.growthScale = 0.4 + progress * 0.6;
+    this.root.scale.copy(this.scaleAtMaturity).multiplyScalar(this.growthScale);
+    const headSize = 1 + (1 - progress) * 0.28;
+    for (const { object, scale } of this.heads ?? [])
+      object.scale.copy(scale).multiplyScalar(headSize);
+  }
 
   useWorldBounds(size: number): void {
     this.movementLimit = (size * 97) / 110;

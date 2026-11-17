@@ -16,6 +16,8 @@ import { WolfDens } from '../src/game/WolfDens';
 import { WorldRest } from '../src/game/session/WorldRest';
 import { GAME_MINUTES_PER_SECOND, isNightAt } from '../src/game/session/WorldCalendar';
 import { loadModels } from './model-fixture';
+import { AnimalRemains } from '../src/game/AnimalRemains';
+import { MAMMAL_NURSERY } from '../src/game/MammalNursery';
 
 await loadModels('wolf', 'deer', 'fox', 'marmot', 'beaver');
 
@@ -46,6 +48,7 @@ function start(): SaveData {
 
 function population(save: SaveData, notes: string[] = [], worldFor = terrain) {
   const scene = new Scene();
+  const remains = new AnimalRemains(scene, save);
   return new WorldPopulation({
     save,
     scene,
@@ -55,10 +58,8 @@ function population(save: SaveData, notes: string[] = [], worldFor = terrain) {
     onDenDiscovery: () => notes.push('den'),
     onDenWarning: () => notes.push('warning'),
     onWolfArrival: () => notes.push('arrival'),
-    onDeath: (animal) => {
-      const id: unknown = animal.root.userData.remainsIdentity;
-      if (typeof id === 'string') (save.deadPopulation ??= []).push(id);
-    },
+    onWolfBirth: () => notes.push('birth'),
+    onDeath: (animal) => remains.record(animal),
   });
 }
 
@@ -111,7 +112,7 @@ test('wolves of a pack leave the same den during the evening and return to it af
   assert.equal(pack.filter((wolf) => wolf.inDen).length, 2);
 });
 
-test('a lost wolf saves its vacant slot and returns near the den only after a day and away from the player', () => {
+test('a lost wolf keeps its death record when a new wolf fills its slot after a day', () => {
   const save = start();
   const f = population(save);
   const wolf = f.predators.find((animal) => animal.kind === 'wolf')!;
@@ -120,6 +121,7 @@ test('a lost wolf saves its vacant slot and returns near the den only after a da
   const survivor = f.predators[1];
   survivor.moveTo(den.x + 12, den.z - 4, 0);
   survivor.health = 41;
+  for (const adult of f.predators.slice(2, 4)) adult.health *= 0.4;
   wolf.moveTo(den.x + 24, den.z, 0);
   wolf.health = 0;
   const due = save.clock + 1440;
@@ -147,14 +149,209 @@ test('a lost wolf saves its vacant slot and returns near the den only after a da
   assert.ok(loaded.discoveries?.some((place) => place.label === 'Волчье логово'));
   advancing(9, due + 16, 97, 97);
   const replacement = restored.predators.find(
-    (animal) => animal.root.userData.remainsIdentity === id,
+    (animal) =>
+      animal.kind === 'wolf' && String(animal.root.userData.remainsIdentity).startsWith('mammal:'),
   );
   assert.ok(replacement && distance(replacement, den) < 6);
   assert.equal(replacement.health, replacement.maxHealth);
-  assert.equal(loaded.deadPopulation?.includes(id), false);
+  assert.ok(loaded.deadPopulation?.includes(id));
+  assert.ok(!restored.predators.some((animal) => animal.root.userData.remainsIdentity === id));
   advancing(12, due + 32, 97, 97);
   assert.equal(restored.predators.length, 5);
   assert.deepEqual(notes, ['den', 'arrival']);
+});
+
+function runEcology(
+  forest: WorldPopulation,
+  save: SaveData,
+  dt: number,
+  time: number,
+  night = isNightAt(save.clock),
+): void {
+  const ground = () => 0;
+  forest.ecology.prepareHabitats(time, save.clock, forest.predators);
+  for (const wolf of forest.predators)
+    wolf.update(dt, time, save.player.x, save.player.z, true, !night, ground);
+  forest.ecology.update(
+    dt,
+    time,
+    save.clock,
+    save.player.x,
+    save.player.z,
+    ground,
+    forest.predators,
+    false,
+  );
+}
+
+function advanceInSleep(forest: WorldPopulation, save: SaveData, minutes: number): void {
+  const asleep = new WorldRest({
+    save,
+    state: { elapsed: 0 },
+    calendar: {
+      advance(dt) {
+        save.clock += dt * GAME_MINUTES_PER_SECOND;
+        save.day = Math.floor(save.clock / 1440) + 1;
+      },
+      isNight: () => isNightAt(save.clock),
+    },
+    family: { update() {}, advancePregnancy() {} },
+    animals: {
+      update(dt, time, night) {
+        runEcology(forest, save, dt, time, night);
+        return Infinity;
+      },
+    },
+    world: { update() {} },
+    items: { update() {} },
+    waste: { update() {} },
+    earth: { isSheltered: () => false },
+    lighting: { update() {} },
+    sound: { setWeather() {} },
+  });
+  asleep.advance(minutes);
+}
+
+test('a wolf litter survives a save, exits during sleep and keeps its identity when taking an adult place', () => {
+  const save = start();
+  save.worldConfig!.creatures.wolf = 3;
+  const forest = population(save);
+  const site = save.wolfDens![0];
+  const den = new WolfDen(0, site, () => 0);
+  const clock = save.clock;
+  runEcology(forest, save, 0, 0);
+  const due = clock + MAMMAL_NURSERY.wolf.gestation;
+  assert.equal(save.mammalNurseries?.['wolf:0'].dueAt, due);
+  save.clock = due - 6;
+  runEcology(forest, save, 0, 1);
+  assert.equal(forest.predators.length, 3);
+  forest.ecology.capture();
+
+  const restored = roundTrip(save);
+  const notes: string[] = [];
+  const restoredForest = population(restored, notes);
+  advanceInSleep(restoredForest, restored, 9);
+  const pups = restoredForest.predators.filter((wolf) => wolf.juvenile);
+  assert.equal(pups.length, 2);
+  assert.ok(pups.every((pup) => pup.inDen && !pup.canMelee && pup.growthScale < 0.5));
+  assert.deepEqual(notes, ['birth', 'birth']);
+  restoredForest.ecology.capture();
+
+  const loaded = roundTrip(restored);
+  const next = population(loaded);
+  const identity = (wolf: (typeof pups)[number]) => String(wolf.root.userData.remainsIdentity);
+  const pup = next.predators.find((wolf) => identity(wolf) === identity(pups[0]))!;
+  const other = next.predators.find((wolf) => identity(wolf) === identity(pups[1]))!;
+  assert.ok(next.predators.includes(pup) && pup.inDen && pup.juvenile);
+  const initialWeight = pup.health;
+  advanceInSleep(next, loaded, MAMMAL_NURSERY.wolf.meeting + 180);
+  assert.ok(!pup.inDen && distance(pup, den.entrance) > 6);
+  assert.ok(pup.health > initialWeight && !pup.canPursue(pup.x, pup.z));
+  assert.equal(next.ecology.targetFor(pup, next.predators, 1000), undefined);
+
+  const resident = next.predators[2];
+  resident.health = 0;
+  other.health = 0;
+  runEcology(next, loaded, 0, 1000);
+  next.ecology.capture();
+  const remains = loaded.remains!;
+  assert.ok(loaded.deadPopulation?.includes(identity(other)));
+  assert.equal(remains.length, 2);
+  assert.ok(remains.some((remain) => remain.scale.x < 0.6));
+
+  const maturedSave = roundTrip(loaded);
+  const matured = population(maturedSave);
+  const samePup = matured.predators.find((wolf) => identity(wolf) === identity(pup))!;
+  advanceInSleep(matured, maturedSave, due + MAMMAL_NURSERY.wolf.mature - loaded.clock + 3);
+  matured.ecology.capture();
+  assert.equal(matured.predators.length, 3);
+  assert.ok(matured.predators.includes(samePup) && !samePup.juvenile && samePup.canMelee);
+  assert.equal(JSON.stringify(maturedSave.remains), JSON.stringify(remains));
+  assert.equal(maturedSave.mammalNurseries?.['wolf:0'].young.length, 0);
+  const replay = population(roundTrip(maturedSave));
+  assert.equal(replay.predators.filter((wolf) => identity(wolf) === identity(pup)).length, 1);
+  assert.deepEqual(
+    replay.predators.find((wolf) => identity(wolf) === identity(pup))?.mammalOrigin,
+    {
+      bornAt: due,
+      parents: save.mammalNurseries?.['wolf:0'].parents,
+    },
+  );
+});
+
+test('an empty den stays vacant for three days and disabled species ignore saved families', () => {
+  const save = start();
+  save.worldConfig!.creatures.wolf = 2;
+  save.worldConfig!.creatures.marmot = 2;
+  const forest = population(save);
+  runEcology(forest, save, 0, 0);
+  const original = save.clock;
+  for (const wolf of forest.predators) wolf.health = 0;
+  runEcology(forest, save, 0, 2);
+  forest.ecology.capture();
+  assert.deepEqual(Object.values(save.wolves ?? {}), [
+    { state: 'vacant', replaceAt: original + 4320 },
+    { state: 'vacant', replaceAt: original + 4320 },
+  ]);
+  save.clock = original + 4319;
+  runEcology(forest, save, 0, 4);
+  assert.equal(forest.predators.length, 0);
+  save.clock++;
+  runEcology(forest, save, 0, 6);
+  assert.equal(forest.predators.length, 1);
+  assert.ok(String(forest.predators[0].root.userData.remainsIdentity).startsWith('mammal:'));
+  forest.ecology.capture();
+
+  const disabled = roundTrip(save);
+  disabled.worldConfig!.creatures.wolf = 0;
+  disabled.worldConfig!.creatures.marmot = 0;
+  const empty = population(disabled);
+  runEcology(empty, disabled, 0, 0);
+  assert.equal(empty.predators.length, 0);
+  assert.equal(empty.wildlife.filter((animal) => animal.kind === 'marmot').length, 0);
+});
+
+test('marmots grow in their own visible burrow and preserve social and individual IDs after dispersing', () => {
+  const save = start();
+  save.worldConfig!.creatures.wolf = 0;
+  save.worldConfig!.creatures.marmot = 3;
+  const forest = population(save);
+  runEcology(forest, save, 0, 0);
+  const nursery = Object.values(save.mammalNurseries ?? {})[0];
+  assert.ok(nursery?.dueAt, JSON.stringify(save.wildlifeShelters));
+  const due = nursery.dueAt;
+  save.clock = due;
+  runEcology(forest, save, 0, 2);
+  const kits = forest.wildlife.filter((animal) => animal.kind === 'marmot' && animal.juvenile);
+  assert.ok(kits.length >= 2 && kits.every((animal) => animal.inShelter && !animal.root.visible));
+  const kit = kits[0];
+  assert.ok(kit.shelter && save.wildlifeShelters?.includes(kit.shelter.site));
+  assert.ok(forest.wildlife.some((adult) => !adult.juvenile && adult.shelter === kit.shelter));
+  forest.ecology.capture();
+  const loaded = roundTrip(save);
+  const next = population(loaded);
+  const restored = next.wildlife.find((animal) => animal.socialId === kit.socialId)!;
+  assert.ok(restored.inShelter && restored.juvenile && restored.mammalId === kit.mammalId);
+
+  advanceInSleep(next, loaded, MAMMAL_NURSERY.marmot.emerge + 180);
+  assert.ok(!restored.inShelter && restored.root.visible);
+  const vacancy = next.wildlife.find(
+    (animal) => animal.kind === 'marmot' && !animal.juvenile && animal.shelter !== restored.shelter,
+  )!;
+  vacancy.health = 0;
+  loaded.clock = due + MAMMAL_NURSERY.marmot.mature - 12;
+  runEcology(next, loaded, 0, 1000);
+  next.ecology.capture();
+  const atMaturity = roundTrip(loaded);
+  const settled = population(atMaturity);
+  advanceInSleep(settled, atMaturity, 27);
+  settled.ecology.capture();
+  const adult = atMaturity.wildlife?.find(
+    (animal) =>
+      animal.kind === 'marmot' && animal.id === kit.socialId && animal.mammalId === kit.mammalId,
+  );
+  assert.deepEqual(adult?.mammalOrigin, { bornAt: due, parents: nursery.parents });
+  assert.equal(atMaturity.wildlife?.filter((animal) => animal.kind === 'marmot').length, 3);
 });
 
 test('a covered wolf stays in the same den across a save and walks out through the entrance', () => {

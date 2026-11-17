@@ -1,17 +1,34 @@
 import type { Scene } from 'three';
 import { AnimalFactory, type Predator } from '../animals';
+import { ModelAssets } from '../ModelAssets';
+import { AnimalAppearance } from '../AnimalAppearance';
 import type { Wolf } from '../animals/Wolf';
 import type { AnimalHabitats, Habitat, HabitatPoint, TerritoryIntent } from '../AnimalHabitats';
 import { Random } from '../Random';
 import type { SaveData } from '../types';
 import type { World } from '../World';
-import type { WolfDen } from '../WolfDen';
+import { DEN_BED, type WolfDen } from '../WolfDen';
 import type { WolfDens } from '../WolfDens';
 import { WolfDenDefense } from '../WolfDenDefense';
 import { traceGround } from '../GroundContact';
+import {
+  allocateMammal,
+  MammalNursery,
+  mammalIdentity,
+  type MammalOrigin,
+  type YoungMammal,
+} from '../MammalNursery';
 
 export type WolfState =
-  | { state: 'alive'; x: number; z: number; health: number; denDepth?: number }
+  | {
+      state: 'alive';
+      x: number;
+      z: number;
+      health: number;
+      denDepth?: number;
+      individual?: number;
+      origin?: MammalOrigin;
+    }
   | { state: 'vacant'; replaceAt: number };
 
 interface WolfSlot {
@@ -25,6 +42,11 @@ interface WolfSlot {
 
 interface WolfPack {
   home: Habitat;
+  members: WolfSlot[];
+  young: Map<YoungMammal, Wolf>;
+  nursery: MammalNursery;
+  caretaker?: Wolf;
+  meeting?: HabitatPoint;
   shelter?: { den: WolfDen; defense: WolfDenDefense };
 }
 
@@ -38,17 +60,21 @@ interface Context {
   size: number;
   count: number;
   onArrival?: (wolf: Predator) => void;
+  onBirth?: (wolf: Predator) => void;
+  onDeparture?: (wolf: Predator) => void;
   onDiscovery?: () => void;
   onDenWarning?: () => void;
 }
 
 const PACK_SIZE = 4;
 const REPLACEMENT_MINUTES = 1440;
+const RECOLONIZATION_MINUTES = 3 * REPLACEMENT_MINUTES;
 const RESPAWN_PLAYER_DISTANCE = 22;
 const DEN_DISCOVERY_RADIUS = 12;
 const DEN_LABEL = 'Волчье логово';
 const WATCH_INTERVAL_SECONDS = 0.3;
 const RIVAL_INTRUSION_RADIUS = 7;
+const LITTER_HUNT_SHARE = 0.65;
 const PATROL_STOPS = [
   [3.1, -2.3],
   [2.15, -5],
@@ -81,6 +107,7 @@ export class WolfPopulation {
       member < insideCount ? den?.entrance : den?.point(member === 2 ? 2.35 : -2.35, -1.45);
     const slot: WolfSlot = { id, index, pack, restAt };
     this.slots.push(slot);
+    pack.members.push(slot);
 
     const state = this.context.save.wolves?.[id];
     if (state?.state === 'alive') this.place(slot, state);
@@ -90,7 +117,13 @@ export class WolfPopulation {
     else this.place(slot);
   }
 
+  restoreYoung(): void {
+    for (const pack of this.packs.values())
+      for (const young of pack.nursery.state.young) this.placeYoung(pack, young, false);
+  }
+
   updateIntents(clock: number): void {
+    for (const pack of this.packs.values()) this.updateNursery(pack, clock);
     const routes = new Map<Habitat, TerritoryIntent>();
     for (const slot of this.slots) {
       if (!slot.actor?.alive) continue;
@@ -98,7 +131,7 @@ export class WolfPopulation {
       const { home } = slot.pack;
       const intent = routes.get(home) ?? habitats.intent(home, clock, true);
       routes.set(home, intent);
-      this.follow(slot, intent);
+      this.follow(slot, intent, clock);
     }
 
     this.context.habitats.setWolfRoutes(
@@ -163,10 +196,22 @@ export class WolfPopulation {
 
   onDeath(wolf: Predator, clock: number): void {
     const slot = this.byActor.get(wolf);
-    if (!slot) return;
+    if (!slot) {
+      for (const pack of this.packs.values())
+        for (const [young, actor] of pack.young)
+          if (wolf === actor) {
+            pack.young.delete(young);
+            pack.nursery.remove(young);
+            return;
+          }
+      return;
+    }
+
     slot.actor = undefined;
     slot.replaceAt = clock + REPLACEMENT_MINUTES;
     this.byActor.delete(wolf);
+    if (!slot.pack.members.some((member) => member.actor?.alive))
+      for (const member of slot.pack.members) member.replaceAt = clock + RECOLONIZATION_MINUTES;
   }
 
   update(time: number, clock: number, player: HabitatPoint): void {
@@ -194,12 +239,34 @@ export class WolfPopulation {
 
     for (const slot of this.slots) {
       if (slot.replaceAt === undefined || clock < slot.replaceAt) continue;
+      const { members, young } = slot.pack;
+      const vacancies = members.filter((member) => !member.actor).length;
+      if (vacancies <= young.size) continue;
       const site = slot.pack.shelter?.den.entrance ?? slot.pack.home;
       if (Math.hypot(player.x - site.x, player.z - site.z) < RESPAWN_PLAYER_DISTANCE) continue;
-      const wolf = this.place(slot);
+      const wolf = this.place(slot, undefined, allocateMammal(this.context.save));
       this.context.onArrival?.(wolf);
       // Даже если погибла вся стая, новая заселяет логово постепенно.
       break;
+    }
+
+    for (const pack of this.packs.values()) {
+      for (const [young, actor] of pack.young) {
+        if (!actor.alive || pack.nursery.stage(young, clock) !== 'adult') continue;
+        if (Math.hypot(player.x - actor.x, player.z - actor.z) < RESPAWN_PLAYER_DISTANCE) continue;
+        const site = pack.shelter?.den.entrance ?? pack.home;
+        if (
+          Math.hypot(actor.x - site.x, actor.z - site.z) < 15 &&
+          clock - young.bornAt < 5 * REPLACEMENT_MINUTES
+        )
+          continue;
+        pack.young.delete(young);
+        pack.nursery.remove(young);
+        this.context.predators.splice(this.context.predators.indexOf(actor), 1);
+        this.context.onDeparture?.(actor);
+        ModelAssets.shared.release(actor.root);
+        actor.root.removeFromParent();
+      }
     }
   }
 
@@ -213,6 +280,8 @@ export class WolfPopulation {
           z: actor.z,
           health: actor.health,
           denDepth: actor.inDen ? actor.denDepth : undefined,
+          individual: this.individual(actor),
+          origin: actor.mammalOrigin,
         };
       else
         states[id] = {
@@ -221,6 +290,15 @@ export class WolfPopulation {
         };
     }
     this.context.save.wolves = states;
+    for (const pack of this.packs.values()) {
+      for (const [young, actor] of pack.young) {
+        if (!actor.alive) continue;
+        young.x = actor.x;
+        young.z = actor.z;
+        young.health = actor.health;
+        young.denDepth = actor.inDen ? actor.denDepth : undefined;
+      }
+    }
   }
 
   private packAt(id: number): WolfPack | undefined {
@@ -233,6 +311,10 @@ export class WolfPopulation {
     const den = this.context.dens.place(id, home, home.key);
     const pack: WolfPack = {
       home,
+      members: [],
+      young: new Map(),
+      nursery: new MammalNursery('wolf', this.context.save, `wolf:${id}`),
+      meeting: den ? this.meetingPoint(den) : undefined,
       shelter: den ? { den, defense: new WolfDenDefense(den) } : undefined,
     };
     this.packs.set(id, pack);
@@ -255,16 +337,41 @@ export class WolfPopulation {
     else marks[old] = { x, z, label: DEN_LABEL };
   }
 
-  private follow(slot: WolfSlot, intent: TerritoryIntent): void {
-    const destination =
+  private follow(slot: WolfSlot, intent: TerritoryIntent, clock: number): void {
+    let destination =
       slot.restAt && intent.resting
         ? slot.restAt
         : this.context.habitats.nearHome(intent.destination, slot.index);
-    slot.actor?.followTerritory({ ...intent, destination });
+    const caretaker = slot.actor && slot.actor === slot.pack.caretaker;
+    const den = slot.pack.shelter?.den;
+    if (caretaker && den) {
+      const [young] = slot.pack.nursery.state.young;
+      const stage = young ? slot.pack.nursery.stage(young, clock) : 'nest';
+      if (stage === 'nest') destination = den.entrance;
+      else {
+        const rally = stage === 'entrance' ? den.approach : (slot.pack.meeting ?? den.approach);
+        const side = Math.floor(clock / 30) % 2 === 0 ? -1.8 : 1.8;
+        destination = this.rallyPosition(den, rally, side);
+      }
+    }
+    let huntRadius: number | undefined;
+    if (!caretaker && slot.pack.caretaker && den && intent.hunting) {
+      huntRadius = slot.pack.home.radius * LITTER_HUNT_SHARE;
+      const dx = destination.x - den.entrance.x;
+      const dz = destination.z - den.entrance.z;
+      const fraction = Math.min(1, huntRadius / Math.max(1, Math.hypot(dx, dz)));
+      destination = { x: den.entrance.x + dx * fraction, z: den.entrance.z + dz * fraction };
+    }
+    slot.actor?.stayWithLitter(caretaker ? destination : undefined, huntRadius);
+    slot.actor?.followTerritory({ ...intent, destination, hunting: !caretaker && intent.hunting });
   }
 
-  private place(slot: WolfSlot, state?: Extract<WolfState, { state: 'alive' }>): Wolf {
-    const { save, world, predators, habitats } = this.context;
+  private place(
+    slot: WolfSlot,
+    state?: Extract<WolfState, { state: 'alive' }>,
+    individual = state?.individual,
+  ): Wolf {
+    const { save, habitats } = this.context;
     const { home, shelter } = slot.pack;
     const den = shelter?.den;
     const spawn =
@@ -272,30 +379,180 @@ export class WolfPopulation {
       habitats.nearHome(home, slot.index);
     const point =
       state && (!den || state.denDepth || den.penetration(state.x, state.z) <= 0) ? state : spawn;
-    const wolf = AnimalFactory.wolf(point.x, point.z, new Random(home.key ^ slot.index));
-    wolf.useWorldBounds(this.context.size);
-    wolf.moveTo(point.x, point.z, world.heightAt(point.x, point.z));
-    wolf.root.userData.remainsIdentity = slot.id;
-    if (state) wolf.health = Math.min(state.health, wolf.maxHealth);
+    const wolf = this.createWolf(
+      point,
+      home.key ^ (individual ?? slot.index),
+      individual === undefined ? slot.id : mammalIdentity(individual),
+    );
+    if (state) {
+      wolf.health = Math.min(state.health, wolf.maxHealth);
+      wolf.mammalOrigin = state.origin;
+    }
     slot.actor = wolf;
     slot.replaceAt = undefined;
     this.byActor.set(wolf, slot);
-    this.follow(slot, habitats.intent(home, save.clock, true));
+    this.follow(slot, habitats.intent(home, save.clock, true), save.clock);
     if (shelter) {
-      this.assignShelter(wolf, slot, shelter);
+      this.assignShelter(
+        wolf,
+        slot.index % PACK_SIZE,
+        slot.restAt === shelter.den.entrance,
+        shelter,
+      );
       if (state?.denDepth) wolf.restoreDen(state.denDepth);
     }
-    predators.push(wolf);
-    this.context.scene.add(wolf.root);
-
-    if (save.deadPopulation?.includes(slot.id))
-      save.deadPopulation = save.deadPopulation.filter((id) => id !== slot.id);
     return wolf;
+  }
+
+  private createWolf(point: HabitatPoint, seed: number, identity: string): Wolf {
+    const { world, predators, scene, size } = this.context;
+    const appearance = identity.startsWith('mammal:')
+      ? AnimalAppearance.seeded('wolf', seed, Number(identity.slice('mammal:'.length)))
+      : undefined;
+    const wolf = AnimalFactory.wolf(point.x, point.z, new Random(seed), appearance);
+    wolf.useWorldBounds(size);
+    wolf.moveTo(point.x, point.z, world.heightAt(point.x, point.z));
+    wolf.root.userData.remainsIdentity = identity;
+    predators.push(wolf);
+    scene.add(wolf.root);
+    return wolf;
+  }
+
+  private individual(wolf: Wolf): number | undefined {
+    const id = this.identity(wolf);
+    if (id.startsWith('mammal:')) return Number(id.slice('mammal:'.length));
+  }
+
+  private identity(wolf: Wolf): string {
+    return String(wolf.root.userData.remainsIdentity);
+  }
+
+  private meetingPoint(den: WolfDen): HabitatPoint {
+    const { world, dens, size } = this.context;
+    for (const [side, depth] of [
+      [0, -10],
+      [4, -8],
+      [-4, -8],
+      [0, -6],
+    ]) {
+      const point = den.point(side, depth);
+      const reached = traceGround(den.approach, point.x, point.z, {
+        heightAt: (x, z) => {
+          const y = world.heightAt(x, z);
+          if (
+            Math.max(Math.abs(x), Math.abs(z)) > (size * 97) / 110 ||
+            (world.waterAt?.(x, z)?.depth ?? 0) > 0.15 ||
+            !dens.canMove(den.approach, x, z, y, 0.1)
+          )
+            return;
+          return y;
+        },
+      });
+      if (Math.hypot(reached.x - point.x, reached.z - point.z) < 0.01) return point;
+    }
+    return den.approach;
+  }
+
+  private rallyPosition(den: WolfDen, rally: HabitatPoint, side: number): HabitatPoint {
+    const offset = den.point(side, 0);
+    const x = rally.x + offset.x - den.entrance.x;
+    const z = rally.z + offset.z - den.entrance.z;
+    const { world } = this.context;
+    if ((world.waterAt?.(x, z)?.depth ?? 0) > 0.15) return rally;
+    if (Math.abs(world.heightAt(x, z) - world.heightAt(rally.x, rally.z)) > 0.45) return rally;
+    return { x, z };
+  }
+
+  private placeYoung(pack: WolfPack, young: YoungMammal, born: boolean): void {
+    if (!pack.shelter) return;
+
+    const wolf = this.createWolf(young, pack.home.key ^ young.id, mammalIdentity(young.id));
+    wolf.health = young.health;
+    wolf.mammalOrigin = pack.nursery.origin(young);
+    this.assignShelter(wolf, young.id % 2, true, pack.shelter);
+    const depth = born ? DEN_BED : young.denDepth;
+    if (depth) wolf.restoreDen(depth);
+    pack.young.set(young, wolf);
+    pack.nursery.restoreGrowth(young, wolf, this.context.save.clock);
+    this.followYoung(pack, young, wolf, this.context.save.clock);
+    if (born) this.context.onBirth?.(wolf);
+  }
+
+  private updateNursery(pack: WolfPack, clock: number): void {
+    const { shelter, nursery } = pack;
+    if (!shelter) return;
+
+    const adults = pack.members.flatMap(({ actor }) => (actor?.alive ? [actor] : []));
+    const eligible = adults.filter((adult) => adult.health >= adult.maxHealth * 0.5);
+    const sex = (adult: Wolf) => (this.individual(adult) ?? this.byActor.get(adult)!.index) % 2;
+    const mother = eligible.find((adult) => sex(adult) === 0);
+    const father = eligible.find((adult) => sex(adult) === 1);
+    const motherId = nursery.state.parents?.[0];
+    const parent = adults.find((adult) => this.identity(adult) === motherId);
+    nursery.advance(
+      clock,
+      mother && father ? [this.identity(mother), this.identity(father)] : undefined,
+      !motherId || !!parent,
+      shelter.den.entrance,
+      ((parent ?? mother)?.maxHealth ?? 0) * 0.45,
+    );
+    for (const young of nursery.state.young)
+      if (!pack.young.has(young)) this.placeYoung(pack, young, true);
+
+    pack.caretaker = nursery.preparingNest(clock) ? parent : undefined;
+    for (const [young, actor] of pack.young) {
+      if (!actor.alive) continue;
+      const stage = nursery.stage(young, clock);
+      const caretaker = parent ?? adults[0];
+      if (stage !== 'adult') pack.caretaker = caretaker;
+      const attended =
+        !!caretaker &&
+        (actor.inDen
+          ? caretaker.inDen
+          : Math.hypot(actor.x - caretaker.x, actor.z - caretaker.z) < 4);
+      nursery.grow(young, actor, clock, attended);
+
+      const vacancy = stage === 'adult' ? pack.members.find((slot) => !slot.actor) : undefined;
+      if (vacancy) {
+        nursery.remove(young);
+        pack.young.delete(young);
+        vacancy.actor = actor;
+        vacancy.replaceAt = undefined;
+        this.byActor.set(actor, vacancy);
+        this.assignShelter(
+          actor,
+          vacancy.index % PACK_SIZE,
+          vacancy.restAt === shelter.den.entrance,
+          shelter,
+        );
+      } else this.followYoung(pack, young, actor, clock);
+    }
+  }
+
+  private followYoung(pack: WolfPack, young: YoungMammal, actor: Wolf, clock: number): void {
+    const den = pack.shelter?.den;
+    if (!den) return;
+
+    const stage = pack.nursery.stage(young, clock);
+    const offset = young.id % 2 === 0 ? -1 : 1;
+    let destination: HabitatPoint = den.entrance;
+    if (stage === 'entrance') destination = den.point(offset, -3.6);
+    if (stage === 'meeting')
+      destination = this.rallyPosition(den, pack.meeting ?? den.approach, offset * 0.9);
+    if (stage === 'adult') destination = den.point(offset * 9, -21);
+    actor.stayWithLitter(destination);
+    actor.followTerritory({
+      home: pack.home,
+      destination,
+      resting: stage === 'nest',
+      hunting: false,
+    });
   }
 
   private assignShelter(
     wolf: Wolf,
-    slot: WolfSlot,
+    member: number,
+    restInside: boolean,
     shelter: NonNullable<WolfPack['shelter']>,
   ): void {
     const { den, defense } = shelter;
@@ -306,13 +563,12 @@ export class WolfPopulation {
       if ((world.waterAt?.(x, z)?.depth ?? 0) > 0.15) return;
       return y;
     };
-    const restInside = slot.restAt === den.entrance;
     const patrol = restInside
       ? []
       : PATROL_STOPS.map(([side, depth]) => den.point(side, depth)).filter((point) => {
           const reached = traceGround(den.approach, point.x, point.z, { heightAt });
           return Math.hypot(reached.x - point.x, reached.z - point.z) < 0.01;
         });
-    wolf.useDen({ den, member: slot.index % PACK_SIZE, restInside, heightAt, defense, patrol });
+    wolf.useDen({ den, member, restInside, heightAt, defense, patrol });
   }
 }

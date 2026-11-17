@@ -194,7 +194,7 @@ export class AnimalCollisionSystem {
       if (!predator.alive || predator.inDen) return;
       const y = predator.root.position.y,
         sheltered = predator.underground;
-      const radius = predator.profile.radius;
+      const radius = predator.profile.radius * predator.growthScale;
       bodies.push({
         id: 4000 + i,
         x: predator.x,
@@ -204,7 +204,7 @@ export class AnimalCollisionSystem {
         mass:
           y - this.context.world.heightAt(predator.x, predator.z) > 0.15
             ? Infinity
-            : predator.profile.mass,
+            : predator.profile.mass * predator.growthScale ** 3,
         sheltered,
         moveTo: (x, z) => {
           if (y - this.context.world.heightAt(predator.x, predator.z) > 0.15) return false;
@@ -223,14 +223,14 @@ export class AnimalCollisionSystem {
         AnimalRestraint.active(animal.root)
       )
         return;
-      const radius = animal.profile.radius;
+      const radius = animal.profile.radius * animal.growthScale;
       bodies.push({
         id: 5000 + i,
         x: animal.x,
         y: animal.root.position.y,
         z: animal.z,
         radius,
-        mass: animal.profile.mass,
+        mass: animal.profile.mass * animal.growthScale ** 3,
         sheltered: false,
         moveTo: (x, z) => {
           const point = contact(animal.root.position, x, z, false);
