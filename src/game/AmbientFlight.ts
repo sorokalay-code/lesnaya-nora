@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Random } from './Random';
 import type { Biome, Season } from './types';
+import type { Weather } from './types';
 
 export interface FlightAnchor {
   x: number;
@@ -138,6 +139,12 @@ interface FlightOptions {
   nearWater(x: number, z: number): boolean;
 }
 
+export interface FlightEnvironment {
+  clock: number;
+  temperature: number;
+  weather: Weather;
+}
+
 const UPDATE_INTERVAL = 1 / 24;
 const INSECT_CAPACITY = 72;
 const BIRD_CAPACITY = 36;
@@ -150,6 +157,7 @@ export class AmbientFlight {
   private readonly color = new THREE.Color();
   private lastUpdate = -Infinity;
   private lastSeason?: Season;
+  private lastActivity = -1;
 
   constructor(
     scene: THREE.Scene,
@@ -180,17 +188,56 @@ export class AmbientFlight {
     ];
   }
 
-  update(time: number, x: number, z: number, season: Season): void {
+  useFlowers(patches: readonly FlightAnchor[]): void {
+    for (const flyer of this.batches[0].flyers) {
+      if (flyer.profile === INSECTS[3]) continue;
+      let nearest = 18;
+      let flower: FlightAnchor | undefined;
+      for (const patch of patches) {
+        const distance = Math.hypot(patch.x - flyer.x, patch.z - flyer.z);
+        if (distance < nearest) {
+          nearest = distance;
+          flower = patch;
+        }
+      }
+      if (!flower) continue;
+      flyer.x = flower.x + Math.cos(flyer.phase) * 0.45;
+      flyer.z = flower.z + Math.sin(flyer.phase) * 0.45;
+      flyer.radius = Math.min(flyer.radius, 1.1);
+    }
+  }
+
+  update(
+    time: number,
+    x: number,
+    z: number,
+    season: Season,
+    environment?: FlightEnvironment,
+  ): void {
     this.clock.value = time;
-    if (season === this.lastSeason && time - this.lastUpdate < UPDATE_INTERVAL) return;
+    const minute = (environment?.clock ?? 720) % 1440;
+    const light = minute >= 300 && minute < 1260;
+    const temperature = environment?.temperature ?? 22;
+    const badWeather = environment?.weather === 'rain' || environment?.weather === 'snow';
+    const activity = Number(light) + Number(temperature >= 9) * 2 + Number(badWeather) * 4;
+    if (
+      season === this.lastSeason &&
+      activity === this.lastActivity &&
+      time - this.lastUpdate < UPDATE_INTERVAL
+    )
+      return;
 
     this.lastSeason = season;
     this.lastUpdate = time;
+    this.lastActivity = activity;
     for (const { mesh, flyers, radius, flapRates, shapes } of this.batches) {
       let count = 0;
+      const insects = mesh.name === 'ambient-insects';
       for (const flyer of flyers) {
         const { profile, phase } = flyer;
-        if (flyer.rank >= profile.season[season]) continue;
+        if (!light || (insects && temperature < 9)) continue;
+        const weatherActivity = badWeather ? (insects ? 0.08 : 0.35) : 1;
+        if (flyer.rank >= profile.season[season] * weatherActivity) continue;
         if ((flyer.x - x) ** 2 + (flyer.z - z) ** 2 > radius ** 2) continue;
 
         const angle = time * profile.speed + phase;

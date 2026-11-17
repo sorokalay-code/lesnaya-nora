@@ -6,15 +6,61 @@ import { Predator } from './Predator';
 import type { GroundHeight } from './types';
 import { RABBIT_BODY } from '../RabbitBody';
 import type { WebAnchor } from '../SpiderWeb';
+import type { DigNode } from '../types';
 
 /** Паук охраняет паутину возле дерева и преследует крольчиху после срабатывания ловушки. */
 export class Spider extends Predator {
   private alertedUntil = 0;
   private weaving = false;
   habitat?: { a: WebAnchor; b: WebAnchor };
+  groundWeb?: { a: WebAnchor; b: WebAnchor };
   private perch = 0;
   private height = 0;
   private awakeUntil = 0;
+  private ecologicalActive = true;
+  private foodAvailable = true;
+  private refuge?: DigNode;
+  private sheltered = false;
+
+  override get inDen(): boolean {
+    return this.sheltered;
+  }
+
+  override get huntingOpen(): boolean {
+    return this.ecologicalActive && !this.sheltered && super.huntingOpen;
+  }
+
+  get webActive(): boolean {
+    return this.ecologicalActive && !this.sheltered;
+  }
+
+  get canRepairWeb(): boolean {
+    return this.webActive && this.foodAvailable;
+  }
+
+  setEcology(active: boolean, food: boolean): void {
+    this.ecologicalActive = active;
+    this.foodAvailable = food;
+    if (active) this.sheltered = false;
+  }
+
+  useGroundRetreat(at: DigNode): void {
+    this.refuge = at;
+    this.perch = this.height = 0;
+  }
+
+  configureGroundWeb(at: WebAnchor, groundAt: GroundHeight): void {
+    const direction = this.shelter?.site.angle ?? 0;
+    const x = Math.cos(direction) * 1.7;
+    const z = -Math.sin(direction) * 1.7;
+    const a = { x: at.x - x, z: at.z - z };
+    const b = { x: at.x + x, z: at.z + z };
+    if (Math.abs(groundAt(a.x, a.z) - groundAt(b.x, b.z)) <= 1.3) this.groundWeb = { a, b };
+  }
+
+  restoreHeight(height: number): void {
+    this.height = Math.max(0, Math.min(this.perch, height));
+  }
 
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(
@@ -47,7 +93,7 @@ export class Spider extends Predator {
   }
 
   override get canMelee(): boolean {
-    return this.height <= 0;
+    return this.ecologicalActive && !this.sheltered && this.height <= 0;
   }
 
   get descentSeconds(): number {
@@ -55,6 +101,7 @@ export class Spider extends Predator {
   }
 
   alert(time: number): void {
+    if (!this.ecologicalActive) return;
     this.alertedUntil = time + 3;
     this.descend(time);
   }
@@ -65,6 +112,7 @@ export class Spider extends Predator {
     this.x = a.x + 0.65;
     this.z = a.z;
     this.root.position.set(this.x, groundAt(this.x, this.z) + this.height, this.z);
+    this.refuge = { x: this.x, y: this.root.position.y, z: this.z };
     this.root.rotation.x = Math.PI / 2;
   }
 
@@ -90,11 +138,11 @@ export class Spider extends Predator {
     playerSize = 1,
   ): boolean {
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
-    this.huntingPlayer = !hidden && time < this.alertedUntil;
-    const awake = time < this.awakeUntil;
+    this.huntingPlayer = this.ecologicalActive && !hidden && time < this.alertedUntil;
+    const awake = this.ecologicalActive && time < this.awakeUntil;
     if (awake) this.height = Math.max(0, this.height - dt * 1.6);
-    const tx = this.huntingPlayer ? px : this.origin.x,
-      tz = this.huntingPlayer ? pz : this.origin.z;
+    const tx = this.huntingPlayer ? px : (this.refuge?.x ?? this.origin.x),
+      tz = this.huntingPlayer ? pz : (this.refuge?.z ?? this.origin.z);
     const dx = tx - this.x,
       dz = tz - this.z,
       distance = Math.hypot(dx, dz);
@@ -110,6 +158,7 @@ export class Spider extends Predator {
     }
     if (!awake && distance < 0.8) this.height = Math.min(this.perch, this.height + dt * 1.2);
     this.root.position.set(this.x, groundAt(this.x, this.z) + this.height, this.z);
+    this.sheltered = !this.ecologicalActive && distance < 0.2 && this.height >= this.perch - 0.05;
     const climbPitch = this.height > 0 ? (awake ? -Math.PI / 2 : Math.PI / 2) : 0;
     this.root.rotation.x += (climbPitch - this.root.rotation.x) * (1 - Math.exp(-dt * 8));
     const reach = Math.max(

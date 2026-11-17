@@ -38,6 +38,7 @@ import { ShoreEcology, shoreKind } from './ShoreEcology';
 import type { AquaticHabitats } from './AquaticHabitats';
 import { PheasantFlocks } from './PheasantFlocks';
 import { Pheasant } from './animals/Pheasant';
+import type { SmallFaunaPopulation } from './session/SmallFaunaPopulation';
 
 type Target = ForestAnimal | Predator | RabbitActor;
 type ForageTarget = { kind: 'plant'; plant: Resource } | { kind: 'ground'; point: HabitatPoint };
@@ -96,6 +97,7 @@ export class WildlifeEcology {
       shelters: WildlifeShelters;
       land?: LandPredators;
       rabbits?: readonly RabbitActor[];
+      smallFauna?: () => SmallFaunaPopulation | undefined;
     },
   ) {
     this.water = new WaterNavigation(world);
@@ -227,6 +229,7 @@ export class WildlifeEcology {
   dispose(): void {
     this.shore?.dispose();
     this.pheasants?.dispose();
+    this.territories?.smallFauna?.()?.dispose();
   }
 
   populate(): void {
@@ -511,7 +514,7 @@ export class WildlifeEcology {
       const { destination } = intent;
       const resting =
         intent.resting ||
-        (animal.kind === 'bear' && winter) ||
+        (winter && animal.habitat.profile.dormantInWinter) ||
         (animal.kind === 'boar' &&
           clock % 1440 > 320 &&
           clock % 1440 < 960 &&
@@ -526,6 +529,7 @@ export class WildlifeEcology {
     this.families?.update(clock, player, winter, winter && this.seasons.name(day + 4) !== 'Зима');
     this.shore?.update(clock, season === 'Весна', player);
     this.pheasants?.update(clock, season === 'Весна', player);
+    this.territories?.smallFauna?.()?.prepare();
     if (!land)
       for (const predator of predators)
         if (predator.kind !== 'wolf' && predator.homeTerritory)
@@ -656,6 +660,7 @@ export class WildlifeEcology {
   ): WildlifeEvent[] {
     const events: WildlifeEvent[] = [];
     this.prepareHabitats(time, clock, predators, { x: px, z: pz });
+    this.territories?.smallFauna?.()?.update(time);
     if (time >= this.nextFoodSearch) {
       this.nextFoodSearch = time + 3;
       const season = this.seasons.name(Math.floor(clock / 1440) + 1);
@@ -786,6 +791,7 @@ export class WildlifeEcology {
         this.onDeath?.(predator);
         this.territories?.wolves.onDeath(predator, clock);
         this.territories?.land?.onDeath(predator, clock);
+        this.territories?.smallFauna?.()?.onDeath(predator);
         ModelAssets.shared.release(predator.root);
         predator.root.removeFromParent();
         this.preyTargets.delete(predator);
@@ -854,7 +860,7 @@ export class WildlifeEcology {
         waterBody: animal.waterBody,
         mammalId: animal.mammalId,
         mammalOrigin: animal.mammalOrigin,
-        inShelter: animal.inShelter ? true : undefined,
+        inShelter: animal.inShelter && animal.shelter ? true : undefined,
         kind: animal.kind,
         x: animal.x,
         z: animal.z,
@@ -866,5 +872,6 @@ export class WildlifeEcology {
     this.shore?.capture();
     this.territories?.wolves.capture();
     this.territories?.land?.capture();
+    this.territories?.smallFauna?.()?.capture();
   }
 }

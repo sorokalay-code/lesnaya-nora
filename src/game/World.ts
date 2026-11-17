@@ -143,6 +143,11 @@ export class World {
       (x, z, radius) => this.shelterObstacles.push({ x, z, radius }),
     );
     this.buildResources();
+    this.ambientFlight.useFlowers(
+      this.resources.filter(
+        (resource) => resource.kind === 'clover' || resource.kind === 'berries',
+      ),
+    );
     this.resourceInstances = new ResourceInstances(this.resources, this.chunks, (root) =>
       this.trackFoliage(root),
     );
@@ -728,7 +733,11 @@ export class World {
 
     this.updateFog(weather);
 
-    this.ambientFlight.update(time, px, pz, this.seasons.name(day));
+    this.ambientFlight.update(time, px, pz, this.seasons.name(day), {
+      clock,
+      temperature: this.seasons.temperature(day, clock, weather) + this.temperatureOffset(px, pz),
+      weather,
+    });
   }
 
   private updateSeason(day: number, clock: number): void {

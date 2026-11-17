@@ -20,6 +20,22 @@ import { loadModels } from './model-fixture';
 
 await loadModels('beaver', 'duck', 'fish', 'frog', 'pike', 'rabbit');
 
+test('frogs winter underwater, leave the dormant state in spring and round-trip without a false burrow', () => {
+  const f = fixture(2.7);
+  f.step(90 * 1440 + 720, 4);
+  const frogs = f.population.wildlife.filter((actor) => actor.kind === 'frog');
+  assert.ok(frogs.length && frogs.every((actor) => actor.inShelter));
+  assert.ok(frogs.every((actor) => !!f.world.waterAt(actor.x, actor.z)));
+  f.population.ecology.capture();
+  const restored = fixture(2.7, roundTrip(f.save));
+  restored.step(120 * 1440 + 720, 4);
+  assert.ok(
+    restored.population.wildlife
+      .filter((actor) => actor.kind === 'frog')
+      .every((actor) => !actor.inShelter),
+  );
+});
+
 const METERS = 12;
 const distance = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);

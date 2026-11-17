@@ -90,13 +90,14 @@ export class PheasantFlocks {
           x: trail.x + Math.cos(angle) * 0.48,
           z: trail.z + Math.sin(angle) * 0.48,
         };
-        if (!night && hen && Math.hypot(chick.x - hen.x, chick.z - hen.z) > 3) {
+        const following = Math.hypot(chick.x - trail.x, chick.z - trail.z) > 1.5;
+        if (!night && hen && Math.hypot(chick.x - hen.x, chick.z - hen.z) > 2) {
           hen.restAt = { x: hen.x, z: hen.z };
           hen.foragingAllowed = false;
         }
         chick.foragingAllowed = !night && Math.hypot(chick.x - trail.x, chick.z - trail.z) < 1.5;
         chick.destination = position;
-        chick.restAt = night ? position : undefined;
+        chick.restAt = night || following ? position : undefined;
       },
     );
 

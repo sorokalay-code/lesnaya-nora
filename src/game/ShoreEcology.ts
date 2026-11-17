@@ -16,6 +16,7 @@ import { defaultWorldConfig } from './WorldConfig';
 import { WildlifeRoutine } from './WildlifeRoutine';
 import type { WildlifeShelters } from './WildlifeShelters';
 import { isNightAt } from './session/WorldCalendar';
+import { Frog } from './animals/Frog';
 
 export type ShoreKind = 'beaver' | 'duck' | 'fish' | 'frog';
 
@@ -187,6 +188,11 @@ export class ShoreEcology {
       const bank = this.habitats.bank(site, slot);
       const phase = Math.floor((clock + slot * 9) / 85);
       if (kind === 'frog') {
+        if (actor instanceof Frog)
+          actor.restForWinter(winter, {
+            ...bank.shallows,
+            y: this.context.world.heightAt(bank.shallows.x, bank.shallows.z),
+          });
         const wet =
           winter || (isNightAt(clock) && this.context.save.weather !== 'rain') || phase % 3 === 0;
         actor.destination = wet ? bank.shallows : bank.dry;

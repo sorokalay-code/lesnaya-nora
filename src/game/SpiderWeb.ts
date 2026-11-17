@@ -71,4 +71,11 @@ export class SpiderWeb {
     const horizontal = x * this.tangent.x + z * this.tangent.z;
     return Math.abs(horizontal) < this.halfWidth - 0.15 && Math.abs(y) < 1.45;
   }
+
+  dispose(): void {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    const materials = Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material];
+    for (const material of materials) material.dispose();
+  }
 }

@@ -18,6 +18,7 @@ import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
 import { defaultWorldConfig } from '../WorldConfig';
 import { RaptorPopulation } from './RaptorPopulation';
+import { SmallFaunaPopulation } from './SmallFaunaPopulation';
 import type { FlyingRaptor } from '../animals';
 import { AnimalHabitats } from '../AnimalHabitats';
 import { WolfPopulation } from './WolfPopulation';
@@ -36,6 +37,7 @@ export class WorldPopulation {
   readonly wildlife: ForestAnimal[];
   readonly hawks: FlyingRaptor[];
   readonly raptors: RaptorPopulation;
+  readonly smallFauna: SmallFaunaPopulation;
   readonly ecology: WildlifeEcology;
   readonly wolfDens: WolfDens;
 
@@ -225,6 +227,7 @@ export class WorldPopulation {
       if (spiderHomes.some((home) => Math.hypot(home.x - x, home.z - z) < 16)) continue;
       spiderHomes.push({ x, z });
       const spider = new Spider(x, z, spiderRandom, AnimalAppearance.seeded('spider', x, z));
+      spider.habitatSlot = spiderHomes.length - 1;
       spider.configureHabitat(tree, second, (x, z) => context.world.heightAt(x, z));
       this.predators.push(spider);
       context.scene.add(spider.root);
@@ -249,6 +252,7 @@ export class WorldPopulation {
         z = tree.z + 0.8;
       jumperHomes.push({ x, z });
       const jumper = createPredatorActor('jumping-spider', x, z, jumperRandom);
+      jumper.habitatSlot = jumperHomes.length - 1;
       jumper.useWorldBounds(config.size);
       jumper.root.position.y = context.world.heightAt(x, z);
       this.predators.push(jumper);
@@ -268,6 +272,7 @@ export class WorldPopulation {
           rng,
         );
         actor.useWorldBounds(config.size);
+        actor.habitatSlot = i;
         actor.root.position.y = context.world.heightAt(actor.x, actor.z);
         this.predators.push(actor);
         context.scene.add(actor.root);
@@ -284,6 +289,7 @@ export class WorldPopulation {
         wolves,
         shelters,
         land,
+        smallFauna: () => this.smallFauna,
         rabbits: this.rabbits,
       },
     );
@@ -307,6 +313,15 @@ export class WorldPopulation {
       animal.root.removeFromParent();
       this.predators.splice(index, 1);
     }
+    this.smallFauna = new SmallFaunaPopulation({
+      ...context,
+      predators: this.predators,
+      habitats,
+      shelters,
+      land,
+      onArrival: context.onPredatorArrival,
+      onDeparture: context.onPredatorDeparture,
+    });
   }
 
   private predatorKind(index: number): LegacyPredatorSlot {

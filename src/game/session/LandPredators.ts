@@ -116,6 +116,13 @@ export class LandPredators {
     this.families.restore();
   }
 
+  recruitSnake(slot: number, identity: string, at: HabitatPoint, rng: Random): void {
+    const home = this.context.habitats.predator('snake', slot);
+    const actor = this.create('snake', at, rng, identity, undefined, home);
+    this.settle(actor, 'snake', slot);
+    this.context.onArrival?.(actor);
+  }
+
   prepare(
     clock: number,
     winter: boolean,

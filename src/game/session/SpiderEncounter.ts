@@ -1,10 +1,12 @@
 import type * as THREE from 'three';
-import type { Spider } from '../animals/Spider';
+import { Spider } from '../animals/Spider';
+import type { Predator } from '../animals/Predator';
 import { SpiderWeb } from '../SpiderWeb';
 import type { RabbitRig } from '../Models';
 import type { SaveData } from '../types';
 import type { World } from '../World';
 import { WebEscape } from './WebEscape';
+import { GAME_MINUTES_PER_SECOND } from './WorldCalendar';
 
 export interface WebView {
   hits: number;
@@ -17,7 +19,7 @@ interface Context {
   scene: THREE.Scene;
   save: SaveData;
   world: World;
-  spiders: Spider[];
+  spiders: readonly Predator[];
   player: RabbitRig;
   toast: (text: string) => void;
 }
@@ -25,21 +27,46 @@ type Entry = { spider: Spider; web: SpiderWeb; key: string };
 
 /** Связывает лесные паутины, захват крольчихи, освобождение и приближение хозяина ловушки. */
 export class SpiderEncounter {
-  private readonly entries: Entry[];
+  private readonly entries = new Map<Spider, Entry>();
   private readonly escape = new WebEscape();
   private active?: Entry;
   private previous?: { x: number; y: number; z: number };
+  private nextSync = 0;
 
   constructor(private readonly context: Context) {
-    this.entries = context.spiders.map((spider) => {
-      const anchors = spider.habitat ?? {
-        a: { x: spider.origin.x - 1.5, z: spider.origin.z },
-        b: { x: spider.origin.x + 3.1, z: spider.origin.z },
-      };
-      const web = new SpiderWeb(anchors.a, anchors.b, (x, z) => context.world.heightAt(x, z));
-      context.scene.add(web.mesh);
-      return { spider, web, key: `${spider.origin.x.toFixed(3)},${spider.origin.z.toFixed(3)}` };
-    });
+    this.sync();
+  }
+
+  dispose(): void {
+    for (const { web } of this.entries.values()) web.dispose();
+    this.entries.clear();
+  }
+
+  private sync(): void {
+    const living = new Set(
+      this.context.spiders.filter((actor) => actor instanceof Spider && actor.alive),
+    );
+    for (const [actor, { web }] of this.entries) {
+      if (living.has(actor)) continue;
+      web.dispose();
+      this.entries.delete(actor);
+    }
+    for (const actor of living) {
+      if (!(actor instanceof Spider) || this.entries.has(actor)) continue;
+      const spider = actor;
+      const anchors = spider.habitat ??
+        spider.groundWeb ?? {
+          a: { x: spider.origin.x - 1.5, z: spider.origin.z },
+          b: { x: spider.origin.x + 3.1, z: spider.origin.z },
+        };
+      const web = new SpiderWeb(anchors.a, anchors.b, (x, z) => this.context.world.heightAt(x, z));
+      this.context.scene.add(web.mesh);
+      this.entries.set(spider, {
+        spider,
+        web,
+        key: `${spider.origin.x.toFixed(3)},${spider.origin.z.toFixed(3)}`,
+      });
+    }
   }
 
   get trapped(): boolean {
@@ -63,6 +90,10 @@ export class SpiderEncounter {
   }
 
   update(dt: number, time: number, combatAllowed: boolean): void {
+    if (time >= this.nextSync) {
+      this.nextSync = time + 1;
+      this.sync();
+    }
     const p = this.context.save.player,
       cooldowns = (this.context.save.webCooldowns ??= {});
     const point = {
@@ -72,21 +103,29 @@ export class SpiderEncounter {
     };
     const previous = this.previous ?? point;
     this.previous = point;
-    for (const entry of this.entries) {
+    for (const entry of this.entries.values()) {
+      const cooldown = cooldowns[entry.key];
+      if (
+        cooldown !== undefined &&
+        cooldown > this.context.save.clock &&
+        !entry.spider.canRepairWeb
+      )
+        cooldowns[entry.key] += dt * GAME_MINUTES_PER_SECOND;
       const ready = p.hidden ? false : this.context.save.clock >= (cooldowns[entry.key] ?? 0);
       entry.web.mesh.visible =
         entry.spider.alive &&
+        entry.spider.webActive &&
         ready &&
         Math.hypot(entry.web.center.x - p.x, entry.web.center.z - p.z) < 60;
-      entry.spider.weave(!ready && !p.hidden);
+      entry.spider.weave(!ready && !p.hidden && entry.spider.canRepairWeb);
     }
-    if (this.active && !this.active.spider.alive) {
+    if (this.active && (!this.active.spider.alive || !this.active.spider.webActive)) {
       this.active = undefined;
       this.context.toast('Паук больше не охраняет эту паутину. Ты свободна.');
     }
     if (!combatAllowed) return;
     if (!this.active && !p.hidden) {
-      this.active = this.entries.find(
+      this.active = [...this.entries.values()].find(
         (entry) => entry.web.mesh.visible && entry.web.intersects(previous, point),
       );
       if (this.active) {

@@ -36,6 +36,14 @@ const profiles = {
   beaver: { shape: 'beaver-lodge', radius: 1.58, height: 1.14, earth: 0x61503d, edge: 0x9b7853 },
   duck: { shape: 'duck-nest', radius: 0.6, height: 0.25, earth: 0x726955, edge: 0xb3a370 },
   pheasant: { shape: 'duck-nest', radius: 0.57, height: 0.1, earth: 0x64533a, edge: 0xba9e60 },
+  spider: { shape: 'roots', radius: 0.7, height: 0.4, earth: 0x534236, edge: 0xd4c9b3 },
+  'jumping-spider': {
+    shape: 'crevice',
+    radius: 0.65,
+    height: 0.37,
+    earth: 0x77786d,
+    edge: 0xd4c9b3,
+  },
 } as const satisfies Partial<
   Record<WildlifeKind | PredatorKind | 'rabbit', WildlifeShelterProfile>
 >;

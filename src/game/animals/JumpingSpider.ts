@@ -17,6 +17,15 @@ export class JumpingSpider extends Predator {
     height: 0.95,
   });
   private nextLeap = 0;
+  private insectForaging = false;
+
+  override get huntsWildlife(): boolean {
+    return false;
+  }
+
+  forageForInsects(available: boolean): void {
+    this.insectForaging = available;
+  }
 
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(
@@ -57,13 +66,15 @@ export class JumpingSpider extends Predator {
     playerSize: number,
   ): boolean | undefined {
     if (!chasing && !this.leap.active) {
-      this.targetX = this.origin.x + Math.cos(time * 0.25 + this.origin.x) * 3;
-      this.targetZ = this.origin.z + Math.sin(time * 0.31 + this.origin.z) * 3;
+      const center = this.shelter?.approach ?? this.origin;
+      this.targetX = center.x + Math.cos(time * 0.25 + center.x) * 3;
+      this.targetZ = center.z + Math.sin(time * 0.31 + center.z) * 3;
     }
     if (time >= this.nextLeap && !this.leap.active) this.leap.rearm();
+    const foraging = !chasing && this.insectForaging && this.foragingAllowed;
     const step = this.leap.update(
       dt,
-      chasing && time >= this.nextLeap && this.attackCooldown <= 0,
+      (chasing || foraging) && time >= this.nextLeap && this.attackCooldown <= 0,
       this,
       { x: this.targetX, z: this.targetZ },
       groundAt,

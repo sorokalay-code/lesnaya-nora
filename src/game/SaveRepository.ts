@@ -371,6 +371,8 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые данные обитателей воды.');
     if (!validBirdPopulation(data))
       throw new Error('Сохранение содержит повреждённые данные птиц и кладок.');
+    if (!validSmallFauna(data))
+      throw new Error('Сохранение содержит повреждённые данные пауков, змей или коконов.');
     if (
       data.wildlifeShelters !== undefined &&
       !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
@@ -725,6 +727,95 @@ function validAquaticPoint(value: unknown, bound: number): boolean {
     typeof value.z === 'number' &&
     Math.abs(value.z) <= bound
   );
+}
+
+function validSmallFauna(data: SaveData): boolean {
+  const bound = data.worldConfig?.size ?? 110;
+  const point = (value: unknown): boolean =>
+    validAquaticPoint(value, bound) &&
+    isRecord(value) &&
+    typeof value.y === 'number' &&
+    Number.isFinite(value.y) &&
+    Math.abs(value.y) <= 200;
+  const kind = (value: unknown): value is 'snake' | 'spider' | 'jumping-spider' =>
+    value === 'snake' || value === 'spider' || value === 'jumping-spider';
+  const identity = (value: unknown): boolean =>
+    typeof value === 'string' && /^predator:\d+$/.test(value);
+  const nextId = data.nextSmallFaunaId ?? 1000000;
+  if (!positiveId(nextId) || nextId < 1000000) return false;
+  const checkId = (value: string): boolean => Number(value.split(':')[1]) < nextId;
+  if (
+    data.smallFaunaImmigration !== undefined &&
+    (!isRecord(data.smallFaunaImmigration) ||
+      Object.entries(data.smallFaunaImmigration).some(
+        ([key, clock]) => !kind(key) || !validMinute(clock),
+      ))
+  )
+    return false;
+  const adults = data.spiders;
+  if (adults !== undefined && (!Array.isArray(adults) || adults.length > 240)) return false;
+  const ids = new Set(data.landPredators?.map((actor) => actor.id));
+  const slots = new Set<string>();
+  for (const actor of adults ?? []) {
+    if (
+      !isRecord(actor) ||
+      (actor.kind !== 'spider' && actor.kind !== 'jumping-spider') ||
+      !identity(actor.id) ||
+      !checkId(actor.id) ||
+      ids.has(actor.id) ||
+      !Number.isInteger(actor.slot) ||
+      actor.slot < 0 ||
+      actor.slot >= 120 ||
+      !point(actor) ||
+      !validAquaticPoint(actor.origin, bound) ||
+      !(typeof actor.health === 'number' && actor.health > 0 && actor.health <= 28) ||
+      (actor.inside !== undefined && actor.inside !== true)
+    )
+      return false;
+    const key = `${actor.kind}:${actor.slot}`;
+    if (slots.has(key)) return false;
+    slots.add(key);
+    ids.add(actor.id);
+    if (
+      actor.anchors !== undefined &&
+      (actor.kind !== 'spider' ||
+        !isRecord(actor.anchors) ||
+        !validAquaticPoint(actor.anchors.a, bound) ||
+        !validAquaticPoint(actor.anchors.b, bound) ||
+        Math.hypot(actor.anchors.a.x - actor.anchors.b.x, actor.anchors.a.z - actor.anchors.b.z) <
+          0.1)
+    )
+      return false;
+  }
+  const cohorts = data.smallFaunaCohorts;
+  if (cohorts !== undefined && (!Array.isArray(cohorts) || cohorts.length > 300)) return false;
+  const seen = new Set<string>();
+  for (const cohort of cohorts ?? []) {
+    if (
+      !isRecord(cohort) ||
+      !kind(cohort.kind) ||
+      !Number.isInteger(cohort.slot) ||
+      cohort.slot < 0 ||
+      cohort.slot >= 120 ||
+      !identity(cohort.parent) ||
+      !checkId(cohort.parent) ||
+      !point(cohort.home) ||
+      !['conceivedAt', 'dueAt', 'matureAt', 'nextRecruitAt', 'nextBreedAt'].every((key) =>
+        validMinute(cohort[key]),
+      ) ||
+      !(cohort.conceivedAt <= cohort.dueAt && cohort.dueAt < cohort.matureAt) ||
+      cohort.nextRecruitAt < cohort.matureAt ||
+      cohort.nextBreedAt < cohort.conceivedAt ||
+      !Number.isInteger(cohort.remaining) ||
+      cohort.remaining < 0 ||
+      cohort.remaining > (cohort.kind === 'snake' ? 3 : cohort.kind === 'spider' ? 12 : 8)
+    )
+      return false;
+    const key = `${cohort.kind}:${cohort.slot}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+  }
+  return (data.landPredators ?? []).every((actor) => actor.kind !== 'snake' || checkId(actor.id));
 }
 
 function validBirdPopulation(data: SaveData): boolean {

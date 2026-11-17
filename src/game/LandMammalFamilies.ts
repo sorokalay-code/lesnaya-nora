@@ -128,7 +128,7 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
       family.nursery.grow(young, actor, clock, attended);
       if (!actor.alive) continue;
 
-      if (stage === 'adult' && (family.kind !== 'bear' || !winter))
+      if (stage === 'adult' && !(family.home.profile.dormantInWinter && winter))
         this.adult(actor, young, family, adults, player, clock);
       else if (stage === 'adult')
         this.raise(actor, family, 'nest', caregiver, young.id, clock, winter);
@@ -188,11 +188,11 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
     clock: number,
     winter: boolean,
   ): void {
-    const { shelter, kind, nest } = family;
+    const { shelter, nest } = family;
     const resting =
       stage === 'nest' ||
       (!!shelter && this.context.resting(family.home, clock)) ||
-      (kind === 'bear' && winter);
+      (family.home.profile.dormantInWinter && winter);
     const approach = shelter?.approach ?? nest;
     if (caregiver) {
       this.caregivers.set(caregiver, nest);

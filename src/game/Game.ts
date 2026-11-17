@@ -35,7 +35,6 @@ import { AnimalWasteSystem } from './session/AnimalWasteSystem';
 import { EventJournal } from './EventJournal';
 import { FamilyGrooming } from './session/FamilyGrooming';
 import { SpiderEncounter } from './session/SpiderEncounter';
-import { Spider } from './animals/Spider';
 import { EnvironmentController } from './session/EnvironmentController';
 import { FamilyLifecycle } from './session/FamilyLifecycle';
 import { InteractionController } from './session/InteractionController';
@@ -278,6 +277,7 @@ export class Game {
     this.interactions?.dispose();
     this.animals?.dispose();
     this.ecology?.dispose();
+    this.web?.dispose();
     this.remains?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
@@ -428,7 +428,7 @@ export class Game {
       scene: this.scene,
       save: this.save,
       world: this.world,
-      spiders: this.predators.filter((predator): predator is Spider => predator instanceof Spider),
+      spiders: this.predators,
       player: this.player,
       toast: (text) => this.toast(text),
     });

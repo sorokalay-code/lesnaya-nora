@@ -9,6 +9,7 @@ export interface HabitatProfile {
   activeDuring?: 'day' | 'night' | 'twilight' | 'brief-outings';
   groupSize?: number;
   feedNearWater?: boolean;
+  dormantInWinter?: boolean;
 }
 
 interface WildlifeHabitat extends HabitatProfile {
@@ -52,12 +53,27 @@ export const WILDLIFE_HABITATS: Readonly<Record<WildlifeKind, WildlifeHabitat>> 
     radius: 38,
     biomes: woodland,
     food: ['berries', 'acorn', 'mushroom', 'carrot'],
+    dormantInWinter: true,
   },
   badger: { mode: 'burrow', radius: 16, biomes: woodland, food: roots, activeDuring: 'night' },
   mole: { mode: 'burrow', radius: 9, biomes: grassland, food: [], activeDuring: 'brief-outings' },
-  marmot: { mode: 'burrow', radius: 14, biomes: grassland, food: browse, activeDuring: 'day' },
+  marmot: {
+    mode: 'burrow',
+    radius: 14,
+    biomes: grassland,
+    food: browse,
+    activeDuring: 'day',
+    dormantInWinter: true,
+  },
   mouse: { mode: 'burrow', radius: 9, biomes: cover, food: seeds, activeDuring: 'night' },
-  chipmunk: { mode: 'burrow', radius: 11, biomes: woodland, food: seeds, activeDuring: 'day' },
+  chipmunk: {
+    mode: 'burrow',
+    radius: 11,
+    biomes: woodland,
+    food: seeds,
+    activeDuring: 'day',
+    dormantInWinter: true,
+  },
   squirrel: { mode: 'range', radius: 16, biomes: woodland, food: seeds, activeDuring: 'day' },
   hedgehog: {
     mode: 'range',
@@ -65,6 +81,7 @@ export const WILDLIFE_HABITATS: Readonly<Record<WildlifeKind, WildlifeHabitat>> 
     biomes: cover,
     food: ['berries', 'mushroom'],
     activeDuring: 'night',
+    dormantInWinter: true,
   },
   pheasant: { mode: 'range', radius: 19, biomes: grassland, food: seeds, activeDuring: 'day' },
   beaver: {
@@ -91,7 +108,21 @@ export const PREDATOR_HABITATS: Readonly<Partial<Record<PredatorKind, HabitatPro
   lynx: { mode: 'den', radius: 33, biomes: woodland, activeDuring: 'twilight' },
   weasel: { mode: 'burrow', radius: 17, biomes: cover, activeDuring: 'brief-outings' },
   dog: { mode: 'range', radius: 22, biomes: ['garden', 'meadow'] },
-  snake: { mode: 'range', radius: 16, biomes: ['swamp', 'meadow'], activeDuring: 'day' },
+  snake: {
+    mode: 'range',
+    radius: 16,
+    biomes: ['swamp', 'meadow'],
+    activeDuring: 'day',
+    dormantInWinter: true,
+  },
+  spider: { mode: 'range', radius: 10, biomes: woodland, dormantInWinter: true },
+  'jumping-spider': {
+    mode: 'range',
+    radius: 10,
+    biomes: cover,
+    activeDuring: 'day',
+    dormantInWinter: true,
+  },
 };
 
 export const RABBIT_HABITAT: HabitatProfile = {
