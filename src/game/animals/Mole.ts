@@ -12,7 +12,7 @@ const profile: WildlifeProfile = {
   mass: 1.1,
 };
 
-/** Крот гуляет по лугу и избегает хищников. */
+/** Крот делает короткие вылазки около кротовин и скрывается от хищников. */
 export class Mole extends ForestAnimal {
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super('mole', x, z, rng, profile, appearance);

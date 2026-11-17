@@ -22,6 +22,7 @@ import { isNightAt } from './WorldCalendar';
 import { AnimalHabitats } from '../AnimalHabitats';
 import { WolfPopulation } from './WolfPopulation';
 import { WolfDens } from '../WolfDens';
+import { WildlifeShelters } from '../WildlifeShelters';
 import { DEN_DEPTH, DEN_HALF_WIDTH } from '../WolfDen';
 
 type LegacyPredatorSlot = PredatorKind | 'bear';
@@ -252,7 +253,11 @@ export class WorldPopulation {
       context.rng,
       context.save,
       context.onDeath,
-      { habitats, wolves },
+      {
+        habitats,
+        wolves,
+        shelters: new WildlifeShelters(context.world, context.scene, context.save, this.wolfDens),
+      },
     );
     this.ecology.populate();
     this.wildlife = this.ecology.animals;

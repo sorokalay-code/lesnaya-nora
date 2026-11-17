@@ -120,6 +120,7 @@ export class HawkVictims {
       // mass — вес для наземных столкновений, а не килограммы; переносимость определяют габариты.
       if (
         animal.kind === 'fish' ||
+        animal.inShelter ||
         (rodentsOnly && animal.kind !== 'mouse') ||
         !animal.alive ||
         (!rodentsOnly && !includeLargeWildlife && animal.profile.radius > 0.43)
@@ -132,7 +133,7 @@ export class HawkVictims {
         related: false,
         condition: () => animal.health / animal.maxHealth,
         bodyHeight: 0.55 * animal.appearance.size,
-        alive: () => animal.alive,
+        alive: () => animal.alive && !animal.inShelter,
         move: (x, y, z) => animal.moveTo(x, z, y),
         hurt: (damage) => {
           animal.health = Math.max(0, animal.health - damage);

@@ -95,6 +95,7 @@ export class FriendDefense {
   private available(friend: ForestAnimal, player: PlayerPosition, range: number): boolean {
     return (
       friend.alive &&
+      !friend.inShelter &&
       friend.kind !== 'fish' &&
       friend.trust >= FRIENDSHIP_TRUST &&
       !friend.root.userData.conversing &&

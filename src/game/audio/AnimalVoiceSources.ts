@@ -39,6 +39,7 @@ export class AnimalVoiceSources {
     for (const animal of this.population.wildlife)
       if (
         animal.alive &&
+        !animal.inShelter &&
         animal.kind !== 'duck' &&
         animal.kind !== 'mouse' &&
         animal.kind !== 'fish'

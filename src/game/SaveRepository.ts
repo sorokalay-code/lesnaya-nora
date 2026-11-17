@@ -6,6 +6,8 @@ import { playerSex } from './RabbitSex';
 import { isColdNightGoal } from './ColdNightPlan';
 import { MAX_BURROW_FUR } from './BurrowFur';
 import { DEN_BED } from './WolfDen';
+import { isShelteredWildlife } from './WildlifeShelterProfiles';
+import { isWildlifeShelterSite } from './WildlifeShelters';
 
 export const SAVE_VERSION = 5;
 
@@ -359,6 +361,11 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые данные волчьих логовищ.');
     if (data.wildlife !== undefined && !validHabitatSlots(data.wildlife))
       throw new Error('Сохранение содержит повреждённые места обитания животных.');
+    if (
+      data.wildlifeShelters !== undefined &&
+      !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
+    )
+      throw new Error('Сохранение содержит повреждённые укрытия животных.');
     if (data.coldNightOuting !== undefined && !validColdNightOuting(data, data.worldConfig.size))
       throw new Error('Сохранение содержит повреждённый план вылазки.');
     if (data.burrowFur !== undefined && !validFurPatches(data.burrowFur))
@@ -514,10 +521,27 @@ function validHabitatSlots(value: unknown): boolean {
   const slots = new Set<string>();
   for (const animal of value) {
     if (!isRecord(animal) || typeof animal.kind !== 'string') return false;
+    if (
+      animal.inShelter !== undefined &&
+      (animal.inShelter !== true || !isShelteredWildlife(animal.kind))
+    )
+      return false;
     const slot = animal.habitatSlot;
     if (slot === undefined) continue;
     if (typeof slot !== 'number' || !Number.isSafeInteger(slot) || slot < 0) return false;
     const key = `${animal.kind}:${slot}`;
+    if (slots.has(key)) return false;
+    slots.add(key);
+  }
+  return true;
+}
+
+function validWildlifeShelters(value: unknown, size: number): boolean {
+  if (!Array.isArray(value) || value.length > 2048) return false;
+  const slots = new Set<string>();
+  for (const site of value) {
+    if (!isWildlifeShelterSite(site, size)) return false;
+    const key = `${site.kind}:${site.slot}`;
     if (slots.has(key)) return false;
     slots.add(key);
   }

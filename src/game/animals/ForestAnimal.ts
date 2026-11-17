@@ -11,6 +11,7 @@ import {
   type AppearanceTraits,
 } from '../AnimalAppearance';
 import type { Habitat, HabitatPoint } from '../AnimalHabitats';
+import type { WildlifeRoutine } from '../WildlifeRoutine';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
   get swimSpeed(): number {
@@ -25,6 +26,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   habitat?: Habitat;
   destination?: HabitatPoint;
   foragingAllowed = true;
+  restAt?: HabitatPoint;
   social: WildlifeSocial = { trust: 0 };
   protected legs: THREE.Object3D[] = [];
   private readonly speed: number;
@@ -39,6 +41,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private greeting?: { x: number; z: number; until: number };
   private guard?: { target: { x: number; z: number }; until: number };
   private escort?: { x: number; z: number };
+  private routine?: WildlifeRoutine;
 
   protected constructor(
     kind: WildlifeKind,
@@ -78,6 +81,19 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
         : this.trust > 25
           ? 'доверчивое'
           : 'осторожное';
+  }
+
+  get inShelter(): boolean {
+    return this.routine?.inside ?? false;
+  }
+
+  useRoutine(routine: WildlifeRoutine, inside = false): void {
+    this.routine = routine;
+    const at = inside ? routine.restore() : undefined;
+    if (!at) return;
+
+    this.moveTo(at.x, at.z, at.y);
+    this.root.visible = false;
   }
 
   get trust(): number {
@@ -157,6 +173,39 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
 
     const danger = threats.find((p) => Math.hypot(p.x - this.x, p.z - this.z) < 6);
     const escort = this.escort;
+    const fighting = time < this.fightingUntil;
+    const activity = this.routine?.update(
+      this.root.position,
+      time,
+      guard || escort || fighting ? undefined : this.restAt,
+      danger,
+      !guard && !fighting,
+    );
+    if (activity) {
+      this.root.userData.tailPhase = time;
+      if (activity.kind === 'move') {
+        if (activity.fleeing) this.fleeingUntil = time + 2.2;
+        const moving = this.walkToward(
+          activity.target.x,
+          activity.target.z,
+          dt,
+          activity.fleeing,
+          groundAt,
+        );
+        this.animate(dt, moving, activity.fleeing, 'idle');
+      } else if (activity.kind === 'rest') {
+        this.surfaceStep(this.x, this.z, dt, groundAt);
+        const clip = this.model.clips.has('rest') ? 'rest' : 'idle';
+        this.animate(dt, false, false, clip);
+      } else if (activity.kind === 'enter' || activity.kind === 'emerge') {
+        const { x, y, z } = activity.at;
+        this.moveTo(x, z, y);
+        if (activity.kind === 'emerge') this.root.rotation.y = activity.heading;
+        this.root.visible = activity.kind === 'emerge';
+      }
+      return false;
+    }
+
     const escortDistance = escort ? Math.hypot(escort.x - this.x, escort.z - this.z) : 0;
     if (guard) {
       this.targetX = guard.x;
@@ -208,39 +257,46 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
         !grazing &&
         time > this.eatingUntil &&
         (!!food || Math.sin(time * 0.47 + this.root.id) > -0.55));
-    let moving = false;
-    if (wantsToMove) {
-      const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
-      const step = Math.min(
-        Math.hypot(this.targetX - this.x, this.targetZ - this.z),
-        dt * this.speed * (rushing ? 2 : 1),
-      );
-      moving = this.surfaceStep(
-        THREE.MathUtils.clamp(
-          this.x + Math.sin(angle) * step,
-          -this.movementLimit,
-          this.movementLimit,
-        ),
-        THREE.MathUtils.clamp(
-          this.z + Math.cos(angle) * step,
-          -this.movementLimit,
-          this.movementLimit,
-        ),
-        dt,
-        groundAt,
-      );
-      const desired = angle + Math.PI;
-      const turn = Math.atan2(
-        Math.sin(desired - this.root.rotation.y),
-        Math.cos(desired - this.root.rotation.y),
-      );
-      this.root.rotation.y += THREE.MathUtils.clamp(turn, -dt * 4, dt * 4);
-    }
-
+    const moving =
+      wantsToMove && this.walkToward(this.targetX, this.targetZ, dt, rushing, groundAt);
     if (!wantsToMove) this.surfaceStep(this.x, this.z, dt, groundAt);
+    this.animate(dt, moving, rushing, time < this.eatingUntil ? 'graze' : 'idle');
+    this.root.userData.tailPhase = time;
+    return grazing && time < this.eatingUntil;
+  }
+
+  private walkToward(
+    x: number,
+    z: number,
+    dt: number,
+    rushing: boolean,
+    groundAt: GroundHeight,
+  ): boolean {
+    const angle = Math.atan2(x - this.x, z - this.z);
+    const step = Math.min(Math.hypot(x - this.x, z - this.z), dt * this.speed * (rushing ? 2 : 1));
+    const moving = this.surfaceStep(
+      this.x + Math.sin(angle) * step,
+      this.z + Math.cos(angle) * step,
+      dt,
+      groundAt,
+    );
+    if (step > 0.001) {
+      const turn = angle + Math.PI - this.root.rotation.y;
+      const shortest = Math.atan2(Math.sin(turn), Math.cos(turn));
+      this.root.rotation.y += THREE.MathUtils.clamp(shortest, -dt * 4, dt * 4);
+    }
+    return moving;
+  }
+
+  private animate(
+    dt: number,
+    moving: boolean,
+    rushing: boolean,
+    still: 'idle' | 'rest' | 'graze',
+  ): void {
     ModelAssets.shared.play(
       this.model,
-      moving ? (rushing ? 'run' : 'walk') : time < this.eatingUntil ? 'graze' : 'idle',
+      moving ? (rushing ? 'run' : 'walk') : still,
       dt,
       moving
         ? THREE.MathUtils.clamp(
@@ -250,7 +306,5 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
           )
         : 1,
     );
-    this.root.userData.tailPhase = time;
-    return grazing && time < this.eatingUntil;
   }
 }

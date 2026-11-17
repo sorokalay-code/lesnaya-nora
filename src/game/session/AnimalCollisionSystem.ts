@@ -218,6 +218,7 @@ export class AnimalCollisionSystem {
     this.context.wildlife.forEach((animal, i) => {
       if (
         animal.kind === 'fish' ||
+        animal.inShelter ||
         animal.root.userData.swimming ||
         AnimalRestraint.active(animal.root)
       )

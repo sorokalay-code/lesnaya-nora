@@ -4,7 +4,7 @@ import { Predator } from './Predator';
 import type { HabitatPoint, TerritoryIntent } from '../AnimalHabitats';
 import { animatePredator } from '../Models';
 import { DEN_APPROACH, DEN_BED, type WolfDen } from '../WolfDen';
-import { WolfDenRoute } from '../WolfDenRoute';
+import { SurfaceRoute } from '../SurfaceRoute';
 import type { DigNode } from '../types';
 import type { WolfDenDefense } from '../WolfDenDefense';
 
@@ -26,7 +26,7 @@ interface DenAccess {
 /** Волк быстро преследует добычу и опасен на открытых тропах. */
 export class Wolf extends Predator {
   private access?: DenAccess;
-  private readonly route = new WolfDenRoute();
+  private readonly route = new SurfaceRoute();
   private depth = 0;
   private atApproach = false;
   private leavingApproach = false;

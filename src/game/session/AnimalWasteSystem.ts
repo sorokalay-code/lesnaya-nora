@@ -86,7 +86,7 @@ export class AnimalWasteSystem {
     for (const member of this.context.families)
       this.emit(`family:${member.data.id}`, member.root.position, time, 0, 0.8, member.rig, false);
     for (const animal of this.context.wildlife)
-      if (animal.alive && !AnimalRestraint.active(animal.root))
+      if (animal.alive && !animal.inShelter && !AnimalRestraint.active(animal.root))
         this.emit(
           `wild:${animal.socialId}`,
           animal.root.position,

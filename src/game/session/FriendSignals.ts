@@ -21,6 +21,7 @@ export class FriendSignals {
     for (const animal of animals) {
       if (
         animal.alive &&
+        !animal.inShelter &&
         !AnimalRestraint.active(animal.root) &&
         animal.trust >= FRIENDSHIP_TRUST &&
         Math.hypot(animal.x - player.x, animal.z - player.z) < 5 &&
@@ -37,6 +38,7 @@ export class FriendSignals {
     const friend = animals.find(
       (animal) =>
         animal.alive &&
+        !animal.inShelter &&
         !AnimalRestraint.active(animal.root) &&
         animal.trust >= FRIENDSHIP_TRUST &&
         Math.hypot(animal.x - player.x, animal.z - player.z) < 18 * hearing,

@@ -6,7 +6,7 @@ export interface HabitatProfile {
   mode: HabitatMode;
   radius: number;
   biomes: readonly Biome[];
-  activeDuring?: 'day' | 'night';
+  activeDuring?: 'day' | 'night' | 'twilight' | 'brief-outings';
 }
 
 interface WildlifeHabitat extends HabitatProfile {
@@ -23,17 +23,29 @@ const roots = ['carrot', 'acorn', 'berries', 'mushroom'] as const;
 
 export const WILDLIFE_HABITATS: Readonly<Record<WildlifeKind, WildlifeHabitat>> = {
   deer: { mode: 'roaming', radius: 42, biomes: cover, food: browse },
-  'roe-deer': { mode: 'roaming', radius: 28, biomes: cover, food: browse },
+  'roe-deer': {
+    mode: 'roaming',
+    radius: 28,
+    biomes: cover,
+    food: browse,
+    activeDuring: 'twilight',
+  },
   moose: { mode: 'roaming', radius: 50, biomes: wetland, food: browse },
   boar: { mode: 'roaming', radius: 36, biomes: woodland, food: roots },
   bear: { mode: 'den', radius: 38, biomes: woodland, food: roots },
   badger: { mode: 'burrow', radius: 16, biomes: woodland, food: roots, activeDuring: 'night' },
-  mole: { mode: 'burrow', radius: 9, biomes: grassland, food: [] },
+  mole: { mode: 'burrow', radius: 9, biomes: grassland, food: [], activeDuring: 'brief-outings' },
   marmot: { mode: 'burrow', radius: 14, biomes: grassland, food: browse, activeDuring: 'day' },
   mouse: { mode: 'burrow', radius: 9, biomes: cover, food: seeds, activeDuring: 'night' },
   chipmunk: { mode: 'burrow', radius: 11, biomes: woodland, food: seeds, activeDuring: 'day' },
   squirrel: { mode: 'range', radius: 16, biomes: woodland, food: seeds, activeDuring: 'day' },
-  hedgehog: { mode: 'range', radius: 14, biomes: cover, food: ['berries', 'mushroom'] },
+  hedgehog: {
+    mode: 'range',
+    radius: 14,
+    biomes: cover,
+    food: ['berries', 'mushroom'],
+    activeDuring: 'night',
+  },
   pheasant: { mode: 'range', radius: 19, biomes: grassland, food: seeds, activeDuring: 'day' },
   beaver: { mode: 'shore', radius: 16, biomes: wetland, food: browse },
   duck: { mode: 'shore', radius: 17, biomes: ['swamp', 'meadow'], food: seeds },

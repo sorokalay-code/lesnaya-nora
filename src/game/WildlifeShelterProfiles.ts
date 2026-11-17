@@ -1,0 +1,31 @@
+import type { WildlifeKind } from './animals/types';
+
+type GroundShelterShape = 'burrow' | 'molehills' | 'leaf-nest';
+
+export interface WildlifeShelterProfile {
+  shape: GroundShelterShape | 'tree-nest';
+  radius: number;
+  height: number;
+  earth: number;
+  edge: number;
+}
+
+const profiles = {
+  badger: { shape: 'burrow', radius: 1.04, height: 0.68, earth: 0x856348, edge: 0x65533d },
+  marmot: { shape: 'burrow', radius: 0.91, height: 0.49, earth: 0x957553, edge: 0xa3916d },
+  mouse: { shape: 'burrow', radius: 0.39, height: 0.28, earth: 0x584532, edge: 0x7b694a },
+  chipmunk: { shape: 'burrow', radius: 0.56, height: 0.34, earth: 0x785842, edge: 0x8f6648 },
+  mole: { shape: 'molehills', radius: 0.76, height: 0.26, earth: 0x5e4131, edge: 0x92715b },
+  hedgehog: { shape: 'leaf-nest', radius: 0.72, height: 0.48, earth: 0x6e5840, edge: 0xb98a48 },
+  squirrel: { shape: 'tree-nest', radius: 0.68, height: 0.56, earth: 0x67593b, edge: 0x897353 },
+} as const satisfies Partial<Record<WildlifeKind, WildlifeShelterProfile>>;
+
+export type ShelteredWildlife = keyof typeof profiles;
+
+export function isShelteredWildlife(value: unknown): value is ShelteredWildlife {
+  return typeof value === 'string' && Object.hasOwn(profiles, value);
+}
+
+export function wildlifeShelterProfile(kind: ShelteredWildlife): WildlifeShelterProfile {
+  return profiles[kind];
+}

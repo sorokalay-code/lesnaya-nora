@@ -72,7 +72,7 @@ export class AnimalHabitats {
   wildlife(kind: WildlifeKind, slot: number): Habitat | undefined {
     const profile = WILDLIFE_HABITATS[kind];
     if (profile.mode === 'water') return;
-    const group = profile.mode === 'roaming' ? Math.floor(slot / 3) : slot;
+    const group = profile.mode === 'roaming' && kind !== 'roe-deer' ? Math.floor(slot / 3) : slot;
     return this.site(kind, group, profile, (x, z) => this.denPressure(this.dens, x, z));
   }
 
@@ -102,10 +102,12 @@ export class AnimalHabitats {
 
   intent(home: Habitat, clock: number, wolf = false): TerritoryIntent {
     const hunting = !wolf || this.wolfHunting(home, clock);
-    const hours = home.profile.activeDuring;
-    const resting = wolf ? !hunting : !!hours && isNightAt(clock) === (hours === 'day');
+    const resting = wolf ? !hunting : this.resting(home, clock);
+    const bedding = home.profile.activeDuring === 'twilight' && resting;
     const factor = resting
-      ? 0.16
+      ? bedding
+        ? 0.65
+        : 0.16
       : wolf
         ? 0.95
         : home.profile.mode === 'roaming'
@@ -114,16 +116,29 @@ export class AnimalHabitats {
             ? 0.73
             : 0.85;
     const duration = wolf ? (hunting ? 105 : 65) : home.profile.mode === 'roaming' ? 215 : 58;
-    const phase = Math.floor((clock + (home.key % duration)) / duration);
+    // Лёжка сохраняется до смены периода отдыха, кормовые места обновляются чаще.
+    const phase = bedding
+      ? Math.floor((clock + 180) / 720)
+      : Math.floor((clock + (home.key % duration)) / duration);
     const tag = `${Number(resting)}:${phase}`;
     let previous = this.destinations.get(home);
     if (previous?.phase !== tag) {
       const rng = new Random(home.key ^ phase ^ (hunting ? 3875 : 9027));
-      const point = this.pickDestination(home, factor, rng, wolf, hunting);
+      const point = this.pickDestination(home, factor, rng, wolf, hunting, bedding);
       previous = { phase: tag, point };
       this.destinations.set(home, previous);
     }
     return { home, destination: previous.point, hunting, resting };
+  }
+
+  private resting(home: Habitat, clock: number): boolean {
+    const activity = home.profile.activeDuring;
+    const minute = clock % 1440;
+    if (activity === 'twilight')
+      return minute < 240 || minute >= 1380 || (minute >= 600 && minute < 960);
+    if (activity === 'brief-outings') return (clock + (home.key % 240)) % 240 >= 42;
+    if (activity === 'day') return isNightAt(clock);
+    return activity === 'night' && !isNightAt(clock);
   }
 
   nearHome(home: HabitatPoint, member: number): HabitatPoint {
@@ -189,6 +204,7 @@ export class AnimalHabitats {
     rng: Random,
     wolf: boolean,
     hunting: boolean,
+    bedding: boolean,
   ): HabitatPoint {
     let best: HabitatPoint = home;
     let bestScore = Infinity;
@@ -203,7 +219,12 @@ export class AnimalHabitats {
       const biome = this.world.biomeAt(x, z);
       if (biome === 'garden' && !home.profile.biomes.includes(biome)) continue;
       const wet = home.profile.mode === 'shore' && this.world.waterSources.length > 0;
-      const preferred = wolf && hunting ? biome === 'meadow' : home.profile.biomes.includes(biome);
+      const preferred =
+        wolf && hunting
+          ? biome === 'meadow'
+          : bedding
+            ? biome === 'forest'
+            : home.profile.biomes.includes(biome);
       const score =
         (preferred ? 0 : 8) +
         (wet && this.world.nearWater?.(x, z, 5) === false ? 40 : 0) +

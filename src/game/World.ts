@@ -56,7 +56,7 @@ export class World {
   readonly scene: THREE.Scene;
   readonly resources: Resource[] = [];
   readonly waterSources: { x: number; z: number }[] = [];
-  readonly treeLocations: { x: number; z: number }[] = [];
+  readonly treeLocations: { x: number; z: number; nestHeight?: number }[] = [];
   readonly shelterObstacles: { x: number; z: number; radius: number }[] = [];
   readonly landmarks: LandMark[];
   readonly layout: WorldLayout;
@@ -358,7 +358,7 @@ export class World {
         g.position.set(x, this.heightAt(x, z), z);
         g.scale.setScalar(this.rng.range(0.7, 1.38));
         g.rotation.y = this.rng.range(0, Math.PI * 2);
-        this.treeLocations.push({ x, z });
+        this.treeLocations.push({ x, z, nestHeight: g.scale.y * 2.4 });
         if (!isEvergreen(species)) {
           const crown = g.getObjectByName('Foliage'),
             litter = g.getObjectByName('Litter');
@@ -547,6 +547,7 @@ export class World {
           post.position.set(px, this.heightAt(px, pz) + 0.55, pz);
           post.castShadow = true;
           this.chunks.add(post, px, pz);
+          this.shelterObstacles.push({ x: px, z: pz, radius: 0.2 });
         }
       }
 
@@ -566,6 +567,7 @@ export class World {
     roof.rotation.y = Math.PI / 4;
     hut.add(roof);
     this.chunks.add(hut, hut.position.x, hut.position.z);
+    this.shelterObstacles.push({ x: hx, z: hz, radius: 2.1 });
     for (let row = -r + 3; row < r - 3; row += 3) {
       const strip = this.terrainStrip(x + row, z, 1.4, r * 1.3);
       this.chunks.add(strip, x + row, z);

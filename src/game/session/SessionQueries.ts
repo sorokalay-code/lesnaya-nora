@@ -82,6 +82,7 @@ export class SessionQueries {
       .filter(
         (a) =>
           a.alive &&
+          !a.inShelter &&
           !AnimalRestraint.active(a.root) &&
           Math.hypot(a.x - p.x, a.z - p.z) < radius &&
           Math.abs(a.root.position.y - p.y) < 1.5,

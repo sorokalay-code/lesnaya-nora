@@ -4,7 +4,7 @@ import {
   createForestAnimal,
   Predator,
   RabbitActor,
-  type ForestAnimal,
+  ForestAnimal,
   type GroundHeight,
   type WildlifeKind,
 } from './animals';
@@ -18,6 +18,9 @@ import { animalNames } from './animals/names';
 import type { AnimalHabitats, Habitat } from './AnimalHabitats';
 import type { WolfPopulation } from './session/WolfPopulation';
 import { WildlifeForage } from './WildlifeForage';
+import type { WildlifeShelters } from './WildlifeShelters';
+import { isShelteredWildlife } from './WildlifeShelterProfiles';
+import { WildlifeRoutine } from './WildlifeRoutine';
 
 type Target = ForestAnimal | Predator | RabbitActor;
 export type WildlifeEvent = {
@@ -62,7 +65,11 @@ export class WildlifeEcology {
     private readonly rng: Random,
     private readonly save?: SaveData,
     private readonly onDeath?: (animal: ForestAnimal | Predator) => void,
-    private readonly territories?: { habitats: AnimalHabitats; wolves: WolfPopulation },
+    private readonly territories?: {
+      habitats: AnimalHabitats;
+      wolves: WolfPopulation;
+      shelters: WildlifeShelters;
+    },
   ) {
     this.water = new WaterNavigation(world);
     this.forage = new WildlifeForage(world.resources ?? []);
@@ -90,8 +97,13 @@ export class WildlifeEcology {
           while (slots.has(slot)) slot++;
           slots.add(slot);
         }
-        this.assignHabitat(animal, slot, this.territories?.habitats.wildlife(data.kind, slot));
         this.place(animal, data.x, data.z);
+        this.assignHabitat(
+          animal,
+          slot,
+          this.territories?.habitats.wildlife(data.kind, slot),
+          data.inShelter,
+        );
         this.animals.push(animal);
         this.scene.add(animal.root);
       }
@@ -114,7 +126,10 @@ export class WildlifeEcology {
     const size = this.save?.worldConfig?.size ?? 110;
     const home = slot !== undefined ? this.territories?.habitats.wildlife(kind, slot) : undefined;
     if (home && slot !== undefined && this.territories) {
-      const point = this.territories.habitats.nearHome(home, slot);
+      const shelter = isShelteredWildlife(kind)
+        ? this.territories.shelters.place(kind, slot, home)
+        : undefined;
+      const point = shelter?.approach ?? this.territories.habitats.nearHome(home, slot);
       if (!initial && Math.hypot(point.x - px, point.z - pz) < 22) return;
       return this.addAnimal(kind, point.x, point.z, size, this.newWildlifeRng, slot, home);
     }
@@ -219,17 +234,31 @@ export class WildlifeEcology {
     animal.useWorldBounds(size);
     animal.socialId = this.save ? (this.save.nextWildlifeId ??= 1) : this.animals.length + 1;
     if (this.save) this.save.nextWildlifeId = animal.socialId + 1;
-    this.assignHabitat(animal, slot, home);
     this.place(animal, x, z);
+    this.assignHabitat(animal, slot, home);
     this.animals.push(animal);
     this.scene.add(animal.root);
     return animal;
   }
 
-  private assignHabitat(animal: ForestAnimal, slot: number | undefined, home?: Habitat): void {
+  private assignHabitat(
+    animal: ForestAnimal,
+    slot: number | undefined,
+    home?: Habitat,
+    inside = false,
+  ): void {
     animal.habitatSlot = slot;
     animal.habitat = home;
     animal.destination = home;
+    const shelters = this.territories?.shelters;
+    if (!shelters || !home || slot === undefined) return;
+
+    if (isShelteredWildlife(animal.kind)) {
+      const shelter = shelters.place(animal.kind, slot, home);
+      animal.useRoutine(new WildlifeRoutine(shelter, shelters.routeHeight), inside);
+    } else if (animal.kind === 'roe-deer') {
+      animal.useRoutine(new WildlifeRoutine(undefined, shelters.routeHeight));
+    }
   }
 
   prepareHabitats(time: number, clock: number, predators: readonly Predator[]): void {
@@ -242,9 +271,10 @@ export class WildlifeEcology {
       const { destination, resting } = habitats.intent(animal.habitat, clock);
       animal.foragingAllowed = !resting;
       animal.destination =
-        animal.habitat.profile.mode === 'roaming'
+        animal.habitat.profile.mode === 'roaming' && !resting
           ? habitats.nearHome(destination, animal.habitatSlot ?? 0)
           : destination;
+      animal.restAt = resting ? animal.destination : undefined;
     }
     for (const predator of predators) {
       if (predator.kind !== 'wolf' && predator.homeTerritory)
@@ -320,6 +350,7 @@ export class WildlifeEcology {
           .filter(
             (a) =>
               a.alive &&
+              !a.inShelter &&
               a.kind !== 'fish' &&
               !AnimalRestraint.active(a.root) &&
               predator.canPursue(a.x, a.z) &&
@@ -374,7 +405,10 @@ export class WildlifeEcology {
     if (time >= this.nextFoodSearch) {
       this.nextFoodSearch = time + 3;
       for (const animal of this.animals) {
-        const best = animal.foragingAllowed ? this.forage.find(animal, this.risk) : undefined;
+        const best =
+          animal.foragingAllowed && !animal.inShelter
+            ? this.forage.find(animal, this.risk)
+            : undefined;
         if (best) this.foodTargets.set(animal, best);
         else this.foodTargets.delete(animal);
       }
@@ -382,7 +416,8 @@ export class WildlifeEcology {
 
     const threats = predators.filter((p) => p.alive && !p.underground && !p.inDen);
     for (const animal of this.animals) {
-      const food = animal.foragingAllowed ? this.foodTargets.get(animal) : undefined;
+      const food =
+        animal.foragingAllowed && !animal.inShelter ? this.foodTargets.get(animal) : undefined;
       if (
         animal.update(dt, time, groundAt, threats, food?.available ? food : undefined) &&
         food?.available
@@ -509,6 +544,7 @@ export class WildlifeEcology {
   private canHunt(target: Target): boolean {
     return (
       target.alive &&
+      (!(target instanceof ForestAnimal) || !target.inShelter) &&
       (!(target instanceof RabbitActor) ||
         (!!target.data.lost && target.root.userData.lostKitExposed === true))
     );
@@ -521,6 +557,7 @@ export class WildlifeEcology {
       .map((animal) => ({
         id: animal.socialId,
         habitatSlot: animal.habitatSlot,
+        inShelter: animal.inShelter ? true : undefined,
         kind: animal.kind,
         x: animal.x,
         z: animal.z,

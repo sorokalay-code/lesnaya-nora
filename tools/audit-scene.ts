@@ -16,18 +16,22 @@ import {GRAPHICS_PRESETS} from './src/game/GraphicsSettings.ts';
 import {SceneLighting} from './src/game/session/SceneLighting.ts';
 import {WorldPopulation} from './src/game/session/WorldPopulation.ts';
 import {WolfDen} from './src/game/WolfDen.ts';
+import {isShelteredWildlife} from './src/game/WildlifeShelterProfiles.ts';
 import {readFileSync} from 'node:fs';
 for(const name of MODEL_NAMES){const data=readFileSync('public/models/'+name+'.glb');await ModelAssets.shared.register(name,data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));}
 const map = process.argv.includes('--generated') ? defaultMapGeneration() : undefined;
 const wolfDens = process.argv.includes('--wolf-dens');
+const wildlifeShelters = process.argv.includes('--wildlife-shelters');
 const config = { ...defaultWorldConfig(), map };
 if(wolfDens) for(const {kind} of CREATURE_OPTIONS) if(kind !== 'wolf') config.creatures[kind] = 0;
+if(wildlifeShelters) for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = isShelteredWildlife(kind) || kind === 'roe-deer' ? 1 : 0;
 const seed = 31415;
 const save = NewGameFactory.create(seed, 0, new RabbitFactory(new Random(seed)), config);
 const scene = new THREE.Scene();
 const world = new World(scene, seed, save);
 let position = {x:0,z:0};
 let denScenario;
+let shelterScenario;
 if(wolfDens) {
   const population = new WorldPopulation({scene,world,save,rng:new Random(seed + 53),markPartner(){}});
   const site = save.wolfDens?.[0];
@@ -50,6 +54,29 @@ if(wolfDens) {
     denScenario.hunt.distances.some(distance=>distance < 10) || denScenario.return.inside !== 2)
     throw new Error('Стая не прошла контрольный цикл: ' + JSON.stringify(denScenario));
 }
+if(wildlifeShelters) {
+  const population = new WorldPopulation({scene,world,save,rng:new Random(seed + 53),markPartner(){}});
+  const shelters = save.wildlifeShelters ?? [];
+  if(shelters.length !== 7) throw new Error('Не размещены все семь укрытий: ' + JSON.stringify(shelters));
+  position = shelters.find(site=>site.kind==='marmot');
+  const groundAt = (x,z)=>world.heightAt(x,z);
+  let time=0;
+  const simulate = (clock, duration) => {
+    for(let seconds=0;seconds<duration;seconds+=0.1){
+      time+=0.1;
+      population.ecology.update(0.1,time,clock,0,0,groundAt,population.predators,false);
+    }
+    return Object.fromEntries(population.wildlife.map(animal=>[animal.kind,{
+      hidden:animal.inShelter,clip:animal.model.activeName,x:animal.x,z:animal.z,
+    }]));
+  };
+  const day=simulate(750,30);
+  const night=simulate(1290,45);
+  const dawn=simulate(1740,12);
+  if(!day.badger.hidden || day.marmot.hidden || night.badger.hidden || !night.marmot.hidden || dawn.marmot.hidden || day['roe-deer'].clip!=='rest')
+    throw new Error('Сбой суточного цикла наземных животных: ' + JSON.stringify({day,night,dawn}));
+  shelterScenario={shelters,day,night,dawn};
+}
 const lighting = new SceneLighting(scene, new THREE.PerspectiveCamera());
 lighting.reset();
 lighting.update(save, world, false, false);
@@ -67,7 +94,7 @@ for(const [name, settings] of Object.entries(GRAPHICS_PRESETS)) {
   });
   presets[name] = { meshes, triangles, shadowMeshes, coverInstances };
 }
-console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,presets},null,2));
+console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:wildlifeShelters?'wildlife and shelters near a marmot burrow':wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,shelterScenario,presets},null,2));
 `,
   },
   bundle: true,

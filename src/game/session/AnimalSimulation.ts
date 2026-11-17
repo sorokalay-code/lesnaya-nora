@@ -473,7 +473,8 @@ export class AnimalSimulation {
         Math.hypot(predator.root.position.x - p.x, predator.root.position.z - p.z) < 76;
 
     for (const animal of this.context.wildlife)
-      animal.root.visible = animal.alive && Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
+      animal.root.visible =
+        animal.alive && !animal.inShelter && Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
 
     for (const hawk of this.context.hawks) {
       const visible = hawk.present && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;

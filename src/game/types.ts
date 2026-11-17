@@ -154,6 +154,7 @@ export interface SaveData {
   animalWasteDays?: Record<string, number>;
   webCooldowns?: Record<string, number>;
   wildlife?: WildlifeData[];
+  wildlifeShelters?: import('./WildlifeShelters').WildlifeShelterSite[];
   nextWildlifeId?: number;
   discoveries?: { x: number; z: number; label: string }[];
   version: 5;
@@ -237,6 +238,7 @@ export interface WildlifeSocial {
 export interface WildlifeData {
   appearance?: AppearanceTraits;
   habitatSlot?: number;
+  inShelter?: true;
   id: number;
   kind: WildlifeKind;
   x: number;

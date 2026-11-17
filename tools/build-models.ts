@@ -1447,7 +1447,7 @@ function hawkClips() {
 function peacefulClips(kind, root) {
   const legs = ['LegFL', 'LegFR', 'LegBL', 'LegBR'].filter((name) => root.getObjectByName(name));
   const tail = ['squirrel', 'mouse'].includes(kind) ? 'Tail' : undefined;
-  return ['idle', 'walk', 'run', 'graze'].map((name, index) => {
+  const clips = ['idle', 'walk', 'run', 'graze'].map((name, index) => {
     if (name === 'walk' || name === 'run')
       return quadrupedGait(root, name, name === 'run' ? 0.65 : 1, kind);
     return new THREE.AnimationClip(name, [1.2, 1, 0.65, 1.1][index], [
@@ -1467,6 +1467,22 @@ function peacefulClips(kind, root) {
       ...(tail ? [rotation(tail, sequence(0.08))] : []),
     ]);
   });
+  if (kind === 'roe-deer') {
+    const breathing = [0, 0.01, 0.018, 0.01, 0].map((rise) => [0, -0.47 + rise, 0]);
+    clips.push(
+      new THREE.AnimationClip('rest', 2.4, [
+        position('Visual', breathing),
+        rotation('Head', pose(0.18)),
+        ...legs.map((name) =>
+          rotation(
+            name,
+            pose(name.startsWith('LegF') ? -1.34 : 1.42, 0, name.endsWith('L') ? 0.08 : -0.08),
+          ),
+        ),
+      ]),
+    );
+  }
+  return clips;
 }
 
 function crc(bytes) {

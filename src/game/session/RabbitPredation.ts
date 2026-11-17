@@ -109,6 +109,7 @@ export class RabbitPredation {
     const prey = this.context.wildlife.find(
       (animal) =>
         animal.alive &&
+        !animal.inShelter &&
         !AnimalRestraint.active(animal.root) &&
         animal.profile.radius < 0.7 &&
         Math.hypot(animal.x - hunter.x, animal.z - hunter.z) < 9 &&

@@ -24,8 +24,8 @@ interface RouteCell {
   previous?: RouteCell;
 }
 
-/** Ищет обход к логову по рельефу. Простая прямая проверяется до поиска по ячейкам. */
-export class WolfDenRoute {
+/** Ищет обход по рельефу, ограничивая поиск по ячейкам при недоступном прямом пути. */
+export class SurfaceRoute {
   private target?: HabitatPoint;
   private points: HabitatPoint[] = [];
   private nextPlan = 0;
