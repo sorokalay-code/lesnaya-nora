@@ -390,6 +390,8 @@ export class Game {
       onWolfDeparture: (wolf) => this.attackSounds?.remove(wolf),
       onPredatorArrival: (predator) => this.attackSounds?.add(predator),
       onPredatorDeparture: (predator) => this.attackSounds?.remove(predator),
+      onRaptorArrival: (bird) => this.attackSounds?.add(bird),
+      onRaptorDeparture: (bird) => this.attackSounds?.remove(bird),
       onDenDiscovery: () => this.toast('На карте отмечено волчье логово.'),
       onDenWarning: () => this.toast('Волки охраняют логово. Отойди от входа!'),
       scene: this.scene,
@@ -551,6 +553,7 @@ export class Game {
       webView: () => this.web.view(),
       captureWildlife: () => {
         this.ecology.capture();
+        population.raptors.capture();
         this.animals?.captureWater();
       },
       save: this.save,
@@ -657,6 +660,7 @@ export class Game {
       wildlife: this.wildlife,
       hawks: this.hawks,
       ecology: this.ecology,
+      raptors: population.raptors,
       traffic: this.traffic,
       collisions: this.collisions,
       partnerSupport: this.partnerSupport,

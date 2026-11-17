@@ -17,6 +17,7 @@ export interface HawkVictim {
   name: string;
   player: boolean;
   related: boolean;
+  prey?: 'bird' | 'mouse';
   condition: () => number;
   bodyHeight: number;
   alive: () => boolean;
@@ -67,7 +68,7 @@ export class HawkVictims {
       },
     };
     for (const actor of [...this.population.rabbits, ...this.population.families]) {
-      if (!actor.alive) continue;
+      if (!actor.alive || ('inShelter' in actor && actor.inShelter)) continue;
       yield {
         root: actor.root,
         name: actor.data.name,
@@ -131,6 +132,12 @@ export class HawkVictims {
         name: animalNames[animal.kind],
         player: false,
         related: false,
+        prey:
+          animal.kind === 'mouse'
+            ? 'mouse'
+            : animal.kind === 'duck' || animal.kind === 'pheasant'
+              ? 'bird'
+              : undefined,
         condition: () => animal.health / animal.maxHealth,
         bodyHeight: 0.55 * animal.appearance.size,
         alive: () => animal.alive && !animal.inShelter,

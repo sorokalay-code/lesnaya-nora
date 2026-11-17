@@ -1,9 +1,12 @@
 import type { HawkVictim } from './HawkVictims';
 import { HAWK_HUNT } from '../animals/HawkProfile';
+import type { FlyingRaptor } from '../animals/FlyingRaptor';
+
+type Hunter = Pick<FlyingRaptor, 'x' | 'z'> & Partial<Pick<FlyingRaptor, 'kind'>>;
 
 /** Приоритет охоты: игрок заметнее, но близкая ослабленная или маленькая добыча может оказаться выгоднее. */
 export class HawkTargeting {
-  score(victim: HawkVictim, bird: { x: number; z: number }): number {
+  score(victim: HawkVictim, bird: Hunter): number {
     const p = victim.root.position;
     const distance = Math.hypot(p.x - bird.x, p.z - bird.z);
     if (distance > (victim.player ? HAWK_HUNT.playerRadius : HAWK_HUNT.preyRadius)) return Infinity;
@@ -11,12 +14,17 @@ export class HawkTargeting {
       ? HAWK_HUNT.playerPriority
       : 1 + Math.max(0, 1 - victim.condition()) * 1.2;
     if (!victim.player && victim.bodyHeight < 0.5) priority *= 1.25;
+    if (
+      (bird.kind === 'owl' && victim.prey === 'mouse') ||
+      (bird.kind === 'hawk' && victim.prey === 'bird')
+    )
+      priority *= HAWK_HUNT.preferredPreyPriority;
     return Math.max(0.75, distance) / priority;
   }
 
   choose(
     candidates: Iterable<HawkVictim>,
-    bird: { x: number; z: number },
+    bird: Hunter,
     available: (victim: HawkVictim) => boolean,
   ): HawkVictim | undefined {
     let best = Infinity,

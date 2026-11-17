@@ -4,6 +4,7 @@ export const HAWK_HUNT = {
   preyRadius: 18,
   disengageRadius: 26,
   playerPriority: 2.6,
+  preferredPreyPriority: 3.25,
   pursuitSeconds: 6,
   retrySeconds: 8,
   searchSeconds: 0.6,

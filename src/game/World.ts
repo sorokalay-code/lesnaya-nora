@@ -686,6 +686,10 @@ export class World {
     return this.treeLocations.some((t) => Math.hypot(t.x - x, t.z - z) < 3.7);
   }
 
+  tallGrassNear(x: number, z: number, threat: { x: number; z: number }) {
+    return this.groundCover?.tallGrassNear(x, z, threat);
+  }
+
   harvest(resource: Resource, clock: number): void {
     resource.available = false;
     resource.mesh.visible = false;

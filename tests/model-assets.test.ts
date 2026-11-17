@@ -65,6 +65,7 @@ test('rabbit instances have independent coat materials and animated digging paws
 test('snake and hawk GLB files include attack clips', () => {
   assert.ok(ModelAssets.shared.create('snake').clips.has('attack'));
   assert.ok(ModelAssets.shared.create('hawk').clips.has('strike'));
+  assert.ok(ModelAssets.shared.create('hawk').clips.has('perch'));
 });
 
 test('both rabbit LODs keep articulated hind legs without pale spheres on their flanks', () => {

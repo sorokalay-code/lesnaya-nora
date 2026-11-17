@@ -4,7 +4,7 @@ import type { Random } from '../Random';
 import { FlyingRaptor } from './FlyingRaptor';
 import type { GroundHeight } from './types';
 
-/** Сова выходит на охоту ночью, пикирует на кроликов и мышей и покидает сцену на рассвете. */
+/** Сова охотится ночью и днём остаётся на присаде своей территории. */
 export class Owl extends FlyingRaptor {
   override readonly diet = 'rodents';
   override readonly strikeDamage = 26;
@@ -16,10 +16,11 @@ export class Owl extends FlyingRaptor {
   }
 
   override get present(): boolean {
-    return this.awake && this.alive;
+    return (this.territorial || this.awake) && this.alive;
   }
 
   override updatePresence(night: boolean, scene: Scene | undefined, groundAt: GroundHeight): void {
+    if (this.territorial) return;
     const awake = night && this.alive;
     if (awake === this.awake) return;
     this.awake = awake;

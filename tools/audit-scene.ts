@@ -19,6 +19,8 @@ import {WolfDen} from './src/game/WolfDen.ts';
 import {MAMMAL_NURSERY} from './src/game/MammalNursery.ts';
 import {PlayerRabbit} from './src/game/animals/PlayerRabbit.ts';
 import {WaterSimulation} from './src/game/session/WaterSimulation.ts';
+import {HawkHunting} from './src/game/session/HawkHunting.ts';
+import {isNightAt} from './src/game/session/WorldCalendar.ts';
 import {waterCohortStage} from './src/game/AquaticCohorts.ts';
 import {readFileSync} from 'node:fs';
 for(const name of MODEL_NAMES){const data=readFileSync('public/models/'+name+'.glb');await ModelAssets.shared.register(name,data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));}
@@ -31,6 +33,7 @@ const wildlifeShelters = process.argv.includes('--wildlife-shelters');
 const mammalNurseries = process.argv.includes('--mammal-nurseries');
 const landEcology = process.argv.includes('--land-ecology');
 const shoreEcology = process.argv.includes('--shore-ecology');
+const birdNests = process.argv.includes('--bird-nests');
 const config = { ...defaultWorldConfig(), map };
 if(wolfDens) for(const {kind} of CREATURE_OPTIONS) if(kind !== 'wolf') config.creatures[kind] = 0;
 if(wildlifeShelters) for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = ['badger','marmot','mouse','chipmunk','mole','hedgehog','squirrel','roe-deer'].includes(kind) ? 1 : 0;
@@ -40,6 +43,10 @@ if(shoreEcology) {
   for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = 0;
   Object.assign(config.creatures, {beaver:4,duck:4,fish:8,frog:6,pike:3});
   if(dry) config.water=0;
+}
+if(birdNests) {
+  for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = 0;
+  Object.assign(config.creatures, {pheasant:6,owl:2,hawk:2,mouse:4});
 }
 const seed = 31415;
 const save = NewGameFactory.create(seed, 0, new RabbitFactory(new Random(seed)), config);
@@ -51,6 +58,7 @@ let shelterScenario;
 let nurseryScenario;
 let landScenario;
 let shoreScenario;
+let birdScenario;
 if(wolfDens) {
   const population = new WorldPopulation({scene,world,save,rng:new Random(seed + 53),markPartner(){}});
   const site = save.wolfDens?.[0];
@@ -219,6 +227,52 @@ if(shoreEcology) {
     throw new Error('Не появился молодняк на берегу: '+JSON.stringify({clutches,young}));
   shoreScenario={adults,shelters,clutches,aquatic,young};
 }
+if(birdNests) {
+  const population=new WorldPopulation({scene,world,save,rng:new Random(seed+74),markPartner(){}});
+  const player = new PlayerRabbit(save.player);
+  const groundAt = (x,z)=>world.heightAt(x,z);
+  const hunting = new HawkHunting({
+    ...population,save,world,player:player.rig,
+    earth:{isSheltered:()=>false,floorAt:groundAt},toast(){},
+  });
+  const nests=[];
+  scene.traverse(object=>{
+    if(object.name.startsWith('bird-nest-') || object.name.startsWith('wildlife-shelter-pheasant-'))
+      nests.push({name:object.name,x:object.position.x,y:object.position.y,z:object.position.z});
+  });
+  position=nests.find(site=>site.name==='wildlife-shelter-pheasant-0')??position;
+  Object.assign(save.player, {x:position.x,z:position.z,y:groundAt(position.x,position.z)});
+  if(nests.length<3||nests.some(site=>(world.waterAt(site.x,site.z)?.depth??0)>0.04))
+    throw new Error('Гнездовья отсутствуют или затоплены: '+JSON.stringify(nests));
+  let now=0;
+  const simulate=(clock,duration)=>{
+    for(let elapsed=0;elapsed<duration;elapsed+=0.2) {
+      now+=0.2;
+      save.clock=clock+elapsed*6;
+      save.day=1+Math.floor(save.clock/1440);
+      population.ecology.update(0.2,now,save.clock,position.x,position.z,groundAt,population.predators,false);
+      population.raptors.update(now);
+      hunting.update(0.2,now,false,isNightAt(save.clock));
+    }
+    return Object.fromEntries(['owl','hawk'].map(kind=>[kind,population.hawks
+      .filter(actor=>actor.kind===kind&&!actor.juvenile)
+      .map(actor=>({perched:actor.perched,hunting:actor.huntingAllowed}))]));
+  };
+  const day=simulate(620,18);
+  const night=simulate(1280,25);
+  const eggs=Object.fromEntries(Object.entries(save.birdBroods).map(([kind,broods])=>[kind,
+    broods.reduce((sum,brood)=>sum+brood.eggs,0)]));
+  if(!day.owl.every(actor=>actor.perched)||!night.hawk.every(actor=>!actor.hunting)||
+     !day.hawk.some(actor=>actor.hunting)||!night.owl.some(actor=>actor.hunting)||
+     Object.values(eggs).some(count=>!count))
+    throw new Error('Не прошёл дневной и ночной цикл птиц: '+JSON.stringify({nests,day,night,eggs}));
+  simulate(4360,8);
+  const young=[...population.wildlife,...population.hawks].filter(actor=>actor.juvenile)
+    .map(actor=>({kind:actor.kind,x:actor.x,y:actor.root.position.y,z:actor.z}));
+  if(['hawk','owl','pheasant'].some(kind=>!young.some(chick=>chick.kind===kind)))
+    throw new Error('Ожидается молодняк всех трёх видов: '+JSON.stringify(young));
+  birdScenario={nests,day,night,eggs,young};
+}
 const lighting = new SceneLighting(scene, new THREE.PerspectiveCamera());
 lighting.reset();
 lighting.update(save, world, false, false);
@@ -236,7 +290,7 @@ for(const [name, settings] of Object.entries(GRAPHICS_PRESETS)) {
   });
   presets[name] = { meshes, triangles, shadowMeshes, coverInstances };
 }
-console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:shoreEcology?'shore ecology, nests and cohorts':landEcology?'land ecology and shelter geometry':mammalNurseries?'litters in and around dens and burrows':wildlifeShelters?'wildlife and shelters near a marmot burrow':wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,shelterScenario,nurseryScenario,landScenario,shoreScenario,presets},null,2));
+console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:birdNests?'bird ecology, nests and broods':shoreEcology?'shore ecology, nests and cohorts':landEcology?'land ecology and shelter geometry':mammalNurseries?'litters in and around dens and burrows':wildlifeShelters?'wildlife and shelters near a marmot burrow':wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,shelterScenario,nurseryScenario,landScenario,shoreScenario,birdScenario,presets},null,2));
 `,
   },
   bundle: true,

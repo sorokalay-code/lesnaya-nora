@@ -44,6 +44,10 @@ export class HawkHunting {
     return [...this.hunts.values()].some((hunt) => !!hunt.carry);
   }
 
+  carries(bird: FlyingRaptor): boolean {
+    return !!this.hunts.get(bird)?.carry;
+  }
+
   resetTargets(): void {
     for (const hawk of this.context.hawks) {
       if (!this.hunts.get(hawk)?.carry) this.hunts.delete(hawk);
@@ -118,6 +122,12 @@ export class HawkHunting {
         continue;
       }
       if (!hawk.alive) continue;
+      if (!hawk.huntingAllowed) {
+        this.hunts.delete(hawk);
+        this.searches.delete(hawk);
+        hawk.update(dt, time, 0, 0, false, this.groundAt);
+        continue;
+      }
       if (!combat) {
         hawk.update(dt, time, 0, 0, false, this.groundAt);
         continue;

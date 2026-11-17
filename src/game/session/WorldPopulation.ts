@@ -7,7 +7,6 @@ import type { ForestAnimal } from '../animals';
 import {
   createPredatorActor,
   FamilyMember,
-  FlyingRaptor,
   Predator,
   RabbitActor,
   RabbitFactory,
@@ -18,7 +17,8 @@ import type { PredatorKind } from '../types';
 import { type SaveData } from '../types';
 import { AnimalAppearance } from '../AnimalAppearance';
 import { defaultWorldConfig } from '../WorldConfig';
-import { isNightAt } from './WorldCalendar';
+import { RaptorPopulation } from './RaptorPopulation';
+import type { FlyingRaptor } from '../animals';
 import { AnimalHabitats } from '../AnimalHabitats';
 import { WolfPopulation } from './WolfPopulation';
 import { WolfDens } from '../WolfDens';
@@ -35,6 +35,7 @@ export class WorldPopulation {
   readonly predators: Predator[];
   readonly wildlife: ForestAnimal[];
   readonly hawks: FlyingRaptor[];
+  readonly raptors: RaptorPopulation;
   readonly ecology: WildlifeEcology;
   readonly wolfDens: WolfDens;
 
@@ -50,6 +51,8 @@ export class WorldPopulation {
     onWolfDeparture?: (wolf: Predator) => void;
     onPredatorArrival?: (predator: Predator) => void;
     onPredatorDeparture?: (predator: Predator) => void;
+    onRaptorArrival?: (bird: FlyingRaptor) => void;
+    onRaptorDeparture?: (bird: FlyingRaptor) => void;
     onDenDiscovery?: () => void;
     onDenWarning?: () => void;
   }) {
@@ -287,54 +290,22 @@ export class WorldPopulation {
     this.ecology.populate();
     land.restoreFamilies();
     this.wildlife = this.ecology.animals;
-    this.hawks = Array.from({ length: config.creatures.hawk }, (_, index) => {
-      const angle = index * 2.4;
-      const x = (index === 0 ? 32 : Math.cos(angle) * 60) * scale;
-      const z = (index === 0 ? -30 : Math.sin(angle) * 60) * scale;
-      const hawk = AnimalFactory.raptor('hawk', x, z, context.rng);
-      hawk.useWorldBounds(config.size);
-      return hawk;
+    this.raptors = new RaptorPopulation({
+      ...context,
+      arrival: context.onRaptorArrival,
+      departure: context.onRaptorDeparture,
     });
-    for (const hawk of this.hawks) context.scene.add(hawk.root, hawk.shadow);
-
-    for (let index = 0; index < config.creatures.owl; index++) {
-      const identity = `owl:${index}`;
-      if (context.save.deadPopulation?.includes(identity)) continue;
-      const angle = index * 2.4 + 1.5;
-      const radius = (index < 2 ? 26 : 64) * scale;
-      const rng = new Random(context.save.seed + 58121 + index * 613);
-      const owl = AnimalFactory.raptor(
-        'owl',
-        Math.cos(angle) * radius,
-        Math.sin(angle) * radius,
-        rng,
-      );
-      owl.useWorldBounds(config.size);
-      owl.root.userData.remainsIdentity = identity;
-      owl.updatePresence(isNightAt(context.save.clock), context.scene, (x, z) =>
-        context.world.heightAt(x, z),
-      );
-      this.hawks.push(owl);
-    }
+    this.hawks = this.raptors.actors;
     // Постоянные номера стартовых хищников не дают воскресить их при загрузке мира.
-    for (const [prefix, actors] of [
-      ['predator', this.predators],
-      ['hawk', this.hawks],
-    ] as const) {
-      for (let index = actors.length - 1; index >= 0; index--) {
-        const identity =
-          actors[index].root.userData.remainsIdentity ??
-          `${prefix}:${index + (prefix === 'predator' ? config.creatures.bear : 0)}`;
-        actors[index].root.userData.remainsIdentity = identity;
-        if (!context.save.deadPopulation?.includes(identity)) continue;
-        const animal = actors[index];
-        if (animal instanceof FlyingRaptor) animal.dispose();
-        else {
-          ModelAssets.shared.release(animal.root);
-          animal.root.removeFromParent();
-        }
-        actors.splice(index, 1);
-      }
+    for (let index = this.predators.length - 1; index >= 0; index--) {
+      const animal = this.predators[index];
+      const identity =
+        animal.root.userData.remainsIdentity ?? `predator:${index + config.creatures.bear}`;
+      animal.root.userData.remainsIdentity = identity;
+      if (!context.save.deadPopulation?.includes(identity)) continue;
+      ModelAssets.shared.release(animal.root);
+      animal.root.removeFromParent();
+      this.predators.splice(index, 1);
     }
   }
 

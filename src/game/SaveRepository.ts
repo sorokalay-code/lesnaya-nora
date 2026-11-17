@@ -369,6 +369,8 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые данные выводков млекопитающих.');
     if (!validAquaticPopulation(data))
       throw new Error('Сохранение содержит повреждённые данные обитателей воды.');
+    if (!validBirdPopulation(data))
+      throw new Error('Сохранение содержит повреждённые данные птиц и кладок.');
     if (
       data.wildlifeShelters !== undefined &&
       !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
@@ -723,6 +725,97 @@ function validAquaticPoint(value: unknown, bound: number): boolean {
     typeof value.z === 'number' &&
     Math.abs(value.z) <= bound
   );
+}
+
+function validBirdPopulation(data: SaveData): boolean {
+  const bound = data.worldConfig?.size ?? 110;
+  const flying = (value: unknown): boolean =>
+    isRecord(value) &&
+    validAquaticPoint(value, bound) &&
+    typeof value.y === 'number' &&
+    Math.abs(value.y) <= 200 &&
+    typeof value.health === 'number' &&
+    value.health > 0 &&
+    value.health <= 100;
+  const nextRaptor = data.nextRaptorId ?? 1000;
+  if (!positiveId(nextRaptor) || nextRaptor < 1000) return false;
+
+  const idByKind = { hawk: new Set<number>(), owl: new Set<number>() };
+  const adults = data.raptors;
+  if (adults !== undefined && (!Array.isArray(adults) || adults.length > 50)) return false;
+  const slots = new Set<string>();
+  for (const actor of adults ?? []) {
+    if (
+      !isRecord(actor) ||
+      (actor.kind !== 'hawk' && actor.kind !== 'owl') ||
+      !positiveId(actor.id) ||
+      actor.id >= nextRaptor ||
+      !Number.isInteger(actor.slot) ||
+      actor.slot < 0 ||
+      actor.slot >= 30 ||
+      (actor.id < 1000 && actor.id !== actor.slot + 1) ||
+      !flying(actor) ||
+      idByKind[actor.kind].has(actor.id) ||
+      slots.has(`${actor.kind}:${actor.slot}`)
+    )
+      return false;
+    idByKind[actor.kind].add(actor.id);
+    slots.add(`${actor.kind}:${actor.slot}`);
+  }
+
+  const clutches = data.birdBroods;
+  if (clutches === undefined) return true;
+  if (
+    !isRecord(clutches) ||
+    !Object.keys(clutches).every((key) => key === 'pheasant' || key === 'hawk' || key === 'owl')
+  )
+    return false;
+  const groundIds = new Set(data.wildlife?.map((actor) => actor.id));
+  for (const nursery of Object.values(data.mammalNurseries ?? {}))
+    for (const chick of nursery.young)
+      if (chick.socialId !== undefined) groundIds.add(chick.socialId);
+  for (const brood of data.duckBroods ?? [])
+    for (const chick of brood.young) groundIds.add(chick.id);
+
+  const limits = { pheasant: 4, owl: 3, hawk: 2 };
+  for (const kind of ['hawk', 'owl', 'pheasant'] as const) {
+    const broods = clutches[kind];
+    if (broods === undefined) continue;
+    if (!Array.isArray(broods) || broods.length > 50) return false;
+    const seen = new Set<number>();
+    const ids = kind === 'pheasant' ? groundIds : idByKind[kind];
+    for (const brood of broods) {
+      if (
+        !isRecord(brood) ||
+        !Number.isInteger(brood.slot) ||
+        brood.slot < 0 ||
+        brood.slot >= 50 ||
+        seen.has(brood.slot) ||
+        !positiveId(brood.parent) ||
+        !validMinute(brood.laidAt) ||
+        !Number.isInteger(brood.eggs) ||
+        brood.eggs < 0 ||
+        brood.eggs > limits[kind] ||
+        !Array.isArray(brood.young) ||
+        brood.young.length > limits[kind] ||
+        (brood.eggs > 0 && brood.young.length > 0)
+      )
+        return false;
+      seen.add(brood.slot);
+      for (const chick of brood.young) {
+        if (
+          !isRecord(chick) ||
+          !positiveId(chick.id) ||
+          ids.has(chick.id) ||
+          !flying(chick) ||
+          (kind !== 'pheasant' && (chick.id < 1000 || chick.id >= nextRaptor))
+        )
+          return false;
+        ids.add(chick.id);
+      }
+    }
+  }
+  return true;
 }
 
 function validAquaticPopulation(data: SaveData): boolean {

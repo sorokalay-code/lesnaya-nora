@@ -1441,6 +1441,17 @@ function hawkClips() {
       rotation('WingR', pose(0.52)),
       rotation('Head', pose(0.21)),
     ]),
+    new THREE.AnimationClip('perch', 1.8, [
+      rotation('WingL', pose(0, 1.36, 0.18)),
+      rotation('WingR', pose(0, -1.36, -0.18)),
+      rotation('Head', [
+        [0.36, 0, 0],
+        [0.37, -0.11, 0],
+        [0.35, 0, 0],
+        [0.37, 0.11, 0],
+        [0.36, 0, 0],
+      ]),
+    ]),
   );
   return clips;
 }

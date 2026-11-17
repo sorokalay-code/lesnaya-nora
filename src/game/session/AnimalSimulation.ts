@@ -31,6 +31,7 @@ import type { AnimalRemains } from '../AnimalRemains';
 import { WildRabbitBreeding } from './WildRabbitBreeding';
 import type { LostKits } from './LostKits';
 import { playerSex, potentialMate } from '../RabbitSex';
+import type { RaptorPopulation } from './RaptorPopulation';
 
 const MATING_DURATION = 3.1;
 const MATING_REACH = 3;
@@ -61,6 +62,7 @@ interface Context {
   predators: Predator[];
   wildlife: ForestAnimal[];
   hawks: FlyingRaptor[];
+  raptors?: RaptorPopulation;
   ecology: WildlifeEcology;
   traffic: ExcavationTraffic;
   collisions: AnimalCollisionSystem;
@@ -129,7 +131,8 @@ export class AnimalSimulation {
   dispose(): void {
     this.friendMarks?.dispose();
     this.water?.dispose();
-    for (const hawk of this.context.hawks) hawk.dispose();
+    if (this.context.raptors) this.context.raptors.dispose();
+    else for (const hawk of this.context.hawks) hawk.dispose();
   }
 
   captureWater(): void {
@@ -226,10 +229,12 @@ export class AnimalSimulation {
     if (!resting) this.context.collisions.resolve(this.context.state.mating?.mateId);
     this.water?.update(dt, time, canAttackFamily);
     this.grazeRabbits(dt, time);
+    this.context.raptors?.update(time);
     this.hawkHunting.update(dt, time, canAttackFamily, night);
     this.context.animalWaste?.update(dt, time);
     this.context.family?.collectDead?.();
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
+    this.context.raptors?.removeDead((bird) => this.hawkHunting.carries(bird));
     this.removeDeadRabbits();
     if (
       mate?.alive &&
@@ -491,7 +496,7 @@ export class AnimalSimulation {
     for (const hawk of this.context.hawks) {
       const visible = hawk.present && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
       hawk.root.visible = visible;
-      hawk.shadow.visible = visible && !this.sheltered;
+      hawk.shadow.visible = visible && !hawk.perched && !this.sheltered;
     }
   }
 

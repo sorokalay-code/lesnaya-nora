@@ -5,6 +5,7 @@ import type { CaveBounds } from './CaveMesher';
 import type { SeasonBlend } from './SeasonalGround';
 import type { Biome, Season } from './types';
 import { WORLD_CHUNK_SIZE, type WorldChunks } from './WorldChunks';
+import type { HabitatPoint } from './AnimalHabitats';
 
 const SUMMER: Season = 'Лето';
 const SPRING: Season = 'Весна';
@@ -45,6 +46,7 @@ interface GroundCoverOptions {
 /** Собирает траву, папоротники и цветы в один пакет на чанк. Поворот выполняется на GPU. */
 export class GroundCover {
   private readonly batches: Batch[] = [];
+  private readonly tallClumps = new Map<string, Plant[]>();
   private season?: Season;
   private readonly nextMap = { value: null as THREE.Texture | null };
   private readonly mix = { value: 0 };
@@ -228,7 +230,7 @@ export class GroundCover {
     const up = new THREE.Vector3(0, 1, 0);
     const normal = new THREE.Vector3();
     const yaw = new THREE.Quaternion();
-    for (const plants of groups.values()) {
+    for (const [key, plants] of groups) {
       // Префикс пакета даёт равномерную выборку и не зависит от сезонной густоты.
       plants.sort((a, b) => a.detailRank - b.detailRank);
       const geometry = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
@@ -273,6 +275,8 @@ export class GroundCover {
       sphere.radius = 1.12;
       mesh.computeBoundingSphere();
       chunks.add(mesh, plants[0].x, plants[0].z);
+      const tall = plants.filter((plant) => plant.mode === 3);
+      if (tall.length) this.tallClumps.set(key, tall);
       this.batches.push({
         plants,
         mesh,
@@ -280,6 +284,38 @@ export class GroundCover {
         minZ: Math.floor(plants[0].z / WORLD_CHUNK_SIZE) * WORLD_CHUNK_SIZE,
       });
     }
+  }
+
+  tallGrassNear(x: number, z: number, threat: HabitatPoint): HabitatPoint | undefined {
+    if (this.tallGrowth.value < 0.45) return;
+    let distance = 9;
+    let refuge: Plant | undefined;
+    for (
+      let cx = Math.floor((x - 9) / WORLD_CHUNK_SIZE);
+      cx <= Math.floor((x + 9) / WORLD_CHUNK_SIZE);
+      cx++
+    ) {
+      for (
+        let cz = Math.floor((z - 9) / WORLD_CHUNK_SIZE);
+        cz <= Math.floor((z + 9) / WORLD_CHUNK_SIZE);
+        cz++
+      ) {
+        for (const plant of this.tallClumps.get(`${cx},${cz}`) ?? []) {
+          if (plant.removed || plant.height * this.tallGrowth.value < 0.55) continue;
+          const step = Math.hypot(plant.x - x, plant.z - z);
+          const fromThreat = Math.hypot(plant.x - threat.x, plant.z - threat.z);
+          if (
+            step >= distance ||
+            fromThreat <= 3 ||
+            fromThreat + 0.3 < Math.hypot(x - threat.x, z - threat.z)
+          )
+            continue;
+          refuge = plant;
+          distance = step;
+        }
+      }
+    }
+    return refuge;
   }
 
   setSeason(blend: SeasonBlend): void {

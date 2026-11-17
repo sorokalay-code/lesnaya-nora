@@ -231,8 +231,10 @@ test('every selected species spawns with its own count even without forest or tr
   assert.equal(f.population.hawks.filter(({ kind }) => kind === 'hawk').length, 2);
   assert.equal(f.population.hawks.filter(({ kind }) => kind === 'owl').length, 2);
   assert.equal(
-    f.population.hawks.filter(({ kind, present }) => kind === 'owl' && present).length,
-    0,
+    f.population.hawks.filter(
+      ({ kind, present, huntingAllowed }) => kind === 'owl' && present && !huntingAllowed,
+    ).length,
+    2,
   );
   assert.equal(f.water.pikes.length, 2);
   assert.equal(

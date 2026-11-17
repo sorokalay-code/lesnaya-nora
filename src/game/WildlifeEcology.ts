@@ -36,6 +36,8 @@ import type { Excavation } from './Excavation';
 import { AnimalAppearance } from './AnimalAppearance';
 import { ShoreEcology, shoreKind } from './ShoreEcology';
 import type { AquaticHabitats } from './AquaticHabitats';
+import { PheasantFlocks } from './PheasantFlocks';
+import { Pheasant } from './animals/Pheasant';
 
 type Target = ForestAnimal | Predator | RabbitActor;
 type ForageTarget = { kind: 'plant'; plant: Resource } | { kind: 'ground'; point: HabitatPoint };
@@ -46,7 +48,7 @@ export type WildlifeEvent = {
   subject: string;
 };
 const FIELD_WILDLIFE = ['mole', 'marmot', 'pheasant'] as const;
-const LITTER_FORAGERS = new Set<WildlifeKind>(['badger', 'hedgehog', 'mole', 'boar']);
+const LITTER_FORAGERS = new Set<WildlifeKind>(['badger', 'hedgehog', 'mole', 'boar', 'pheasant']);
 const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE, 'roe-deer', 'frog'] as const;
 const WILDLIFE_KINDS = [
   'deer',
@@ -74,6 +76,7 @@ export class WildlifeEcology {
   private readonly huntingGrounds = new HuntingGrounds();
   private readonly neighborTerritories?: WildRabbitTerritories;
   private readonly shore?: ShoreEcology;
+  private readonly pheasants?: PheasantFlocks;
   private readonly foodTargets = new Map<ForestAnimal, ForageTarget>();
   private preyTargets = new Map<Predator, { target: Target; until: number }>();
   private readonly nextPreySearch = new WeakMap<Predator, number>();
@@ -102,6 +105,28 @@ export class WildlifeEcology {
       save?.seed ?? world.seed ?? 0,
       save?.worldConfig?.seasonLengths,
     );
+    if (save && territories)
+      this.pheasants = new PheasantFlocks({
+        save,
+        scene,
+        animals: this.animals,
+        shelters: territories.shelters,
+        habitats: territories.habitats,
+        create: (at, id) =>
+          this.addAnimal(
+            'pheasant',
+            at.x,
+            at.z,
+            save.worldConfig?.size ?? 110,
+            this.newWildlifeRng,
+            undefined,
+            undefined,
+            id,
+          ),
+        settle: (animal, slot) =>
+          this.assignHabitat(animal, slot, territories.habitats.wildlife('pheasant', slot)),
+        depart: (animal) => this.depart(animal),
+      });
     if (save && territories && world.terrain?.water && typeof world.waterAt === 'function')
       this.shore = new ShoreEcology({
         world,
@@ -201,6 +226,7 @@ export class WildlifeEcology {
 
   dispose(): void {
     this.shore?.dispose();
+    this.pheasants?.dispose();
   }
 
   populate(): void {
@@ -245,6 +271,7 @@ export class WildlifeEcology {
       }
       this.families?.restore();
       this.shore?.restore();
+      this.pheasants?.restore();
       return;
     }
     const counts = (this.save?.worldConfig ?? defaultWorldConfig()).creatures;
@@ -252,6 +279,7 @@ export class WildlifeEcology {
       for (let i = 0; i < counts[kind]; i++) this.spawn(kind, 0, 0, true, i);
     this.families?.restore();
     this.shore?.restore();
+    this.pheasants?.restore();
   }
 
   private spawn(
@@ -268,9 +296,10 @@ export class WildlifeEcology {
     const size = this.save?.worldConfig?.size ?? 110;
     const home = slot !== undefined ? this.territories?.habitats.wildlife(kind, slot) : undefined;
     if (home && slot !== undefined && this.territories) {
-      const shelter = isShelteredWildlife(kind)
-        ? this.territories.shelters.place(kind, slot, home)
-        : undefined;
+      const shelter =
+        isShelteredWildlife(kind) && (kind !== 'pheasant' || slot % 2 === 0)
+          ? this.territories.shelters.place(kind, slot, home)
+          : undefined;
       const point = shelter?.approach ?? this.territories.habitats.nearHome(home, slot);
       if (!initial && Math.hypot(point.x - px, point.z - pz) < 22) return;
       return this.addAnimal(kind, point.x, point.z, size, this.newWildlifeRng, slot, home);
@@ -415,6 +444,15 @@ export class WildlifeEcology {
     animal.habitat = home;
     animal.destination = home;
     const shelters = this.territories?.shelters;
+    if (shelters && animal instanceof Pheasant) {
+      animal.useRoutine(new WildlifeRoutine(undefined, shelters.routeHeight));
+      animal.findCover = (x, z, threat) => this.world.tallGrassNear?.(x, z, threat);
+      if (home && slot !== undefined) {
+        if (slot % 2 === 0) shelters.place('pheasant', slot, home);
+        animal.useHenPlumage(slot % 2 === 0);
+      }
+      return;
+    }
     if (!shelters || !home || slot === undefined) return;
 
     if (isShelteredWildlife(animal.kind)) {
@@ -487,6 +525,7 @@ export class WildlifeEcology {
     }
     this.families?.update(clock, player, winter, winter && this.seasons.name(day + 4) !== 'Зима');
     this.shore?.update(clock, season === 'Весна', player);
+    this.pheasants?.update(clock, season === 'Весна', player);
     if (!land)
       for (const predator of predators)
         if (predator.kind !== 'wolf' && predator.homeTerritory)
@@ -623,7 +662,9 @@ export class WildlifeEcology {
       for (const animal of this.animals) {
         let best: ForageTarget | undefined;
         if (animal.foragingAllowed && !animal.inShelter) {
-          const plant = this.forage.find(animal, this.risk, season);
+          const plant = this.pheasants?.owns(animal)
+            ? undefined
+            : this.forage.find(animal, this.risk, season);
           const patch = animal.destination;
           if (plant) best = { kind: 'plant', plant };
           else if (patch && LITTER_FORAGERS.has(animal.kind) && this.risk(patch.x, patch.z) < 1.5)
@@ -647,7 +688,12 @@ export class WildlifeEcology {
       const food =
         animal.foragingAllowed && !animal.inShelter ? this.foodTargets.get(animal) : undefined;
       const plant = food?.kind === 'plant' ? food.plant : undefined;
-      const groundFood = food?.kind === 'ground' ? food.point : undefined;
+      const groundFood =
+        food?.kind === 'ground'
+          ? food.point
+          : animal.foragingAllowed && this.pheasants?.owns(animal)
+            ? animal.destination
+            : undefined;
       const target = plant?.available ? plant : groundFood;
       if (animal.update(dt, time, groundAt, threats, target) && plant?.available) {
         this.world.harvest(plant, clock);
@@ -751,6 +797,7 @@ export class WildlifeEcology {
       const candidates = (['deer', 'squirrel', ...WILDLIFE_KINDS] as const).filter(
         (kind) =>
           (!this.shore || (kind !== 'fish' && kind !== 'frog' && kind !== 'duck')) &&
+          (kind !== 'pheasant' || (this.pheasants?.canImmigrate() ?? true)) &&
           (this.world.waterSources.length > 0 ||
             (kind !== 'duck' && kind !== 'fish' && kind !== 'frog')) &&
           (this.families?.canImmigrate(kind, clock) ?? true) &&
@@ -792,8 +839,15 @@ export class WildlifeEcology {
   capture(): void {
     if (!this.save) return;
     this.neighborTerritories?.capture();
+    this.pheasants?.capture();
     this.save.wildlife = this.animals
-      .filter((animal) => animal.alive && !this.families?.owns(animal) && !this.shore?.owns(animal))
+      .filter(
+        (animal) =>
+          animal.alive &&
+          !this.families?.owns(animal) &&
+          !this.shore?.owns(animal) &&
+          !this.pheasants?.owns(animal),
+      )
       .map((animal) => ({
         id: animal.socialId,
         habitatSlot: animal.habitatSlot,

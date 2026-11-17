@@ -242,8 +242,9 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
         this.targetZ = danger.z;
       } else {
         const away = Math.atan2(this.x - danger.x, this.z - danger.z);
-        this.targetX = this.x + Math.sin(away) * this.range;
-        this.targetZ = this.z + Math.cos(away) * this.range;
+        const cover = this.escapeCover(danger, time);
+        this.targetX = cover?.x ?? this.x + Math.sin(away) * this.range;
+        this.targetZ = cover?.z ?? this.z + Math.cos(away) * this.range;
         this.fleeingUntil = time + 2.2;
       }
     } else if (escort && escortDistance > 2.6) {
@@ -289,6 +290,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.animate(dt, moving, rushing, time < this.eatingUntil ? 'graze' : 'idle');
     this.root.userData.tailPhase = time;
     return grazing && time < this.eatingUntil;
+  }
+
+  protected escapeCover(_danger: HabitatPoint, _time: number): HabitatPoint | undefined {
+    return undefined;
   }
 
   private walkToward(

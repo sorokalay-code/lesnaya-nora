@@ -49,7 +49,7 @@ export const CREATURE_OPTIONS: readonly { kind: CreatureKind; label: string; max
   { kind: 'spider', label: 'Пауки с паутиной', max: 45 },
   { kind: 'jumping-spider', label: 'Пауки-прыгуны', max: 45 },
   { kind: 'hawk', label: 'Соколы', max: 30 },
-  { kind: 'owl', label: 'Совы (только ночью)', max: 20 },
+  { kind: 'owl', label: 'Совы', max: 20 },
   { kind: 'pike', label: 'Щуки', max: 45 },
   { kind: 'butterfly', label: 'Бабочки', max: 240 },
 ];

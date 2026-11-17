@@ -156,6 +156,11 @@ export interface SaveData {
   landMammalImmigration?: Partial<Record<import('./LandMammalFamilies').LandFamilyKind, number>>;
   landPredators?: import('./session/LandPredators').LandPredatorState[];
   duckBroods?: import('./DuckBroods').DuckBroodState[];
+  birdBroods?: Partial<
+    Record<import('./BirdBroods').BirdKind, import('./BirdBroods').BirdBroodState[]>
+  >;
+  raptors?: import('./session/RaptorPopulation').RaptorState[];
+  nextRaptorId?: number;
   waterCohorts?: import('./AquaticCohorts').WaterCohort[];
   pikePopulation?: import('./session/WaterSimulation').PikeState[];
   nextPikeId?: number;
