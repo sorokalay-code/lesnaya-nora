@@ -175,7 +175,7 @@ export class InventoryController {
         return;
       }
 
-      this.context.world.harvest(r, this.context.save.clock);
+      this.context.world.harvest(r, this.context.save.clock, 'player');
       this.context.save.inventory[r.kind]++;
 
       if (r.kind === 'clover') this.context.save.materials.grass++;

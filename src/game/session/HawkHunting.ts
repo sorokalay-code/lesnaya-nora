@@ -88,7 +88,9 @@ export class HawkHunting {
             y: Number(hunt.victim.root.userData.baseY ?? hunt.victim.root.position.y),
             z: hunt.victim.root.position.z,
           });
-        if (!combat) continue;
+        // Перемирие приостанавливает захват семьи. Уже схваченная дикая добыча
+        // завершает перенос и во сне игрока, иначе птица остаётся висеть над миром.
+        if (!combat && hunt.victim.related) continue;
         const step = hunt.carry.update(dt, (x, z) =>
           this.context.earth.floorAt(x, z, this.context.world.heightAt(x, z)),
         );

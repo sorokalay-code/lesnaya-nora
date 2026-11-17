@@ -248,7 +248,7 @@ export class PartnerSupport {
         return;
       }
 
-      this.world.harvest(resource, this.save.clock);
+      this.world.harvest(resource, this.save.clock, actor.root);
       cargo.food = resource.kind;
       if (resource.kind === 'clover') cargo.grass = 1;
 

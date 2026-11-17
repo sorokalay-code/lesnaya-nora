@@ -16,11 +16,23 @@ import type { World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
 import { loadModels } from './model-fixture';
 
-await loadModels('hawk', 'owl', 'pheasant', 'rabbit', 'mouse');
+await loadModels('hawk', 'owl', 'pheasant', 'rabbit', 'mouse', 'bear', 'marmot');
 
 const distance = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
 const DAY = 1440;
+
+test('a perched bird follows visibility of the chunk holding its nest', () => {
+  const f = fixture();
+  f.step(1320, 20);
+  const hawk = f.population.hawks.find((bird) => bird.kind === 'hawk')!;
+  const nest = f.scene.getObjectByName('bird-nest-hawk-0')!;
+  assert.ok(hawk.perched && hawk.supportVisible);
+  nest.visible = false;
+  assert.equal(hawk.supportVisible, false);
+  nest.visible = true;
+  assert.equal(hawk.supportVisible, true);
+});
 
 function start() {
   const config = defaultWorldConfig();
@@ -113,6 +125,75 @@ function reload(save: SaveData): SaveData {
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
 }
+
+test('continuous days and real WorldRest preserve broods and winter homes across daily reloads on two seeds', () => {
+  for (const seed of [31415, 813])
+    for (const mode of ['ordinary', 'rest'] as const) {
+      const initial = start();
+      initial.seed = seed;
+      initial.worldConfig!.seasonLengths = { Весна: 2, Лето: 2, Осень: 2, Зима: 2 };
+      initial.worldConfig!.creatures.bear = 2;
+      initial.worldConfig!.creatures.marmot = 2;
+      let f = fixture(initial);
+      let births = false;
+      let winterShelter = false;
+      for (let day = 0; day < 10; day++) {
+        if (mode === 'ordinary') {
+          for (let minute = 0; minute < DAY; minute += 3) f.tick(0.5, f.save.clock + 3);
+        } else {
+          const rest = new WorldRest({
+            save: f.save,
+            state: { elapsed: 0 },
+            calendar: {
+              advance: (dt) => {
+                f.save.clock += dt * 6;
+              },
+              isNight: () => isNightAt(f.save.clock),
+            },
+            animals: { update: (dt) => f.tick(dt, f.save.clock) },
+            family: { update() {}, advancePregnancy() {} },
+            world: { update() {} },
+            items: { update() {} },
+            waste: { update() {} },
+            earth: { isSheltered: () => true },
+            lighting: { update() {} },
+            sound: { setWeather() {} },
+          });
+          rest.advance(DAY);
+        }
+        f.capture();
+        births ||= Object.values(f.save.birdBroods ?? {}).some((broods) =>
+          broods.some((brood) => brood.young.length > 0),
+        );
+        if (f.save.day === 7 || f.save.day === 8)
+          winterShelter ||= f.population.wildlife.some(
+            (actor) => actor.kind === 'bear' && actor.inShelter,
+          );
+        const ids = f.population.wildlife.map((actor) => actor.socialId);
+        assert.equal(new Set(ids).size, ids.length, `${seed}/${mode}: duplicate wildlife`);
+        for (const kind of ['bear', 'marmot', 'pheasant'] as const)
+          assert.ok(
+            f.population.wildlife.filter(
+              (actor) => actor.kind === kind && actor.alive && !actor.juvenile,
+            ).length <= 2,
+          );
+        const saved = reload(f.save);
+        const homes = structuredClone(saved.wildlifeShelters);
+        const broods = structuredClone(saved.birdBroods);
+        f.population.ecology.dispose();
+        f.population.raptors.dispose();
+        f = fixture(saved);
+        f.capture();
+        assert.deepEqual(f.save.wildlifeShelters, homes);
+        assert.deepEqual(f.save.birdBroods, broods);
+      }
+      assert.ok(births, `${seed}/${mode}: no chicks hatched`);
+      assert.ok(winterShelter, `${seed}/${mode}: no winter shelter`);
+      assert.ok(f.population.wildlife.some((actor) => actor.kind === 'bear' && !actor.inShelter));
+      f.population.ecology.dispose();
+      f.population.raptors.dispose();
+    }
+});
 
 test('on the same map hawks and owls take turns leaving physical nests and perching', () => {
   const f = fixture();

@@ -30,6 +30,27 @@ const genes = () => ({ ...DEFAULT_GENES, anatomy: { ...DEFAULT_GENES.anatomy } }
 const flat = { heightAt: () => 0, hasCover: () => false };
 const earth = { floorAt: () => 0, isSheltered: () => false };
 
+test('a hawk carrying wild prey finishes its flight while player combat is paused', () => {
+  const s = scenario();
+  s.save.player.health = 0;
+  const squirrel = AnimalFactory.forest('squirrel', 1, 0, new Random(3));
+  const hunting = new HawkHunting({ ...s.context, wildlife: [squirrel] });
+  let time = 0;
+  while (!hunting.busy && time < 6) {
+    time += 0.05;
+    hunting.update(0.05, time, true);
+  }
+  assert.ok(hunting.busy);
+  const start = s.hawk.root.position.clone();
+  for (let i = 0; i < 100; i++) {
+    time += 0.05;
+    hunting.update(0.05, time, false);
+  }
+  assert.ok(s.hawk.root.position.distanceTo(start) > 1);
+  assert.equal(hunting.busy, false);
+  assert.equal(AnimalRestraint.active(squirrel.root), false);
+});
+
 function scenario() {
   const save = NewGameFactory.create(120, 0, new RabbitFactory(new Random(120)));
   save.player.genes = genes();

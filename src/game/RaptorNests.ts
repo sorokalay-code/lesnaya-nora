@@ -19,6 +19,7 @@ export interface RaptorNest {
   perch: DigNode;
   care: DigNode;
   grounds: HabitatPoint;
+  support: Group;
 }
 
 type NestWorld = Pick<World, 'heightAt' | 'biomeAt'> &
@@ -76,10 +77,10 @@ export class RaptorNests {
     const perch = stand(1.05);
     const care = stand(-0.72);
     const grounds = this.findGrounds(kind, bowl, rng);
-    this.sites.set(`${kind}:${slot}`, { bowl, perch, care, grounds });
     this.occupied.push(point);
 
     const model = new Group();
+    this.sites.set(`${kind}:${slot}`, { bowl, perch, care, grounds, support: model });
     model.name = `bird-nest-${kind}-${slot}`;
     model.position.set(x, ground + height, z);
     model.rotation.y = direction;

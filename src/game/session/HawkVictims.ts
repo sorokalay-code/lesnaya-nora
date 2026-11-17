@@ -76,7 +76,7 @@ export class HawkVictims {
         related: actor.data.id === this.population.save.mateId,
         condition: () => actor.health / actor.maxHealth,
         bodyHeight: 0.82 * actor.root.scale.x,
-        alive: () => actor.alive,
+        alive: () => actor.alive && !('inShelter' in actor && actor.inShelter),
         move: (x, y, z) => {
           actor.moveTo(x, z, y);
           actor.data.x = x;

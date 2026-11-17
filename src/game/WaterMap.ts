@@ -19,6 +19,7 @@ export interface WaterBody {
 }
 
 export type WaterDefinition = Omit<WaterBody, 'level'>;
+export const BOG_MAX_DEPTH = 0.38;
 
 export interface WaterSample {
   body: WaterBody;
@@ -35,10 +36,14 @@ type Point = WaterBody['points'][number];
 type Segment = readonly [Point, Point];
 
 export function distanceToSegment(x: number, z: number, a: Point, b: Point): number {
+  return Math.sqrt(squaredDistanceToSegment(x, z, a, b));
+}
+
+function squaredDistanceToSegment(x: number, z: number, a: Point, b: Point): number {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
-  return Math.hypot(x - a.x - dx * t, z - a.z - dz * t);
+  return (x - a.x - dx * t) ** 2 + (z - a.z - dz * t) ** 2;
 }
 
 export function distanceToOutline(x: number, z: number, points: readonly Point[]): number {
@@ -116,6 +121,8 @@ export class WaterMap {
     }));
     const levels = definitions.map((body) => {
       if (body.fixedLevel !== undefined) return body.fixedLevel;
+      if (body.kind === 'bog')
+        return Math.min(...body.points.map((point) => naturalHeight(point.x, point.z))) - 0.04;
       const samples = [];
       for (const point of body.points) {
         let shore = Infinity;
@@ -171,13 +178,13 @@ export class WaterMap {
   distance(body: WaterBody, x: number, z: number): number {
     if (body.outline) return distanceToOutline(x, z, body.outline);
 
-    let distance = Math.hypot(x - body.points[0].x, z - body.points[0].z);
+    let distance = (x - body.points[0].x) ** 2 + (z - body.points[0].z) ** 2;
     for (let i = 1; i < body.points.length; i++) {
       const a = body.points[i - 1],
         b = body.points[i];
-      distance = Math.min(distance, distanceToSegment(x, z, a, b));
+      distance = Math.min(distance, squaredDistanceToSegment(x, z, a, b));
     }
-    return distance - body.radius;
+    return Math.sqrt(distance) - body.radius;
   }
 
   carve(x: number, z: number, natural: number): number {
@@ -186,6 +193,7 @@ export class WaterMap {
     let valley = natural;
     let dryEdge = -Infinity;
     let joinedBed = Infinity;
+    let bogBed = Infinity;
     for (const body of this.bodies) {
       const shore = body.level + (body.gentleBanks ? 0 : 0.12);
       const bankWidth = !body.gentleBanks
@@ -193,6 +201,16 @@ export class WaterMap {
         : Math.max(body.bankWidth ?? 3, Math.abs(natural - shore) * 2.5);
       if (!this.inBounds(body, x, z, bankWidth)) continue;
       const distance = this.distance(body, x, z);
+      if (body.kind === 'bog') {
+        if (distance < 0) {
+          // Маленький болотный плёс следует местному грунту. Уровень низкой точки
+          // на дальнем берегу не должен вырезать глубокую яму на соседнем склоне.
+          const influence = smooth(-distance / Math.min(1.5, body.radius * 0.7));
+          const floor = Math.min(natural, Math.max(natural - 0.45, body.level - body.depth));
+          bogBed = Math.min(bogBed, natural + (floor - natural) * influence);
+        }
+        continue;
+      }
       if (body.gentleBanks && distance < 0)
         joinedBed = Math.min(joinedBed, body.level - Math.min(body.depth, -distance * 0.55));
       if (distance < nearestDistance) {
@@ -215,26 +233,35 @@ export class WaterMap {
         }
       }
     }
-    if (joinedBed !== Infinity) return joinedBed;
+    if (joinedBed !== Infinity) return Math.min(joinedBed, bogBed);
     if (
       !nearest ||
       (nearestDistance >= 0 && (nearest.gentleBanks || nearest.bankWidth !== undefined))
     )
-      return Math.max(valley, dryEdge);
+      return Math.min(Math.max(valley, dryEdge), bogBed);
     const bed = nearest.level - nearest.depth * smooth(-nearestDistance / 2.2);
     const bankHeight =
       nearest.level + 0.12 + (natural - nearest.level - 0.12) * smooth(nearestDistance / 3);
-    return nearestDistance < 0 ? bed : Math.max(bankHeight - (natural - valley), dryEdge);
+    return Math.min(
+      nearestDistance < 0 ? bed : Math.max(bankHeight - (natural - valley), dryEdge),
+      bogBed,
+    );
   }
 
-  sample(x: number, z: number, ground: number): WaterSample | undefined {
-    for (const body of this.bodies)
-      if (
-        this.inBounds(body, x, z, 0) &&
-        this.distance(body, x, z) < 0 &&
-        body.level - ground > 0.025
-      )
-        return { body, level: body.level, depth: body.level - ground };
+  sample(
+    x: number,
+    z: number,
+    ground: number | ((x: number, z: number) => number),
+  ): WaterSample | undefined {
+    let height = typeof ground === 'number' ? ground : undefined;
+    for (const body of this.bodies) {
+      if (!this.inBounds(body, x, z, 0) || this.distance(body, x, z) >= 0) continue;
+      // Высоту читаем один раз и только внутри контура. На суше запрос не создаёт работу рельефу.
+      height ??= typeof ground === 'number' ? ground : ground(x, z);
+      const depth = body.level - height;
+      if (body.kind === 'bog' && depth > BOG_MAX_DEPTH) continue;
+      if (depth > 0.025) return { body, level: body.level, depth };
+    }
   }
 
   near(x: number, z: number, radius: number): boolean {

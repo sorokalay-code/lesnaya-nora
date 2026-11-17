@@ -3,6 +3,7 @@ import type { Biome } from './types';
 import type { AttackCue } from './audio/AttackCue';
 import { AnimalCalls } from './audio/AnimalCalls';
 import type { AnimalVoiceCue } from './audio/AnimalVoice';
+import type { DigNode } from './types';
 
 /** Управляет звуковым ландшафтом, погодой и общей громкостью без сетевых аудиозависимостей. */
 export class Soundscape {
@@ -70,6 +71,18 @@ export class Soundscape {
 
   play(event: SoundEvent): void {
     if (!this.mutedValue && this.ctx?.state === 'running') this.voices?.effect(event);
+  }
+
+  gunshot(at: DigNode, listener: DigNode): void {
+    if (this.mutedValue || this.ctx?.state !== 'running' || !this.voices) return;
+    const distance = Math.hypot(at.x - listener.x, at.y - listener.y, at.z - listener.z);
+    if (distance > 100) return;
+    const volume = Math.max(0, 1 - distance / 100) ** 2;
+    const pan = Math.max(-0.85, Math.min(0.85, (at.x - listener.x) / 24));
+    this.voices.noise(1900, 0.075, 1.1 * volume, 0, pan);
+    this.voices.noise(220, 0.4, 0.65 * volume, 0.015, pan);
+    this.voices.tone(150, 35, 0.15, 0.25 * volume, 0, pan);
+    this.voices.noise(700, 0.2, 0.13 * volume, 0.16, -pan * 0.4);
   }
 
   attack(kind: string, phase: AttackCue['phase'], volume = 1, pan = 0): void {

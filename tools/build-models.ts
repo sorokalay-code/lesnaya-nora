@@ -27,6 +27,7 @@ import { createBoarModel } from './art/BoarAsset';
 import { createPikeModel, pikeClips } from './art/PikeAsset';
 import { swimmingClip, SWIMMING_MODELS } from './art/Swimming';
 import { createFieldModel, fieldClips, type FieldModel } from './art/FieldWildlife';
+import { createHunterModel, hunterClips } from './art/HunterAsset';
 
 /** Адаптер Blob для офлайн-экспорта GLB средствами Three.js в Node.js. */
 class NodeFileReader {
@@ -1647,6 +1648,7 @@ function isFieldModel(name: string): name is FieldModel {
 }
 
 const models = {
+  hunter: () => createHunterModel(),
   ...fieldModels,
   pike: () => createPikeModel(),
   boar: () => createBoarModel(),
@@ -1709,6 +1711,7 @@ const models = {
   bitterleaf: () => foodPlant('bitterleaf'),
 };
 const creatures = new Set([
+  'hunter',
   ...Object.keys(fieldModels),
   'pike',
   'boar',
@@ -1791,44 +1794,46 @@ for (const [name, build] of Object.entries(models)) {
     : undefined;
   const animations =
     addedClips ??
-    (name === 'pike'
-      ? pikeClips()
-      : name === 'fish'
-        ? [
-            new THREE.AnimationClip('swim', 1, [
-              rotation('Tail', [
-                [0, 0, 0],
-                [0, 0.45, 0],
-                [0, 0, 0],
-                [0, -0.45, 0],
-                [0, 0, 0],
+    (name === 'hunter'
+      ? hunterClips()
+      : name === 'pike'
+        ? pikeClips()
+        : name === 'fish'
+          ? [
+              new THREE.AnimationClip('swim', 1, [
+                rotation('Tail', [
+                  [0, 0, 0],
+                  [0, 0.45, 0],
+                  [0, 0, 0],
+                  [0, -0.45, 0],
+                  [0, 0, 0],
+                ]),
               ]),
-            ]),
-          ]
-        : name === 'spider' || name === 'jumping-spider'
-          ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
-          : name === 'rabbit'
-            ? rabbitClips(model)
-            : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
-              ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
-              : name === 'snake'
-                ? snakeClips()
-                : name === 'hawk'
-                  ? hawkClips()
-                  : [
-                        'deer',
-                        'roe-deer',
-                        'squirrel',
-                        'hedgehog',
-                        'beaver',
-                        'moose',
-                        'boar',
-                        'duck',
-                        'mouse',
-                        'frog',
-                      ].includes(name)
-                    ? peacefulClips(name, model)
-                    : []);
+            ]
+          : name === 'spider' || name === 'jumping-spider'
+            ? [...spiderClips(), ...(name === 'jumping-spider' ? [spiderJumpClip()] : [])]
+            : name === 'rabbit'
+              ? rabbitClips(model)
+              : ['fox', 'wolf', 'dog', 'lynx', 'weasel', 'bear'].includes(name)
+                ? [...quadrupedClips(name, model), ...(name === 'lynx' ? [lynxPounceClip()] : [])]
+                : name === 'snake'
+                  ? snakeClips()
+                  : name === 'hawk'
+                    ? hawkClips()
+                    : [
+                          'deer',
+                          'roe-deer',
+                          'squirrel',
+                          'hedgehog',
+                          'beaver',
+                          'moose',
+                          'boar',
+                          'duck',
+                          'mouse',
+                          'frog',
+                        ].includes(name)
+                      ? peacefulClips(name, model)
+                      : []);
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
   mergeParts(model, !creatures.has(name) && !isTreeSpecies(name) && !isShrubSpecies(name));
   const buffer = (await new GLTFExporter().parseAsync(model, {
@@ -1847,15 +1852,17 @@ for (const [name, build] of Object.entries(models)) {
     const arachnid = name === 'spider' || name === 'jumping-spider';
     const distant = isFieldModel(name)
       ? createFieldModel(name, true)
-      : name === 'pike'
-        ? createPikeModel(true)
-        : name === 'boar'
-          ? createBoarModel(true)
-          : arachnid
-            ? createSpiderModel(true, name === 'jumping-spider')
-            : name === 'lynx'
-              ? createLynxModel(true)
-              : build();
+      : name === 'hunter'
+        ? createHunterModel(true)
+        : name === 'pike'
+          ? createPikeModel(true)
+          : name === 'boar'
+            ? createBoarModel(true)
+            : arachnid
+              ? createSpiderModel(true, name === 'jumping-spider')
+              : name === 'lynx'
+                ? createLynxModel(true)
+                : build();
     mergeParts(distant, arachnid);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,

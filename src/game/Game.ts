@@ -661,6 +661,7 @@ export class Game {
       hawks: this.hawks,
       ecology: this.ecology,
       raptors: population.raptors,
+      hunterShot: (at) => this.sound.gunshot(at, this.save.player),
       traffic: this.traffic,
       collisions: this.collisions,
       partnerSupport: this.partnerSupport,

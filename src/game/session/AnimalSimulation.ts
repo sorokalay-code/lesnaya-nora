@@ -32,6 +32,8 @@ import { WildRabbitBreeding } from './WildRabbitBreeding';
 import type { LostKits } from './LostKits';
 import { playerSex, potentialMate } from '../RabbitSex';
 import type { RaptorPopulation } from './RaptorPopulation';
+import { GardenHunters } from './GardenHunters';
+import type { DigNode } from '../types';
 
 const MATING_DURATION = 3.1;
 const MATING_REACH = 3;
@@ -41,6 +43,7 @@ export interface AnimalState {
 }
 
 interface Context {
+  hunterShot?: (at: DigNode) => void;
   lostKits?: LostKits;
   remains?: AnimalRemains;
   resetInput?: () => void;
@@ -85,8 +88,11 @@ export class AnimalSimulation {
   private readonly reproductiveThreat: RabbitReproductiveThreat;
   private readonly water?: WaterSimulation;
   private readonly wildBreeding: WildRabbitBreeding;
+  private readonly hunters?: GardenHunters;
 
   constructor(private readonly context: Context) {
+    if (context.world.gardens?.length && typeof context.world.observeHarvest === 'function')
+      this.hunters = new GardenHunters({ ...context, shotSound: context.hunterShot });
     this.wildBreeding = new WildRabbitBreeding(context);
     this.friendDefense = new FriendDefense(context.wildlife, context.toast);
     if (context.world.scene) this.friendMarks = new FriendMarks(context.world.scene);
@@ -129,6 +135,7 @@ export class AnimalSimulation {
   }
 
   dispose(): void {
+    this.hunters?.dispose();
     this.friendMarks?.dispose();
     this.water?.dispose();
     if (this.context.raptors) this.context.raptors.dispose();
@@ -231,6 +238,7 @@ export class AnimalSimulation {
     this.grazeRabbits(dt, time);
     this.context.raptors?.update(time);
     this.hawkHunting.update(dt, time, canAttackFamily, night);
+    this.hunters?.update(dt, time, canAttackFamily);
     this.context.animalWaste?.update(dt, time);
     this.context.family?.collectDead?.();
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
@@ -436,7 +444,7 @@ export class AnimalSimulation {
       ) {
         const food = this.context.world.nearestResource(rabbit.data.x, rabbit.data.z, 1.2);
         if (food && food.kind !== 'toadstool') {
-          this.context.world.harvest(food, this.context.save.clock);
+          this.context.world.harvest(food, this.context.save.clock, rabbit.root);
           setRabbitAction(rabbit.rig, 'eat', time + rabbit.data.id, 1.2);
         } else if (
           this.context.world.gnawBark(rabbit.data.x, rabbit.data.z, this.context.save.clock)
@@ -494,7 +502,10 @@ export class AnimalSimulation {
         animal.alive && !animal.inShelter && Math.hypot(animal.x - p.x, animal.z - p.z) < 76;
 
     for (const hawk of this.context.hawks) {
-      const visible = hawk.present && Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
+      const visible =
+        hawk.present &&
+        (!hawk.perched || hawk.supportVisible) &&
+        Math.hypot(hawk.x - p.x, hawk.z - p.z) < 92;
       hawk.root.visible = visible;
       hawk.shadow.visible = visible && !hawk.perched && !this.sheltered;
     }

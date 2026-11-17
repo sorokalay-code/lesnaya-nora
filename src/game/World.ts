@@ -23,6 +23,10 @@ import type { WaterSample } from './WaterMap';
 import { defaultWorldConfig, type WorldConfig } from './WorldConfig';
 import { WorldLayout } from './WorldLayout';
 import { GRAPHICS_LEVELS, type GraphicsSettings } from './GraphicsSettings';
+import type { GardenPlot } from './GardenPlot';
+import { GroundHeightCache } from './GroundHeightCache';
+
+type HarvestObserver = (resource: Resource, consumer?: THREE.Object3D | 'player') => void;
 
 export interface Resource {
   id: number;
@@ -55,6 +59,8 @@ export class World {
   readonly scale: number;
   readonly scene: THREE.Scene;
   readonly resources: Resource[] = [];
+  readonly gardens: GardenPlot[] = [];
+  private readonly harvestObservers = new Set<HarvestObserver>();
   readonly waterSources: { x: number; z: number }[] = [];
   readonly treeLocations: { x: number; z: number; nestHeight?: number }[] = [];
   readonly shelterObstacles: { x: number; z: number; radius: number }[] = [];
@@ -83,7 +89,8 @@ export class World {
   private rng: Random;
   private rain?: THREE.Points;
   private readonly ambientFlight: AmbientFlight;
-  private heightCache = new Map<string, number>();
+  private readonly heightCache: GroundHeightCache;
+  private readonly waterGround = (x: number, z: number) => this.heightAt(x, z);
 
   constructor(
     scene: THREE.Scene,
@@ -106,6 +113,9 @@ export class World {
     this.seasons = new SeasonSystem(seed, this.config.seasonLengths);
     this.chunks = new WorldChunks(scene);
     this.terrain = new Terrain(seed, this.scale, this.config.water, this.layout);
+    this.heightCache = new GroundHeightCache(Math.ceil(this.size) + 32, (x, z) =>
+      this.terrain.heightAt(x, z),
+    );
     this.boundary = new WorldBoundary(
       this.terrain,
       seed,
@@ -159,33 +169,21 @@ export class World {
       iz = Math.floor(z),
       u = x - ix,
       v = z - iz;
-    const sample = (gx: number, gz: number) => {
-      const key = `${gx},${gz}`;
-      let value = this.heightCache.get(key);
-      if (value === undefined) {
-        value = this.terrain.heightAt(gx, gz);
-        this.heightCache.set(key, value);
-      }
-
-      return value;
-    };
-    const h00 = sample(ix, iz);
+    const h00 = this.heightCache.get(ix, iz);
     if (u === 0 && v === 0) return h00;
 
-    const h11 = sample(ix + 1, iz + 1);
+    const h11 = this.heightCache.get(ix + 1, iz + 1);
     if (u >= v) {
-      const h10 = sample(ix + 1, iz);
+      const h10 = this.heightCache.get(ix + 1, iz);
       return h00 + (h10 - h00) * u + (h11 - h10) * v;
     }
 
-    const h01 = sample(ix, iz + 1);
+    const h01 = this.heightCache.get(ix, iz + 1);
     return h00 + (h11 - h01) * u + (h01 - h00) * v;
   }
 
   waterAt(x: number, z: number): WaterSample | undefined {
-    if (!this.terrain.water.near(x, z, 0)) return undefined;
-
-    return this.terrain.water.sample(x, z, this.heightAt(x, z));
+    return this.terrain.water.sample(x, z, this.waterGround);
   }
 
   temperatureOffset(x: number, z: number): number {
@@ -571,7 +569,18 @@ export class World {
     roof.position.y = 2.8;
     roof.rotation.y = Math.PI / 4;
     hut.add(roof);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.65, 0.04), mat(0x49372a));
+    door.position.set(0, 0.83, -1.37);
+    hut.add(door);
     this.chunks.add(hut, hut.position.x, hut.position.z);
+    this.gardens.push({
+      id: this.gardens.length,
+      x,
+      z,
+      radius: r,
+      door: { x: hx, y: this.heightAt(hx, hz - 1.8), z: hz - 1.8 },
+      house: { x: hx, z: hz, halfWidth: 1.5, halfDepth: 1.35 },
+    });
     this.shelterObstacles.push({ x: hx, z: hz, radius: 2.1 });
     for (let row = -r + 3; row < r - 3; row += 3) {
       const strip = this.terrainStrip(x + row, z, 1.4, r * 1.3);
@@ -695,12 +704,21 @@ export class World {
     return this.groundCover?.tallGrassNear(x, z, threat);
   }
 
-  harvest(resource: Resource, clock: number): void {
+  observeHarvest(observer: HarvestObserver): () => void {
+    this.harvestObservers.add(observer);
+    return () => {
+      this.harvestObservers.delete(observer);
+    };
+  }
+
+  harvest(resource: Resource, clock: number, consumer?: THREE.Object3D | 'player'): void {
+    if (!resource.available) return;
     resource.available = false;
     resource.mesh.visible = false;
     resource.regrowAt =
       clock + (this.seasons.name(this.currentDay) === 'Зима' ? 480 : 110) + (resource.id % 60);
     this.resourceInstances.sync(resource);
+    for (const observer of this.harvestObservers) observer(resource, consumer);
   }
 
   update(clock: number, time: number, weather: Weather, day: number, px: number, pz: number): void {

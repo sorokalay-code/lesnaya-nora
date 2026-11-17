@@ -304,7 +304,7 @@ export class EnvironmentController {
     const kind = root.kind;
 
     if ('tree' in root) this.context.world.gnawTreeRoot(root.id, this.context.save.clock);
-    else this.context.world.harvest(root, this.context.save.clock);
+    else this.context.world.harvest(root, this.context.save.clock, 'player');
 
     this.context.earth.refreshRoots();
 

@@ -139,6 +139,7 @@ export class RaptorPopulation {
           actor.followFlight({
             mode: 'landing',
             target: nearBowl ? nest.care : nest.perch,
+            support: nest.support,
           });
         } else {
           actor.followFlight({ mode: 'hunting', grounds: nest.grounds, angle: slot * Math.PI });
@@ -276,6 +277,7 @@ export class RaptorPopulation {
     }
     chick.followFlight({
       mode: 'landing',
+      support: nest.support,
       target: {
         x: nest.bowl.x + Math.cos(angle) * 0.3,
         y: nest.bowl.y,

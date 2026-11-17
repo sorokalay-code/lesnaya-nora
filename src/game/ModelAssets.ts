@@ -27,6 +27,7 @@ const TEXTURE_NAMES = [
 ];
 
 export const CREATURE_NAMES = [
+  'hunter',
   'pike',
   'jumping-spider',
   'spider',
@@ -311,7 +312,9 @@ export class ModelAssets {
           : materialForInstance(sourceMaterial);
         const material = Array.isArray(object.material) ? object.material[0] : object.material;
         object.castShadow =
-          glb.animations.length > 0 ? material.name === 'fur_base' : isTreeSpecies(name);
+          glb.animations.length > 0
+            ? material.name === 'fur_base' || material.name === 'hunter_coat'
+            : isTreeSpecies(name);
       });
       return {
         root,

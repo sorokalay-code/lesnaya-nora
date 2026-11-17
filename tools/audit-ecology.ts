@@ -10,6 +10,7 @@ import { Random } from '../src/game/Random';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { SMALL_FAUNA_KINDS, SMALL_FAUNA } from '../src/game/SmallFaunaCohorts';
 import { HawkHunting } from '../src/game/session/HawkHunting';
+import { GardenHunters } from '../src/game/session/GardenHunters';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { SpiderEncounter } from '../src/game/session/SpiderEncounter';
 import { WaterSimulation } from '../src/game/session/WaterSimulation';
@@ -89,6 +90,7 @@ for (const seed of seeds) {
       const groundAt = (x: number, z: number) => world.heightAt(x, z);
       const earth = new Excavation(scene, world, save);
       const hunting = new HawkHunting({ ...population, save, player, world, earth, toast() {} });
+      const hunters = new GardenHunters({ ...population, save, player, world, earth, toast() {} });
       const web = new SpiderEncounter({
         save,
         scene,
@@ -138,6 +140,7 @@ for (const seed of seeds) {
         hunting.update(dt, elapsed, false, isNightAt(clock));
         water.update(dt, elapsed, false);
         web.update(dt, elapsed, false);
+        hunters.update(dt, elapsed, false);
       };
       const checkpoints: unknown[] = [];
       const repository = new SaveRepository(`ecology-audit-${seed}-${density}-${generated}`);
@@ -186,6 +189,12 @@ for (const seed of seeds) {
       let maxMeshes = 0;
       let maxTriangles = 0;
       let maxInstances = 0;
+      const presetBudgets = Object.fromEntries(
+        Object.keys(GRAPHICS_PRESETS).map((preset) => [
+          preset,
+          { meshes: 0, triangles: 0, instances: 0 },
+        ]),
+      );
       world.applyGraphics(GRAPHICS_PRESETS.balanced, 0, 0, 'clear');
       const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 110);
       for (const [pointIndex, point] of route.entries()) {
@@ -210,21 +219,31 @@ for (const seed of seeds) {
         camera.position.set(point.x + 5, groundAt(point.x, point.z) + 5, point.z + 8);
         camera.lookAt(point.x, groundAt(point.x, point.z) + 1, point.z);
         ModelAssets.shared.updateView(camera);
-        let meshes = 0;
-        let triangles = 0;
-        let instances = 0;
-        scene.traverseVisible((object) => {
-          if (!(object instanceof THREE.Mesh)) return;
-          meshes++;
-          const count = object instanceof THREE.InstancedMesh ? object.count : 1;
-          triangles +=
-            ((object.geometry.index?.count ?? object.geometry.attributes.position.count) / 3) *
-            count;
-          if (object instanceof THREE.InstancedMesh) instances += object.count;
-        });
-        maxMeshes = Math.max(maxMeshes, meshes);
-        maxTriangles = Math.max(maxTriangles, triangles);
-        maxInstances = Math.max(maxInstances, instances);
+        for (const [preset, settings] of Object.entries(GRAPHICS_PRESETS)) {
+          world.applyGraphics(settings, point.x, point.z, 'clear');
+          let meshes = 0;
+          let triangles = 0;
+          let instances = 0;
+          scene.traverseVisible((object) => {
+            if (!(object instanceof THREE.Mesh)) return;
+            meshes++;
+            const count = object instanceof THREE.InstancedMesh ? object.count : 1;
+            triangles +=
+              ((object.geometry.index?.count ?? object.geometry.attributes.position.count) / 3) *
+              count;
+            if (object instanceof THREE.InstancedMesh) instances += object.count;
+          });
+          const budget = presetBudgets[preset];
+          budget.meshes = Math.max(budget.meshes, meshes);
+          budget.triangles = Math.max(budget.triangles, triangles);
+          budget.instances = Math.max(budget.instances, instances);
+          if (preset === 'balanced') {
+            maxMeshes = Math.max(maxMeshes, meshes);
+            maxTriangles = Math.max(maxTriangles, triangles);
+            maxInstances = Math.max(maxInstances, instances);
+          }
+        }
+        world.applyGraphics(GRAPHICS_PRESETS.balanced, point.x, point.z, 'clear');
       }
       timings.sort((a, b) => a - b);
       results.push({
@@ -243,12 +262,14 @@ for (const seed of seeds) {
           maxMeshes,
           maxTriangles,
           maxInstances,
+          presetBudgets,
         },
       });
       console.error(
         `Завершён прогон seed=${seed}, map=${generated ? 'generated' : 'classic'}, density=${density}, дней=21.`,
       );
       web.dispose();
+      hunters.dispose();
       water.dispose();
       population.raptors.dispose();
       population.ecology.dispose();

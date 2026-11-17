@@ -16,7 +16,7 @@ import type { HabitatPoint } from '../AnimalHabitats';
 export type RaptorKind = 'hawk' | 'owl';
 export type RaptorFlight =
   | { mode: 'hunting'; grounds: HabitatPoint; angle: number }
-  | { mode: 'landing' | 'practice'; target: DigNode };
+  | { mode: 'landing' | 'practice'; target: DigNode; support?: THREE.Object3D };
 
 interface FlightProfile {
   height: number;
@@ -114,6 +114,13 @@ export abstract class FlyingRaptor extends Animal<RaptorKind> {
 
   get perched(): boolean {
     return this.schedule?.mode === 'landing' && this.arrived;
+  }
+
+  get supportVisible(): boolean {
+    if (this.schedule?.mode !== 'landing') return true;
+    for (let object = this.schedule.support; object; object = object.parent ?? undefined)
+      if (!object.visible) return false;
+    return true;
   }
 
   get huntingAllowed(): boolean {

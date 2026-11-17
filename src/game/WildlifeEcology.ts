@@ -701,7 +701,7 @@ export class WildlifeEcology {
             : undefined;
       const target = plant?.available ? plant : groundFood;
       if (animal.update(dt, time, groundAt, threats, target) && plant?.available) {
-        this.world.harvest(plant, clock);
+        this.world.harvest(plant, clock, animal.root);
         this.foodTargets.delete(animal);
       }
     }

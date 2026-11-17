@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { WaterBody, WaterMap } from './WaterMap';
+import { BOG_MAX_DEPTH } from './WaterMap';
 import type { WorldChunks } from './WorldChunks';
 
 interface Vertex {
@@ -125,7 +126,12 @@ export class WaterScenery {
       const cached = samples.get(key);
       if (cached) return cached;
       let wet = -map.distance(body, x, z);
-      if (wet >= -2) wet = Math.min(wet, body.level - heightAt(x, z));
+      if (wet >= -2) {
+        const depth = body.level - heightAt(x, z);
+        wet = Math.min(wet, depth);
+        // На склоне мелкая топь не продолжается подвешенной плоскостью над низким грунтом.
+        if (body.kind === 'bog') wet = Math.min(wet, BOG_MAX_DEPTH - depth);
+      }
       // Общая гладь в месте впадения: не накладываем два прозрачных меша друг на друга.
       for (const other of preceding) wet = Math.min(wet, map.distance(other, x, z));
       const point = { x, z, wet };

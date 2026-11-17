@@ -1,0 +1,503 @@
+{
+  "date": "2026-11-18",
+  "baselineCommit": "44a31a6",
+  "measurement": "Node.js V8 CPU profiler; same seven-point route, 168 AI samples per scenario; active-chunk geometry after LOD, before renderer frustum and shadow passes",
+  "before": {
+    "scope": "all ecology",
+    "results": [
+      {
+        "seed": 31415,
+        "map": "classic",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 3,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 4.681,
+          "aiP95Ms": 12.4,
+          "maxMeshes": 3158,
+          "maxTriangles": 1433918,
+          "maxInstances": 5029
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "classic",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 12,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 20.513,
+          "aiP95Ms": 40.265,
+          "maxMeshes": 8481,
+          "maxTriangles": 3700749,
+          "maxInstances": 5050
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "generated",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 4,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 8.046,
+          "aiP95Ms": 14.814,
+          "maxMeshes": 2757,
+          "maxTriangles": 1246716,
+          "maxInstances": 4899
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "generated",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 26.766,
+          "aiP95Ms": 50.231,
+          "maxMeshes": 7573,
+          "maxTriangles": 3113404,
+          "maxInstances": 4928
+        }
+      },
+      {
+        "seed": 813,
+        "map": "classic",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 5,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 4.824,
+          "aiP95Ms": 10.94,
+          "maxMeshes": 3016,
+          "maxTriangles": 1376870,
+          "maxInstances": 4993
+        }
+      },
+      {
+        "seed": 813,
+        "map": "classic",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 20.139,
+          "aiP95Ms": 38.75,
+          "maxMeshes": 7797,
+          "maxTriangles": 3382467,
+          "maxInstances": 5079
+        }
+      },
+      {
+        "seed": 813,
+        "map": "generated",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 4,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 6.633,
+          "aiP95Ms": 13.074,
+          "maxMeshes": 2839,
+          "maxTriangles": 1277091,
+          "maxInstances": 4948
+        }
+      },
+      {
+        "seed": 813,
+        "map": "generated",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 26.381,
+          "aiP95Ms": 41.366,
+          "maxMeshes": 6805,
+          "maxTriangles": 2970149,
+          "maxInstances": 5064
+        }
+      }
+    ]
+  },
+  "after": {
+    "scope": "all ecology",
+    "results": [
+      {
+        "seed": 31415,
+        "map": "classic",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 3,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 4.624,
+          "aiP95Ms": 9.626,
+          "maxMeshes": 3161,
+          "maxTriangles": 1446018,
+          "maxInstances": 5033,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 2680,
+              "triangles": 1280491,
+              "instances": 2001
+            },
+            "balanced": {
+              "meshes": 3161,
+              "triangles": 1446018,
+              "instances": 5033
+            },
+            "quality": {
+              "meshes": 3788,
+              "triangles": 1662978,
+              "instances": 8598
+            }
+          }
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "classic",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 12,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 16.688,
+          "aiP95Ms": 25.211,
+          "maxMeshes": 8504,
+          "maxTriangles": 3708313,
+          "maxInstances": 5050,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 7928,
+              "triangles": 3544682,
+              "instances": 1977
+            },
+            "balanced": {
+              "meshes": 8504,
+              "triangles": 3708313,
+              "instances": 5050
+            },
+            "quality": {
+              "meshes": 9180,
+              "triangles": 3951283,
+              "instances": 8586
+            }
+          }
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "generated",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 4,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 4.431,
+          "aiP95Ms": 8.52,
+          "maxMeshes": 2737,
+          "maxTriangles": 1249412,
+          "maxInstances": 4899,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 2269,
+              "triangles": 1098345,
+              "instances": 1968
+            },
+            "balanced": {
+              "meshes": 2737,
+              "triangles": 1249412,
+              "instances": 4899
+            },
+            "quality": {
+              "meshes": 3416,
+              "triangles": 1469453,
+              "instances": 8103
+            }
+          }
+        }
+      },
+      {
+        "seed": 31415,
+        "map": "generated",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 18.582,
+          "aiP95Ms": 26.135,
+          "maxMeshes": 7569,
+          "maxTriangles": 3113924,
+          "maxInstances": 4928,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 7055,
+              "triangles": 2968639,
+              "instances": 1978
+            },
+            "balanced": {
+              "meshes": 7569,
+              "triangles": 3113924,
+              "instances": 4928
+            },
+            "quality": {
+              "meshes": 8043,
+              "triangles": 3359939,
+              "instances": 8127
+            }
+          }
+        }
+      },
+      {
+        "seed": 813,
+        "map": "classic",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 5,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 3.546,
+          "aiP95Ms": 7.069,
+          "maxMeshes": 3011,
+          "maxTriangles": 1371694,
+          "maxInstances": 4993,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 2470,
+              "triangles": 1206701,
+              "instances": 1973
+            },
+            "balanced": {
+              "meshes": 3011,
+              "triangles": 1371694,
+              "instances": 4993
+            },
+            "quality": {
+              "meshes": 3618,
+              "triangles": 1576094,
+              "instances": 8553
+            }
+          }
+        }
+      },
+      {
+        "seed": 813,
+        "map": "classic",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 16.716,
+          "aiP95Ms": 24.77,
+          "maxMeshes": 7793,
+          "maxTriangles": 3348347,
+          "maxInstances": 5079,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 7300,
+              "triangles": 3168010,
+              "instances": 2005
+            },
+            "balanced": {
+              "meshes": 7793,
+              "triangles": 3348347,
+              "instances": 5079
+            },
+            "quality": {
+              "meshes": 8521,
+              "triangles": 3580817,
+              "instances": 8612
+            }
+          }
+        }
+      },
+      {
+        "seed": 813,
+        "map": "generated",
+        "density": 1,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 3,
+          "jumping-spider": 2,
+          "snake": 3
+        },
+        "finalCohorts": 4,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 4.448,
+          "aiP95Ms": 8.611,
+          "maxMeshes": 2771,
+          "maxTriangles": 1251959,
+          "maxInstances": 4948,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 2294,
+              "triangles": 1111314,
+              "instances": 1989
+            },
+            "balanced": {
+              "meshes": 2771,
+              "triangles": 1251959,
+              "instances": 4948
+            },
+            "quality": {
+              "meshes": 3459,
+              "triangles": 1452604,
+              "instances": 8197
+            }
+          }
+        }
+      },
+      {
+        "seed": 813,
+        "map": "generated",
+        "density": 3,
+        "days": 21,
+        "calendarSampleMinutes": 120,
+        "roundTrips": 21,
+        "maxAdults": {
+          "spider": 9,
+          "jumping-spider": 6,
+          "snake": 9
+        },
+        "finalCohorts": 13,
+        "route": {
+          "points": 7,
+          "aiMedianMs": 16.033,
+          "aiP95Ms": 22.437,
+          "maxMeshes": 6884,
+          "maxTriangles": 2998659,
+          "maxInstances": 5064,
+          "presetBudgets": {
+            "performance": {
+              "meshes": 6383,
+              "triangles": 2851976,
+              "instances": 2043
+            },
+            "balanced": {
+              "meshes": 6884,
+              "triangles": 2998659,
+              "instances": 5064
+            },
+            "quality": {
+              "meshes": 7642,
+              "triangles": 3230506,
+              "instances": 8288
+            }
+          }
+        }
+      }
+    ]
+  }
+}

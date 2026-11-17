@@ -17,6 +17,7 @@ export type SurfaceTexture = (typeof SURFACE_TEXTURES)[number];
 
 /** Выбирает нейтральный рисунок, сохраняя окрасы вида, генетические узоры и цветовые вариации. */
 export function animalSurface(model: ModelName, material: string): SurfaceTexture | undefined {
+  if (model === 'hunter') return material === 'hunter_stock' ? 'wood' : undefined;
   if (/eye|pupil|shine|tooth|teeth|tusk|beak|horn|antler|pink|claw/i.test(material)) return;
   if (model === 'roe-deer') return 'roe-deer';
   if (model === 'frog') return 'frog';

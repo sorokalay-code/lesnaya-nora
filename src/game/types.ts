@@ -145,6 +145,7 @@ export interface MateMessage {
 }
 
 export interface SaveData {
+  hunters?: import('./Hunter').HunterState[];
   spiders?: import('./session/SmallFaunaPopulation').SpiderState[];
   smallFaunaCohorts?: import('./SmallFaunaCohorts').SmallFaunaCohort[];
   smallFaunaImmigration?: Partial<Record<import('./SmallFaunaCohorts').SmallFaunaKind, number>>;

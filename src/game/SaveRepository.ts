@@ -373,6 +373,8 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые данные птиц и кладок.');
     if (!validSmallFauna(data))
       throw new Error('Сохранение содержит повреждённые данные пауков, змей или коконов.');
+    if (data.hunters !== undefined && !validHunters(data.hunters, data.worldConfig.size))
+      throw new Error('Сохранение содержит повреждённые данные огородных охотников.');
     if (
       data.wildlifeShelters !== undefined &&
       !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
@@ -713,6 +715,30 @@ function validMammalParents(value: unknown): boolean {
 
 function positiveId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function validHunters(value: unknown, bound: number): boolean {
+  if (!Array.isArray(value) || value.length > 100) return false;
+  const seen = new Set<number>();
+  for (const state of value) {
+    if (
+      !isRecord(state) ||
+      typeof state.garden !== 'number' ||
+      !Number.isSafeInteger(state.garden) ||
+      state.garden < 0 ||
+      seen.has(state.garden) ||
+      !validAquaticPoint(state, bound) ||
+      !['home', 'pursuing', 'aiming', 'returning'].includes(String(state.phase)) ||
+      !validMinute(state.alarmUntil) ||
+      !validMinute(state.readyAt) ||
+      (state.target !== undefined &&
+        (typeof state.target !== 'string' ||
+          !/^(player|(rabbit|kit|wildlife|mammal):\d+)$/.test(state.target)))
+    )
+      return false;
+    seen.add(state.garden);
+  }
+  return true;
 }
 
 function validWaterId(value: unknown): value is string {
