@@ -1,6 +1,7 @@
 import { Mesh, MeshStandardMaterial, DoubleSide, type BufferGeometry, type Scene } from 'three';
 import type { Habitat, HabitatPoint } from './AnimalHabitats';
 import { traceGround } from './GroundContact';
+import type { AquaticHabitat, Bank } from './AquaticHabitats';
 import { Random } from './Random';
 import type { DigNode, SaveData } from './types';
 import type { WolfDens } from './WolfDens';
@@ -18,6 +19,8 @@ export interface WildlifeShelterSite extends HabitatPoint {
   slot: number;
   angle: number;
   treeHeight?: number;
+  waterBody?: string;
+  waterApproach?: HabitatPoint;
 }
 
 export interface WildlifeShelter {
@@ -72,6 +75,7 @@ export class WildlifeShelters {
   }
 
   place(kind: ShelteredWildlife, slot: number, habitat: Habitat): WildlifeShelter | undefined {
+    if (kind === 'beaver' || kind === 'duck') return this.get(kind, slot);
     const id = `${kind}:${slot}`;
     const existing = this.homes.get(id);
     if (existing) return existing;
@@ -88,6 +92,59 @@ export class WildlifeShelters {
 
   get(kind: ShelteredWildlife, slot: number): WildlifeShelter | undefined {
     return this.homes.get(`${kind}:${slot}`);
+  }
+
+  placeShore(
+    kind: 'duck' | 'beaver',
+    slot: number,
+    water: AquaticHabitat,
+    bank: Bank,
+  ): WildlifeShelter | undefined {
+    const existing = this.get(kind, slot);
+    if (existing) return existing.site.waterBody === water.body.id ? existing : undefined;
+    const key = `${kind}:${slot}`;
+    if (this.unavailable.has(key)) return;
+
+    const profile = wildlifeShelterProfile(kind);
+    const near = water.banks
+      .slice()
+      .sort(
+        (a, b) =>
+          Math.hypot(a.dry.x - bank.dry.x, a.dry.z - bank.dry.z) -
+          Math.hypot(b.dry.x - bank.dry.x, b.dry.z - bank.dry.z),
+      );
+    for (const { dry, shallows, swimming, angle } of near.slice(0, 20)) {
+      for (const offset of [0.7, 1.45, 2.35, 3.3]) {
+        const distance = profile.radius + offset;
+        const x = dry.x + Math.sin(angle) * distance;
+        const z = dry.z + Math.cos(angle) * distance;
+        const entry = swimming ?? shallows;
+        const site = {
+          kind,
+          slot,
+          x,
+          z,
+          angle: (angle + 2 * Math.PI) % (2 * Math.PI),
+          waterBody: water.body.id,
+          waterApproach: kind === 'beaver' ? { x: entry.x, z: entry.z } : undefined,
+        };
+        if (!this.fits(site, profile.radius)) continue;
+
+        if (this.save) (this.save.wildlifeShelters ??= []).push(site);
+        return this.mount(site);
+      }
+    }
+    this.unavailable.add(key);
+  }
+
+  navigationHeight(shelter?: WildlifeShelter): (x: number, z: number) => number | undefined {
+    if (shelter?.site.kind !== 'beaver') return this.routeHeight;
+    return (x, z) => {
+      const water = this.world.waterAt?.(x, z);
+      if (water && water.body.id === shelter.site.waterBody)
+        return Math.max(this.world.heightAt(x, z), water.level - 0.2);
+      return this.routeHeight(x, z);
+    };
   }
 
   ofKind(kind: ShelteredWildlife): WildlifeShelter[] {
@@ -175,10 +232,11 @@ export class WildlifeShelters {
       }
     }
 
-    const reached = traceGround(approach, entrance.x, entrance.z, { heightAt: this.routeHeight });
+    const heightAt = this.navigationHeight(shelter);
+    const reached = traceGround(approach, entrance.x, entrance.z, { heightAt });
     if (
       Math.hypot(reached.x - entrance.x, reached.z - entrance.z) > 0.01 ||
-      this.routeHeight(approach.x, approach.z) === undefined
+      heightAt(approach.x, approach.z) === undefined
     )
       return false;
 
@@ -216,7 +274,18 @@ export class WildlifeShelters {
       const pz = z - Math.cos(angle) * distance;
       return { x: px, z: pz, y: this.world.heightAt(px, pz) };
     };
-    return { site, entrance: point(radius * 0.9), approach: point(radius + APPROACH_CLEARANCE) };
+    const entrance = point(radius * 0.9);
+    const toward = site.waterApproach;
+    const approach = toward
+      ? {
+          ...toward,
+          y: Math.max(
+            this.world.heightAt(toward.x, toward.z),
+            (this.world.waterAt?.(toward.x, toward.z)?.level ?? entrance.y) - 0.2,
+          ),
+        }
+      : point(radius + (site.kind === 'duck' ? 0.8 : APPROACH_CLEARANCE));
+    return { site, entrance, approach };
   }
 
   private mount(site: WildlifeShelterSite): WildlifeShelter {
@@ -303,6 +372,25 @@ export function isWildlifeShelterSite(value: unknown, size: number): value is Wi
     site.angle < 2 * Math.PI &&
     (site.kind === 'squirrel'
       ? typeof site.treeHeight === 'number' && site.treeHeight > 0 && site.treeHeight <= 8
-      : site.treeHeight === undefined)
+      : site.treeHeight === undefined) &&
+    (site.kind === 'beaver' || site.kind === 'duck'
+      ? typeof site.waterBody === 'string' &&
+        site.waterBody.length > 0 &&
+        site.waterBody.length <= 80 &&
+        (site.kind === 'duck'
+          ? site.waterApproach === undefined
+          : validWaterApproach(site.waterApproach, size))
+      : site.waterBody === undefined && site.waterApproach === undefined)
+  );
+}
+
+function validWaterApproach(value: unknown, size: number): boolean {
+  if (typeof value !== 'object' || value === null || !('x' in value) || !('z' in value))
+    return false;
+  return (
+    typeof value.x === 'number' &&
+    Math.abs(value.x) < size &&
+    typeof value.z === 'number' &&
+    Math.abs(value.z) < size
   );
 }

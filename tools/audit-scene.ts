@@ -17,18 +17,30 @@ import {SceneLighting} from './src/game/session/SceneLighting.ts';
 import {WorldPopulation} from './src/game/session/WorldPopulation.ts';
 import {WolfDen} from './src/game/WolfDen.ts';
 import {MAMMAL_NURSERY} from './src/game/MammalNursery.ts';
+import {PlayerRabbit} from './src/game/animals/PlayerRabbit.ts';
+import {WaterSimulation} from './src/game/session/WaterSimulation.ts';
+import {waterCohortStage} from './src/game/AquaticCohorts.ts';
 import {readFileSync} from 'node:fs';
 for(const name of MODEL_NAMES){const data=readFileSync('public/models/'+name+'.glb');await ModelAssets.shared.register(name,data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength));}
-const map = process.argv.includes('--generated') ? defaultMapGeneration() : undefined;
+const shallow = process.argv.includes('--shallow');
+const dry = process.argv.includes('--dry');
+const map = shallow ? {...defaultMapGeneration(),ponds:0,rivers:0,lakes:0,swamps:2} :
+  process.argv.includes('--generated') ? defaultMapGeneration() : undefined;
 const wolfDens = process.argv.includes('--wolf-dens');
 const wildlifeShelters = process.argv.includes('--wildlife-shelters');
 const mammalNurseries = process.argv.includes('--mammal-nurseries');
 const landEcology = process.argv.includes('--land-ecology');
+const shoreEcology = process.argv.includes('--shore-ecology');
 const config = { ...defaultWorldConfig(), map };
 if(wolfDens) for(const {kind} of CREATURE_OPTIONS) if(kind !== 'wolf') config.creatures[kind] = 0;
 if(wildlifeShelters) for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = ['badger','marmot','mouse','chipmunk','mole','hedgehog','squirrel','roe-deer'].includes(kind) ? 1 : 0;
 if(mammalNurseries) for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = kind === 'wolf' ? 3 : kind === 'marmot' ? 4 : 0;
 if(landEcology) for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = ['fox','lynx','weasel','snake','bear','dog','deer','boar','moose'].includes(kind) ? 3 : 0;
+if(shoreEcology) {
+  for(const {kind} of CREATURE_OPTIONS) config.creatures[kind] = 0;
+  Object.assign(config.creatures, {beaver:4,duck:4,fish:8,frog:6,pike:3});
+  if(dry) config.water=0;
+}
 const seed = 31415;
 const save = NewGameFactory.create(seed, 0, new RabbitFactory(new Random(seed)), config);
 const scene = new THREE.Scene();
@@ -38,6 +50,7 @@ let denScenario;
 let shelterScenario;
 let nurseryScenario;
 let landScenario;
+let shoreScenario;
 if(wolfDens) {
   const population = new WorldPopulation({scene,world,save,rng:new Random(seed + 53),markPartner(){}});
   const site = save.wolfDens?.[0];
@@ -163,6 +176,49 @@ if(landEcology) {
     young:young.map(actor=>({kind:actor.kind,x:actor.x,z:actor.z,size:actor.growthScale})),
   };
 }
+if(shoreEcology) {
+  const population=new WorldPopulation({scene,world,save,rng:new Random(seed+74),markPartner(){}});
+  const player = new PlayerRabbit(save.player);
+  const groundAt = (x,z)=>world.heightAt(x,z);
+  const water = new WaterSimulation({
+    ...population,save,world,player:player.rig,habitats:population.ecology.aquaticHabitats,
+    earth:{isSheltered:()=>false,floorAt:groundAt},toast(){},consequences:{predatorAttack(){}},
+  });
+  const shelters=save.wildlifeShelters??[];
+  position=shelters.find(site=>site.kind==='duck')??position;
+  Object.assign(save.player, {x:position.x,z:position.z,y:groundAt(position.x,position.z)});
+  let now=0;
+  const simulate=(clock,duration)=>{
+    for(let elapsed=0;elapsed<duration;elapsed+=0.2) {
+      now+=0.2;
+      save.clock=clock+elapsed*6;
+      save.day=1+Math.floor(save.clock/1440);
+      population.ecology.update(0.2,now,save.clock,position.x,position.z,groundAt,population.predators,false);
+      water.update(0.2,now,false);
+    }
+  };
+  simulate(420,8);
+  const clutches=save.duckBroods?.filter(record=>record.eggs>0).length??0;
+  const spawn=(save.waterCohorts??[]).map(record=>record.kind);
+  const adults=Object.fromEntries(['beaver','duck','fish','frog'].map(kind=>[kind,population.wildlife.filter(actor=>actor.kind===kind).length]));
+  adults.pike=water.pikes.length;
+  if(dry && (Object.values(adults).some(Boolean)||shelters.length||spawn.length||clutches))
+    throw new Error('На сухой карте появились водные обитатели.');
+  if(shallow && (!adults.frog||!adults.duck||adults.pike||adults.fish||!spawn.includes('frog')))
+    throw new Error('На мелководье неверный состав видов: '+JSON.stringify({adults,spawn}));
+  if(!dry&&!shallow&&(!clutches||!shelters.some(site=>site.kind==='beaver')||
+    !spawn.includes('fish')||!adults.pike))
+    throw new Error('На контрольной карте нет хатки, кладки, нереста или щуки: '+JSON.stringify({shelters,spawn,clutches,adults}));
+  simulate(890,5);
+  const aquatic=(save.waterCohorts??[]).map(record=>({kind:record.kind,body:record.waterBody,stage:waterCohortStage(record,save.clock)}));
+  simulate(2040,25);
+  const young=population.wildlife.filter(actor=>actor.juvenile).map(actor=>({
+    kind:actor.kind,body:actor.waterBody,inside:actor.inShelter,wet:!!world.waterAt(actor.x,actor.z),x:actor.x,z:actor.z,
+  }));
+  if(!dry&&(!young.some(actor=>actor.kind==='duck')||!shallow&&!young.some(actor=>actor.kind==='beaver')))
+    throw new Error('Не появился молодняк на берегу: '+JSON.stringify({clutches,young}));
+  shoreScenario={adults,shelters,clutches,aquatic,young};
+}
 const lighting = new SceneLighting(scene, new THREE.PerspectiveCamera());
 lighting.reset();
 lighting.update(save, world, false, false);
@@ -180,7 +236,7 @@ for(const [name, settings] of Object.entries(GRAPHICS_PRESETS)) {
   });
   presets[name] = { meshes, triangles, shadowMeshes, coverInstances };
 }
-console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:landEcology?'land ecology and shelter geometry':mammalNurseries?'litters in and around dens and burrows':wildlifeShelters?'wildlife and shelters near a marmot burrow':wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,shelterScenario,nurseryScenario,landScenario,presets},null,2));
+console.log(JSON.stringify({seed,layout:map?.layout ?? 'classic',position:[position.x,position.z],scope:shoreEcology?'shore ecology, nests and cohorts':landEcology?'land ecology and shelter geometry':mammalNurseries?'litters in and around dens and burrows':wildlifeShelters?'wildlife and shelters near a marmot burrow':wolfDens?'environment and wolves near the den':'environment in active chunks, before camera frustum and shadow passes',denScenario,shelterScenario,nurseryScenario,landScenario,shoreScenario,presets},null,2));
 `,
   },
   bundle: true,

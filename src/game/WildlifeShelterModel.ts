@@ -44,6 +44,25 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
     clod(0, 0, 0, r, h, r * 0.88);
   }
 
+  if (shape === 'beaver-lodge' || shape === 'duck-nest') {
+    const lodge = shape === 'beaver-lodge';
+    for (let index = 0; index < (lodge ? 24 : 16); index++) {
+      const angle = index * 2.399963;
+      const drift = rng.range(0.55, 0.99);
+      const length = r * rng.range(0.65, lodge ? 1.5 : 0.9);
+      const stick = new THREE.CylinderGeometry(r * 0.031, r * 0.049, length, 5)
+        .rotateZ(Math.PI / 2)
+        .rotateX(rng.range(-0.14, 0.14))
+        .rotateY(angle + rng.range(-0.35, 0.35));
+      stick.translate(
+        Math.sin(angle) * r * drift,
+        lodge ? h * rng.range(0.29, 0.8) : h * rng.range(0.44, 0.96),
+        Math.cos(angle) * r * drift * 0.85,
+      );
+      bake(stick, dirt.clone().lerp(edge, rng.range(0.3, 1)));
+    }
+  }
+
   if (shape === 'cave' || shape === 'crevice') {
     clod(0, h * 0.12, r * 0.18, r, h * 0.84, r * 0.69);
     for (const side of [-1, 1])
@@ -63,11 +82,12 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
       );
   }
 
-  if (shape !== 'tree-nest' && shape !== 'molehills') {
+  if (shape !== 'tree-nest' && shape !== 'molehills' && shape !== 'duck-nest') {
     // Тёмная ниша закрывает торец маленького муляжа. Под поверхностью мира геометрии нет.
+    const lodge = shape === 'beaver-lodge';
     const mouth = new THREE.CircleGeometry(1, 14, 0, Math.PI * 2)
-      .scale(r * 0.45, h * 0.55, 1)
-      .translate(0, h * 0.39, -r * 0.9);
+      .scale(r * 0.45, h * (lodge ? 0.23 : 0.55), 1)
+      .translate(0, h * (lodge ? 0.19 : 0.39), -r * 0.9);
     bake(mouth, new THREE.Color(0x1b130e));
     for (const side of [-1, 1])
       clod(side * r * 0.57, h * 0.13, -r * 0.65, r * 0.29, h * 0.32, r * 0.24, edge);

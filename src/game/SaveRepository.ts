@@ -367,6 +367,8 @@ export class SaveRepository {
       throw new Error('Сохранение содержит повреждённые места обитания животных.');
     if (!validMammalPopulation(data))
       throw new Error('Сохранение содержит повреждённые данные выводков млекопитающих.');
+    if (!validAquaticPopulation(data))
+      throw new Error('Сохранение содержит повреждённые данные обитателей воды.');
     if (
       data.wildlifeShelters !== undefined &&
       !validWildlifeShelters(data.wildlifeShelters, data.worldConfig.size)
@@ -707,6 +709,121 @@ function validMammalParents(value: unknown): boolean {
 
 function positiveId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function validWaterId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 80;
+}
+
+function validAquaticPoint(value: unknown, bound: number): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.x === 'number' &&
+    Math.abs(value.x) <= bound &&
+    typeof value.z === 'number' &&
+    Math.abs(value.z) <= bound
+  );
+}
+
+function validAquaticPopulation(data: SaveData): boolean {
+  const bound = data.worldConfig?.size ?? 110;
+  const social = new Set(data.wildlife?.map((actor) => actor.id));
+  for (const nursery of Object.values(data.mammalNurseries ?? {}))
+    for (const young of nursery.young) if (young.socialId !== undefined) social.add(young.socialId);
+  for (const adult of data.wildlife ?? [])
+    if (
+      adult.waterBody !== undefined &&
+      (!validWaterId(adult.waterBody) || !['fish', 'frog', 'duck', 'beaver'].includes(adult.kind))
+    )
+      return false;
+
+  const clutches = data.duckBroods;
+  if (clutches !== undefined && (!Array.isArray(clutches) || clutches.length > 256)) return false;
+  const slots = new Set<number>();
+  for (const brood of clutches ?? []) {
+    if (
+      !isRecord(brood) ||
+      !Number.isSafeInteger(brood.slot) ||
+      brood.slot < 0 ||
+      slots.has(brood.slot) ||
+      !positiveId(brood.mother) ||
+      !validWaterId(brood.waterBody) ||
+      !validMinute(brood.laidAt) ||
+      !validMinute(brood.hatchAt) ||
+      brood.hatchAt < brood.laidAt ||
+      !validMinute(brood.nextAt) ||
+      brood.nextAt < brood.hatchAt ||
+      !Number.isSafeInteger(brood.eggs) ||
+      brood.eggs < 0 ||
+      brood.eggs > 3 ||
+      !Array.isArray(brood.young) ||
+      brood.eggs + brood.young.length > 3 ||
+      (brood.eggs > 0 && brood.young.length > 0)
+    )
+      return false;
+    slots.add(brood.slot);
+    for (const young of brood.young) {
+      if (
+        !isRecord(young) ||
+        !positiveId(young.id) ||
+        social.has(young.id) ||
+        !validAquaticPoint(young, bound) ||
+        !(young.health > 0 && Number.isFinite(young.health))
+      )
+        return false;
+      social.add(young.id);
+    }
+  }
+
+  const cohorts = data.waterCohorts;
+  if (cohorts !== undefined && (!Array.isArray(cohorts) || cohorts.length > 256)) return false;
+  const populations = new Set<string>();
+  for (const cohort of cohorts ?? []) {
+    if (
+      !isRecord(cohort) ||
+      !['fish', 'frog', 'pike'].includes(cohort.kind) ||
+      !validWaterId(cohort.waterBody) ||
+      !validAquaticPoint(cohort, bound) ||
+      !validMinute(cohort.laidAt) ||
+      !validMinute(cohort.nextSpawnAt) ||
+      cohort.nextSpawnAt < cohort.laidAt ||
+      !Number.isSafeInteger(cohort.remaining) ||
+      cohort.remaining < 0 ||
+      cohort.remaining > (cohort.kind === 'pike' ? 3 : 6)
+    )
+      return false;
+    const key = `${cohort.kind}:${cohort.waterBody}`;
+    if (populations.has(key)) return false;
+    populations.add(key);
+  }
+
+  const pikes = data.pikePopulation;
+  if (pikes !== undefined && (!Array.isArray(pikes) || pikes.length > 256)) return false;
+  if (data.nextPikeId !== undefined && (!positiveId(data.nextPikeId) || data.nextPikeId < 1000))
+    return false;
+  slots.clear();
+  const ids = new Set<number>();
+  for (const pike of pikes ?? []) {
+    if (
+      !isRecord(pike) ||
+      !Number.isSafeInteger(pike.slot) ||
+      pike.slot < 0 ||
+      slots.has(pike.slot) ||
+      !Number.isSafeInteger(pike.id) ||
+      pike.id < 0 ||
+      ids.has(pike.id) ||
+      pike.id >= (data.nextPikeId ?? 1000) ||
+      !validWaterId(pike.waterBody) ||
+      !validAquaticPoint(pike, bound) ||
+      !validAquaticPoint(pike.ambush, bound) ||
+      (pike.fishAt !== undefined && !validMinute(pike.fishAt)) ||
+      !(pike.health > 0 && Number.isFinite(pike.health))
+    )
+      return false;
+    slots.add(pike.slot);
+    ids.add(pike.id);
+  }
+  return true;
 }
 
 function validMinute(value: unknown): value is number {

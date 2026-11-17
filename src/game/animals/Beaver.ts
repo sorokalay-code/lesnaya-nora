@@ -4,6 +4,10 @@ import { ForestAnimal } from './ForestAnimal';
 
 /** Бобр кормится рядом с водой и может защититься от нападения. */
 export class Beaver extends ForestAnimal {
+  override get swimSpeed(): number {
+    return super.swimSpeed * Math.sqrt(this.growthScale);
+  }
+
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(
       'beaver',

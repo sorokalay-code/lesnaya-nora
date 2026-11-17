@@ -67,8 +67,20 @@ export const WILDLIFE_HABITATS: Readonly<Record<WildlifeKind, WildlifeHabitat>> 
     activeDuring: 'night',
   },
   pheasant: { mode: 'range', radius: 19, biomes: grassland, food: seeds, activeDuring: 'day' },
-  beaver: { mode: 'shore', radius: 16, biomes: wetland, food: browse },
-  duck: { mode: 'shore', radius: 17, biomes: ['swamp', 'meadow'], food: seeds },
+  beaver: {
+    mode: 'shore',
+    radius: 16,
+    biomes: wetland,
+    food: ['bitterleaf', 'clover', 'carrot', 'berries'],
+    activeDuring: 'twilight',
+  },
+  duck: {
+    mode: 'shore',
+    radius: 17,
+    biomes: ['swamp', 'meadow'],
+    food: seeds,
+    activeDuring: 'day',
+  },
   frog: { mode: 'water', radius: 12, biomes: ['swamp'], food: [] },
   fish: { mode: 'water', radius: 12, biomes: ['swamp'], food: [] },
 };

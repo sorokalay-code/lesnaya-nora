@@ -1,7 +1,8 @@
 import { Animal } from './Animal';
 import { ModelAssets, type ModelInstance } from '../ModelAssets';
 import type { WaterBody } from '../WaterMap';
-import { SWIM_DEPTH, type WaterTerrain } from '../WaterNavigation';
+import type { WaterTerrain } from '../WaterNavigation';
+import { inWaterPath, PIKE_MIN_DEPTH } from '../AquaticHabitats';
 import { Random } from '../Random';
 
 export interface WaterPrey {
@@ -9,110 +10,106 @@ export interface WaterPrey {
   z: number;
 }
 
-/** Щука патрулирует русло или озеро и преследует добычу в воде. */
+const STRIKE_RANGE = 6.8;
+const AMBUSH_LEASH = 9.5;
+const LUNGE_SECONDS = 1.9;
+const BITE_REACH = 1.15;
+const BITE_COOLDOWN = 3.5;
+
+/** Подкарауливает добычу в одном водоёме, совершает короткий бросок и возвращается в засаду. */
 export class Pike extends Animal<'pike'> {
   readonly model: ModelInstance;
-  private target?: WaterPrey;
-  private nextTurn = 0;
+  readonly waterBody: string;
+  private ambush: WaterPrey;
+  private lungeUntil?: number;
   private biteAt = 0;
   private attackUntil = 0;
 
-  constructor(
-    x: number,
-    z: number,
-    private readonly habitat: WaterBody,
-    private readonly rng: Random,
-  ) {
+  constructor(x: number, z: number, habitat: WaterBody, rng: Random) {
     const model = ModelAssets.shared.create('pike');
     super('pike', model.root, { x, z }, 60);
     this.model = model;
+    this.waterBody = habitat.id;
+    this.ambush = { x, z };
+    this.root.rotation.y = rng.range(0, 2 * Math.PI);
+  }
+
+  setAmbush(ambush: WaterPrey): void {
+    this.ambush = ambush;
+  }
+
+  get ambushPoint(): WaterPrey {
+    return this.ambush;
+  }
+
+  accepts(prey: WaterPrey, terrain: WaterTerrain): boolean {
+    return (
+      Math.hypot(prey.x - this.x, prey.z - this.z) < STRIKE_RANGE &&
+      Math.hypot(prey.x - this.ambush.x, prey.z - this.ambush.z) < AMBUSH_LEASH &&
+      this.clear(terrain, this, prey)
+    );
   }
 
   update(dt: number, time: number, terrain: WaterTerrain, prey?: WaterPrey): boolean {
     if (!this.alive) return false;
-    if (prey && (terrain.waterAt(prey.x, prey.z)?.depth ?? 0) <= SWIM_DEPTH) prey = undefined;
-    if (prey) this.target = prey;
-    else if (
-      time >= this.nextTurn ||
-      !this.target ||
-      Math.hypot(this.target.x - this.x, this.target.z - this.z) < 0.5
-    ) {
-      this.nextTurn = time + this.rng.range(3, 6);
-      const point = this.patrolPoint();
-      this.target = { x: point.x + this.rng.range(-1, 1), z: point.z + this.rng.range(-1, 1) };
+    const reachable = prey && this.accepts(prey, terrain);
+    if (this.lungeUntil !== undefined && (!reachable || time > this.lungeUntil)) {
+      this.lungeUntil = undefined;
+      this.biteAt = Math.max(this.biteAt, time + 0.8);
     }
-    const target = this.target!;
-    const dx = target.x - this.x,
-      dz = target.z - this.z,
-      distance = Math.hypot(dx, dz);
-    const speed = prey ? 3.8 : 1.1;
-    const amount = Math.min(speed * dt, distance);
-    if (distance > 0.01) {
-      const nx = this.x + (dx / distance) * amount,
-        nz = this.z + (dz / distance) * amount;
-      const checks = Math.max(1, Math.ceil(amount / 0.15));
-      let clear = true;
-      for (let i = 1; i <= checks; i++) {
-        const water = terrain.waterAt(
-          this.x + ((nx - this.x) * i) / checks,
-          this.z + ((nz - this.z) * i) / checks,
-        );
-        if (!water || water.depth < 0.65) {
-          clear = false;
-          break;
-        }
-      }
-      if (clear) {
-        this.x = nx;
-        this.z = nz;
-      } else {
-        this.nextTurn = 0;
-        this.target = undefined;
-      }
-      const desired = Math.atan2(-dx, -dz);
-      const turn = Math.atan2(
-        Math.sin(desired - this.root.rotation.y),
-        Math.cos(desired - this.root.rotation.y),
-      );
-      this.root.rotation.y += Math.max(-dt * 5, Math.min(dt * 5, turn));
-    }
+    if (reachable && time >= this.biteAt) this.lungeUntil ??= time + LUNGE_SECONDS;
+
+    const target = reachable && this.lungeUntil !== undefined ? prey : undefined;
+    const moved = this.moveTowards(target ?? this.ambush, dt, terrain, target ? 3.8 : 1.1);
     const water = terrain.waterAt(this.x, this.z);
     if (water)
       this.root.position.set(
         this.x,
-        Math.max(terrain.heightAt(this.x, this.z) + 0.22, water.level - 0.5),
+        Math.max(terrain.heightAt(this.x, this.z) + 0.15, water.level - (target ? 0.38 : 0.58)),
         this.z,
       );
-    const bite =
-      !!prey && Math.hypot(prey.x - this.x, prey.z - this.z) < 1.15 && time >= this.biteAt;
+
+    const bite = !!target && Math.hypot(target.x - this.x, target.z - this.z) < BITE_REACH;
     if (bite) {
-      this.biteAt = time + 3.5;
+      this.biteAt = time + BITE_COOLDOWN;
       this.attackUntil = time + 0.45;
+      this.lungeUntil = undefined;
     }
     ModelAssets.shared.play(
       this.model,
       time < this.attackUntil ? 'attack' : 'swim',
       dt,
-      prey ? 1.65 : 0.8,
+      target ? 1.65 : moved ? 0.8 : 0.18,
     );
     return bite;
   }
 
-  private patrolPoint(): WaterPrey {
-    const points = this.habitat.points;
-    const followsChannel = this.habitat.kind === 'river' && this.habitat.bankWidth !== undefined;
-    if ((!this.habitat.outline && !followsChannel) || points.length < 2)
-      return this.rng.pick(points);
+  private moveTowards(
+    target: WaterPrey,
+    dt: number,
+    terrain: WaterTerrain,
+    speed: number,
+  ): boolean {
+    const dx = target.x - this.x,
+      dz = target.z - this.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.08 || dt <= 0) return false;
+    const amount = Math.min(speed * dt, distance);
+    const next = { x: this.x + (dx * amount) / distance, z: this.z + (dz * amount) / distance };
+    if (!this.clear(terrain, this, next)) return false;
 
-    // На изгибе движение к случайной дальней точке часто упирается в берег.
-    let nearest = 0;
-    for (let i = 1; i < points.length; i++)
-      if (
-        Math.hypot(points[i].x - this.x, points[i].z - this.z) <
-        Math.hypot(points[nearest].x - this.x, points[nearest].z - this.z)
-      )
-        nearest = i;
-    const neighbors = points.slice(Math.max(0, nearest - 1), nearest + 2);
-    return this.rng.pick(neighbors);
+    this.x = next.x;
+    this.z = next.z;
+    const desired = Math.atan2(-dx, -dz);
+    const turn = Math.atan2(
+      Math.sin(desired - this.root.rotation.y),
+      Math.cos(desired - this.root.rotation.y),
+    );
+    this.root.rotation.y += Math.max(-dt * 5, Math.min(dt * 5, turn));
+    return true;
+  }
+
+  private clear(terrain: WaterTerrain, from: WaterPrey, to: WaterPrey): boolean {
+    return inWaterPath((x, z) => terrain.waterAt(x, z), from, to, this.waterBody, PIKE_MIN_DEPTH);
   }
 }

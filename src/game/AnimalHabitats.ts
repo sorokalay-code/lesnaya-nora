@@ -20,6 +20,7 @@ export interface Habitat extends HabitatPoint {
   readonly key: number;
   readonly radius: number;
   readonly profile: HabitatProfile;
+  readonly waterBody?: string;
 }
 
 export interface TerritoryIntent {

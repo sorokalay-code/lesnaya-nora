@@ -155,6 +155,10 @@ export interface SaveData {
   marmotImmigrationAt?: number;
   landMammalImmigration?: Partial<Record<import('./LandMammalFamilies').LandFamilyKind, number>>;
   landPredators?: import('./session/LandPredators').LandPredatorState[];
+  duckBroods?: import('./DuckBroods').DuckBroodState[];
+  waterCohorts?: import('./AquaticCohorts').WaterCohort[];
+  pikePopulation?: import('./session/WaterSimulation').PikeState[];
+  nextPikeId?: number;
   wolfDens?: Record<number, import('./WolfDen').WolfDenSite>;
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;
@@ -243,6 +247,7 @@ export interface WildlifeSocial {
 }
 
 export interface WildlifeData {
+  waterBody?: string;
   mammalId?: number;
   mammalOrigin?: import('./MammalNursery').MammalOrigin;
   appearance?: AppearanceTraits;

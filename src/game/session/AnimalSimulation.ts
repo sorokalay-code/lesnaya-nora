@@ -101,6 +101,8 @@ export class AnimalSimulation {
     if (typeof context.world.waterAt === 'function')
       this.water = new WaterSimulation({
         ...context,
+        habitats: context.ecology.aquaticHabitats,
+        onPikeDeath: (pike) => context.remains?.record(pike),
         protectPlayer: (time) =>
           this.friendDefense.interruptStrike(context.save.player, time, true),
       });
@@ -126,7 +128,12 @@ export class AnimalSimulation {
 
   dispose(): void {
     this.friendMarks?.dispose();
+    this.water?.dispose();
     for (const hawk of this.context.hawks) hawk.dispose();
+  }
+
+  captureWater(): void {
+    this.water?.capture();
   }
 
   get airliftView() {
@@ -223,7 +230,6 @@ export class AnimalSimulation {
     this.context.animalWaste?.update(dt, time);
     this.context.family?.collectDead?.();
     for (const hawk of this.context.hawks) if (!hawk.alive) this.context.remains?.record(hawk);
-    for (const pike of this.water?.pikes ?? []) if (!pike.alive) this.context.remains?.record(pike);
     this.removeDeadRabbits();
     if (
       mate?.alive &&

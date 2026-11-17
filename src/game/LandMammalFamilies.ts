@@ -25,6 +25,9 @@ interface Context<A, K> {
   shelters: WildlifeShelters;
   count: (kind: K) => number;
   home: (kind: K, slot: number) => Habitat | undefined;
+  shelter?: (kind: K, slot: number, home: Habitat) => WildlifeShelter | undefined;
+  canSettle?: (actor: A, kind: K, slot: number) => boolean;
+  raiseAt?: (actor: A, shelter: WildlifeShelter, caregiver: A | undefined) => HabitatPoint;
   bed?: (home: Habitat, slot: number) => HabitatPoint;
   resting: (home: Habitat, clock: number) => boolean;
   create: (kind: K, young: YoungMammal, home: Habitat) => A;
@@ -206,18 +209,21 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
       }
     }
 
+    const guide = shelter
+      ? (this.context.raiseAt?.(actor, shelter, caregiver) ?? approach)
+      : approach;
     const angle = shelter?.site.angle ?? id * 2.399963;
     const side = id % 2 === 0 ? -0.65 : 0.65;
     const neighbour = {
-      x: approach.x + Math.cos(angle) * side,
-      z: approach.z - Math.sin(angle) * side,
+      x: guide.x + Math.cos(angle) * side,
+      z: guide.z - Math.sin(angle) * side,
     };
     actor.restAt = resting ? nest : undefined;
     actor.destination =
       !shelter && stage === 'meeting' && caregiver
         ? caregiver
-        : this.context.shelters.routeHeight(neighbour.x, neighbour.z) === undefined
-          ? approach
+        : this.context.shelters.navigationHeight(shelter)(neighbour.x, neighbour.z) === undefined
+          ? guide
           : neighbour;
     actor.foragingAllowed = false;
   }
@@ -236,11 +242,17 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
     if (adults.length < count) {
       const used = new Set(adults.map((adult) => adult.habitatSlot));
       let slot = 0;
-      while (used.has(slot)) slot++;
-      this.context.settle(actor, family.kind, slot);
-      adults.push(actor);
-      this.remove(actor);
-      return;
+      while (
+        slot < count &&
+        (used.has(slot) || this.context.canSettle?.(actor, family.kind, slot) === false)
+      )
+        slot++;
+      if (slot < count) {
+        this.context.settle(actor, family.kind, slot);
+        adults.push(actor);
+        this.remove(actor);
+        return;
+      }
     }
 
     const angle = family.shelter?.site.angle ?? young.id * 2.399963;
@@ -268,7 +280,9 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
     const home = this.context.home(kind, slot);
     if (!home) return;
     const shelter = isShelteredWildlife(kind)
-      ? this.context.shelters.place(kind, slot, home)
+      ? this.context.shelter
+        ? this.context.shelter(kind, slot, home)
+        : this.context.shelters.place(kind, slot, home)
       : undefined;
     if (isShelteredWildlife(kind) && !shelter) return;
     const family = {
@@ -287,7 +301,10 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
     const { kind, home, nursery, shelter, nest } = family;
     const actor = this.context.create(kind, young, home);
     actor.mammalOrigin = nursery.origin(young);
-    actor.useRoutine(new WildlifeRoutine(shelter, this.context.shelters.routeHeight), inside);
+    actor.useRoutine(
+      new WildlifeRoutine(shelter, this.context.shelters.navigationHeight(shelter)),
+      inside,
+    );
     if (nursery.stage(young, clock) === 'nest') actor.restAt = nest;
     nursery.restoreGrowth(young, actor, clock);
     this.activeYoung.add(young);
@@ -333,6 +350,13 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
     let father: A | undefined;
     for (const adult of adults) {
       if (this.sex(adult) !== 1) continue;
+      if (
+        mother.kind === 'beaver' &&
+        'waterBody' in mother &&
+        'waterBody' in adult &&
+        adult.waterBody !== mother.waterBody
+      )
+        continue;
       const id = this.identity(adult);
       const lineage = adult.mammalOrigin?.parents;
       if (

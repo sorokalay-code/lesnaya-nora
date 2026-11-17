@@ -14,14 +14,12 @@ import type { Habitat, HabitatPoint } from '../AnimalHabitats';
 import type { WildlifeRoutine } from '../WildlifeRoutine';
 /** Общий цикл мирных животных: питание, прогулки, бегство и ответная защита. */
 export abstract class ForestAnimal extends Animal<WildlifeKind> {
-  get swimSpeed(): number {
-    return this.profile.swimSpeed ?? 0;
-  }
-
   readonly appearance: AppearanceTraits;
   readonly model: ModelInstance;
   readonly defense: number;
   socialId = 0;
+  waterBody?: string;
+
   habitat?: Habitat;
   destination?: HabitatPoint;
   foragingAllowed = true;
@@ -70,6 +68,27 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.defense = profile.defense;
     this.speed = profile.speed;
     this.range = profile.range;
+  }
+
+  get swimSpeed(): number {
+    return this.profile.swimSpeed ?? 0;
+  }
+
+  get swimImmersion(): number {
+    return (this.profile.swimImmersion ?? this.profile.radius * 0.9) * this.growthScale;
+  }
+
+  useWaterBody(body: string): void {
+    this.waterBody = body;
+    this.surfaceAllowed = (x, z) => {
+      const water = this.waterNavigation?.terrain.waterAt(x, z);
+      return !water || water.body.id === body;
+    };
+  }
+
+  override updateGrowth(progress: number): void {
+    super.updateGrowth(progress);
+    this.root.userData.swimImmersion = this.swimImmersion;
   }
 
   get mood(): string {

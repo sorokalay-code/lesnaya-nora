@@ -1,7 +1,15 @@
 import type { WildlifeKind } from './animals/types';
 import type { PredatorKind } from './types';
 
-type GroundShelterShape = 'burrow' | 'molehills' | 'leaf-nest' | 'roots' | 'cave' | 'crevice';
+type GroundShelterShape =
+  | 'burrow'
+  | 'molehills'
+  | 'leaf-nest'
+  | 'roots'
+  | 'cave'
+  | 'crevice'
+  | 'beaver-lodge'
+  | 'duck-nest';
 
 export interface WildlifeShelterProfile {
   shape: GroundShelterShape | 'tree-nest';
@@ -25,6 +33,8 @@ const profiles = {
   weasel: { shape: 'burrow', radius: 0.42, height: 0.22, earth: 0x534334, edge: 0x796850 },
   snake: { shape: 'crevice', radius: 0.72, height: 0.36, earth: 0x60675d, edge: 0x89887a },
   rabbit: { shape: 'burrow', radius: 0.74, height: 0.51, earth: 0x74543a, edge: 0x9d7953 },
+  beaver: { shape: 'beaver-lodge', radius: 1.58, height: 1.14, earth: 0x61503d, edge: 0x9b7853 },
+  duck: { shape: 'duck-nest', radius: 0.6, height: 0.25, earth: 0x726955, edge: 0xb3a370 },
 } as const satisfies Partial<
   Record<WildlifeKind | PredatorKind | 'rabbit', WildlifeShelterProfile>
 >;

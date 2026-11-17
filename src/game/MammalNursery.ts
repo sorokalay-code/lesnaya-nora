@@ -129,11 +129,20 @@ export const MAMMAL_NURSERY = {
     interval: 7 * DAY,
     litter: 2,
   },
+  beaver: {
+    gestation: DAY,
+    emerge: 540,
+    meeting: 900,
+    mature: 4 * DAY,
+    interval: 7 * DAY,
+    litter: 2,
+  },
 } as const;
 
 export type NurseryKind = keyof typeof MAMMAL_NURSERY;
 export const PREDATOR_FAMILIES = ['fox', 'lynx', 'weasel'] as const;
 export const WILDLIFE_FAMILIES = [
+  'beaver',
   'bear',
   'badger',
   'marmot',

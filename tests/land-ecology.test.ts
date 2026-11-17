@@ -132,7 +132,8 @@ test('both predator and non-predator families have visible age variants and roun
   f.step(save.clock);
   const found = new Set(Object.keys(save.mammalNurseries ?? {}).map((key) => key.split(':')[0]));
   for (const kind of [...WILDLIFE_FAMILIES, ...PREDATOR_FAMILIES]) {
-    if (kind !== 'bear') assert.ok(found.has(kind), `mother and father for ${kind}`);
+    if (kind !== 'bear' && kind !== 'beaver')
+      assert.ok(found.has(kind), `mother and father for ${kind}`);
   }
   f.step(3300);
   const young = [...f.predators, ...f.wildlife].filter((actor) => actor.juvenile);

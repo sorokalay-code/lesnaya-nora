@@ -277,6 +277,7 @@ export class Game {
     this.attackSounds?.dispose();
     this.interactions?.dispose();
     this.animals?.dispose();
+    this.ecology?.dispose();
     this.remains?.dispose();
     ModelAssets.shared.release(this.scene);
     this.scene.clear();
@@ -548,7 +549,10 @@ export class Game {
       airliftView: () => this.animals?.airliftView,
       rabbitChaseView: () => this.animals?.rabbitChaseView,
       webView: () => this.web.view(),
-      captureWildlife: () => this.ecology.capture(),
+      captureWildlife: () => {
+        this.ecology.capture();
+        this.animals?.captureWater();
+      },
       save: this.save,
       ui: this.ui,
       view: this.view,
