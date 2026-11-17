@@ -1,6 +1,6 @@
 export interface AttackCue {
   kind: string;
-  phase: 'leap' | 'strike';
+  phase: 'leap' | 'strike' | 'warning';
   x: number;
   y: number;
   z: number;

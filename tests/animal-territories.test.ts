@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Group, Scene } from 'three';
 import { AnimalHabitats } from '../src/game/AnimalHabitats';
-import { RabbitFactory } from '../src/game/animals';
+import { AnimalFactory, RabbitFactory } from '../src/game/animals';
 import { Random } from '../src/game/Random';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import { WildlifeForage } from '../src/game/WildlifeForage';
-import type { Biome, FoodKind, SaveData } from '../src/game/types';
+import type { Biome, DigNode, FoodKind, SaveData } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
 import { WolfDen } from '../src/game/WolfDen';
@@ -53,6 +53,7 @@ function population(save: SaveData, notes: string[] = [], worldFor = terrain) {
     rng: new Random(save.seed),
     markPartner() {},
     onDenDiscovery: () => notes.push('den'),
+    onDenWarning: () => notes.push('warning'),
     onWolfArrival: () => notes.push('arrival'),
     onDeath: (animal) => {
       const id: unknown = animal.root.userData.remainsIdentity;
@@ -241,6 +242,84 @@ test('a legacy map label moves to the new entrance when the original spot is occ
   forest.ecology.update(0, 1, save.clock, site.x, site.z, () => 0, forest.predators, false);
   assert.deepEqual(save.discoveries, [{ x: site.x, z: site.z, label: 'Волчье логово' }]);
   assert.deepEqual(notes, []);
+});
+
+function guardedDen() {
+  const save = start();
+  save.worldConfig!.creatures.wolf = 3;
+  save.clock = 720;
+  const notes: string[] = [];
+  const forest = population(save, notes);
+  const wolves = forest.predators.slice();
+  const ground = () => 0;
+  const site = save.wolfDens?.[0];
+  assert.ok(site);
+  const den = new WolfDen(0, site, ground);
+  let time = 0;
+  const run = (seconds: number, player?: DigNode, combat = true) => {
+    let strikes = 0;
+    const point = player ?? den.point(0, -30);
+    for (let frame = 0; frame < seconds * 20; frame++) {
+      time += 0.05;
+      forest.ecology.prepareHabitats(time, save.clock, forest.predators);
+      forest.ecology.prepareDenDefense(time, player, combat);
+      for (const wolf of wolves) {
+        const prey = combat ? forest.ecology.targetFor(wolf, forest.predators, time) : undefined;
+        if (wolf.update(0.05, time, point.x, point.z, !player || !combat, true, ground, 0, 1, prey))
+          strikes++;
+      }
+      forest.ecology.update(
+        0.05,
+        time,
+        save.clock,
+        point.x,
+        point.z,
+        ground,
+        forest.predators,
+        combat,
+      );
+    }
+    return strikes;
+  };
+  return { forest, wolves, notes, den, run };
+}
+
+test('the pack patrols, warns an intruder, leaves the chamber to defend and ends the chase', () => {
+  const { den, wolves, notes, run } = guardedDen();
+  run(12);
+  const sentry = wolves.find((wolf) => !wolf.inDen)!;
+  assert.equal(wolves.filter((wolf) => wolf.inDen).length, 2);
+  const at = { x: sentry.x, z: sentry.z };
+  run(6);
+  assert.ok(distance(sentry, at) > 1.5);
+
+  assert.equal(run(0.6, den.point(0, -8)), 0);
+  assert.equal(notes.filter((note) => note === 'warning').length, 1);
+  assert.equal(wolves.filter((wolf) => wolf.inDen).length, 2);
+
+  assert.ok(run(6, den.point(0, -4)) > 0);
+  assert.ok(wolves.every((wolf) => !wolf.inDen && !wolf.huntingOpen));
+  assert.equal(notes.filter((note) => note === 'warning').length, 1);
+
+  const escaped = den.point(0, -18);
+  assert.equal(run(12, escaped), 0);
+  assert.ok(wolves.every((wolf) => !wolf.huntingPlayer && distance(wolf, escaped) > 10));
+  assert.equal(wolves.filter((wolf) => wolf.inDen).length, 2);
+});
+
+test('wolves drive off a rival at the den during the day and respect a combat truce', () => {
+  const { den, wolves, forest, run } = guardedDen();
+  run(12);
+  const point = den.point(0, -4);
+  const rival = AnimalFactory.predator('fox', point.x, point.z, new Random(17));
+  forest.predators.push(rival);
+  run(4, undefined, false);
+  assert.equal(rival.health, rival.maxHealth);
+  assert.equal(wolves.filter((wolf) => wolf.inDen).length, 2);
+
+  run(5);
+  assert.ok(rival.health < rival.maxHealth);
+  assert.ok(wolves.every((wolf) => !wolf.huntingOpen));
 });
 
 test('invalid and waterlogged sites do not create a den or an obstacle', () => {

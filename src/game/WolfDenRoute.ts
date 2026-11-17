@@ -29,6 +29,7 @@ export class WolfDenRoute {
   private target?: HabitatPoint;
   private points: HabitatPoint[] = [];
   private nextPlan = 0;
+  private plannedAt = -Infinity;
 
   step(
     from: DigNode,
@@ -36,12 +37,11 @@ export class WolfDenRoute {
     time: number,
     heightAt: (x: number, z: number) => number | undefined,
   ): HabitatPoint {
-    if (
-      !this.target ||
-      Math.hypot(this.target.x - target.x, this.target.z - target.z) > 0.65 ||
-      time >= this.nextPlan
-    ) {
-      this.target = target;
+    const changed =
+      this.target && Math.hypot(this.target.x - target.x, this.target.z - target.z) > 0.65;
+    if (time >= this.nextPlan || (changed && time - this.plannedAt >= 0.45)) {
+      this.target = { x: target.x, z: target.z };
+      this.plannedAt = time;
       this.points = this.plan(from, target, heightAt);
       this.nextPlan = time + (this.points.length > 0 ? 5 : 2.5);
     }

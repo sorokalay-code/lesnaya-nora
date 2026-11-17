@@ -45,6 +45,7 @@ export class WorldPopulation {
     onDeath?: (animal: ForestAnimal | Predator) => void;
     onWolfArrival?: (wolf: Predator) => void;
     onDenDiscovery?: () => void;
+    onDenWarning?: () => void;
   }) {
     const config = context.save.worldConfig ?? defaultWorldConfig();
     const scale = config.size / 110;
@@ -119,6 +120,7 @@ export class WorldPopulation {
       count: config.creatures.wolf,
       onArrival: context.onWolfArrival,
       onDiscovery: context.onDenDiscovery,
+      onDenWarning: context.onDenWarning,
     });
     const groundKinds: LegacyPredatorSlot[] = [
       'dog',

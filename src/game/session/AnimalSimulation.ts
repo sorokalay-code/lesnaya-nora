@@ -200,6 +200,13 @@ export class AnimalSimulation {
     for (const member of this.context.families) member.update(time, dt, this.context.groundAt);
 
     this.context.ecology.prepareHabitats?.(time, this.context.save.clock, this.context.predators);
+    const player = this.context.save.player;
+    const exposed =
+      canAttackFamily &&
+      !player.hidden &&
+      !this.sheltered &&
+      !AnimalRestraint.active(this.context.player.root);
+    this.context.ecology.prepareDenDefense?.(time, exposed ? player : undefined, combat);
     const closestThreat = this.updatePredators(dt, time, night, combat, canAttackFamily);
     this.updateUndergroundTraffic(dt, time, night, canAttackFamily, resting);
     this.friendDefense.updateEscorts(

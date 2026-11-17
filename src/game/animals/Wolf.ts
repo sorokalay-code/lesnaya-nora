@@ -6,9 +6,11 @@ import { animatePredator } from '../Models';
 import { DEN_APPROACH, DEN_BED, type WolfDen } from '../WolfDen';
 import { WolfDenRoute } from '../WolfDenRoute';
 import type { DigNode } from '../types';
+import type { WolfDenDefense } from '../WolfDenDefense';
 
 const CHAMBER_WALK_SPEED = 1.35;
 const ENTRANCE_REACH = 0.21;
+const PATROL_LEG_SECONDS = 6;
 
 interface DenAccess {
   den: WolfDen;
@@ -16,6 +18,8 @@ interface DenAccess {
   restInside: boolean;
   entry: DigNode;
   approach: DigNode;
+  defense: WolfDenDefense;
+  patrol: readonly HabitatPoint[];
   heightAt: (x: number, z: number) => number | undefined;
 }
 
@@ -84,23 +88,48 @@ export class Wolf extends Predator {
     return !this.inDen && !this.leavingApproach && super.canPursue(x, z);
   }
 
+  warnIntruder(time: number): void {
+    this.signalAttack(time, 'warning');
+  }
+
+  override get defenseRival(): Predator | undefined {
+    if (!this.inDen && !this.leavingApproach) return this.access?.defense.rivalFor(this);
+  }
+
+  protected override defendsPlayer(x: number, z: number): boolean {
+    if (this.inDen || this.leavingApproach) return false;
+    const target = this.access?.defense.playerTargetFor(this);
+    return target?.x === x && target?.z === z;
+  }
+
+  protected override pursuitDestination(target: HabitatPoint, time: number): HabitatPoint {
+    const access = this.access;
+    if (!access || !access.defense.targetFor(this)) return target;
+    return this.routeTo(target, time, access);
+  }
+
   protected override territoryDestination(intent: TerritoryIntent, time: number): HabitatPoint {
     const access = this.access;
     if (!access) return intent.destination;
 
     const { den, entry, approach } = access;
+    if (this.leavingApproach && this.near(approach, 0.65)) this.leavingApproach = false;
+    if (this.leavingApproach) return approach;
     if (intent.hunting) {
       this.atApproach = false;
-      if (this.leavingApproach && this.near(approach, 0.65)) this.leavingApproach = false;
-      return this.leavingApproach ? approach : this.routeTo(intent.destination, time, access);
+      return this.routeTo(intent.destination, time, access);
     }
 
-    if (intent.destination !== den.entrance) return this.routeTo(intent.destination, time, access);
+    if (intent.destination !== den.entrance) {
+      const index = (Math.floor(time / PATROL_LEG_SECONDS) + access.member) % access.patrol.length;
+      return this.routeTo(access.patrol[index] ?? intent.destination, time, access);
+    }
     if (this.near(approach, 0.6)) this.atApproach = true;
     return this.atApproach ? entry : this.routeTo(approach, time, access);
   }
 
   protected override travelsToTerritory(distance: number): boolean {
+    if (!this.huntingOpen && this.access && !this.access.restInside) return distance > 7;
     return distance > (this.access && !this.atApproach ? 1.5 : 7);
   }
 
@@ -108,7 +137,7 @@ export class Wolf extends Predator {
     const access = this.access;
     if (!access) return false;
 
-    const entering = !this.huntingOpen && access.restInside;
+    const entering = !this.huntingOpen && access.restInside && !access.defense.targetFor(this);
     if (
       !this.inDen &&
       !(entering && mayEnter && this.atApproach && this.near(access.entry, ENTRANCE_REACH))
@@ -132,7 +161,8 @@ export class Wolf extends Predator {
     const { den, member, entry } = this.access;
     const point = this.depth === 0 ? entry : den.chamberPoint(this.depth, member);
     this.moveTo(point.x, point.z, point.y);
-    this.root.rotation.y = den.site.angle + (this.huntingOpen ? 0 : Math.PI);
+    const outward = this.huntingOpen || this.access.defense.targetFor(this);
+    this.root.rotation.y = den.site.angle + (outward ? 0 : Math.PI);
     this.root.userData.swimming = false;
   }
 

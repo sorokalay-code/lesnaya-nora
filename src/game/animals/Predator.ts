@@ -95,6 +95,22 @@ export abstract class Predator extends Animal<PredatorKind> {
     );
   }
 
+  get defenseRival(): Predator | undefined {
+    return undefined;
+  }
+
+  canEngagePrey(prey: HabitatPoint): boolean {
+    return prey === this.defenseRival || this.canPursue(prey.x, prey.z);
+  }
+
+  protected defendsPlayer(_x: number, _z: number): boolean {
+    return false;
+  }
+
+  protected pursuitDestination(target: HabitatPoint, _time: number): HabitatPoint {
+    return target;
+  }
+
   protected specialApproach(
     _dt: number,
     _time: number,
@@ -187,25 +203,28 @@ export abstract class Predator extends Animal<PredatorKind> {
       return false;
     }
 
+    const player = { x: px, z: pz };
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting =
       time >= this.retreatUntil &&
       !hidden &&
-      dist < this.range * activity * (1 + scent * 0.4) &&
-      this.canPursue(px, pz) &&
-      this.canHuntPlayer(dist, day);
+      (this.defendsPlayer(px, pz) ||
+        (dist < this.range * activity * (1 + scent * 0.4) &&
+          this.canPursue(px, pz) &&
+          this.canHuntPlayer(dist, day)));
     this.huntingPlayer = hunting;
-    const chasingPrey =
-      !hunting && time >= this.retreatUntil && prey && this.canPursue(prey.x, prey.z);
+    const chasingPrey = !hunting && time >= this.retreatUntil && prey && this.canEngagePrey(prey);
     if (time < this.retreatUntil) {
       this.targetX = this.retreatX;
       this.targetZ = this.retreatZ;
     } else if (hunting) {
-      this.targetX = px;
-      this.targetZ = pz;
+      const destination = this.pursuitDestination(player, time);
+      this.targetX = destination.x;
+      this.targetZ = destination.z;
     } else if (chasingPrey) {
-      this.targetX = prey.x;
-      this.targetZ = prey.z;
+      const destination = this.pursuitDestination(prey, time);
+      this.targetX = destination.x;
+      this.targetZ = destination.z;
     } else if (this.territory) {
       const destination = this.territoryDestination(this.territory, time);
       this.targetX = destination.x;
@@ -234,14 +253,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       !this.waterNavigation.clear(this, this.targetX, this.targetZ);
     const special = blockedByWater
       ? undefined
-      : this.specialApproach(
-          dt,
-          time,
-          hunting || !!chasingPrey,
-          groundAt,
-          { x: px, z: pz },
-          playerSize,
-        );
+      : this.specialApproach(dt, time, hunting || !!chasingPrey, groundAt, player, playerSize);
     if (special !== undefined) return special;
 
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);

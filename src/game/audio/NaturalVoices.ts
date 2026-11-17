@@ -166,7 +166,7 @@ export class NaturalVoices {
     } else {
       const bass =
         kind === 'bear' ? 65 : kind === 'lynx' ? 220 : kind === 'fanged-rabbit' ? 340 : 125;
-      const duration = kind === 'bear' ? 0.45 : 0.27;
+      const duration = phase === 'warning' ? 0.65 : kind === 'bear' ? 0.45 : 0.27;
       this.noise(bass * 2.5 * variation, duration, 0.45 * volume, 0, pan);
       this.tone(bass * variation, bass * 0.6, duration, 0.23 * volume, 0, pan);
       if (kind === 'lynx') this.noise(1250, 0.2, 0.2 * volume, 0.05, pan);

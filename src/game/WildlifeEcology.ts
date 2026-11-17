@@ -252,6 +252,14 @@ export class WildlifeEcology {
     }
   }
 
+  prepareDenDefense(
+    time: number,
+    player: { x: number; z: number } | undefined,
+    combat: boolean,
+  ): void {
+    this.territories?.wolves.prepareDefense(time, player, combat);
+  }
+
   private place(animal: ForestAnimal, x: number, z: number): void {
     if (typeof this.world.waterAt === 'function') animal.useWater(this.water);
     const water = this.world.waterAt?.(x, z);
@@ -272,6 +280,11 @@ export class WildlifeEcology {
   ): { x: number; z: number } | undefined {
     if (predator.underground || predator.inDen || !predator.alive || !predator.huntsWildlife)
       return;
+    const rivalAtDen = predator.defenseRival;
+    if (rivalAtDen) {
+      this.preyTargets.delete(predator);
+      return rivalAtDen;
+    }
     if (!predator.huntingOpen) {
       this.preyTargets.delete(predator);
       return;
@@ -391,12 +404,12 @@ export class WildlifeEcology {
       )
         continue;
 
-      const victim = this.preyTargets.get(predator)?.target;
+      const victim = predator.defenseRival ?? this.preyTargets.get(predator)?.target;
       if (
         !victim ||
         !this.canHunt(victim) ||
         AnimalRestraint.active(victim.root) ||
-        !predator.canPursue(victim.x, victim.z)
+        !predator.canEngagePrey(victim)
       )
         continue;
       if (Math.abs(victim.root.position.y - predator.root.position.y) > 1.5) continue;
