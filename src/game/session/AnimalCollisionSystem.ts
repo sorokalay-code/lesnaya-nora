@@ -106,7 +106,7 @@ export class AnimalCollisionSystem {
         moveTo: () => false,
       });
     this.context.rabbits.forEach((actor, i) => {
-      if (AnimalRestraint.active(actor.root) || !actor.alive) return;
+      if (AnimalRestraint.active(actor.root) || !actor.alive || actor.inShelter) return;
       if (matingId === actor.data.id) return;
 
       const root = actor.rig.root,

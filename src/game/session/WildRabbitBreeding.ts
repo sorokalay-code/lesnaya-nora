@@ -138,6 +138,7 @@ export class WildRabbitBreeding {
     const { save, earth, world } = this.context;
     return (
       actor.alive &&
+      !actor.inShelter &&
       actor.health >= 60 &&
       adultRabbit(actor.data) &&
       !actor.solitary &&
@@ -173,6 +174,7 @@ export class WildRabbitBreeding {
     if (!father) return;
     const room = this.populationLimit() - rabbits.filter((actor) => actor.alive).length;
     const count = Math.min(room, this.rng.int(2, 4));
+    const nest = mother.wildShelter?.entrance;
     let id = Math.max(999_999, ...save.partners.map((rabbit) => rabbit.id)) + 1;
     for (let index = 0; index < count; index++) {
       const sex = this.rng.chance(0.5) ? 'female' : 'male';
@@ -182,9 +184,11 @@ export class WildRabbitBreeding {
         age: 0,
         wildParentId: mother.data.id,
         name: sex === 'female' ? 'Лапушка' : 'Пушок',
-        x: mother.x,
-        y: mother.root.position.y,
-        z: mother.z,
+        x: nest?.x ?? mother.x,
+        y: nest?.y ?? mother.root.position.y,
+        z: nest?.z ?? mother.z,
+        wildBurrowId: mother.data.wildBurrowId,
+        inWildBurrow: nest ? true : undefined,
         genes: this.factory.inherit(mother.data.genes, father.genes),
         lineage: Genealogy.child(`wild-child:${id - 1}`, [
           {

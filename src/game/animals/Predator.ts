@@ -12,6 +12,7 @@ import {
   type AppearanceTraits,
 } from '../AnimalAppearance';
 import type { Habitat, HabitatPoint, TerritoryIntent } from '../AnimalHabitats';
+import type { WildlifeRoutine } from '../WildlifeRoutine';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
   get swimSpeed(): number {
@@ -20,6 +21,10 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   private attackListener?: AttackListener;
   private territory?: TerritoryIntent;
+  private routine?: WildlifeRoutine;
+  destination?: HabitatPoint;
+  restAt?: HabitatPoint;
+  foragingAllowed = true;
   readonly appearance: AppearanceTraits;
   readonly origin: { x: number; z: number };
   targetX: number;
@@ -72,22 +77,40 @@ export abstract class Predator extends Animal<PredatorKind> {
   }
 
   get canMelee(): boolean {
-    return true;
+    return !this.juvenile;
   }
 
   get homeTerritory(): Habitat | undefined {
     return this.territory?.home;
   }
 
+  get shelter(): WildlifeRoutine['shelter'] {
+    return this.routine?.shelter;
+  }
+
+  get inShelter(): boolean {
+    return this.inDen;
+  }
+
+  useRoutine(routine: WildlifeRoutine, inside = false): void {
+    this.routine = routine;
+    const at = inside ? routine.restore() : undefined;
+    if (at) this.moveTo(at.x, at.z, at.y);
+  }
+
   get huntingOpen(): boolean {
-    return this.territory?.hunting ?? true;
+    return (
+      !this.juvenile && !this.restAt && this.foragingAllowed && (this.territory?.hunting ?? true)
+    );
   }
 
   followTerritory(intent: TerritoryIntent): void {
     this.territory = intent;
+    this.destination = intent.destination;
   }
 
   canPursue(x: number, z: number): boolean {
+    if (!this.huntingOpen || this.inDen) return false;
     const intent = this.territory;
     if (!intent) return true;
     return (
@@ -138,15 +161,41 @@ export abstract class Predator extends Animal<PredatorKind> {
   }
 
   get inDen(): boolean {
-    return false;
+    return this.routine?.inside ?? false;
   }
 
-  protected moveInDen(_dt: number, _time: number, _mayEnter: boolean): boolean {
-    return false;
+  protected moveInDen(
+    dt: number,
+    time: number,
+    mayEnter: boolean,
+    groundAt: GroundHeight,
+  ): boolean {
+    const action = this.routine?.update(
+      this.root.position,
+      time,
+      mayEnter ? this.restAt : undefined,
+      undefined,
+      false,
+    );
+    if (!action) return false;
+
+    let moving = false;
+    if (action.kind === 'move') {
+      const dx = action.target.x - this.x;
+      const dz = action.target.z - this.z;
+      const step = Math.min(1, (dt * this.profile.walkSpeed) / Math.max(0.001, Math.hypot(dx, dz)));
+      moving = this.surfaceStep(this.x + dx * step, this.z + dz * step, dt, groundAt);
+      if (moving) this.root.rotation.y = Math.atan2(-dx, -dz);
+    } else if (action.kind === 'enter' || action.kind === 'emerge') {
+      this.moveTo(action.at.x, action.at.z, action.at.y);
+      if (action.kind === 'emerge') this.root.rotation.y = action.heading;
+    }
+    animatePredator(this.root, time, false, dt, moving, false);
+    return true;
   }
 
   protected territoryDestination(intent: TerritoryIntent, _time: number): HabitatPoint {
-    return intent.destination;
+    return this.destination ?? intent.destination;
   }
 
   moveTo(x: number, z: number, y: number): void {
@@ -193,8 +242,6 @@ export abstract class Predator extends Animal<PredatorKind> {
   ): boolean {
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.huntingPlayer = false;
-    if (this.moveInDen(dt, time, time >= this.retreatUntil)) return false;
-
     if (this.tunnelPosition) {
       this.x = this.tunnelPosition.x;
       this.z = this.tunnelPosition.z;
@@ -202,6 +249,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       animatePredator(this.root, time, false, dt, false);
       return false;
     }
+    if (this.moveInDen(dt, time, time >= this.retreatUntil, groundAt)) return false;
 
     const player = { x: px, z: pz };
     const dist = Math.hypot(px - this.x, pz - this.z);

@@ -11,6 +11,7 @@ import { AnimalRestraint } from './AnimalRestraint';
 import { RABBIT_SWIM_IMMERSION } from '../WaterNavigation';
 import { adultRabbit, rabbitSex } from '../RabbitSex';
 import { RabbitSexAppearance } from '../genetics/RabbitSexAppearance';
+import type { WildlifeShelter } from '../WildlifeShelters';
 /** Взрослый крол: самостоятельные прогулки и физическое перемещение партнёра по ходам. */
 export class RabbitActor extends Rabbit {
   private wanderAngle = 0;
@@ -23,6 +24,15 @@ export class RabbitActor extends Rabbit {
   private mateForageTarget?: { x: number; z: number };
   private readonly navigator = new GroundNavigator();
   private appearanceAdult?: boolean;
+  wildShelter?: WildlifeShelter;
+
+  get inShelter(): boolean {
+    return this.data.inWildBurrow === true;
+  }
+
+  override get juvenile(): boolean {
+    return !adultRabbit(this.data);
+  }
 
   get solitary(): boolean {
     return false;

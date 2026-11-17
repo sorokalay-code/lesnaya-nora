@@ -18,6 +18,8 @@ export abstract class Animal<K extends string = string> {
   private heads?: { object: Object3D; scale: Vector3 }[];
   growthScale = 1;
   mammalOrigin?: MammalOrigin;
+  mammalId?: number;
+  habitatSlot?: number;
 
   get juvenile(): boolean {
     return this.growthScale < 1;

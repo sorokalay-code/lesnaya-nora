@@ -11,7 +11,7 @@ export class Lynx extends Predator {
   private readonly pounce = new PounceAttack();
 
   override get canMelee(): boolean {
-    return !this.pounce.active;
+    return super.canMelee && !this.pounce.active;
   }
 
   override playAttack(time: number): void {

@@ -35,6 +35,8 @@ export interface Genes {
 
 export interface PartnerTraits {
   wildParentId?: number;
+  wildBurrowId?: number;
+  inWildBurrow?: true;
   lost?: { since: number; lastClock: number; hunger: number };
   sex?: RabbitSex;
   age?: number;
@@ -151,6 +153,8 @@ export interface SaveData {
   mammalNurseries?: Record<string, import('./MammalNursery').NurseryState>;
   nextMammalId?: number;
   marmotImmigrationAt?: number;
+  landMammalImmigration?: Partial<Record<import('./LandMammalFamilies').LandFamilyKind, number>>;
+  landPredators?: import('./session/LandPredators').LandPredatorState[];
   wolfDens?: Record<number, import('./WolfDen').WolfDenSite>;
   worldConfig?: WorldConfig;
   familyHealth?: Record<number, number>;

@@ -274,10 +274,17 @@ test('every selected species spawns with its own count even without forest or tr
   }
   // Пополнение возвращает только недостающий выбранный вид, не превышая его лимита.
   f.population.wildlife.find((animal) => animal.kind === 'deer')!.health = 0;
-  for (let time = 0; time < 1000; time += 50)
+  for (let time = 0; time < 250; time += 50)
     f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
-  assert.equal(f.population.wildlife.filter((animal) => animal.kind === 'deer').length, 2);
-  assert.equal(f.population.wildlife.length, 34);
+  assert.equal(f.population.wildlife.filter((animal) => animal.kind === 'deer').length, 1);
+  const due = f.save.landMammalImmigration?.deer;
+  assert.ok(due && due >= f.save.clock + 1440);
+  f.save.clock = due;
+  for (let time = 250; time < 800; time += 50)
+    f.population.ecology.update(0, time, f.save.clock, 0, 0, () => 0, [], false);
+  const settled = f.population.wildlife.filter((animal) => !animal.juvenile);
+  assert.equal(settled.filter((animal) => animal.kind === 'deer').length, 2);
+  assert.equal(settled.length, 34);
 });
 
 test('save round trip preserves configured terrain, plants, populations and calendar; defaults survive', () => {

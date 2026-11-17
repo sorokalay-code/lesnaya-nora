@@ -11,21 +11,32 @@ import {
 import { ModelAssets } from './ModelAssets';
 import { Random } from './Random';
 import { World, type Resource } from './World';
-import type { SaveData } from './types';
+import type { PredatorKind, SaveData } from './types';
 import { AnimalRestraint } from './animals/AnimalRestraint';
 import { defaultWorldConfig } from './WorldConfig';
 import { animalNames } from './animals/names';
-import type { AnimalHabitats, Habitat } from './AnimalHabitats';
+import type { AnimalHabitats, Habitat, HabitatPoint, HuntingTrail } from './AnimalHabitats';
 import type { WolfPopulation } from './session/WolfPopulation';
 import { WildlifeForage } from './WildlifeForage';
 import type { WildlifeShelters } from './WildlifeShelters';
 import { isShelteredWildlife } from './WildlifeShelterProfiles';
 import { WildlifeRoutine } from './WildlifeRoutine';
-import { MarmotFamilies } from './MarmotFamilies';
-import { mammalIdentity } from './MammalNursery';
+import { LandMammalFamilies } from './LandMammalFamilies';
+import {
+  isWildlifeFamilyKind,
+  mammalIdentity,
+  WILDLIFE_FAMILIES,
+  type WildlifeFamilyKind,
+} from './MammalNursery';
+import { SeasonSystem } from './systems/SeasonSystem';
+import type { LandPredators } from './session/LandPredators';
+import { HuntingGrounds, preyRank } from './HuntingGrounds';
+import { WildRabbitTerritories } from './session/WildRabbitTerritories';
+import type { Excavation } from './Excavation';
 import { AnimalAppearance } from './AnimalAppearance';
 
 type Target = ForestAnimal | Predator | RabbitActor;
+type ForageTarget = { kind: 'plant'; plant: Resource } | { kind: 'ground'; point: HabitatPoint };
 export type WildlifeEvent = {
   kind: 'hunt' | 'fight' | 'defend' | 'arrival';
   x: number;
@@ -33,6 +44,7 @@ export type WildlifeEvent = {
   subject: string;
 };
 const FIELD_WILDLIFE = ['mole', 'marmot', 'pheasant'] as const;
+const LITTER_FORAGERS = new Set<WildlifeKind>(['badger', 'hedgehog', 'mole', 'boar']);
 const ADDITIONAL_WILDLIFE = ['badger', 'chipmunk', ...FIELD_WILDLIFE, 'roe-deer', 'frog'] as const;
 const WILDLIFE_KINDS = [
   'deer',
@@ -55,8 +67,11 @@ export class WildlifeEcology {
   private readonly water: WaterNavigation;
   private readonly newWildlifeRng: Random;
   private readonly forage: WildlifeForage;
-  private readonly marmots?: MarmotFamilies;
-  private foodTargets = new Map<ForestAnimal, Resource>();
+  private readonly families?: LandMammalFamilies<ForestAnimal, WildlifeFamilyKind>;
+  private readonly seasons: SeasonSystem;
+  private readonly huntingGrounds = new HuntingGrounds();
+  private readonly neighborTerritories?: WildRabbitTerritories;
+  private readonly foodTargets = new Map<ForestAnimal, ForageTarget>();
   private preyTargets = new Map<Predator, { target: Target; until: number }>();
   private readonly nextPreySearch = new WeakMap<Predator, number>();
   private nextHabitatUpdate = 0;
@@ -73,37 +88,66 @@ export class WildlifeEcology {
       habitats: AnimalHabitats;
       wolves: WolfPopulation;
       shelters: WildlifeShelters;
+      land?: LandPredators;
+      rabbits?: readonly RabbitActor[];
     },
   ) {
     this.water = new WaterNavigation(world);
     this.forage = new WildlifeForage(world.resources ?? []);
     this.newWildlifeRng = new Random((save?.seed ?? world.seed ?? 0) + 82473);
-    if (save && territories)
-      this.marmots = new MarmotFamilies(
+    this.seasons = new SeasonSystem(
+      save?.seed ?? world.seed ?? 0,
+      save?.worldConfig?.seasonLengths,
+    );
+    if (save && territories?.rabbits)
+      this.neighborTerritories = new WildRabbitTerritories(
         save,
-        this.animals,
         territories.habitats,
         territories.shelters,
-        (young, home) => {
+        world,
+      );
+    if (save && territories)
+      this.families = new LandMammalFamilies({
+        save,
+        animals: this.animals,
+        kinds: WILDLIFE_FAMILIES,
+        shelters: territories.shelters,
+        home: (kind, slot) => territories.habitats.wildlife(kind, slot),
+        bed: (home, slot) => territories.habitats.nurseryBed(home, slot),
+        count: (kind) => (save.worldConfig ?? defaultWorldConfig()).creatures[kind],
+        resting: (home, clock) => territories.habitats.intent(home, clock).resting,
+        create: (kind, young, home) => {
           const animal = createForestAnimal(
-            'marmot',
+            kind,
             young.x,
             young.z,
             new Random(home.key ^ young.id),
-            AnimalAppearance.seeded('marmot', young.id, home.key),
+            AnimalAppearance.seeded(kind, young.id, home.key),
           );
           animal.socialId = young.socialId ?? this.allocateSocialId();
           if (young.social) animal.social = { ...young.social };
           animal.health = young.health;
-          this.identifyMarmot(animal, young.id);
+          this.identifyMammal(animal, young.id);
+          young.socialId = animal.socialId;
+          animal.habitat = home;
           animal.useWorldBounds(save.worldConfig?.size ?? 110);
           this.place(animal, young.x, young.z);
           this.animals.push(animal);
           scene.add(animal.root);
           return animal;
         },
-        (animal, slot, home) => this.assignHabitat(animal, slot, home),
-      );
+        settle: (animal, kind, slot) =>
+          this.assignHabitat(animal, slot, territories.habitats.wildlife(kind, slot)),
+        depart: (animal) => {
+          this.animals.splice(this.animals.indexOf(animal), 1);
+          this.foodTargets.delete(animal);
+          ModelAssets.shared.release(animal.root);
+          animal.root.removeFromParent();
+        },
+        saveSocial: (animal, young) => {
+          young.social = { ...animal.social };
+        },
+      });
   }
 
   populate(): void {
@@ -115,10 +159,10 @@ export class WildlifeEcology {
         occupied.set(data.kind, slots);
       }
       for (const data of this.save.wildlife) {
-        if (data.kind === 'marmot' && this.save.worldConfig?.creatures.marmot === 0) continue;
+        if (this.save.worldConfig?.creatures[data.kind] === 0) continue;
         const animal = createForestAnimal(data.kind, data.x, data.z, this.rng, data.appearance);
         animal.socialId = data.id;
-        if (data.kind === 'marmot') this.identifyMarmot(animal, data.mammalId);
+        if (isWildlifeFamilyKind(data.kind)) this.identifyMammal(animal, data.mammalId);
         animal.mammalOrigin = data.mammalOrigin;
         animal.useWorldBounds(this.save.worldConfig?.size ?? 110);
         animal.social = { ...data.social };
@@ -140,13 +184,13 @@ export class WildlifeEcology {
         this.animals.push(animal);
         this.scene.add(animal.root);
       }
-      this.marmots?.restore();
+      this.families?.restore();
       return;
     }
     const counts = (this.save?.worldConfig ?? defaultWorldConfig()).creatures;
     for (const kind of WILDLIFE_KINDS)
       for (let i = 0; i < counts[kind]; i++) this.spawn(kind, 0, 0, true, i);
-    this.marmots?.restore();
+    this.families?.restore();
   }
 
   private spawn(
@@ -268,7 +312,7 @@ export class WildlifeEcology {
     const animal = createForestAnimal(kind, x, z, rng);
     animal.useWorldBounds(size);
     animal.socialId = this.allocateSocialId();
-    if (kind === 'marmot') this.identifyMarmot(animal);
+    if (isWildlifeFamilyKind(kind)) this.identifyMammal(animal);
     this.place(animal, x, z);
     this.assignHabitat(animal, slot, home);
     this.animals.push(animal);
@@ -283,7 +327,7 @@ export class WildlifeEcology {
     return id;
   }
 
-  private identifyMarmot(animal: ForestAnimal, id?: number): void {
+  private identifyMammal(animal: ForestAnimal, id?: number): void {
     animal.mammalId = id;
     animal.root.userData.remainsIdentity =
       id === undefined ? `wildlife:${animal.socialId}` : mammalIdentity(id);
@@ -304,7 +348,7 @@ export class WildlifeEcology {
     if (isShelteredWildlife(animal.kind)) {
       const shelter = shelters.place(animal.kind, slot, home);
       animal.useRoutine(new WildlifeRoutine(shelter, shelters.routeHeight), inside);
-    } else if (animal.kind === 'roe-deer') {
+    } else if (home.profile.mode === 'roaming') {
       animal.useRoutine(new WildlifeRoutine(undefined, shelters.routeHeight));
     }
   }
@@ -317,23 +361,57 @@ export class WildlifeEcology {
   ): void {
     if (!this.territories || time < this.nextHabitatUpdate) return;
     this.nextHabitatUpdate = time + 1;
-    const { habitats, wolves } = this.territories;
-    wolves.updateIntents(clock);
+    const { habitats, wolves, land, rabbits } = this.territories;
+    const day = Math.floor(clock / 1440) + 1;
+    const winter = this.seasons.name(day) === 'Зима';
+    this.huntingGrounds.refresh(this.animals, rabbits ?? [], (actor) => this.canHunt(actor));
+    wolves.updateIntents(clock, (point) => this.huntingGrounds.score('wolf', point));
+    if (land) land.prepare(clock, winter, player, this.preyScore, this.animals);
+    const trails = new Map<Predator, HuntingTrail>();
+    for (const actor of predators) {
+      if (
+        !actor.alive ||
+        actor.inDen ||
+        actor.underground ||
+        !actor.huntingOpen ||
+        !actor.homeTerritory
+      )
+        continue;
+      const target = actor.destination ?? actor.homeTerritory;
+      const dx = target.x - actor.x;
+      const dz = target.z - actor.z;
+      const step = Math.min(1, 13 / Math.max(1, Math.hypot(dx, dz)));
+      trails.set(actor, {
+        start: { x: actor.x, z: actor.z },
+        end: { x: actor.x + dx * step, z: actor.z + dz * step },
+        radius: actor.kind === 'wolf' ? 11 : 7,
+        strength: actor.kind === 'wolf' ? 3.8 : 2.4,
+      });
+    }
+    habitats.updateHuntingTrails(clock, trails);
     for (const animal of this.animals) {
-      if (!animal.habitat) continue;
-      const { destination, resting } = habitats.intent(animal.habitat, clock);
+      if (!animal.habitat || this.families?.owns(animal)) continue;
+      const intent = habitats.intent(animal.habitat, clock);
+      const { destination } = intent;
+      const resting =
+        intent.resting ||
+        (animal.kind === 'bear' && winter) ||
+        (animal.kind === 'boar' &&
+          clock % 1440 > 320 &&
+          clock % 1440 < 960 &&
+          habitats.riskAt(animal.x, animal.z) > 1.6);
       animal.foragingAllowed = !resting;
       animal.destination =
         animal.habitat.profile.mode === 'roaming' && !resting
           ? habitats.nearHome(destination, animal.habitatSlot ?? 0)
           : destination;
-      animal.restAt = resting ? animal.destination : undefined;
+      animal.restAt = resting ? (animal.shelter?.entrance ?? animal.destination) : undefined;
     }
-    this.marmots?.update(clock, player);
-    for (const predator of predators) {
-      if (predator.kind !== 'wolf' && predator.homeTerritory)
-        predator.followTerritory(habitats.intent(predator.homeTerritory, clock));
-    }
+    this.families?.update(clock, player, winter, winter && this.seasons.name(day + 4) !== 'Зима');
+    if (!land)
+      for (const predator of predators)
+        if (predator.kind !== 'wolf' && predator.homeTerritory)
+          predator.followTerritory(habitats.intent(predator.homeTerritory, clock));
   }
 
   prepareDenDefense(
@@ -354,6 +432,14 @@ export class WildlifeEcology {
           ? water.level - animal.profile.swimImmersion
           : this.world.heightAt(x, z);
     animal.moveTo(x, z, level);
+  }
+
+  private readonly preyScore = (kind: PredatorKind, point: HabitatPoint) =>
+    this.huntingGrounds.score(kind, point);
+
+  updateRabbitTerritory(actor: RabbitActor, dt: number, time: number, earth: Excavation): boolean {
+    const hunting = actor.solitary && actor.root.userData.hunting === true;
+    return this.neighborTerritories?.update(actor, dt, time, earth, hunting) ?? false;
   }
 
   targetFor(
@@ -389,32 +475,28 @@ export class WildlifeEcology {
 
     if (!current && time >= (this.nextPreySearch.get(predator) ?? -Infinity)) {
       this.nextPreySearch.set(predator, time + 0.68);
-      let lost: RabbitActor | undefined;
-      let nearest = 14;
-      for (const kit of lostKits) {
-        if (!this.canHunt(kit) || AnimalRestraint.active(kit.root)) continue;
-        const distance = Math.hypot(kit.x - predator.x, kit.z - predator.z);
-        if (distance >= nearest || !predator.canPursue(kit.x, kit.z)) continue;
-        lost = kit;
-        nearest = distance;
-      }
-      const prey =
-        lost ??
-        this.animals
-          .filter(
-            (a) =>
-              a.alive &&
-              !a.inShelter &&
-              a.kind !== 'fish' &&
-              !AnimalRestraint.active(a.root) &&
-              predator.canPursue(a.x, a.z) &&
-              Math.hypot(a.x - predator.x, a.z - predator.z) < 14,
-          )
-          .sort(
-            (a, b) =>
-              Math.hypot(a.x - predator.x, a.z - predator.z) -
-              Math.hypot(b.x - predator.x, b.z - predator.z),
-          )[0];
+      let prey: ForestAnimal | RabbitActor | undefined;
+      let best = Infinity;
+      const consider = (actor: ForestAnimal | RabbitActor, distance: number) => {
+        if (
+          !this.canHunt(actor) ||
+          AnimalRestraint.active(actor.root) ||
+          !predator.canPursue(actor.x, actor.z)
+        )
+          return;
+        const preference = preyRank(predator.kind, actor);
+        if (preference < 0 || distance >= 14) return;
+        const score = distance - preference * 1.7 - (actor.juvenile ? 1.5 : 0);
+        if (score < best) {
+          best = score;
+          prey = actor;
+        }
+      };
+      if (this.territories) this.huntingGrounds.around(predator, consider);
+      else
+        for (const actor of this.animals)
+          consider(actor, Math.hypot(actor.x - predator.x, actor.z - predator.z));
+      for (const kit of lostKits) consider(kit, Math.hypot(kit.x - predator.x, kit.z - predator.z));
       const rival =
         !prey && this.rng.chance(0.4)
           ? predators
@@ -458,25 +540,38 @@ export class WildlifeEcology {
     this.prepareHabitats(time, clock, predators, { x: px, z: pz });
     if (time >= this.nextFoodSearch) {
       this.nextFoodSearch = time + 3;
+      const season = this.seasons.name(Math.floor(clock / 1440) + 1);
       for (const animal of this.animals) {
-        const best =
-          animal.foragingAllowed && !animal.inShelter
-            ? this.forage.find(animal, this.risk)
-            : undefined;
+        let best: ForageTarget | undefined;
+        if (animal.foragingAllowed && !animal.inShelter) {
+          const plant = this.forage.find(animal, this.risk, season);
+          const patch = animal.destination;
+          if (plant) best = { kind: 'plant', plant };
+          else if (patch && LITTER_FORAGERS.has(animal.kind) && this.risk(patch.x, patch.z) < 1.5)
+            best = { kind: 'ground', point: patch };
+        }
         if (best) this.foodTargets.set(animal, best);
         else this.foodTargets.delete(animal);
       }
     }
 
-    const threats = predators.filter((p) => p.alive && !p.juvenile && !p.underground && !p.inDen);
+    const threats = predators.filter(
+      (p) => p.alive && !p.juvenile && !p.underground && !p.inDen && p.huntingOpen,
+    );
     for (const animal of this.animals) {
+      if (combatAllowed && animal.kind === 'bear' && !animal.inShelter) {
+        const den = this.families?.careAt(animal);
+        const rival = den && threats.find((p) => Math.hypot(p.x - den.x, p.z - den.z) < 6);
+        if (rival && Math.hypot(rival.x - animal.x, rival.z - animal.z) < 9)
+          animal.guardAgainst(rival, time);
+      }
       const food =
         animal.foragingAllowed && !animal.inShelter ? this.foodTargets.get(animal) : undefined;
-      if (
-        animal.update(dt, time, groundAt, threats, food?.available ? food : undefined) &&
-        food?.available
-      ) {
-        this.world.harvest(food, clock);
+      const plant = food?.kind === 'plant' ? food.plant : undefined;
+      const groundFood = food?.kind === 'ground' ? food.point : undefined;
+      const target = plant?.available ? plant : groundFood;
+      if (animal.update(dt, time, groundAt, threats, target) && plant?.available) {
+        this.world.harvest(plant, clock);
         this.foodTargets.delete(animal);
       }
     }
@@ -553,7 +648,7 @@ export class WildlifeEcology {
       if (!this.animals[i].alive) {
         const animal = this.animals.splice(i, 1)[0];
         this.onDeath?.(animal);
-        this.marmots?.onDeath(animal, clock);
+        this.families?.onDeath(animal, clock);
         ModelAssets.shared.release(animal.root);
         animal.root.removeFromParent();
         this.foodTargets.delete(animal);
@@ -564,6 +659,7 @@ export class WildlifeEcology {
         const predator = predators.splice(i, 1)[0];
         this.onDeath?.(predator);
         this.territories?.wolves.onDeath(predator, clock);
+        this.territories?.land?.onDeath(predator, clock);
         ModelAssets.shared.release(predator.root);
         predator.root.removeFromParent();
         this.preyTargets.delete(predator);
@@ -576,7 +672,7 @@ export class WildlifeEcology {
         (kind) =>
           (this.world.waterSources.length > 0 ||
             (kind !== 'duck' && kind !== 'fish' && kind !== 'frog')) &&
-          (kind !== 'marmot' || (this.marmots?.canImmigrate(clock) ?? true)) &&
+          (this.families?.canImmigrate(kind, clock) ?? true) &&
           this.animals.filter((animal) => animal.kind === kind).length < counts[kind],
       );
       if (candidates.length) {
@@ -588,13 +684,14 @@ export class WildlifeEcology {
         while (slots.has(slot)) slot++;
         const animal = this.spawn(kind, px, pz, false, slot);
         if (animal) {
-          if (kind === 'marmot') this.marmots?.onImmigration(clock);
+          this.families?.onImmigration(kind, clock);
           events.push({ kind: 'arrival', x: animal.x, z: animal.z, subject: animalNames[kind] });
         }
       }
     }
 
     this.territories?.wolves.update(time, clock, { x: px, z: pz });
+    this.territories?.land?.update(clock, { x: px, z: pz });
     return events;
   }
 
@@ -605,14 +702,17 @@ export class WildlifeEcology {
       target.alive &&
       (!(target instanceof ForestAnimal) || !target.inShelter) &&
       (!(target instanceof RabbitActor) ||
-        (!!target.data.lost && target.root.userData.lostKitExposed === true))
+        (target.data.lost
+          ? target.root.userData.lostKitExposed === true
+          : target.data.id !== this.save?.mateId && !target.inShelter))
     );
   }
 
   capture(): void {
     if (!this.save) return;
+    this.neighborTerritories?.capture();
     this.save.wildlife = this.animals
-      .filter((animal) => animal.alive && !this.marmots?.owns(animal))
+      .filter((animal) => animal.alive && !this.families?.owns(animal))
       .map((animal) => ({
         id: animal.socialId,
         habitatSlot: animal.habitatSlot,
@@ -626,7 +726,8 @@ export class WildlifeEcology {
         social: { ...animal.social },
         appearance: { ...animal.appearance },
       }));
-    this.marmots?.capture();
+    this.families?.capture();
     this.territories?.wolves.capture();
+    this.territories?.land?.capture();
   }
 }

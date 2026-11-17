@@ -24,9 +24,137 @@ export const MAMMAL_NURSERY = {
     interval: 5 * DAY,
     litter: 2,
   },
+  fox: { gestation: DAY, emerge: 300, meeting: 650, mature: 4 * DAY, interval: 7 * DAY, litter: 2 },
+  lynx: {
+    gestation: 2 * DAY,
+    emerge: 480,
+    meeting: DAY,
+    mature: 5 * DAY,
+    interval: 9 * DAY,
+    litter: 2,
+  },
+  weasel: {
+    gestation: DAY,
+    emerge: 240,
+    meeting: 540,
+    mature: 3 * DAY,
+    interval: 5 * DAY,
+    litter: 2,
+  },
+  bear: {
+    gestation: 2 * DAY,
+    emerge: 600,
+    meeting: DAY,
+    mature: 6 * DAY,
+    interval: 12 * DAY,
+    litter: 1,
+  },
+  badger: {
+    gestation: DAY,
+    emerge: 360,
+    meeting: 720,
+    mature: 4 * DAY,
+    interval: 7 * DAY,
+    litter: 2,
+  },
+  mouse: {
+    gestation: 480,
+    emerge: 180,
+    meeting: 360,
+    mature: 2 * DAY,
+    interval: 4 * DAY,
+    litter: 2,
+  },
+  mole: {
+    gestation: DAY,
+    emerge: 480,
+    meeting: 720,
+    mature: 3 * DAY,
+    interval: 6 * DAY,
+    litter: 2,
+  },
+  chipmunk: {
+    gestation: DAY,
+    emerge: 300,
+    meeting: 600,
+    mature: 3 * DAY,
+    interval: 6 * DAY,
+    litter: 2,
+  },
+  squirrel: {
+    gestation: DAY,
+    emerge: 480,
+    meeting: 720,
+    mature: 4 * DAY,
+    interval: 7 * DAY,
+    litter: 2,
+  },
+  hedgehog: {
+    gestation: DAY,
+    emerge: 360,
+    meeting: 720,
+    mature: 3 * DAY,
+    interval: 6 * DAY,
+    litter: 2,
+  },
+  deer: {
+    gestation: 2 * DAY,
+    emerge: 480,
+    meeting: DAY,
+    mature: 5 * DAY,
+    interval: 9 * DAY,
+    litter: 1,
+  },
+  'roe-deer': {
+    gestation: DAY,
+    emerge: 480,
+    meeting: DAY,
+    mature: 4 * DAY,
+    interval: 8 * DAY,
+    litter: 1,
+  },
+  moose: {
+    gestation: 2 * DAY,
+    emerge: 420,
+    meeting: 720,
+    mature: 5 * DAY,
+    interval: 10 * DAY,
+    litter: 1,
+  },
+  boar: {
+    gestation: DAY,
+    emerge: 360,
+    meeting: 720,
+    mature: 4 * DAY,
+    interval: 7 * DAY,
+    litter: 2,
+  },
 } as const;
 
 export type NurseryKind = keyof typeof MAMMAL_NURSERY;
+export const PREDATOR_FAMILIES = ['fox', 'lynx', 'weasel'] as const;
+export const WILDLIFE_FAMILIES = [
+  'bear',
+  'badger',
+  'marmot',
+  'mouse',
+  'mole',
+  'chipmunk',
+  'squirrel',
+  'hedgehog',
+  'deer',
+  'roe-deer',
+  'moose',
+  'boar',
+] as const;
+export type PredatorFamilyKind = (typeof PREDATOR_FAMILIES)[number];
+export type WildlifeFamilyKind = (typeof WILDLIFE_FAMILIES)[number];
+export function isPredatorFamilyKind(value: unknown): value is PredatorFamilyKind {
+  return PREDATOR_FAMILIES.some((kind) => value === kind);
+}
+export function isWildlifeFamilyKind(value: unknown): value is WildlifeFamilyKind {
+  return WILDLIFE_FAMILIES.some((kind) => value === kind);
+}
 export type YoungStage = 'nest' | 'entrance' | 'meeting' | 'adult';
 
 export interface MammalOrigin {

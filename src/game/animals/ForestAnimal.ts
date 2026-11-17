@@ -22,7 +22,6 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   readonly model: ModelInstance;
   readonly defense: number;
   socialId = 0;
-  habitatSlot?: number;
   habitat?: Habitat;
   destination?: HabitatPoint;
   foragingAllowed = true;
@@ -42,7 +41,6 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private guard?: { target: { x: number; z: number }; until: number };
   private escort?: { x: number; z: number };
   private routine?: WildlifeRoutine;
-  mammalId?: number;
 
   protected constructor(
     kind: WildlifeKind,
@@ -90,6 +88,10 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
 
   get shelter(): WildlifeRoutine['shelter'] {
     return this.routine?.shelter;
+  }
+
+  get homeTerritory(): Habitat | undefined {
+    return this.habitat;
   }
 
   useRoutine(routine: WildlifeRoutine, inside = false): void {

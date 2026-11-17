@@ -8,6 +8,7 @@ import { MAX_BURROW_FUR } from './BurrowFur';
 import { DEN_BED } from './WolfDen';
 import { isShelteredWildlife } from './WildlifeShelterProfiles';
 import { isWildlifeShelterSite } from './WildlifeShelters';
+import { isPredatorFamilyKind, isWildlifeFamilyKind, MAMMAL_NURSERY } from './MammalNursery';
 
 export const SAVE_VERSION = 5;
 
@@ -330,6 +331,9 @@ export class SaveRepository {
           (rabbit.age !== undefined && (!Number.isFinite(rabbit.age) || rabbit.age < 0)) ||
           (rabbit.wildParentId !== undefined &&
             (!Number.isSafeInteger(rabbit.wildParentId) || rabbit.wildParentId < 0)) ||
+          (rabbit.wildBurrowId !== undefined &&
+            (!Number.isSafeInteger(rabbit.wildBurrowId) || rabbit.wildBurrowId < 0)) ||
+          (rabbit.inWildBurrow !== undefined && rabbit.inWildBurrow !== true) ||
           (rabbit.lost !== undefined && ((rabbit.age ?? 3) >= 3 || !validLostKit(rabbit.lost))) ||
           (rabbit.nextMatingAt !== undefined &&
             (!Number.isFinite(rabbit.nextMatingAt) || rabbit.nextMatingAt < 0)) ||
@@ -524,6 +528,15 @@ function validMammalPopulation(data: SaveData): boolean {
   if (counter !== undefined && !positiveId(counter)) return false;
   if (data.marmotImmigrationAt !== undefined && !validMinute(data.marmotImmigrationAt))
     return false;
+  if (
+    data.landMammalImmigration !== undefined &&
+    (!isRecord(data.landMammalImmigration) ||
+      Object.entries(data.landMammalImmigration).some(
+        ([kind, minute]) =>
+          (!isPredatorFamilyKind(kind) && !isWildlifeFamilyKind(kind)) || !validMinute(minute),
+      ))
+  )
+    return false;
 
   const liveIds = new Set<number>();
   const socialIds = new Set(data.wildlife?.map((animal) => animal.id));
@@ -540,7 +553,10 @@ function validMammalPopulation(data: SaveData): boolean {
         return false;
     }
   for (const animal of data.wildlife ?? []) {
-    if (animal.mammalId !== undefined && (animal.kind !== 'marmot' || !addId(animal.mammalId)))
+    if (
+      animal.mammalId !== undefined &&
+      (!isWildlifeFamilyKind(animal.kind) || !addId(animal.mammalId))
+    )
       return false;
     if (
       animal.mammalOrigin !== undefined &&
@@ -552,10 +568,20 @@ function validMammalPopulation(data: SaveData): boolean {
   const nurseries = data.mammalNurseries;
   if (nurseries !== undefined && !isRecord(nurseries)) return false;
   const size = data.worldConfig?.size ?? 110;
+  if (!validLandPredators(data.landPredators, size, addId)) return false;
   for (const [key, state] of Object.entries(nurseries ?? {})) {
-    if (!/^(wolf|marmot):\d+$/.test(key) || !isRecord(state) || !validMinute(state.nextAt))
+    const [kind, slot, extra] = key.split(':');
+    if (
+      extra !== undefined ||
+      !/^\d+$/.test(slot ?? '') ||
+      !Number.isSafeInteger(Number(slot)) ||
+      (kind !== 'wolf' && !isPredatorFamilyKind(kind) && !isWildlifeFamilyKind(kind)) ||
+      !isRecord(state) ||
+      !validMinute(state.nextAt)
+    )
       return false;
-    if (!Array.isArray(state.young) || state.young.length > 2) return false;
+    if (!Array.isArray(state.young) || state.young.length > MAMMAL_NURSERY[kind].litter)
+      return false;
     const parents = state.parents;
     if ((parents !== undefined || state.young.length) && !validMammalParents(parents)) return false;
     if (state.dueAt !== undefined && (!parents || !validMinute(state.dueAt) || state.young.length))
@@ -587,7 +613,7 @@ function validMammalPopulation(data: SaveData): boolean {
               !(young.denDepth > 0 && young.denDepth <= DEN_BED)))
         )
           return false;
-      } else {
+      } else if (isWildlifeFamilyKind(kind)) {
         if (
           young.denDepth !== undefined ||
           (young.inside !== undefined && young.inside !== true) ||
@@ -597,8 +623,71 @@ function validMammalPopulation(data: SaveData): boolean {
         )
           return false;
         socialIds.add(young.socialId);
+      } else if (
+        young.denDepth !== undefined ||
+        young.socialId !== undefined ||
+        young.social !== undefined ||
+        (young.inside !== undefined && young.inside !== true)
+      ) {
+        return false;
       }
     }
+  }
+  return true;
+}
+
+function validLandPredators(
+  value: unknown,
+  size: number,
+  addId: (id: unknown) => boolean,
+): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > 512) return false;
+  const slots = new Set<string>();
+  const identities = new Set<string>();
+  for (const actor of value) {
+    if (
+      !isRecord(actor) ||
+      (!isPredatorFamilyKind(actor.kind) && actor.kind !== 'dog' && actor.kind !== 'snake') ||
+      typeof actor.slot !== 'number' ||
+      !Number.isSafeInteger(actor.slot) ||
+      actor.slot < 0 ||
+      typeof actor.id !== 'string' ||
+      !/^(mammal|predator):\d+$/.test(actor.id) ||
+      typeof actor.health !== 'number' ||
+      !Number.isFinite(actor.health) ||
+      actor.health <= 0 ||
+      typeof actor.x !== 'number' ||
+      !(Math.abs(actor.x) <= size) ||
+      typeof actor.z !== 'number' ||
+      !(Math.abs(actor.z) <= size) ||
+      (actor.inside !== undefined && (actor.inside !== true || actor.kind === 'dog'))
+    )
+      return false;
+    if (
+      actor.mouseBurrow !== undefined &&
+      (actor.kind !== 'weasel' ||
+        typeof actor.mouseBurrow !== 'number' ||
+        !Number.isSafeInteger(actor.mouseBurrow) ||
+        actor.mouseBurrow < 0)
+    )
+      return false;
+
+    if (actor.mammalId !== undefined) {
+      if (
+        !isPredatorFamilyKind(actor.kind) ||
+        !addId(actor.mammalId) ||
+        actor.id !== `mammal:${actor.mammalId}`
+      )
+        return false;
+    } else if (!actor.id.startsWith('predator:')) return false;
+    if (actor.origin !== undefined && (!actor.mammalId || !validMammalOrigin(actor.origin)))
+      return false;
+
+    const slot = `${actor.kind}:${actor.slot}`;
+    if (slots.has(slot) || identities.has(actor.id)) return false;
+    slots.add(slot);
+    identities.add(actor.id);
   }
   return true;
 }

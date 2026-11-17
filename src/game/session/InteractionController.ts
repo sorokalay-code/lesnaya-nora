@@ -90,7 +90,8 @@ export class InteractionController {
 
   openPartner(p: PartnerTraits, line?: string): void {
     const actor = this.context.rabbits.find((r) => r.data.id === p.id);
-    if ((p.health ?? 100) <= 0 || (actor && AnimalRestraint.active(actor.root))) return;
+    if ((p.health ?? 100) <= 0 || actor?.inShelter || (actor && AnimalRestraint.active(actor.root)))
+      return;
     this.context.resetInput();
     this.dialogPartner = p;
     this.dialogKit = undefined;

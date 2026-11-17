@@ -1,6 +1,7 @@
 import type { WildlifeKind } from './animals/types';
+import type { PredatorKind } from './types';
 
-type GroundShelterShape = 'burrow' | 'molehills' | 'leaf-nest';
+type GroundShelterShape = 'burrow' | 'molehills' | 'leaf-nest' | 'roots' | 'cave' | 'crevice';
 
 export interface WildlifeShelterProfile {
   shape: GroundShelterShape | 'tree-nest';
@@ -18,7 +19,15 @@ const profiles = {
   mole: { shape: 'molehills', radius: 0.76, height: 0.26, earth: 0x5e4131, edge: 0x92715b },
   hedgehog: { shape: 'leaf-nest', radius: 0.72, height: 0.48, earth: 0x6e5840, edge: 0xb98a48 },
   squirrel: { shape: 'tree-nest', radius: 0.68, height: 0.56, earth: 0x67593b, edge: 0x897353 },
-} as const satisfies Partial<Record<WildlifeKind, WildlifeShelterProfile>>;
+  fox: { shape: 'burrow', radius: 1.19, height: 0.71, earth: 0x926a47, edge: 0xbd925c },
+  lynx: { shape: 'roots', radius: 1.52, height: 0.85, earth: 0x554434, edge: 0x735941 },
+  bear: { shape: 'cave', radius: 2.32, height: 1.57, earth: 0x646861, edge: 0x818477 },
+  weasel: { shape: 'burrow', radius: 0.42, height: 0.22, earth: 0x534334, edge: 0x796850 },
+  snake: { shape: 'crevice', radius: 0.72, height: 0.36, earth: 0x60675d, edge: 0x89887a },
+  rabbit: { shape: 'burrow', radius: 0.74, height: 0.51, earth: 0x74543a, edge: 0x9d7953 },
+} as const satisfies Partial<
+  Record<WildlifeKind | PredatorKind | 'rabbit', WildlifeShelterProfile>
+>;
 
 export type ShelteredWildlife = keyof typeof profiles;
 

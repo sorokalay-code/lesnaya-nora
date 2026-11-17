@@ -2,9 +2,15 @@ import type { Habitat, HabitatPoint } from './AnimalHabitats';
 import { WILDLIFE_HABITATS } from './HabitatProfiles';
 import type { WildlifeKind } from './animals/types';
 import type { Resource } from './World';
+import type { FoodKind, Season } from './types';
 
 const FOOD_RADIUS = 9;
 const CELL_SIZE = 12;
+const bearSeasonalFood: Partial<Record<Season, readonly FoodKind[]>> = {
+  Весна: ['clover', 'mushroom', 'carrot', 'berries', 'acorn'],
+  Лето: ['berries', 'clover', 'mushroom', 'carrot', 'acorn'],
+  Осень: ['acorn', 'berries', 'mushroom', 'carrot', 'clover'],
+};
 
 /** Индексирует неподвижные растения; животные оценивают корм только в соседних ячейках. */
 export class WildlifeForage {
@@ -16,8 +22,10 @@ export class WildlifeForage {
   find(
     animal: HabitatPoint & { kind: WildlifeKind; habitat?: Habitat; destination?: HabitatPoint },
     risk: (x: number, z: number) => number,
+    season?: Season,
   ): Resource | undefined {
-    const diet = WILDLIFE_HABITATS[animal.kind].food;
+    const seasonal = animal.kind === 'bear' && season ? bearSeasonalFood[season] : undefined;
+    const diet = seasonal ?? WILDLIFE_HABITATS[animal.kind].food;
     if (!diet.length) return;
     if (this.resources.length !== this.resourceCount) this.index();
 
@@ -48,7 +56,7 @@ export class WildlifeForage {
 
           const danger = risk(plant.x, plant.z);
           if (danger > 1.45 && danger > localRisk + 0.24) continue;
-          const score = distance + danger * 5 + diet.indexOf(plant.kind) * 0.35;
+          const score = distance + danger * 5 + diet.indexOf(plant.kind) * (seasonal ? 1 : 0.35);
           if (score < bestScore) {
             bestScore = score;
             best = plant;

@@ -30,7 +30,7 @@ import type { Excavation } from '../src/game/Excavation';
 import type { Resource, World } from '../src/game/World';
 import { loadModels } from './model-fixture';
 
-await loadModels('rabbit', 'deer', 'moose', 'squirrel', 'hedgehog', 'beaver', 'fox');
+await loadModels('rabbit', 'deer', 'moose', 'squirrel', 'hedgehog', 'beaver', 'fox', 'wolf');
 const game = () => NewGameFactory.create(31, 0, new RabbitFactory(new Random(84)));
 const world = () =>
   ({
@@ -222,15 +222,15 @@ test('combat truce keeps wildlife alive while the rest of the ecology keeps movi
     forest = world();
   const ecology = new WildlifeEcology(new THREE.Scene(), forest, rng);
   const deer = createForestAnimal('deer', 0.5, 0, rng),
-    fox = createPredatorActor('fox', 0, 0, rng);
+    wolf = createPredatorActor('wolf', 0, 0, rng);
   ecology.animals.push(deer);
-  ecology.targetFor(fox, [fox], 1);
+  ecology.targetFor(wolf, [wolf], 1);
   const health = deer.health;
-  ecology.update(0.05, 2, 430, 80, 80, () => 0, [fox], false);
+  ecology.update(0.05, 2, 430, 80, 80, () => 0, [wolf], false);
   assert.equal(deer.health, health);
-  assert.equal(fox.attackCooldown, 0);
+  assert.equal(wolf.attackCooldown, 0);
   assert.notEqual(deer.x, 0.5);
-  ecology.update(0.05, 3, 436, 80, 80, () => 0, [fox], true);
+  ecology.update(0.05, 3, 436, 80, 80, () => 0, [wolf], true);
   assert.ok(deer.health < health);
 });
 

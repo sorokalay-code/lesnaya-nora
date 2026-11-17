@@ -1,4 +1,9 @@
-import { PREDATOR_HABITATS, WILDLIFE_HABITATS, type HabitatProfile } from './HabitatProfiles';
+import {
+  PREDATOR_HABITATS,
+  RABBIT_HABITAT,
+  WILDLIFE_HABITATS,
+  type HabitatProfile,
+} from './HabitatProfiles';
 import { hash2, Random } from './Random';
 import type { WildlifeKind } from './animals/types';
 import type { PredatorKind } from './types';
@@ -27,6 +32,16 @@ export interface TerritoryIntent {
 const SITE_SAMPLES = 145;
 const WOLF_DEN_SEPARATION = 39;
 const HUNT_LENGTH = 210;
+const TRAIL_MINUTES = 80;
+const DOG_WAYPOINT_MINUTES = 30;
+const TRAIL_CELL = 20;
+export type HuntingScore = (point: HabitatPoint) => number;
+export interface HuntingTrail {
+  start: HabitatPoint;
+  end: HabitatPoint;
+  radius: number;
+  strength: number;
+}
 
 /** Выбирает участки по зерну и рельефу. Маршруты не зависят от порядка кадров или загрузки мира. */
 export class AnimalHabitats {
@@ -34,12 +49,15 @@ export class AnimalHabitats {
   private readonly destinations = new WeakMap<Habitat, { phase: string; point: HabitatPoint }>();
   private readonly dens: Habitat[] = [];
   private wolfRoutes: readonly TerritoryIntent[] = [];
+  private readonly trails = new Map<object, HuntingTrail & { refreshed: number }>();
+  private readonly nearbyTrails = new Map<string, (HuntingTrail & { refreshed: number })[]>();
+  private clock = 0;
   private readonly scale: number;
   private readonly limit: number;
 
   constructor(
     private readonly world: Pick<World, 'biomeAt' | 'heightAt' | 'waterSources'> &
-      Partial<Pick<World, 'waterAt' | 'nearWater'>>,
+      Partial<Pick<World, 'waterAt' | 'nearWater' | 'layout'>>,
     private readonly seed: number,
     size: number,
   ) {
@@ -50,6 +68,11 @@ export class AnimalHabitats {
   predator(kind: PredatorKind, slot: number): Habitat | undefined {
     const profile = PREDATOR_HABITATS[kind];
     if (!profile) return;
+    const gardens = this.world.layout?.gardens;
+    if (kind === 'dog' && gardens?.length) {
+      const { x, z, radius } = gardens[slot % gardens.length];
+      return { x, z, key: this.seed ^ slot, profile, radius: radius + 8 };
+    }
     if (kind === 'wolf') {
       for (let i = this.dens.length; i <= slot; i++) {
         const den = this.site(kind, i, profile, (x, z) =>
@@ -72,12 +95,67 @@ export class AnimalHabitats {
   wildlife(kind: WildlifeKind, slot: number): Habitat | undefined {
     const profile = WILDLIFE_HABITATS[kind];
     if (profile.mode === 'water') return;
-    const group = profile.mode === 'roaming' && kind !== 'roe-deer' ? Math.floor(slot / 3) : slot;
+    let group = slot;
+    if (kind === 'boar' && slot % 2 === 0) group = Math.floor(slot / 6) * 6;
+    else if (kind !== 'boar' && profile.groupSize) group = Math.floor(slot / profile.groupSize);
     return this.site(kind, group, profile, (x, z) => this.denPressure(this.dens, x, z));
+  }
+
+  rabbit(slot: number, anchor?: HabitatPoint): Habitat | undefined {
+    return this.site(
+      'rabbit',
+      slot,
+      RABBIT_HABITAT,
+      (x, z) => this.denPressure(this.dens, x, z),
+      anchor,
+    );
+  }
+
+  dogPatrol(home: Habitat, slot: number, clock: number): TerritoryIntent {
+    const step = Math.floor(clock / DOG_WAYPOINT_MINUTES);
+    const destination = this.gardenEdge(slot, step) ?? this.intent(home, clock).destination;
+    return { home, destination, resting: false, hunting: true };
+  }
+
+  private gardenEdge(slot: number, step: number): HabitatPoint | undefined {
+    const gardens = this.world.layout?.gardens;
+    if (!gardens?.length) return;
+    const garden = gardens[slot % gardens.length];
+
+    for (let offset = 0; offset < 8; offset++) {
+      const angle = ((step + offset) * Math.PI) / 4 + slot * 1.4;
+      const x = garden.x + Math.sin(angle) * (garden.radius + 2.8);
+      const z = garden.z + Math.cos(angle) * (garden.radius + 2.8);
+      if (this.dry(x, z) && this.slopeAt(x, z) < 0.65) return { x, z };
+    }
   }
 
   setWolfRoutes(routes: readonly TerritoryIntent[]): void {
     this.wolfRoutes = routes;
+  }
+
+  updateHuntingTrails(clock: number, active: ReadonlyMap<object, HuntingTrail>): void {
+    this.clock = clock;
+    for (const [key, trail] of active) this.trails.set(key, { ...trail, refreshed: clock });
+    this.nearbyTrails.clear();
+    for (const [key, trail] of this.trails) {
+      if (clock - trail.refreshed >= TRAIL_MINUTES) {
+        this.trails.delete(key);
+        continue;
+      }
+      const { start, end, radius } = trail;
+      const left = Math.floor((Math.min(start.x, end.x) - radius) / TRAIL_CELL);
+      const right = Math.floor((Math.max(start.x, end.x) + radius) / TRAIL_CELL);
+      const top = Math.floor((Math.min(start.z, end.z) - radius) / TRAIL_CELL);
+      const bottom = Math.floor((Math.max(start.z, end.z) + radius) / TRAIL_CELL);
+      for (let x = left; x <= right; x++)
+        for (let z = top; z <= bottom; z++) {
+          const cell = `${x}:${z}`;
+          const entries = this.nearbyTrails.get(cell);
+          if (entries) entries.push(trail);
+          else this.nearbyTrails.set(cell, [trail]);
+        }
+    }
   }
 
   riskAt(x: number, z: number): number {
@@ -88,6 +166,18 @@ export class AnimalHabitats {
       const fromHunt = Math.hypot(x - destination.x, z - destination.z);
       const huntRisk = hunting ? Math.max(0, 1 - fromHunt / (home.radius * 0.48)) * 3 : 0;
       risk = Math.max(risk, denRisk, huntRisk);
+    }
+    const cell = `${Math.floor(x / TRAIL_CELL)}:${Math.floor(z / TRAIL_CELL)}`;
+    for (const { start, end, radius, strength, refreshed } of this.nearbyTrails.get(cell) ?? []) {
+      const dx = end.x - start.x;
+      const dz = end.z - start.z;
+      const fraction = Math.max(
+        0,
+        Math.min(1, ((x - start.x) * dx + (z - start.z) * dz) / Math.max(0.001, dx * dx + dz * dz)),
+      );
+      const fromTrail = Math.hypot(x - start.x - dx * fraction, z - start.z - dz * fraction);
+      const fade = Math.max(0, 1 - (this.clock - refreshed) / TRAIL_MINUTES);
+      risk = Math.max(risk, Math.max(0, 1 - fromTrail / radius) * strength * fade);
     }
     return risk;
   }
@@ -100,8 +190,23 @@ export class AnimalHabitats {
     );
   }
 
-  intent(home: Habitat, clock: number, wolf = false): TerritoryIntent {
-    const hunting = !wolf || this.wolfHunting(home, clock);
+  predatorIntent(
+    kind: PredatorKind,
+    home: Habitat,
+    clock: number,
+    prey: HuntingScore,
+  ): TerritoryIntent {
+    return this.intent(home, clock, kind === 'wolf', prey, kind);
+  }
+
+  intent(
+    home: Habitat,
+    clock: number,
+    wolf = false,
+    prey?: HuntingScore,
+    kind?: PredatorKind,
+  ): TerritoryIntent {
+    const hunting = wolf ? this.wolfHunting(home, clock) : !this.resting(home, clock);
     const resting = wolf ? !hunting : this.resting(home, clock);
     const bedding = home.profile.activeDuring === 'twilight' && resting;
     const factor = resting
@@ -120,11 +225,12 @@ export class AnimalHabitats {
     const phase = bedding
       ? Math.floor((clock + 180) / 720)
       : Math.floor((clock + (home.key % duration)) / duration);
-    const tag = `${Number(resting)}:${phase}`;
+    const danger = !resting && !wolf && !prey ? Math.floor(clock / 30) : 0;
+    const tag = `${Number(resting)}:${phase}:${danger}`;
     let previous = this.destinations.get(home);
     if (previous?.phase !== tag) {
       const rng = new Random(home.key ^ phase ^ (hunting ? 3875 : 9027));
-      const point = this.pickDestination(home, factor, rng, wolf, hunting, bedding);
+      const point = this.pickDestination(home, factor, rng, wolf, hunting, bedding, prey, kind);
       previous = { phase: tag, point };
       this.destinations.set(home, previous);
     }
@@ -149,11 +255,23 @@ export class AnimalHabitats {
     return this.dry(x, z) ? { x, z } : home;
   }
 
+  nurseryBed(home: Habitat, slot: number): HabitatPoint {
+    for (let offset = 0; offset < 6; offset++) {
+      const angle = slot * 2.399963 + (offset * Math.PI) / 3;
+      const x = home.x + Math.cos(angle) * Math.min(6, home.radius * 0.22);
+      const z = home.z + Math.sin(angle) * Math.min(6, home.radius * 0.22);
+      if (this.dry(x, z) && this.slopeAt(x, z) < 0.52 && this.world.biomeAt(x, z) === 'forest')
+        return { x, z };
+    }
+    return this.nearHome(home, slot);
+  }
+
   private site(
     kind: string,
     slot: number,
     profile: HabitatProfile,
     pressure: (x: number, z: number) => number,
+    anchor?: HabitatPoint,
   ): Habitat | undefined {
     const id = `${kind}:${slot}`;
     const saved = this.sites.get(id);
@@ -176,6 +294,11 @@ export class AnimalHabitats {
         const distance = rng.range(2, 12);
         x = water.x + Math.sin(angle) * distance;
         z = water.z + Math.cos(angle) * distance;
+      } else if (anchor && sample < SITE_SAMPLES * 0.8) {
+        const angle = rng.range(0, Math.PI * 2);
+        const distance = rng.range(0, profile.radius * 0.8);
+        x = anchor.x + Math.sin(angle) * distance;
+        z = anchor.z + Math.cos(angle) * distance;
       } else {
         x = rng.range(-this.limit, this.limit);
         z = rng.range(-this.limit, this.limit);
@@ -189,6 +312,7 @@ export class AnimalHabitats {
         (shore && this.world.nearWater?.(x, z, 5) === false ? 32 : 0) +
         slope * 21 +
         pressure(x, z) +
+        (anchor ? Math.hypot(x - anchor.x, z - anchor.z) * 0.65 : 0) +
         rng.range(0, 11);
       if (score >= bestScore) continue;
       bestScore = score;
@@ -205,6 +329,8 @@ export class AnimalHabitats {
     wolf: boolean,
     hunting: boolean,
     bedding: boolean,
+    prey?: HuntingScore,
+    kind?: PredatorKind,
   ): HabitatPoint {
     let best: HabitatPoint = home;
     let bestScore = Infinity;
@@ -228,7 +354,11 @@ export class AnimalHabitats {
       const score =
         (preferred ? 0 : 8) +
         (wet && this.world.nearWater?.(x, z, 5) === false ? 40 : 0) +
-        (wolf ? 0 : this.riskAt(x, z) * 4) +
+        (home.profile.feedNearWater && !bedding && this.world.nearWater?.(x, z, 9) === false
+          ? 19
+          : 0) +
+        (wolf || (kind && kind !== 'fox' && kind !== 'lynx') ? 0 : this.riskAt(x, z) * 4) -
+        (hunting ? Math.min(25, (prey?.({ x, z }) ?? 0) * 3.5) : 0) +
         slope * 12 +
         rng.range(0, 6);
       if (score < bestScore) {

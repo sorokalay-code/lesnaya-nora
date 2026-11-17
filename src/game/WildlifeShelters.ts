@@ -39,6 +39,10 @@ const MAX_SITE_ATTEMPTS = 44;
 /** Размещает укрытия у участков животных и сохраняет их независимо от заселения. */
 export class WildlifeShelters {
   private readonly homes = new Map<string, WildlifeShelter>();
+  private readonly rabbitModels = new Map<
+    number,
+    { model: Mesh; obstacle: HabitatPoint & { radius: number } }
+  >();
   private readonly unavailable = new Set<string>();
   private readonly obstacles = new Map<string, (HabitatPoint & { radius: number })[]>();
   private readonly trees = new Map<string, NonNullable<World['treeLocations']>[number][]>();
@@ -80,6 +84,30 @@ export class WildlifeShelters {
     }
     if (this.save) (this.save.wildlifeShelters ??= []).push(site);
     return this.mount(site);
+  }
+
+  get(kind: ShelteredWildlife, slot: number): WildlifeShelter | undefined {
+    return this.homes.get(`${kind}:${slot}`);
+  }
+
+  ofKind(kind: ShelteredWildlife): WildlifeShelter[] {
+    return [...this.homes.values()].filter((shelter) => shelter.site.kind === kind);
+  }
+
+  pruneRabbitSites(used: ReadonlySet<number>): void {
+    for (const [id, { model, obstacle }] of this.rabbitModels) {
+      if (used.has(id)) continue;
+      this.rabbitModels.delete(id);
+      this.homes.delete(`rabbit:${id}`);
+      const key = `${Math.floor(obstacle.x / CELL_SIZE)}:${Math.floor(obstacle.z / CELL_SIZE)}`;
+      const entries = this.obstacles.get(key);
+      if (entries) entries.splice(entries.indexOf(obstacle), 1);
+      model.removeFromParent();
+    }
+    if (this.save?.wildlifeShelters)
+      this.save.wildlifeShelters = this.save.wildlifeShelters.filter(
+        (site) => site.kind !== 'rabbit' || used.has(site.slot),
+      );
   }
 
   routeHeight = (x: number, z: number): number | undefined => {
@@ -214,7 +242,9 @@ export class WildlifeShelters {
         (px, _py, pz) => Math.hypot(px - x, pz - z) - r,
       );
     }
-    this.add(this.obstacles, { x, z, radius: profile.radius });
+    const obstacle = { x, z, radius: profile.radius };
+    this.add(this.obstacles, obstacle);
+    if (kind === 'rabbit') this.rabbitModels.set(slot, { model, obstacle });
     const shelter = this.frame(site);
     this.homes.set(`${kind}:${slot}`, shelter);
     return shelter;

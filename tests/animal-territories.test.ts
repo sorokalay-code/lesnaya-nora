@@ -317,7 +317,9 @@ test('marmots grow in their own visible burrow and preserve social and individua
   save.worldConfig!.creatures.marmot = 3;
   const forest = population(save);
   runEcology(forest, save, 0, 0);
-  const nursery = Object.values(save.mammalNurseries ?? {})[0];
+  const nursery = Object.entries(save.mammalNurseries ?? {}).find(([key]) =>
+    key.startsWith('marmot:'),
+  )?.[1];
   assert.ok(nursery?.dueAt, JSON.stringify(save.wildlifeShelters));
   const due = nursery.dueAt;
   save.clock = due;

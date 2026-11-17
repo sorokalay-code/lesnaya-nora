@@ -122,14 +122,14 @@ export class WolfPopulation {
       for (const young of pack.nursery.state.young) this.placeYoung(pack, young, false);
   }
 
-  updateIntents(clock: number): void {
+  updateIntents(clock: number, prey?: (point: HabitatPoint) => number): void {
     for (const pack of this.packs.values()) this.updateNursery(pack, clock);
     const routes = new Map<Habitat, TerritoryIntent>();
     for (const slot of this.slots) {
       if (!slot.actor?.alive) continue;
       const { habitats } = this.context;
       const { home } = slot.pack;
-      const intent = routes.get(home) ?? habitats.intent(home, clock, true);
+      const intent = routes.get(home) ?? habitats.intent(home, clock, true, prey);
       routes.set(home, intent);
       this.follow(slot, intent, clock);
     }

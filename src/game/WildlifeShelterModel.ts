@@ -40,11 +40,30 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
     clod(-r * 0.37, 0, r * 0.15, r * 0.6, h, r * 0.55);
     clod(r * 0.49, 0, r * 0.3, r * 0.42, h * 0.69, r * 0.43, edge);
     clod(r * 0.23, 0, -r * 0.45, r * 0.35, h * 0.43, r * 0.34);
-  } else {
+  } else if (shape !== 'cave' && shape !== 'crevice') {
     clod(0, 0, 0, r, h, r * 0.88);
   }
 
-  if (shape === 'burrow' || shape === 'leaf-nest') {
+  if (shape === 'cave' || shape === 'crevice') {
+    clod(0, h * 0.12, r * 0.18, r, h * 0.84, r * 0.69);
+    for (const side of [-1, 1])
+      clod(side * r * 0.62, h * 0.15, -r * 0.42, r * 0.38, h * 0.66, r * 0.38, edge);
+    clod(r * 0.05, h * 0.64, -r * 0.33, r * 0.81, h * 0.42, r * 0.51, edge);
+  }
+
+  if (shape === 'roots') {
+    clod(0, h * 0.52, r * 0.22, r * 0.54, h * 0.61, r * 0.47, edge);
+    for (const side of [-1, 1])
+      bake(
+        new THREE.CylinderGeometry(r * 0.07, r * 0.17, r * 1.56, 6)
+          .rotateX(Math.PI * 0.4)
+          .rotateY(side * 0.54)
+          .translate(side * r * 0.52, h * 0.37, -r * 0.23),
+        edge,
+      );
+  }
+
+  if (shape !== 'tree-nest' && shape !== 'molehills') {
     // Тёмная ниша закрывает торец маленького муляжа. Под поверхностью мира геометрии нет.
     const mouth = new THREE.CircleGeometry(1, 14, 0, Math.PI * 2)
       .scale(r * 0.45, h * 0.55, 1)

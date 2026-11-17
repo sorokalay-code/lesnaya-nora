@@ -50,7 +50,8 @@ export class RabbitPredation {
         actor.root.userData.hunting = false;
         continue;
       }
-      if (!actor.solitary || !actor.alive || AnimalRestraint.active(actor.root)) continue;
+      if (!actor.solitary || !actor.alive || actor.inShelter || AnimalRestraint.active(actor.root))
+        continue;
       this.hunt(
         {
           rig: actor.rig,

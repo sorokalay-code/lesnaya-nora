@@ -30,7 +30,7 @@ export class ExcavationTraffic {
   ): TunnelEvent[] {
     const events: TunnelEvent[] = [];
     for (const actor of rabbits) {
-      if (AnimalRestraint.active(actor.root) || !actor.alive) continue;
+      if (AnimalRestraint.active(actor.root) || !actor.alive || actor.inShelter) continue;
       if (actor.data.id === save.mateId || actor.rig.root.userData.conversing) continue;
 
       if (
@@ -55,7 +55,12 @@ export class ExcavationTraffic {
     for (const predator of predators) {
       if (predator.kind !== 'fox' && predator.kind !== 'weasel') continue;
 
-      if (!predator.alive || AnimalRestraint.active(predator.root)) {
+      if (
+        !predator.alive ||
+        predator.inDen ||
+        predator.juvenile ||
+        AnimalRestraint.active(predator.root)
+      ) {
         this.visits.delete(predator);
         predator.leaveTunnel();
         continue;

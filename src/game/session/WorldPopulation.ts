@@ -23,6 +23,7 @@ import { AnimalHabitats } from '../AnimalHabitats';
 import { WolfPopulation } from './WolfPopulation';
 import { WolfDens } from '../WolfDens';
 import { WildlifeShelters } from '../WildlifeShelters';
+import { LandPredators } from './LandPredators';
 import { DEN_DEPTH, DEN_HALF_WIDTH } from '../WolfDen';
 
 type LegacyPredatorSlot = PredatorKind | 'bear';
@@ -47,6 +48,8 @@ export class WorldPopulation {
     onWolfArrival?: (wolf: Predator) => void;
     onWolfBirth?: (wolf: Predator) => void;
     onWolfDeparture?: (wolf: Predator) => void;
+    onPredatorArrival?: (predator: Predator) => void;
+    onPredatorDeparture?: (predator: Predator) => void;
     onDenDiscovery?: () => void;
     onDenWarning?: () => void;
   }) {
@@ -154,6 +157,20 @@ export class WorldPopulation {
     for (const [i, kind] of kinds.entries())
       if (kind === 'wolf') wolves.register(`predator:${i}`, wolfIndex++);
     wolves.restoreYoung();
+    const shelters = new WildlifeShelters(
+      context.world,
+      context.scene,
+      context.save,
+      this.wolfDens,
+    );
+    const land = new LandPredators({
+      ...context,
+      predators: this.predators,
+      habitats,
+      shelters,
+      onArrival: context.onPredatorArrival,
+      onDeparture: context.onPredatorDeparture,
+    });
 
     for (const [i, kind] of kinds.entries()) {
       const a = context.rng.range(0, Math.PI * 2),
@@ -166,6 +183,7 @@ export class WorldPopulation {
       if (kind === 'bear' || kind === 'wolf') continue;
       const slot = slots.get(kind) ?? 0;
       slots.set(kind, slot + 1);
+      if (land.register(kind, slot, `predator:${i}`, { x, z }, context.rng)) continue;
       const home = habitats.predator(kind, slot);
       const predator = createPredatorActor(kind, home?.x ?? x, home?.z ?? z, context.rng);
       predator.root.userData.remainsIdentity = `predator:${i}`;
@@ -261,10 +279,13 @@ export class WorldPopulation {
       {
         habitats,
         wolves,
-        shelters: new WildlifeShelters(context.world, context.scene, context.save, this.wolfDens),
+        shelters,
+        land,
+        rabbits: this.rabbits,
       },
     );
     this.ecology.populate();
+    land.restoreFamilies();
     this.wildlife = this.ecology.animals;
     this.hawks = Array.from({ length: config.creatures.hawk }, (_, index) => {
       const angle = index * 2.4;

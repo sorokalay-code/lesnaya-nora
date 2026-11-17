@@ -146,6 +146,7 @@ export class AnimalSimulation {
     const mate = this.context.rabbits.find((actor) => actor.data.id === mateId);
     if (
       !mate?.alive ||
+      mate.inShelter ||
       !potentialMate(save.player, mate.data) ||
       Math.hypot(
         mate.x - save.player.x,
@@ -267,7 +268,10 @@ export class AnimalSimulation {
           Math.hypot(rabbit.data.x - p.x, rabbit.data.z - p.z) < 12
         )
           this.context.toast(event.text);
-      } else rabbit.update(dt, time, p.x, p.z, this.context.groundAt);
+      } else if (
+        !this.context.ecology.updateRabbitTerritory?.(rabbit, dt, time, this.context.earth)
+      )
+        rabbit.update(dt, time, p.x, p.z, this.context.groundAt);
 
       const mark = rabbit.rig.root.getObjectByName('mate-mark');
       if (mark) {
@@ -462,6 +466,7 @@ export class AnimalSimulation {
     const p = this.context.save.player;
     for (const rabbit of this.context.rabbits)
       rabbit.rig.root.visible =
+        !rabbit.inShelter &&
         Math.hypot(rabbit.rig.root.position.x - p.x, rabbit.rig.root.position.z - p.z) < 76;
 
     for (const member of this.context.families)
@@ -470,6 +475,7 @@ export class AnimalSimulation {
 
     for (const predator of this.context.predators)
       predator.root.visible =
+        !predator.inDen &&
         Math.hypot(predator.root.position.x - p.x, predator.root.position.z - p.z) < 76;
 
     for (const animal of this.context.wildlife)

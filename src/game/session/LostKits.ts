@@ -65,7 +65,8 @@ export class LostKits {
     }
 
     for (const actor of rabbits) {
-      if (actor.alive && !actor.data.lost && this.separated(actor, parents)) this.mark(actor);
+      if (actor.alive && !actor.inShelter && !actor.data.lost && this.separated(actor, parents))
+        this.mark(actor);
     }
 
     for (let index = this.prey.length - 1; index >= 0; index--) {
