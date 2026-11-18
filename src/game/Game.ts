@@ -491,6 +491,7 @@ export class Game {
     });
     this.interactions = new InteractionController({
       succession: new LineageSuccession({
+        beforeChange: () => this.animals.prepareAvatarChange(),
         save: this.save,
         player: this.playerActor,
         family: this.family,

@@ -9,6 +9,7 @@ import { DEN_BED } from './WolfDen';
 import { isShelteredWildlife } from './WildlifeShelterProfiles';
 import { isWildlifeShelterSite } from './WildlifeShelters';
 import { isPredatorFamilyKind, isWildlifeFamilyKind, MAMMAL_NURSERY } from './MammalNursery';
+import { LEECH } from './animals/Leech';
 
 export const SAVE_VERSION = 5;
 
@@ -936,6 +937,7 @@ function validBirdPopulation(data: SaveData): boolean {
 }
 
 function validAquaticPopulation(data: SaveData): boolean {
+  if (!validLeeches(data.leechPopulation, data.worldConfig?.size ?? 110)) return false;
   const bound = data.worldConfig?.size ?? 110;
   const social = new Set(data.wildlife?.map((actor) => actor.id));
   for (const nursery of Object.values(data.mammalNurseries ?? {}))
@@ -1038,6 +1040,49 @@ function validAquaticPopulation(data: SaveData): boolean {
 
 function validMinute(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function validLeeches(value: unknown, bound: number): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > LEECH.maxPopulation) return false;
+
+  const ids = new Set<number>();
+  const attachmentSlots = new Set<number>();
+  for (const leech of value) {
+    if (
+      !isRecord(leech) ||
+      typeof leech.id !== 'number' ||
+      !Number.isSafeInteger(leech.id) ||
+      leech.id < 0 ||
+      ids.has(leech.id) ||
+      !validWaterId(leech.waterBody) ||
+      !validAquaticPoint(leech, bound) ||
+      typeof leech.y !== 'number' ||
+      !Number.isFinite(leech.y) ||
+      Math.abs(leech.y) > 10000 ||
+      !isRecord(leech.phase)
+    )
+      return false;
+    ids.add(leech.id);
+    const phase = leech.phase;
+    if (phase.kind === 'attached') {
+      if (
+        typeof phase.slot !== 'number' ||
+        !Number.isInteger(phase.slot) ||
+        phase.slot < 0 ||
+        phase.slot >= LEECH.maxAttached ||
+        attachmentSlots.has(phase.slot) ||
+        !validMinute(phase.fedSeconds) ||
+        phase.fedSeconds > LEECH.feedingSeconds
+      )
+        return false;
+      attachmentSlots.add(phase.slot);
+    } else if (phase.kind === 'sated') {
+      if (!validMinute(phase.remainingSeconds) || phase.remainingSeconds > LEECH.satedSeconds)
+        return false;
+    } else if (phase.kind !== 'hungry') return false;
+  }
+  return true;
 }
 
 function validNurserySocial(value: unknown): boolean {

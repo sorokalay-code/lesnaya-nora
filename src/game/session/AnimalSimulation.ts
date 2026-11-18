@@ -134,6 +134,10 @@ export class AnimalSimulation {
     this.water?.resetTargets();
   }
 
+  prepareAvatarChange(): void {
+    this.water?.releasePlayer();
+  }
+
   dispose(): void {
     this.hunters?.dispose();
     this.friendMarks?.dispose();

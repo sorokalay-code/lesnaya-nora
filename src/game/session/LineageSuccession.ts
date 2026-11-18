@@ -11,6 +11,7 @@ export interface SuccessionOffer {
   reason?: string;
 }
 interface Context {
+  beforeChange?: () => void;
   save: SaveData;
   player: PlayerRabbit;
   family: Pick<FamilyLifecycle, 'rigs' | 'remove' | 'add'>;
@@ -85,6 +86,7 @@ export class LineageSuccession {
       },
     };
     const heading = family.rigs.get(id)?.root.rotation.y ?? player.root.rotation.y;
+    this.context.beforeChange?.();
     family.remove(id);
     save.kits.splice(index, 1);
     save.kits.push(formerPlayer);

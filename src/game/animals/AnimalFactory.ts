@@ -36,11 +36,16 @@ import { Hawk } from './Hawk';
 import { Owl } from './Owl';
 import type { FlyingRaptor, RaptorKind } from './FlyingRaptor';
 import { RoeDeer } from './RoeDeer';
+import { Leech, type LeechState } from './Leech';
 
 type Constructor<T> = new (x: number, z: number, rng: Random, appearance?: AppearanceOptions) => T;
 
 /** Реестр фабрик создаёт конкретные виды, не раскрывая их конструкторы игровым системам. */
 export class AnimalFactory {
+  static leech(state: LeechState): Leech {
+    return new Leech(state);
+  }
+
   static pike(x: number, z: number, habitat: WaterBody, rng: Random): Pike {
     return new Pike(x, z, habitat, rng);
   }

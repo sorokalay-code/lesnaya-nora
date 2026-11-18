@@ -18,7 +18,7 @@ import type { World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
 import { loadModels } from './model-fixture';
 
-await loadModels('beaver', 'duck', 'fish', 'frog', 'pike', 'rabbit');
+await loadModels('beaver', 'duck', 'fish', 'frog', 'pike', 'rabbit', 'leech');
 
 test('frogs winter underwater, leave the dormant state in spring and round-trip without a false burrow', () => {
   const f = fixture(2.7);

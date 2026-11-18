@@ -110,6 +110,11 @@ export class HudPresenter {
       color,
       icon,
     });
+    const leeches =
+      save.leechPopulation?.filter((leech) => leech.phase.kind === 'attached').length ?? 0;
+    if (leeches > 0)
+      prompt.unshift({ text: `Пиявки на теле: ${leeches} · пьют кровь до насыщения` });
+
     return {
       playerName: p.name,
       playerSex: sex,

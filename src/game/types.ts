@@ -168,6 +168,7 @@ export interface SaveData {
   nextRaptorId?: number;
   waterCohorts?: import('./AquaticCohorts').WaterCohort[];
   pikePopulation?: import('./session/WaterSimulation').PikeState[];
+  leechPopulation?: import('./animals/Leech').LeechState[];
   nextPikeId?: number;
   wolfDens?: Record<number, import('./WolfDen').WolfDenSite>;
   worldConfig?: WorldConfig;

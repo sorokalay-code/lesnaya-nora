@@ -27,6 +27,7 @@ const TEXTURE_NAMES = [
 ];
 
 export const CREATURE_NAMES = [
+  'leech',
   'hunter',
   'pike',
   'jumping-spider',

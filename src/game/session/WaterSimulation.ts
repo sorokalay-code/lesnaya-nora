@@ -20,6 +20,7 @@ import { AquaticCohorts } from '../AquaticCohorts';
 import { ModelAssets } from '../ModelAssets';
 import { SeasonSystem } from '../systems/SeasonSystem';
 import type { HabitatPoint } from '../AnimalHabitats';
+import { LeechPopulation } from './LeechPopulation';
 
 export interface PikeState extends HabitatPoint {
   id: number;
@@ -48,6 +49,7 @@ interface Context extends HawkPopulation {
 
 /** Согласует воду с семейной навигацией и коллизиями; щуки выбирают только реально плавающую добычу. */
 export class WaterSimulation {
+  private readonly leeches: LeechPopulation;
   readonly pikes: Pike[] = [];
   private readonly navigation: WaterNavigation;
   private readonly habitats: AquaticHabitats;
@@ -64,6 +66,7 @@ export class WaterSimulation {
   private nextSearch = 0;
 
   constructor(private readonly context: Context) {
+    this.leeches = new LeechPopulation(context);
     this.navigation = new WaterNavigation(context.world);
     this.sources = new HawkVictims(context);
     const { world, save } = context;
@@ -122,10 +125,12 @@ export class WaterSimulation {
   }
 
   dispose(): void {
+    this.leeches.dispose();
     this.cohorts.dispose();
   }
 
   resetTargets(): void {
+    this.leeches.releasePlayer();
     for (const actor of this.actors) {
       this.previous.delete(actor.root);
       actor.root.userData.swimming = false;
@@ -135,7 +140,13 @@ export class WaterSimulation {
     this.nextSearch = 0;
   }
 
+  releasePlayer(): void {
+    // Дочерние паразиты уходят в сцену до замены модели кролика и освобождения её микшеров.
+    this.leeches.releasePlayer();
+  }
+
   update(dt: number, time: number, combat: boolean): void {
+    this.leeches.update(dt, time, combat);
     this.removeDead();
     if (time >= this.nextCohortCheck) {
       this.nextCohortCheck = time + 1;
