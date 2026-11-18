@@ -274,7 +274,15 @@ export abstract class FlyingRaptor extends Animal<RaptorKind> {
     }
 
     const striking = this.diveUntil > time && 1 - (this.diveUntil - time) / 2.5 > 0.42;
-    animateHawk(this.root, this.diveUntil > time || Math.sin(time * 2) > 0.3, dt, striking);
+    animateHawk(
+      this.root,
+      this.diveUntil > time || Math.sin(time * 2) > 0.3,
+      dt,
+      striking,
+      striking
+        ? { elapsed: time - (this.diveUntil - 2.5 * 0.58), duration: 2.5 * 0.58 }
+        : undefined,
+    );
     this.shadow.position.set(this.x, groundAt(this.x, this.z) + 0.05, this.z);
     this.shadow.scale.setScalar(this.diveUntil > time ? 1.5 : 0.85);
     return false;

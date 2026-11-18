@@ -33,24 +33,63 @@ const gene = (shape = NEUTRAL_RABBIT_SHAPE): Genes => ({
 const bodyMaterial = (root: THREE.Object3D) =>
   (root.getObjectByName('Body') as THREE.Mesh).material as THREE.MeshStandardMaterial;
 
-test('stationary regeneration is tripled both before and after the pause bonus, with moving rate preserved', () => {
+test('energy returns faster while moving and standing, with a bonus after two seconds of rest', () => {
   for (const depleted of [false, true]) {
     const player = game().player;
     player.energy = 0;
     if (depleted) player.hunger = 0;
     const recovery = new EnergyRecovery();
     recovery.update(player, 1, 0, false);
-    assert.ok(Math.abs(player.energy - (depleted ? 0.36 : 0.54)) < 0.0001);
+    assert.ok(Math.abs(player.energy - (depleted ? 0.6 : 2)) < 0.0001);
     const before = player.energy;
-    recovery.update(player, 1, 5, false);
-    assert.ok(Math.abs(player.energy - before - (depleted ? 0.9 : 3)) < 0.0001);
+    recovery.update(player, 1, 3, false);
+    assert.ok(Math.abs(player.energy - before - (depleted ? 2.5 : 7.5)) < 0.0001);
     const standing = player.energy;
-    recovery.update(player, 1, 6, true);
-    assert.ok(Math.abs(player.energy - standing - (depleted ? 0.12 : 0.18)) < 0.0001);
+    recovery.update(player, 1, 4, true);
+    assert.ok(Math.abs(player.energy - standing - (depleted ? 0.3 : 1)) < 0.0001);
     player.energy = 99.9;
     recovery.update(player, 1, 12, false);
     assert.equal(player.energy, 100);
   }
+});
+
+test('full recovery from exhaustion takes about fifteen seconds of fed rest', () => {
+  const player = game().player;
+  player.energy = 0;
+  player.hunger = player.thirst = 80;
+  const recovery = new EnergyRecovery();
+  for (let frame = 1; frame <= 15 * 60; frame++) recovery.update(player, 1 / 60, frame / 60, false);
+  assert.equal(player.energy, 100);
+});
+
+test('spending energy postpones the rest bonus while preserving basic recovery', () => {
+  const player = game().player;
+  player.energy = 50;
+  player.hunger = player.thirst = 80;
+  const recovery = new EnergyRecovery();
+  recovery.update(player, 1, 0, false);
+  recovery.update(player, 1, 3, false);
+  player.energy = 20;
+  recovery.update(player, 1, 4, false);
+  assert.equal(player.energy, 22);
+  recovery.update(player, 1, 5, false);
+  assert.equal(player.energy, 24);
+  recovery.update(player, 1, 7, false);
+  assert.equal(player.energy, 31.5);
+});
+
+test('recovery across the rest threshold is consistent at different frame rates', () => {
+  const results = [30, 60, 144].map((fps) => {
+    const player = game().player;
+    player.energy = 0;
+    player.hunger = player.thirst = 80;
+    const recovery = new EnergyRecovery();
+    recovery.update(player, 0, 0, false);
+    for (let frame = 1; frame <= fps * 5; frame++)
+      recovery.update(player, 1 / fps, frame / fps, false);
+    return player.energy;
+  });
+  assert.ok(Math.max(...results) - Math.min(...results) < 0.0001);
 });
 
 test('rabbit conformation changes ears, legs and body in both LODs without duplicating geometry', () => {

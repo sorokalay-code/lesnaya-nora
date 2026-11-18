@@ -72,14 +72,17 @@ export class Pike extends Animal<'pike'> {
     const bite = !!target && Math.hypot(target.x - this.x, target.z - this.z) < BITE_REACH;
     if (bite) {
       this.biteAt = time + BITE_COOLDOWN;
-      this.attackUntil = time + 0.45;
+      this.attackUntil = time + 0.6;
       this.lungeUntil = undefined;
     }
     ModelAssets.shared.play(
       this.model,
       time < this.attackUntil ? 'attack' : 'swim',
       dt,
-      target ? 1.65 : moved ? 0.8 : 0.18,
+      time < this.attackUntil ? 1 : target ? 1.65 : moved ? 0.8 : 0.18,
+      time < this.attackUntil
+        ? { elapsed: time - (this.attackUntil - 0.6), duration: 0.6 }
+        : undefined,
     );
     return bite;
   }

@@ -138,7 +138,9 @@ export class Leech extends Animal<'leech'> {
 
   private mount(host: Object3D, slot: number): void {
     const at = ATTACHMENTS[slot];
-    host.add(this.root);
+    // Визуальный корень делает выпад отдельно от коллизии; паразит следует именно за телом.
+    const body = host.getObjectByName('CombatMotion') ?? host;
+    body.add(this.root);
     this.root.position.set(at.x, at.y, at.z);
     this.root.rotation.set(0, 0, at.roll);
     this.root.visible = true;

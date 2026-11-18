@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import type { Excavation } from './Excavation';
+import type { RabbitAttackPresentation } from './combat/AttackPresentation';
+import { RABBIT_ATTACKS } from './combat/AttackProfiles';
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
@@ -158,8 +160,14 @@ export class ViewCamera {
   }
 
   private buildPaws(): void {
-    const fur = new THREE.MeshBasicMaterial({ color: 0xf3e7cf }),
-      pad = new THREE.MeshBasicMaterial({ color: 0xd99fa8 });
+    // Лапы — модель первого лица: грунт не должен скрывать их при взгляде вниз.
+    const fur = new THREE.MeshBasicMaterial({
+        color: 0xf3e7cf,
+        depthTest: false,
+        depthWrite: false,
+      }),
+      pad = new THREE.MeshBasicMaterial({ color: 0xd99fa8, depthTest: false, depthWrite: false });
+    this.paws.renderOrder = 100;
     for (const side of [-1, 1]) {
       const group = new THREE.Group();
       group.position.set(side * 0.33, -0.75, -1.2);
@@ -178,7 +186,12 @@ export class ViewCamera {
     }
   }
 
-  private animatePaws(time: number, digging: boolean, moving: boolean): void {
+  private animatePaws(
+    time: number,
+    digging: boolean,
+    moving: boolean,
+    attack?: RabbitAttackPresentation,
+  ): void {
     this.pawGroups.forEach((paw, i) => {
       const phase = time * (digging ? 17 : 10) + i * Math.PI;
       paw.position.y = -0.75 + (digging ? 0.18 : moving ? 0.035 : 0) * Math.max(0, Math.sin(phase));
@@ -188,6 +201,19 @@ export class ViewCamera {
         : moving
           ? Math.sin(phase) * 0.08
           : 0;
+      paw.position.x = i === 0 ? -0.33 : 0.33;
+      paw.rotation.z = 0;
+      if (attack) {
+        const windup = RABBIT_ATTACKS[attack.kind].windup;
+        const prepare = Math.min(1, attack.elapsed / windup);
+        const impact = Math.exp(-1 * ((attack.elapsed - windup - i * 0.025) / 0.085) ** 2);
+        const settle = Math.max(0, 1 - attack.elapsed / attack.duration);
+        paw.position.y += (attack.kind === 'swipe' ? 0.3 : 0.1) * impact - 0.06 * prepare * settle;
+        paw.position.z -= (attack.kind === 'swipe' ? 0.4 : 0.16) * impact;
+        paw.position.x += (i === 0 ? 1 : -1) * impact * 0.17;
+        paw.rotation.x = -0.5 * impact + 0.15 * prepare * settle;
+        paw.rotation.z = (i === 0 ? 1 : -1) * impact * 0.4;
+      }
     });
   }
 
@@ -200,6 +226,7 @@ export class ViewCamera {
     digging = false,
     moving = false,
     surfaceAt?: (x: number, z: number) => number,
+    attack?: RabbitAttackPresentation,
   ): void {
     if (this.lookEnabled && !this.isLocked) {
       const step = clamp(time - this.lastLookTime, 0, 0.05);
@@ -208,11 +235,19 @@ export class ViewCamera {
     }
 
     this.lastLookTime = time;
-    this.animatePaws(time, digging, moving);
+    this.animatePaws(time, digging, moving, attack);
     if (this.isFirstPerson) {
       const eye = earth ? 0.7 : 0.82,
         cos = Math.cos(this.pitch);
-      this.camera.position.set(x, groundY + eye, z);
+      const bite =
+        attack?.kind === 'bite'
+          ? Math.exp(-1 * ((attack.elapsed - RABBIT_ATTACKS.bite.windup) / 0.1) ** 2)
+          : 0;
+      this.camera.position.set(
+        x - Math.sin(this.yaw) * bite * 0.07,
+        groundY + eye - bite * 0.045,
+        z - Math.cos(this.yaw) * bite * 0.07,
+      );
       this.camera.lookAt(
         x - Math.sin(this.yaw) * cos,
         groundY + eye - Math.sin(this.pitch),

@@ -77,7 +77,7 @@ test('водная пиявка крепится к телу и постепен
   population.update(0.05, 0, true);
   const leech = population.animals[0];
   assert.equal(leech.state.phase.kind, 'attached');
-  assert.equal(leech.root.parent, f.player.root);
+  assert.ok(f.player.root.getObjectById(leech.root.id));
   assert.ok(f.messages[0].includes('Присосалась'));
   f.dry();
   population.update(10, 10, false);
@@ -141,7 +141,7 @@ test('сохранение и загрузка продолжают насыще
   population.dispose();
   const loaded = JSON.parse(serialized) as typeof f.save;
   const restored = new LeechPopulation({ ...f.context, save: loaded });
-  assert.equal(restored.animals[0].root.parent, f.player.root);
+  assert.ok(f.player.root.getObjectById(restored.animals[0].root.id));
   restored.update(18, 30, false);
   assert.equal(restored.animals[0].state.phase.kind, 'sated');
   assert.ok(Math.abs(loaded.player.health - (100 - 30 * LEECH.bloodPerSecond)) < 0.001);

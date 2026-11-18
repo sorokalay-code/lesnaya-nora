@@ -281,7 +281,14 @@ test('spider GLBs keep an animated near rig and a three-mesh distant silhouette'
   assert.ok(stats(far.root).triangles <= 510);
   assert.equal(stats(far.root).meshes, 3);
   for (const variant of model.variants!)
-    assert.deepEqual([...variant.clips.keys()].sort(), ['attack', 'idle', 'run', 'spin', 'walk']);
+    assert.deepEqual([...variant.clips.keys()].sort(), [
+      'attack',
+      'attack-ready',
+      'idle',
+      'run',
+      'spin',
+      'walk',
+    ]);
   const leg = near.root.getObjectByName('LegL0')!;
   const rotation = leg.quaternion.clone();
   near.mixer!.clipAction(near.clips.get('run')!).play();

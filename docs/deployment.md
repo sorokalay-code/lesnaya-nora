@@ -24,6 +24,8 @@ Push в `main` автоматически пересобирает весь пр
 
 ## Ресурсы и кэш
 
+- Боевые позы создаёт `tools/art/CombatClips.ts`. После его изменения перегенерируйте затронутые виды через `pnpm run models -- rabbit fox wolf dog lynx weasel bear snake hawk owl badger mole marmot pheasant chipmunk deer roe-deer squirrel hedgehog beaver duck mouse fish frog moose boar spider jumping-spider pike`. В коммит включаются обе версии GLB каждого вида. `CombatMotion` и боевые треки есть в обоих LOD, у дальнего паука сохраняется упрощённый силуэт.
+
 - `pnpm run models -- leech` создаёт `leech.glb` и `leech-low.glb` с клипами `swim` и `feed`. Обе модели входят в общий реестр; цвет и блеск кожи заданы материалами, внешняя текстура не требуется.
 
 - Боевые клипы кролика `swipe` и `bite` создаются через `pnpm run models -- rabbit` вместе с обычными походками. В коммит включаются оба LOD: `rabbit.glb` и `rabbit-low.glb`.

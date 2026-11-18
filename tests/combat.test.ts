@@ -14,6 +14,7 @@ import { CombatReach } from '../src/game/session/CombatReach';
 import { PlayerConsequences } from '../src/game/session/PlayerConsequences';
 import type { SaveData } from '../src/game/types';
 import { RABBIT_BODY } from '../src/game/RabbitBody';
+import { RabbitConformation } from '../src/game/genetics/RabbitConformation';
 
 await loadModels('rabbit', 'fox', 'wolf', 'deer', 'mouse');
 
@@ -101,6 +102,49 @@ test('укус достаёт до противника на границе ко
   assert.ok(e.fox.health < e.fox.maxHealth);
 });
 
+test('наследуемые ширина и длина тела не отодвигают цель за пределы удара', () => {
+  const e = encounter();
+  const p = e.save.player;
+  p.genes.shape = { ...RabbitConformation.shape(p.genes), bodyWidth: 1.4, bodyLength: 1.3 };
+  const boundary =
+    (RABBIT_BODY.radius * 1.4 + RABBIT_BODY.halfLength * 1.3) * p.genes.size + e.fox.profile.radius;
+  e.fox.moveTo(0, -boundary, 0);
+  assert.equal(e.combat.attack('bite'), true);
+  e.advance(0.3);
+  assert.ok(e.fox.health < e.fox.maxHealth);
+});
+
+test('укус задевает край тела, даже если центр животного сбоку от сектора взгляда', () => {
+  const e = encounter();
+  e.fox.moveTo(1.6, -0.3, 0);
+  e.combat.attack('bite');
+  e.advance(0.3);
+  assert.ok(e.fox.health < e.fox.maxHealth);
+});
+
+test('короткое окно ловит движущуюся цель, но каждый взмах повреждает только один раз', () => {
+  const e = encounter();
+  e.fox.moveTo(0, -2.8, 0);
+  e.combat.attack('bite');
+  e.advance(0.29);
+  assert.equal(e.fox.health, e.fox.maxHealth);
+  e.fox.moveTo(0, -1.8, 0);
+  e.advance(0.07);
+  assert.equal(e.fox.health, e.fox.maxHealth - RABBIT_ATTACKS.bite.damage);
+  e.advance(0.07);
+  assert.equal(e.fox.health, e.fox.maxHealth - RABBIT_ATTACKS.bite.damage);
+});
+
+test('после окончания взмаха приблизившаяся цель уже не получает урон', () => {
+  const e = encounter();
+  e.fox.moveTo(0, -2.8, 0);
+  e.combat.attack('bite');
+  e.advance(0.3);
+  e.fox.moveTo(0, -1, 0);
+  e.advance(0.3);
+  assert.equal(e.fox.health, e.fox.maxHealth);
+});
+
 test('пауза и прыжок отменяют подготовленный удар; без сил атаковать нельзя', () => {
   for (const mode of ['pause', 'jump'] as const) {
     const e = encounter();
@@ -166,7 +210,8 @@ test('поколения усиливают бой с ограничением, 
   const e = encounter();
   for (let hit = 0; hit < 20; hit++) {
     e.combat.attack('bite');
-    e.advance(1.2);
+    e.advance(0.3);
+    e.advance(0.9);
   }
   assert.ok(e.fox.alive);
   assert.ok(e.save.player.energy < RABBIT_ATTACKS.bite.energy);

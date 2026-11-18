@@ -41,27 +41,27 @@ const world = () =>
     hasCover: () => false,
   }) as unknown as World;
 
-test('energy recovers slowly while moving and spending, with a larger bonus after a break', () => {
+test('energy recovers while moving and spending, with a larger bonus after a short break', () => {
   const player = game().player;
   player.energy = 0;
   const energy = new EnergyRecovery();
   energy.update(player, 0.1, 0, false);
-  energy.update(player, 1, 3, false);
-  assert.ok(player.energy > 0 && player.energy < 0.7);
+  energy.update(player, 1, 1, false);
+  assert.ok(Math.abs(player.energy - 2.2) < 0.001);
   const beforeRest = player.energy;
-  for (let time = 4; time < 12; time++) energy.update(player, 1, time, false);
-  assert.ok(Math.abs(player.energy - beforeRest - 24) < 0.001);
+  for (let time = 3; time < 11; time++) energy.update(player, 1, time, false);
+  assert.ok(Math.abs(player.energy - beforeRest - 60) < 0.001);
   player.energy = 0;
   energy.update(player, 0.1, 12, false);
-  energy.update(player, 1, 15, false);
-  assert.ok(player.energy > 0 && player.energy < 0.7);
+  energy.update(player, 1, 13, false);
+  assert.ok(Math.abs(player.energy - 2.2) < 0.001);
   const beforeMove = player.energy;
   energy.update(player, 1, 16, true);
-  energy.update(player, 1, 19, false);
-  assert.ok(Math.abs(player.energy - beforeMove - 0.72) < 0.001);
+  energy.update(player, 1, 17, false);
+  assert.ok(Math.abs(player.energy - beforeMove - 3) < 0.001);
   const beforeBonus = player.energy;
-  energy.update(player, 1, 20, false);
-  assert.ok(Math.abs(player.energy - beforeBonus - 3) < 0.001);
+  energy.update(player, 1, 19, false);
+  assert.ok(Math.abs(player.energy - beforeBonus - 7.5) < 0.001);
   player.energy = 99.8;
   energy.update(player, 1, 30, false);
   assert.equal(player.energy, 100);

@@ -36,6 +36,8 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private lastPlayerAttackAt = -Infinity;
   private nextPlayerStrikeAt = 0;
   private playerFightUntil = 0;
+  private attackStartedAt = -Infinity;
+  private animationTime = 0;
   private eatingUntil = 0;
   private nextGraze = 0;
   private greeting?: { x: number; z: number; until: number };
@@ -163,6 +165,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     this.fleeingUntil = time + 4;
     if (!this.juvenile && this.defense > 0 && this.health > this.maxHealth * 0.3) {
       this.fightingUntil = time + 2;
+      this.attackStartedAt = time;
       this.fleeingUntil = 0;
       return this.defense;
     }
@@ -210,6 +213,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     if (distance > this.profile.radius + 0.9 || time < this.nextPlayerStrikeAt) return 0;
 
     this.nextPlayerStrikeAt = time + 1.8;
+    this.attackStartedAt = time;
     this.fightingUntil = time + 0.6;
     // Даже маленький мирный вид может защищаться, но сила зависит от его массы.
     return Math.max(this.defense, Math.min(8, this.profile.mass * 2));
@@ -222,6 +226,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     threats: readonly { x: number; z: number }[],
     food?: { x: number; z: number },
   ): boolean {
+    this.animationTime = time;
     if (AnimalRestraint.active(this.root)) {
       ModelAssets.shared.play(this.model, 'idle', dt);
       return false;
@@ -377,6 +382,15 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     rushing: boolean,
     still: 'idle' | 'rest' | 'graze',
   ): void {
+    const attackElapsed = this.animationTime - this.attackStartedAt;
+    if (attackElapsed >= 0 && attackElapsed < 0.6 && this.model.clips.has('attack')) {
+      ModelAssets.shared.play(this.model, 'attack', dt, 1, {
+        elapsed: attackElapsed,
+        duration: 0.6,
+      });
+      return;
+    }
+
     ModelAssets.shared.play(
       this.model,
       moving ? (rushing ? 'run' : 'walk') : still,
@@ -389,9 +403,5 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
           )
         : 1,
     );
-    if (this.root.userData.tailPhase < this.fightingUntil) {
-      // Наклон корпуса даёт общий защитный выпад видам без отдельного GLB-клипа атаки.
-      this.root.rotation.x = -0.16;
-    }
   }
 }

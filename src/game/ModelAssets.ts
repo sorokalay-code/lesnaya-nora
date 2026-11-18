@@ -4,6 +4,7 @@ import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
 import { animalSurface, SURFACE_TEXTURES } from './SurfaceMaterials';
 import { GroundPose } from './GroundPose';
+import type { AttackTimeline } from './combat/AttackPresentation';
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -386,11 +387,17 @@ export class ModelAssets {
     this.actors.delete(instance);
   }
 
-  play(instance: ModelInstance, name: string, dt: number, speed = 1): void {
+  play(
+    instance: ModelInstance,
+    name: string,
+    dt: number,
+    speed = 1,
+    attack?: AttackTimeline,
+  ): void {
     GroundPose.present(instance.root);
     if (!instance.root.visible) return;
 
-    if (instance.root.userData.swimming === true) {
+    if (instance.root.userData.swimming === true && !attack) {
       name = 'swim';
       speed = 1;
     }
@@ -398,6 +405,7 @@ export class ModelAssets {
     const target = instance.variants?.find((v) => v.root.visible) ?? instance;
     const clip = target.clips.get(name);
     if (!clip || !target.mixer) return;
+    if (attack) speed = clip.duration / Math.max(0.001, attack.duration);
 
     const previous = instance.selectedVariant;
     const changed = target.activeName !== name || !target.active;
@@ -407,8 +415,11 @@ export class ModelAssets {
       next.enabled = true;
       next.setEffectiveWeight(1);
       next.setEffectiveTimeScale(speed);
-      next.fadeIn(0.18).play();
-      target.active?.fadeOut(0.18);
+      next.setLoop(attack ? THREE.LoopOnce : THREE.LoopRepeat, attack ? 1 : Infinity);
+      next.clampWhenFinished = !!attack;
+      const fadeSeconds = attack ? 0.045 : 0.18;
+      next.fadeIn(fadeSeconds).play();
+      target.active?.fadeOut(fadeSeconds);
       target.active = next;
       target.activeName = name;
     } else target.active?.setEffectiveTimeScale(speed);
@@ -430,6 +441,15 @@ export class ModelAssets {
     target.pendingTime = (target.pendingTime ?? 0) + dt;
     const interval = instance.inView === false ? 0.2 : (instance.distance ?? 0) > 22 ? 1 / 15 : 0;
     if (changed || target.pendingTime >= interval) {
+      if (attack && target.active) {
+        // Абсолютная фаза не зависит от FPS, LOD и оставшегося времени предыдущего взмаха.
+        target.active.enabled = true;
+        target.active.paused = false;
+        target.active.time = Math.max(
+          0,
+          Math.min(clip.duration, attack.elapsed * speed) - target.pendingTime * speed,
+        );
+      }
       target.mixer.update(target.pendingTime);
       target.pendingTime = 0;
     }

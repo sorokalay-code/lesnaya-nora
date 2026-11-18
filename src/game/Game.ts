@@ -42,6 +42,7 @@ import { InventoryController } from './session/InventoryController';
 import { NewGameFactory } from './session/NewGameFactory';
 import { PlayerConsequences } from './session/PlayerConsequences';
 import { PlayerCombat } from './session/PlayerCombat';
+import { rabbitAttackPresentation } from './combat/AttackPresentation';
 import { CombatReach } from './session/CombatReach';
 import { PlayerMovement } from './session/PlayerMovement';
 import { SceneDecorations } from './session/SceneDecorations';
@@ -787,6 +788,7 @@ export class Game {
       digging,
       walking,
       this.cameraGroundAt,
+      rabbitAttackPresentation(this.player.root, this.runtime.elapsed),
     );
     this.player.root.visible = !this.view.isFirstPerson;
     this.renderer.render(this.scene, this.camera);

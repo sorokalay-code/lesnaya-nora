@@ -216,10 +216,16 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   playAttack(time: number): void {
     this.attackAnimUntil = Math.max(this.attackAnimUntil, time + 0.6);
+    this.root.userData.attackStartedAt = time;
+    this.root.userData.attackDuration = 0.6;
+    this.root.userData.attackPreparing = false;
     this.signalAttack(time, 'strike');
   }
 
   protected prepareStrike(time: number): void {
+    this.root.userData.attackStartedAt = time;
+    this.root.userData.attackDuration = this.profile.combat?.windup ?? 0.35;
+    this.root.userData.attackPreparing = true;
     this.signalAttack(time, 'warning');
   }
 
@@ -364,6 +370,10 @@ export abstract class Predator extends Animal<PredatorKind> {
       if (!hunting) this.pendingStrike = undefined;
       else if (time >= pending.at) {
         this.pendingStrike = undefined;
+        this.root.userData.attackStartedAt = pending.at;
+        this.root.userData.attackDuration = 0.6;
+        this.root.userData.attackPreparing = false;
+        this.attackAnimUntil = pending.at + 0.6;
         this.attackCooldown = this.profile.playerCooldown;
         strike =
           Math.hypot(px - this.x, pz - this.z) < biteReach &&

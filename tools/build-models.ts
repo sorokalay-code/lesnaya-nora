@@ -26,6 +26,7 @@ import { rabbitLocomotion } from './art/RabbitLocomotion';
 import { createBoarModel } from './art/BoarAsset';
 import { createPikeModel, pikeClips } from './art/PikeAsset';
 import { createLeechModel, leechClips } from './art/LeechAsset';
+import { combatClips } from './art/CombatClips';
 import { swimmingClip, SWIMMING_MODELS } from './art/Swimming';
 import { createFieldModel, fieldClips, type FieldModel } from './art/FieldWildlife';
 import { createHunterModel, hunterClips } from './art/HunterAsset';
@@ -1261,74 +1262,6 @@ function rabbitClips(root) {
   ]);
   clips.push(...(['hop', 'run', 'jump'] as const).map((name) => rabbitLocomotion(root, name)));
   make(
-    'swipe',
-    [
-      rotation('Visual', [
-        [0, 0, 0],
-        [-0.2, 0, 0],
-        [0.12, 0, 0],
-        [0.05, 0, 0],
-        [0, 0, 0],
-      ]),
-      rotation('PawFL', [
-        [0, 0, 0],
-        [-1.4, 0, -0.3],
-        [0.9, 0, 0.2],
-        [0.3, 0, 0],
-        [0, 0, 0],
-      ]),
-      rotation('PawFR', [
-        [0, 0, 0],
-        [-1.1, 0, 0.3],
-        [0.8, 0, -0.2],
-        [0.3, 0, 0],
-        [0, 0, 0],
-      ]),
-      rotation('Head', [
-        [0, 0, 0],
-        [-0.2, 0, 0],
-        [0.2, 0, 0],
-        [0.1, 0, 0],
-        [0, 0, 0],
-      ]),
-    ],
-    0.65,
-  );
-  make(
-    'bite',
-    [
-      rotation('Head', [
-        [0, 0, 0],
-        [-0.28, 0, 0],
-        [0.38, 0, 0],
-        [0.18, 0, 0],
-        [0, 0, 0],
-      ]),
-      position('Visual', [
-        [0, 0, 0],
-        [0, 0.04, 0.1],
-        [0, -0.06, -0.22],
-        [0, -0.03, -0.1],
-        [0, 0, 0],
-      ]),
-      rotation('PawFL', [
-        [0, 0, 0],
-        [-0.3, 0, 0],
-        [0.45, 0, 0],
-        [0.2, 0, 0],
-        [0, 0, 0],
-      ]),
-      rotation('PawFR', [
-        [0, 0, 0],
-        [-0.3, 0, 0],
-        [0.45, 0, 0],
-        [0.2, 0, 0],
-        [0, 0, 0],
-      ]),
-    ],
-    1.1,
-  );
-  make(
     'dig',
     [
       rotation('Head', pose(0.24)),
@@ -1808,6 +1741,26 @@ const creatures = new Set([
   'fish',
   'moose',
 ]);
+/** Боевые треки заменяются в обоих LOD; паук сохраняет движения своих специализированных конечностей. */
+function applyCombatClips(
+  name: string,
+  root: THREE.Group,
+  animations: THREE.AnimationClip[],
+): void {
+  const improved = combatClips(name, root);
+  if (!improved.length) return;
+  for (const clip of improved) {
+    const previous = animations.find((candidate) => candidate.name === clip.name);
+    if ((name === 'spider' || name === 'jumping-spider') && previous) {
+      const replaced = new Set(clip.tracks.map((track) => track.name));
+      clip.tracks.push(...previous.tracks.filter((track) => !replaced.has(track.name)));
+    }
+  }
+  const names = new Set(improved.map((clip) => clip.name));
+  const kept = animations.filter((clip) => !names.has(clip.name));
+  animations.splice(0, animations.length, ...kept, ...improved);
+}
+
 function mergeParts(root, flatten = false) {
   // Bake rigid details into their pivot. Animated groups and seasonal groups remain intact.
   if (flatten) {
@@ -1909,6 +1862,7 @@ for (const [name, build] of Object.entries(models)) {
                         : []);
   if (SWIMMING_MODELS.has(name)) animations.push(swimmingClip(model, name));
   mergeParts(model, !creatures.has(name) && !isTreeSpecies(name) && !isShrubSpecies(name));
+  if (creatures.has(name)) applyCombatClips(name, model, animations);
   const buffer = (await new GLTFExporter().parseAsync(model, {
     binary: true,
     animations,
@@ -1939,11 +1893,15 @@ for (const [name, build] of Object.entries(models)) {
                   ? createLynxModel(true)
                   : build();
     mergeParts(distant, arachnid);
+    const distantAnimations = arachnid
+      ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
+      : animations.filter(
+          (clip) => !['attack', 'attack-ready', 'swipe', 'bite', 'strike'].includes(clip.name),
+        );
+    applyCombatClips(name, distant, distantAnimations);
     const lod = (await new GLTFExporter().parseAsync(distant, {
       binary: true,
-      animations: arachnid
-        ? [...spiderLowClips(), ...(name === 'jumping-spider' ? [spiderJumpClip(true)] : [])]
-        : animations,
+      animations: distantAnimations,
     })) as ArrayBuffer;
     writeFileSync(`public/models/${name}-low.glb`, Buffer.from(lod));
   }

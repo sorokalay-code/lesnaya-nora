@@ -6,6 +6,8 @@ import { RabbitGait } from './RabbitGait';
 import { AnimalRestraint } from './animals/AnimalRestraint';
 import { RabbitSexAppearance } from './genetics/RabbitSexAppearance';
 import type { RabbitSex } from './types';
+import { rabbitAttackPresentation } from './combat/AttackPresentation';
+import type { AttackTimeline } from './combat/AttackPresentation';
 
 export interface RabbitRig extends ModelInstance {
   leftEar: THREE.Object3D;
@@ -31,6 +33,7 @@ export function setRabbitAction(
   duration: number,
 ): void {
   r.root.userData.action = action;
+  r.root.userData.actionStartedAt = time;
   r.root.userData.actionUntil = time + duration;
 }
 
@@ -78,7 +81,15 @@ export function animateRabbit(
     : jumping
       ? gait.clip
       : (action ?? (moving ? gait.clip : 'idle'));
-  ModelAssets.shared.play(r, clip, dt, clip === gait.clip ? gait.rate : 1);
+  ModelAssets.shared.play(
+    r,
+    clip,
+    dt,
+    clip === gait.clip ? gait.rate : 1,
+    !jumping && !AnimalRestraint.active(r.root)
+      ? rabbitAttackPresentation(r.root, time)
+      : undefined,
+  );
   RabbitAppearance.animate(r);
   r.root.position.y = (r.root.userData.baseY as number | undefined) ?? r.root.position.y;
   r.root.position.y += (r.root.userData.jumpHeight as number | undefined) ?? 0;
@@ -95,7 +106,7 @@ export function createPredator(kind: PredatorKind): THREE.Group {
 }
 export function animatePredator(
   root: THREE.Group,
-  _time: number,
+  time: number,
   running: boolean,
   dt: number,
   moving = true,
@@ -121,9 +132,25 @@ export function animatePredator(
       : 1;
   ModelAssets.shared.play(
     model,
-    attacking ? 'attack' : moving ? (running ? 'run' : 'walk') : 'idle',
+    attacking
+      ? root.userData.attackPreparing === true
+        ? 'attack-ready'
+        : 'attack'
+      : moving
+        ? running
+          ? 'run'
+          : 'walk'
+        : 'idle',
     dt,
-    rate,
+    attacking ? 1 : rate,
+    attacking &&
+      typeof root.userData.attackStartedAt === 'number' &&
+      typeof root.userData.attackDuration === 'number'
+      ? {
+          elapsed: Math.max(0, time - root.userData.attackStartedAt),
+          duration: root.userData.attackDuration,
+        }
+      : undefined,
   );
 }
 export function createRaptor(kind: 'hawk' | 'owl'): THREE.Group {
@@ -136,11 +163,14 @@ export function animateHawk(
   flapping: boolean,
   dt: number,
   striking = false,
+  attack?: AttackTimeline,
 ): void {
   ModelAssets.shared.play(
     root.userData.model as ModelInstance,
     striking ? 'strike' : flapping ? 'flap' : 'glide',
     dt,
+    1,
+    attack,
   );
 }
 export function makeNest(): THREE.Group {
