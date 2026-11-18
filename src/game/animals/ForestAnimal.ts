@@ -33,6 +33,9 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   private nextTarget = 0;
   private fleeingUntil = 0;
   private fightingUntil = 0;
+  private lastPlayerAttackAt = -Infinity;
+  private nextPlayerStrikeAt = 0;
+  private playerFightUntil = 0;
   private eatingUntil = 0;
   private nextGraze = 0;
   private greeting?: { x: number; z: number; until: number };
@@ -92,6 +95,8 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
   }
 
   get mood(): string {
+    if (this.hostile) return 'враждебное';
+
     return this.health < this.maxHealth * 0.45
       ? 'раненое'
       : this.fleeingUntil > this.root.userData.tailPhase
@@ -132,6 +137,7 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
 
   befriend(amount: number): void {
     this.trust = THREE.MathUtils.clamp(this.trust + amount, 0, 100);
+    this.social.grievance = Math.max(0, (this.social.grievance ?? 0) - amount);
     this.fleeingUntil = 0;
   }
 
@@ -162,6 +168,51 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     }
 
     return 0;
+  }
+
+  get hostile(): boolean {
+    return (this.social.grievance ?? 0) >= 60;
+  }
+
+  receivePlayerAttack(damage: number, time: number, attacker: { x: number; z: number }): void {
+    this.health = Math.max(0, this.health - damage);
+    this.trust = Math.max(0, this.trust - 25);
+    this.social.grievance = Math.min(100, (this.social.grievance ?? 0) + 20);
+    this.escort = undefined;
+    this.social.escortUntil = undefined;
+    this.greeting = undefined;
+    this.guard = undefined;
+    const repeated = time - this.lastPlayerAttackAt <= 12;
+    this.lastPlayerAttackAt = time;
+    const aggressive = !this.juvenile && (repeated || this.hostile);
+    if (aggressive) this.playerFightUntil = time + 15;
+
+    const away = Math.atan2(this.x - attacker.x, this.z - attacker.z);
+    this.targetX = this.x + Math.sin(away) * 5;
+    this.targetZ = this.z + Math.cos(away) * 5;
+    this.nextTarget = time + 4;
+    this.fleeingUntil = aggressive ? 0 : time + 4;
+  }
+
+  fightPlayer(player: { x: number; y: number; z: number; hidden: boolean }, time: number): number {
+    if (
+      this.juvenile ||
+      player.hidden ||
+      Math.abs(player.y - this.root.position.y) > 1.2 ||
+      (!this.hostile && time >= this.playerFightUntil)
+    )
+      return 0;
+
+    const distance = Math.hypot(player.x - this.x, player.z - this.z);
+    if (distance > 9) return 0;
+
+    this.guardAgainst(player, time);
+    if (distance > this.profile.radius + 0.9 || time < this.nextPlayerStrikeAt) return 0;
+
+    this.nextPlayerStrikeAt = time + 1.8;
+    this.fightingUntil = time + 0.6;
+    // Даже маленький мирный вид может защищаться, но сила зависит от его массы.
+    return Math.max(this.defense, Math.min(8, this.profile.mass * 2));
   }
 
   update(
@@ -338,5 +389,9 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
           )
         : 1,
     );
+    if (this.root.userData.tailPhase < this.fightingUntil) {
+      // Наклон корпуса даёт общий защитный выпад видам без отдельного GLB-клипа атаки.
+      this.root.rotation.x = -0.16;
+    }
   }
 }

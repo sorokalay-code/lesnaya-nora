@@ -1047,6 +1047,14 @@ function validNurserySocial(value: unknown): boolean {
     !(value.trust >= 0 && value.trust <= 100)
   )
     return false;
+  if (
+    value.grievance !== undefined &&
+    (typeof value.grievance !== 'number' ||
+      !Number.isFinite(value.grievance) ||
+      value.grievance < 0 ||
+      value.grievance > 100)
+  )
+    return false;
   if (value.request !== undefined && value.request !== 'food' && value.request !== 'quiet')
     return false;
   return ['escortUntil', 'lastGreetingAt', 'lastBondAt', 'lastGiftAt', 'lastHelpDay'].every(
@@ -1059,6 +1067,7 @@ function validHabitatSlots(value: unknown): boolean {
   const slots = new Set<string>();
   for (const animal of value) {
     if (!isRecord(animal) || typeof animal.kind !== 'string') return false;
+    if (animal.social !== undefined && !validNurserySocial(animal.social)) return false;
     if (
       animal.inShelter !== undefined &&
       (animal.inShelter !== true || !isShelteredWildlife(animal.kind))

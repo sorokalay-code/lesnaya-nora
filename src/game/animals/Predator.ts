@@ -40,6 +40,7 @@ export abstract class Predator extends Animal<PredatorKind> {
   private attackAnimUntil = 0;
   private retreatX = 0;
   private retreatZ = 0;
+  private pendingStrike?: { at: number; x: number; z: number };
 
   protected constructor(
     kind: PredatorKind,
@@ -130,8 +131,16 @@ export abstract class Predator extends Animal<PredatorKind> {
     return false;
   }
 
-  protected pursuitDestination(target: HabitatPoint, _time: number): HabitatPoint {
-    return target;
+  protected pursuitDestination(target: HabitatPoint, time: number): HabitatPoint {
+    const flank = this.profile.combat?.flank ?? 0;
+    const distance = Math.hypot(target.x - this.x, target.z - this.z);
+    if (!flank || distance < this.profile.playerReach * 1.5 || distance > 6) return target;
+
+    const side = Math.sin(time * 0.7 + this.root.id) >= 0 ? 1 : -1;
+    return {
+      x: target.x + ((target.z - this.z) / distance) * flank * side,
+      z: target.z - ((target.x - this.x) / distance) * flank * side,
+    };
   }
 
   protected specialApproach(
@@ -210,6 +219,10 @@ export abstract class Predator extends Animal<PredatorKind> {
     this.signalAttack(time, 'strike');
   }
 
+  protected prepareStrike(time: number): void {
+    this.signalAttack(time, 'warning');
+  }
+
   setAttackListener(listener?: AttackListener): void {
     this.attackListener = listener;
   }
@@ -221,6 +234,14 @@ export abstract class Predator extends Animal<PredatorKind> {
 
   receiveAttack(damage: number, time: number, attacker: { x: number; z: number }): void {
     this.health = Math.max(0, this.health - damage);
+    // Обычный удар кролика не оглушает хищника: иначе его можно безнаказанно держать в бегстве.
+    if (
+      damage < this.profile.counterDamage &&
+      this.health > this.maxHealth * (this.profile.combat?.retreatHealth ?? 0.25)
+    )
+      return;
+
+    this.pendingStrike = undefined;
     this.retreatUntil = time + 2.5;
     const angle = Math.atan2(this.x - attacker.x, this.z - attacker.z);
     this.retreatX = this.x + Math.sin(angle) * 9;
@@ -299,9 +320,10 @@ export abstract class Predator extends Animal<PredatorKind> {
       !this.swimSpeed &&
       this.waterNavigation &&
       !this.waterNavigation.clear(this, this.targetX, this.targetZ);
-    const special = blockedByWater
-      ? undefined
-      : this.specialApproach(dt, time, hunting || !!chasingPrey, groundAt, player, playerSize);
+    const special =
+      blockedByWater || this.pendingStrike
+        ? undefined
+        : this.specialApproach(dt, time, hunting || !!chasingPrey, groundAt, player, playerSize);
     if (special !== undefined) return special;
 
     const angle = Math.atan2(this.targetX - this.x, this.targetZ - this.z);
@@ -313,7 +335,9 @@ export abstract class Predator extends Animal<PredatorKind> {
       : travelling
         ? Math.max(this.profile.walkSpeed, this.profile.runSpeed * 0.64)
         : this.profile.walkSpeed;
-    const step = Math.min(speed * dt * Math.sqrt(this.growthScale), distance);
+    const step = this.pendingStrike
+      ? 0
+      : Math.min(speed * dt * Math.sqrt(this.growthScale), distance);
     const moved = this.surfaceStep(
       THREE.MathUtils.clamp(
         this.x + Math.sin(angle) * step,
@@ -334,8 +358,26 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.profile.playerReach,
       this.profile.radius + (RABBIT_BODY.radius + RABBIT_BODY.halfLength) * playerSize + 0.08,
     );
-    const strike =
-      hunting && Math.hypot(px - this.x, pz - this.z) < biteReach && this.attackCooldown <= 0;
+    let strike = false;
+    if (this.pendingStrike) {
+      const pending = this.pendingStrike;
+      if (!hunting) this.pendingStrike = undefined;
+      else if (time >= pending.at) {
+        this.pendingStrike = undefined;
+        this.attackCooldown = this.profile.playerCooldown;
+        strike =
+          Math.hypot(px - this.x, pz - this.z) < biteReach &&
+          Math.hypot(px - pending.x, pz - pending.z) < biteReach * 0.85;
+      }
+    } else if (
+      hunting &&
+      Math.hypot(px - this.x, pz - this.z) < biteReach &&
+      this.attackCooldown <= 0
+    ) {
+      this.pendingStrike = { at: time + (this.profile.combat?.windup ?? 0.35), x: px, z: pz };
+      this.attackAnimUntil = this.pendingStrike.at + 0.25;
+      this.prepareStrike(time);
+    }
     if (strike) {
       this.attackCooldown = this.profile.playerCooldown;
       this.playAttack(time);

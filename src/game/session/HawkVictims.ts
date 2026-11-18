@@ -64,6 +64,8 @@ export class HawkVictims {
         this.pose(this.population.player.root, x, y, z);
       },
       hurt: (damage) => {
+        if (this.population.player.root.userData.dodging === true) return;
+
         p.health = Math.max(0, p.health - damage / GeneticTraits.resilience(p.genes));
       },
     };

@@ -41,6 +41,8 @@ import { InteractionController } from './session/InteractionController';
 import { InventoryController } from './session/InventoryController';
 import { NewGameFactory } from './session/NewGameFactory';
 import { PlayerConsequences } from './session/PlayerConsequences';
+import { PlayerCombat } from './session/PlayerCombat';
+import { CombatReach } from './session/CombatReach';
 import { PlayerMovement } from './session/PlayerMovement';
 import { SceneDecorations } from './session/SceneDecorations';
 import { SceneLighting } from './session/SceneLighting';
@@ -361,6 +363,7 @@ export class Game {
       coldNight,
     );
     this.consequences = new PlayerConsequences({
+      dodging: () => this.runtime.elapsed < Number(this.player?.root.userData.dodgeUntil ?? 0),
       save: this.save,
       world: this.world,
       earth: this.earth,
@@ -584,7 +587,27 @@ export class Game {
       persist: () => this.sessionUI.persist(false),
       toast: (text) => this.toast(text),
     });
+    const combatReach = new CombatReach(this.earth, (x, z) => this.world.heightAt(x, z));
+    const combat = new PlayerCombat({
+      save: this.save,
+      player: this.player,
+      predators: this.predators,
+      wildlife: this.wildlife,
+      hawks: this.hawks,
+      elapsed: () => this.runtime.elapsed,
+      allowed: () =>
+        !this.ui.panelsOpen &&
+        !this.ui.state.overlay &&
+        !this.web.trapped &&
+        !this.animalState.mating &&
+        !AnimalRestraint.active(this.player.root),
+      facing: () => this.view.forwardAt(),
+      clearPath: (target) => combatReach.clear(this.save.player, target),
+      toast: (message) => this.toast(message),
+      hurt: (damage) => this.consequences.meleeDamage(damage),
+    });
     this.actions = new SessionActions({
+      combat,
       lostKits,
       coldNight: new ColdNightActions({
         outing: coldNight,
@@ -630,7 +653,9 @@ export class Game {
       lostKits,
       remains: this.remains,
       resetInput: () => this.input.clear(),
-      canGrabPlayer: () => !this.web.trapped,
+      canGrabPlayer: () =>
+        !this.web.trapped &&
+        this.runtime.elapsed >= Number(this.player.root.userData.dodgeUntil ?? 0),
       impactSound: () => this.sound.play('danger'),
       ambientSound: (cue) => this.sound.animal(cue),
       facing: () => this.view.forwardAt(),
@@ -672,6 +697,7 @@ export class Game {
       toast: (text) => this.toast(text),
     });
     this.simulation = new SessionSimulation({
+      combat,
       burrowFur,
       web: this.web,
       decorations: this.decorations,

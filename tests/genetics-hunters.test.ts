@@ -338,11 +338,15 @@ test('an opening melee bite also spends the lynx opening attack until the chase 
   const lynx = new Lynx(0, 0, new Random(1));
   assert.equal(
     lynx.update(0.05, 0, 1, 0, false, true, () => 0),
+    false,
+  );
+  assert.equal(
+    lynx.update(0.05, 0.36, 1, 0, false, true, () => 0),
     true,
   );
   let peak = 0;
   for (let i = 1; i <= 15; i++) {
-    lynx.update(0.05, i * 0.05, 7, 0, false, true, () => 0);
+    lynx.update(0.05, 0.36 + i * 0.05, 7, 0, false, true, () => 0);
     peak = Math.max(peak, lynx.root.position.y);
   }
   assert.ok(peak < 0.15);

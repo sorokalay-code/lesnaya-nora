@@ -57,6 +57,11 @@ test('player jump spends energy, moves the persisted position and cannot cross a
   } as unknown as Excavation;
   const movement = new PlayerMovement(player, new Set(), {} as ViewCamera, earth, new Soundscape());
   assert.equal(movement.requestJump(0), true);
+  assert.equal(player.root.userData.dodgeUntil, 0.32);
+  movement.move(0, 0.1, false);
+  assert.equal(player.root.userData.dodging, true);
+  movement.move(0, 0.33, false);
+  assert.equal(player.root.userData.dodging, false);
   assert.equal(movement.requestJump(0.1), false);
   assert.equal(save.player.energy, 81);
   for (let frame = 0; frame < 60; frame++) movement.move(1 / 60, frame / 60, false);

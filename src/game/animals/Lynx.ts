@@ -19,6 +19,11 @@ export class Lynx extends Predator {
     super.playAttack(time);
   }
 
+  protected override prepareStrike(time: number): void {
+    this.pounce.consume();
+    super.prepareStrike(time);
+  }
+
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(
       'lynx',

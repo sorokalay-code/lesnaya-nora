@@ -66,10 +66,16 @@ export function MobileControls({ store }: { store: UIStore }) {
             if (event.detail === 0) dispatch('hop');
           }}
         >
-          Прыжок
+          Прыжок / уворот
         </Button>
         <Button className="touch-primary" onClick={() => dispatch(web ? 'struggle' : 'interact')}>
           {web ? 'Вырваться' : 'Общаться / взять'}
+        </Button>
+        <Button disabled={!!web} onClick={() => dispatch('attack-swipe')}>
+          Лапы
+        </Button>
+        <Button disabled={!!web} onClick={() => dispatch('attack-bite')}>
+          Укус
         </Button>
         {first && !web && (
           <>

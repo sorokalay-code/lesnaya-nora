@@ -234,7 +234,7 @@ function StatusPanel({ store }: { store: UIStore }) {
           <span key={index}>
             {index > 0 ? ' · ' : ''}
             {part.key && <kbd>{part.key}</kbd>}{' '}
-            {touch ? part.text.replaceAll('ЛКМ', '«Копать»') : part.text}
+            {touch ? part.text.replaceAll('Shift+ЛКМ', '«Копать»') : part.text}
           </span>
         ))}
       </div>

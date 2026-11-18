@@ -358,6 +358,8 @@ test('animal simulation prevents surface attacks during conversation and resumes
   assert.equal(hits, 0);
   combat = true;
   simulation.update(0.05, 1.05, true);
+  assert.equal(hits, 0, 'после разговора хищник сначала готовит удар');
+  simulation.update(0.05, 1.36, true);
   assert.equal(hits, 1);
 
   const friend = createForestAnimal('moose', 1.2, 0, rng);
@@ -365,10 +367,10 @@ test('animal simulation prevents surface attacks during conversation and resumes
   ecology.animals.push(friend);
   const attackingFox = createPredatorActor('fox', 0.4, 0, rng);
   context.predators.splice(0, 1, attackingFox);
-  simulation.update(0.05, 1.1, true);
+  simulation.update(0.05, 1.4, true);
   assert.equal(hits, 1, 'друг не дал лисе укусить крольчиху');
   assert.ok(attackingFox.health < attackingFox.maxHealth);
-  simulation.update(0.05, 1.15, true);
+  simulation.update(0.05, 1.45, true);
   assert.equal(attackingFox.huntingPlayer, false, 'лиса отступает после защиты');
 
   const restingFox = createPredatorActor('fox', 0.4, 0, rng);
@@ -382,6 +384,10 @@ test('a fox can bite at the front capsule boundary of a large rabbit', () => {
   const fox = createPredatorActor('fox', 0, 1.7, new Random(2));
   assert.equal(
     fox.update(1 / 144, 1, 0, 0, false, false, () => 0, 0, 1, undefined, 1.15),
+    false,
+  );
+  assert.equal(
+    fox.update(1 / 144, 1.31, 0, 0, false, false, () => 0, 0, 1, undefined, 1.15),
     true,
   );
 });

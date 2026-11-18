@@ -224,7 +224,10 @@ test('predators and hawks emit attack cues at attack starts rather than on every
   fox.update(0.05, 1, 1, 0, false, true, () => 0);
   fox.update(0.05, 1.05, 1, 0, false, true, () => 0);
   assert.equal(cues.length, 1);
-  assert.equal(cues[0].phase, 'strike');
+  assert.equal(cues[0].phase, 'warning');
+  fox.update(0.05, 1.36, 1, 0, false, true, () => 0);
+  assert.equal(cues.length, 2);
+  assert.equal(cues[1].phase, 'strike');
   const lynx = new Lynx(0, 0, new Random(1));
   lynx.setAttackListener((cue) => cues.push(cue));
   lynx.update(0.05, 2, 7, 0, false, true, () => 0);

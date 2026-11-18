@@ -46,6 +46,7 @@ export class Wolf extends Predator {
       rng,
       {
         swimSpeed: 1.8,
+        combat: { windup: 0.48, flank: 0, retreatHealth: 0.15 },
         health: 75,
         range: 15,
         runSpeed: 3.7,

@@ -39,7 +39,14 @@ export class DesktopInput implements InputController {
       options,
     );
     window.addEventListener('keydown', this.keyDown, options);
-    window.addEventListener('keyup', (event) => context.keys.delete(event.code), options);
+    window.addEventListener(
+      'keyup',
+      (event) => {
+        context.keys.delete(event.code);
+        if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') context.setDigHeld(false);
+      },
+      options,
+    );
     window.addEventListener('blur', () => this.reset(), options);
     context.canvas.addEventListener(
       'pointerdown',
@@ -53,7 +60,17 @@ export class DesktopInput implements InputController {
         }
 
         context.view.lock();
+        if (context.ui.simulationPaused) return;
+        if (event.button === 2) {
+          context.action('attack-bite');
+          return;
+        }
         if (event.button !== 0) return;
+
+        if (!event.shiftKey) {
+          context.action('attack-swipe');
+          return;
+        }
 
         context.setDigHeld(context.view.isFirstPerson);
         context.action('dig');
@@ -68,6 +85,7 @@ export class DesktopInput implements InputController {
       options,
     );
     context.canvas.addEventListener('pointercancel', () => context.setDigHeld(false), options);
+    context.canvas.addEventListener('contextmenu', (event) => event.preventDefault(), options);
   }
 
   private get playing(): boolean {

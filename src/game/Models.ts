@@ -12,7 +12,17 @@ export interface RabbitRig extends ModelInstance {
   rightEar: THREE.Object3D;
 }
 export type RabbitAction =
-  'eat' | 'defecate' | 'lie' | 'sit' | 'mate' | 'groom' | 'pluck' | 'nurse' | 'dig';
+  | 'eat'
+  | 'defecate'
+  | 'lie'
+  | 'sit'
+  | 'mate'
+  | 'groom'
+  | 'pluck'
+  | 'nurse'
+  | 'dig'
+  | 'swipe'
+  | 'bite';
 
 export function setRabbitAction(
   r: RabbitRig,

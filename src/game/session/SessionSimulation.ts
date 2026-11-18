@@ -28,12 +28,14 @@ import { WorldRest } from './WorldRest';
 import { atUndergroundNest } from '../NestBedding';
 import { burrowWarming } from '../BurrowClimate';
 import type { BurrowFur } from '../BurrowFur';
+import type { PlayerCombat } from './PlayerCombat';
 export interface SimulationState {
   elapsed: number;
   digHeld: boolean;
 }
 
 interface Context {
+  combat?: PlayerCombat;
   burrowFur?: BurrowFur;
   web: SpiderEncounter;
   decorations: SceneDecorations;
@@ -156,6 +158,7 @@ export class SessionSimulation {
     }
 
     this.context.family.update(dt, this.context.state.elapsed);
+    this.context.combat?.update(this.context.state.elapsed);
     this.context.items.update(this.context.save.clock);
     const closestThreat = this.context.animals.update(dt, this.context.state.elapsed, night);
     if (p.health <= 0) {

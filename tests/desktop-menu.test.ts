@@ -14,6 +14,7 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     Object.defineProperty(globalThis, name, { configurable: true, value: values[index] }),
   );
   const store = createUIStore(() => {});
+  const actions: string[] = [];
   let locked = false,
     closed = 0,
     opened = 0,
@@ -55,6 +56,7 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
       store.setState({ gameMenu: undefined });
     },
     action(action: string) {
+      actions.push(action);
       if (action === 'menu') {
         opened++;
         store.setState({ gameMenu: store.getState().gameMenu ? undefined : 'main' });
@@ -93,6 +95,19 @@ test('desktop closes a paused menu and opens it when the browser releases pointe
     key('KeyI');
     assert.equal(context.keys.has('KeyW'), true);
     context.keys.clear();
+    const pointer = (button: number, shiftKey = false) =>
+      context.canvas.dispatchEvent(
+        Object.assign(new Event('pointerdown'), { button, shiftKey, pointerType: 'mouse' }),
+      );
+    pointer(0);
+    assert.equal(actions.at(-1), 'attack-swipe');
+    pointer(2);
+    assert.equal(actions.at(-1), 'attack-bite');
+    pointer(0, true);
+    assert.equal(actions.at(-1), 'dig');
+    const menu = new Event('contextmenu', { cancelable: true });
+    context.canvas.dispatchEvent(menu);
+    assert.equal(menu.defaultPrevented, true);
     locked = true;
     documentMock.dispatchEvent(new Event('pointerlockchange'));
     locked = false;

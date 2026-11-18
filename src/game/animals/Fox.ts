@@ -11,6 +11,7 @@ export class Fox extends Predator {
       z,
       rng,
       {
+        combat: { windup: 0.3, flank: 1.5, retreatHealth: 0.3 },
         health: 45,
         range: 11,
         runSpeed: 3.3,

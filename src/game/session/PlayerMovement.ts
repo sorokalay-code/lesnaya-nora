@@ -48,6 +48,10 @@ export class PlayerMovement {
   reset(): void {
     this.jump.cancel();
     this.nextJumpAt = 0;
+    this.player.root.userData.dodgeUntil = 0;
+    this.player.root.userData.dodging = false;
+    this.player.root.userData.jumping = false;
+    this.player.root.userData.jumpHeight = 0;
   }
 
   requestJump(elapsed: number): boolean {
@@ -60,7 +64,8 @@ export class PlayerMovement {
       !GeneticTraits.canJump(p.genes) ||
       this.sheltered ||
       this.water?.swimming(p.x, p.z) ||
-      ((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed
+      (!['swipe', 'bite'].includes(String(this.player.root.userData.action)) &&
+        ((this.player.rig.root.userData.actionUntil as number | undefined) ?? 0) > elapsed)
     )
       return false;
     const direction = {
@@ -69,6 +74,9 @@ export class PlayerMovement {
     };
     if (!this.jump.start(direction.x, direction.z)) return false;
     this.nextJumpAt = elapsed + 1.05;
+    this.player.root.userData.actionUntil = 0;
+    this.player.root.userData.jumping = true;
+    this.player.root.userData.dodgeUntil = elapsed + 0.32;
     p.energy -= 9 * GeneticTraits.energyCost(p.genes);
     this.sound.play('hop');
     return true;
@@ -117,6 +125,7 @@ export class PlayerMovement {
   }
 
   move(dt: number, elapsed: number, blocked: boolean): boolean {
+    this.player.root.userData.dodging = elapsed < Number(this.player.root.userData.dodgeUntil ?? 0);
     if (AnimalRestraint.active(this.player.root)) {
       this.jump.cancel();
       return false;

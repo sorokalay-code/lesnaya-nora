@@ -67,7 +67,7 @@ export class HudPresenter {
     const dig: PromptPart = swimming
       ? { text: 'Плыви к берегу · в воде нельзя прыгать и копать' }
       : firstPerson
-        ? { text: 'ЛКМ — копать по прицелу · удерживай для продолжения' }
+        ? { text: 'Shift+ЛКМ — копать по прицелу · удерживай для продолжения' }
         : { key: 'B', text: 'Переключись на вид от первого лица для копания' };
     let prompt: PromptPart[];
     if (underground) {

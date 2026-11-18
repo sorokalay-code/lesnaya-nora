@@ -15,8 +15,10 @@ import { LineageGraphPresenter } from '../../ui/presenters/LineageGraphPresenter
 import { SessionMenus } from './SessionMenus';
 import type { ColdNightActions } from './ColdNightActions';
 import type { LostKits } from './LostKits';
+import type { PlayerCombat } from './PlayerCombat';
 
 interface Context {
+  combat?: PlayerCombat;
   lostKits?: LostKits;
   coldNight?: ColdNightActions;
   restrained?: () => boolean;
@@ -207,7 +209,7 @@ export class SessionActions {
         mode === 'first'
           ? this.context.ui.state.touch
             ? 'Вид от первого лица: удерживай кнопку копания.'
-            : 'Вид от первого лица: теперь можно копать ЛКМ.'
+            : 'Вид от первого лица: копание — Shift+ЛКМ. ЛКМ — лапы, ПКМ — укус.'
           : 'Вид от третьего лица. Для копания нажми B.',
       );
       return;
@@ -283,6 +285,11 @@ export class SessionActions {
     }
 
     if (this.context.ui.state.overlay) return;
+
+    if (action === 'attack-swipe' || action === 'attack-bite') {
+      this.context.combat?.attack(action === 'attack-swipe' ? 'swipe' : 'bite');
+      return;
+    }
 
     if (action === 'feed') {
       this.context.family.feed();

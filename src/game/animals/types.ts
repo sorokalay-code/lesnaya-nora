@@ -18,6 +18,11 @@ export type WildlifeKind =
   | 'fish'
   | 'frog';
 export interface PredatorProfile {
+  combat?: {
+    windup: number;
+    flank: number;
+    retreatHealth: number;
+  };
   swimSpeed?: number;
   health: number;
   range: number;

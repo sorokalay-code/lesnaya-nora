@@ -11,6 +11,7 @@ export class Weasel extends Predator {
       z,
       rng,
       {
+        combat: { windup: 0.18, flank: 0.8, retreatHealth: 0.35 },
         health: 28,
         range: 9,
         runSpeed: 4.4,

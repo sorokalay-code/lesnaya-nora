@@ -69,6 +69,14 @@ export class ForestConversation {
   }
 
   view(animal: ForestAnimal): ConversationTurn {
+    if (animal.hostile)
+      return {
+        question: 'После твоих нападений я тебе не доверяю. Не подходи!',
+        choices: [],
+        relationship: 'Враг',
+        benefit: 'Животное атакует при сближении. Уходи на безопасное расстояние.',
+      };
+
     const question = animal.social.request ? interests[animal.kind] : undefined;
     const choices = !question
       ? []

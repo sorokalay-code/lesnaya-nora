@@ -9,6 +9,7 @@ import { GeneticTraits } from '../genetics/GeneticTraits';
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 interface Context {
+  dodging?: () => boolean;
   save: SaveData;
   world: World;
   earth: Excavation;
@@ -22,6 +23,8 @@ export class PlayerConsequences {
   constructor(private readonly context: Context) {}
 
   predatorAttack(kind: string): void {
+    if (this.context.dodging?.()) return;
+
     const p = this.context.save.player;
     if (kind === 'pike') {
       p.health = clamp(p.health - 11.2 / GeneticTraits.resilience(p.genes), 0, 100);
@@ -68,6 +71,15 @@ export class PlayerConsequences {
             ? 'Паук укусил! Беги от него. Если лапы в паутине — нажимай E или «Вырваться».'
             : `${kind === 'hawk' ? 'Сокол' : kind === 'wolf' ? 'Волк' : kind === 'dog' ? 'Сторожевой пёс' : kind === 'lynx' ? 'Рысь' : kind === 'weasel' ? 'Ласка' : kind === 'bear' ? 'Медведь' : kind === 'snake' ? 'Змея' : 'Лиса'} напал! Беги под деревья или в выкопанный ход.`,
     );
+  }
+
+  meleeDamage(damage: number): void {
+    if (this.context.dodging?.()) return;
+
+    const p = this.context.save.player;
+    p.health = Math.max(0, p.health - damage / GeneticTraits.resilience(p.genes));
+    this.context.sound.play('danger');
+    this.context.toast('Животное защищается! Пробел — прыжок и уворот.');
   }
 
   threatenKits(predator: Predator, time = 0): void {

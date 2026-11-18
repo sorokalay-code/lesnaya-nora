@@ -12,6 +12,7 @@ export class Snake extends Predator {
       rng,
       {
         swimSpeed: 1.3,
+        combat: { windup: 0.65, flank: 0, retreatHealth: 0.25 },
         health: 20,
         range: 5,
         runSpeed: 2.1,
