@@ -593,6 +593,8 @@ export class Game {
     const combat = new PlayerCombat({
       save: this.save,
       player: this.player,
+      rabbits: this.rabbits,
+      families: this.families,
       predators: this.predators,
       wildlife: this.wildlife,
       hawks: this.hawks,

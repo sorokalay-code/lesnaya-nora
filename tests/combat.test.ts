@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
   createForestAnimal,
   createPredatorActor,
+  FamilyMember,
   PlayerRabbit,
+  RabbitActor,
   RabbitFactory,
 } from '../src/game/animals';
 import { Random } from '../src/game/Random';
@@ -28,12 +30,16 @@ function encounter() {
   const player = new PlayerRabbit(save.player);
   const fox = createPredatorActor('fox', 0, -1, rng);
   fox.root.position.y = 0;
+  const rabbits: RabbitActor[] = [];
+  const families: FamilyMember[] = [];
   let time = 0;
   let clear = true;
   let allowed = true;
   const combat = new PlayerCombat({
     save,
     player: player.rig,
+    rabbits,
+    families,
     predators: [fox],
     wildlife: [],
     hawks: [],
@@ -47,6 +53,8 @@ function encounter() {
   return {
     save,
     player,
+    rabbits,
+    families,
     fox,
     combat,
     advance: (seconds: number) => {
@@ -120,6 +128,37 @@ test('укус задевает край тела, даже если центр 
   e.combat.attack('bite');
   e.advance(0.3);
   assert.ok(e.fox.health < e.fox.maxHealth);
+});
+
+test('кролик может ударить другого кролика и сохраняет его здоровье', () => {
+  const e = encounter();
+  e.fox.moveTo(10, 10, 0);
+  const targetData = e.save.partners[0];
+  const target = new RabbitActor(targetData, new Random(11));
+  target.moveTo(0, -1, 0);
+  target.root.position.y = 0;
+  e.rabbits.push(target);
+
+  assert.equal(e.combat.attack('bite'), true);
+  e.advance(0.3);
+
+  assert.ok(target.health < target.maxHealth);
+  assert.equal(targetData.health, target.health);
+});
+
+test('кролик может ударить члена соседней семьи и сохраняет его здоровье', () => {
+  const e = encounter();
+  e.fox.moveTo(10, 10, 0);
+  const target = new FamilyMember(e.save.partners[0], e.save.player.genes, 0, false);
+  target.moveTo(0, -1, 0);
+  target.root.position.y = 0;
+  e.families.push(target);
+
+  assert.equal(e.combat.attack('bite'), true);
+  e.advance(0.3);
+
+  assert.ok(target.health < target.maxHealth);
+  assert.equal(e.save.familyHealth?.[target.data.id], target.health);
 });
 
 test('короткое окно ловит движущуюся цель, но каждый взмах повреждает только один раз', () => {

@@ -1,5 +1,5 @@
 import type { SaveData } from '../types';
-import { ForestAnimal, Predator, type FlyingRaptor } from '../animals';
+import { FamilyMember, ForestAnimal, Predator, RabbitActor, type FlyingRaptor } from '../animals';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { setRabbitAction, type RabbitRig } from '../Models';
 import { RABBIT_BODY } from '../RabbitBody';
@@ -12,7 +12,8 @@ const HIT_WINDOW_SECONDS = 0.18;
 const HITBOX_MARGIN_METRES = 0.22;
 const MAX_HEIGHT_DIFFERENCE_METRES = 1.5;
 const TARGET_APPROACH_MARGIN_METRES = 2;
-type CombatTarget = Predator | ForestAnimal | FlyingRaptor;
+type RabbitCombatTarget = RabbitActor | FamilyMember;
+type CombatTarget = Predator | ForestAnimal | FlyingRaptor | RabbitCombatTarget;
 
 export function rabbitCombatPower(generation: number): number {
   // Рост ощутим, но не превращает позднее поколение в неограниченный источник урона.
@@ -22,6 +23,8 @@ export function rabbitCombatPower(generation: number): number {
 interface Context {
   save: SaveData;
   player: RabbitRig;
+  rabbits: RabbitActor[];
+  families: FamilyMember[];
   predators: Predator[];
   wildlife: ForestAnimal[];
   hawks: FlyingRaptor[];
@@ -119,6 +122,16 @@ export class PlayerCombat {
   }
 
   private targetRadius(animal: CombatTarget): number {
+    if (animal instanceof RabbitActor || animal instanceof FamilyMember) {
+      const bodyWidth = Number(animal.root.userData.bodyWidth ?? 1);
+      const bodyLength = Number(animal.root.userData.bodyLength ?? 1);
+      return (
+        RABBIT_BODY.radius * bodyWidth * animal.root.scale.x +
+        RABBIT_BODY.halfLength * bodyLength * animal.root.scale.x +
+        HITBOX_MARGIN_METRES
+      );
+    }
+
     const radius =
       animal instanceof ForestAnimal || animal instanceof Predator ? animal.profile.radius : 0.4;
     return radius * animal.growthScale + HITBOX_MARGIN_METRES;
@@ -129,7 +142,13 @@ export class PlayerCombat {
     const reach = this.attackReach(kind) + TARGET_APPROACH_MARGIN_METRES;
     const candidates: CombatTarget[] = [];
     // Полный поиск только по нажатию; короткое окно удара проверяет уже отобранных соседей.
-    for (const group of [this.context.predators, this.context.wildlife, this.context.hawks]) {
+    for (const group of [
+      this.context.rabbits,
+      this.context.families,
+      this.context.predators,
+      this.context.wildlife,
+      this.context.hawks,
+    ]) {
       for (const animal of group) {
         if (
           animal.alive &&
@@ -163,7 +182,7 @@ export class PlayerCombat {
       if (
         !animal.alive ||
         !animal.root.visible ||
-        ((animal instanceof ForestAnimal || animal instanceof Predator) && animal.inShelter) ||
+        ('inShelter' in animal && animal.inShelter) ||
         AnimalRestraint.active(animal.root)
       )
         continue;
@@ -195,7 +214,12 @@ export class PlayerCombat {
       );
     } else {
       if (nearest instanceof Predator) nearest.receiveAttack(damage, time, p);
-      else nearest.health = Math.max(0, nearest.health - damage);
+      else {
+        nearest.health = Math.max(0, nearest.health - damage);
+        if (nearest instanceof RabbitActor) nearest.data.health = nearest.health;
+        if (nearest instanceof FamilyMember)
+          (save.familyHealth ??= {})[nearest.data.id] = nearest.health;
+      }
       this.context.toast(
         nearest.alive
           ? `${kind === 'swipe' ? 'Удар лапами' : 'Укус'}: ${damage.toFixed(1)} урона. Здоровье противника: ${Math.ceil(nearest.health)}.`
