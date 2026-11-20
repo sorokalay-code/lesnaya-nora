@@ -103,7 +103,7 @@ export function GameMenu({ store }: { store: UIStore }) {
               id="pause"
               label="Меню игры"
               className="pause-tabs"
-              orientation={compact ? 'horizontal' : 'vertical'}
+              orientation="vertical"
               options={tabs}
               value={chapter.value}
               onChange={(value) => {
@@ -128,9 +128,11 @@ export function GameMenu({ store }: { store: UIStore }) {
                     <SaveLibrary store={store} />
                   </ScrollContainer>
                 )}
-                {page === value && value === 'settings' && <GameSettings store={store} />}
+                {page === value && value === 'settings' && (
+                  <GameSettings store={store} verticalTabs={compact} />
+                )}
                 {page === value && value === 'new-game' && (
-                  <NewGameForm store={store} replacesStory={inWorld} />
+                  <NewGameForm store={store} replacesStory={inWorld} verticalTabs={compact} />
                 )}
               </div>
             ))}

@@ -29,7 +29,7 @@ export const WORLD_SETTINGS_TABS: readonly { value: WorldSettingsTab; label: str
 ];
 
 /** Редактирует черновик конфигурации в UI, используя те же пределы, что и загрузка сохранений. */
-export function WorldSettings({ store }: { store: UIStore }) {
+export function WorldSettings({ store, verticalTabs }: { store: UIStore; verticalTabs: boolean }) {
   const config = useStore(store, (state) => state.worldConfig);
   const tab = useStore(store, (state) => state.worldSettingsTab);
   const update = (patch: Partial<WorldConfig>) =>
@@ -42,6 +42,7 @@ export function WorldSettings({ store }: { store: UIStore }) {
         label="Разделы настроек мира"
         options={WORLD_SETTINGS_TABS}
         value={tab}
+        orientation={verticalTabs ? 'vertical' : 'horizontal'}
         onChange={(worldSettingsTab) => store.setState({ worldSettingsTab })}
       />
       <ScrollContainer className="world-settings-content" key={tab} label="Настройки мира">

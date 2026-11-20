@@ -13,7 +13,7 @@ const sections: readonly { value: SettingsTab; label: string }[] = [
 ];
 
 /** Показывает разделы настроек и передаёт изменения существующим командам игры. */
-export function GameSettings({ store }: { store: UIStore }) {
+export function GameSettings({ store, verticalTabs }: { store: UIStore; verticalTabs: boolean }) {
   const section = useStore(store, (state) => state.settingsTab);
   const touch = useStore(store, (state) => state.touch);
   const muted = useStore(store, (state) => state.soundMuted);
@@ -28,6 +28,7 @@ export function GameSettings({ store }: { store: UIStore }) {
         label="Разделы настроек"
         options={sections}
         value={section}
+        orientation={verticalTabs ? 'vertical' : 'horizontal'}
         onChange={(settingsTab) => store.setState({ settingsTab })}
       />
       <div

@@ -6,7 +6,15 @@ import type { UIStore } from '../../store';
 import { WORLD_SETTINGS_TABS, WorldSettings } from './WorldSettings';
 
 /** Закрепляет запуск истории над вкладками; проверку и создание мира выполняет движок. */
-export function NewGameForm({ store, replacesStory }: { store: UIStore; replacesStory: boolean }) {
+export function NewGameForm({
+  store,
+  replacesStory,
+  verticalTabs,
+}: {
+  store: UIStore;
+  replacesStory: boolean;
+  verticalTabs: boolean;
+}) {
   const config = useStore(store, (state) => state.worldConfig);
   const dispatch = useStore(store, (state) => state.dispatch);
   const adventureName = useStore(store, (state) => state.adventureName);
@@ -67,7 +75,7 @@ export function NewGameForm({ store, replacesStory }: { store: UIStore; replaces
           </p>
         )}
       </header>
-      <WorldSettings store={store} />
+      <WorldSettings store={store} verticalTabs={verticalTabs} />
     </form>
   );
 }

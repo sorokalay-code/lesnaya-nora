@@ -215,6 +215,7 @@ test('pause menu contains session controls and action panel contains only world 
   assert.match(main, /Загрузить игру/);
   assert.match(main, /Новая игра/);
   assert.match(main, /Настройки/);
+  assert.match(main, /aria-label="Меню игры" aria-orientation="vertical"/);
   assert.match(main, /role="tabpanel"/);
   assert.doesNotMatch(main, /Кормить молоком/);
   store.setState({ gameMenu: undefined, actionMenuOpen: true });
