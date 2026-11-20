@@ -87,6 +87,19 @@ export class SessionSimulation {
     return this.inRest;
   }
 
+  updateInterior(dt: number, moving: boolean): void {
+    const { state, calendar, survival, save } = this.context;
+    state.elapsed += dt;
+    calendar.advance(dt);
+    // Лесные акторы приостановлены; потребности и календарь продолжаются в гостях.
+    survival.tick(dt, state.elapsed, moving, calendar.airTemperature(), true, () => {}, 1);
+    if (save.player.health <= 0) {
+      this.context.gameOver();
+      return;
+    }
+    this.persistIfDue();
+  }
+
   advanceRest(minutes: number): boolean {
     if (
       this.context.web.trapped ||
@@ -214,10 +227,13 @@ export class SessionSimulation {
       this.context.sessionUI.updateHud(closestThreat);
     }
 
-    if (this.context.state.elapsed > this.autosaveAt) {
-      this.autosaveAt = this.context.state.elapsed + 30;
-      this.context.sessionUI.persist(false);
-    }
+    this.persistIfDue();
+  }
+
+  private persistIfDue(): void {
+    if (this.context.state.elapsed <= this.autosaveAt) return;
+    this.autosaveAt = this.context.state.elapsed + 30;
+    this.context.sessionUI.persist(false);
   }
 
   private get sheltered(): boolean {

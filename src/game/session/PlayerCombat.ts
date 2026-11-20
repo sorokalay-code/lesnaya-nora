@@ -3,7 +3,8 @@ import { FamilyMember, ForestAnimal, Predator, RabbitActor, type FlyingRaptor } 
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { setRabbitAction, type RabbitRig } from '../Models';
 import { RABBIT_BODY } from '../RabbitBody';
-import { RabbitConformation } from '../genetics/RabbitConformation';
+import { rabbitAttackDamage, rabbitAttackReach } from '../combat/RabbitCombatRules';
+export { rabbitCombatPower } from '../combat/RabbitCombatRules';
 import { meleeContact } from './MeleeHitbox';
 
 import { RABBIT_ATTACKS, type RabbitAttack } from '../combat/AttackProfiles';
@@ -14,11 +15,6 @@ const MAX_HEIGHT_DIFFERENCE_METRES = 1.5;
 const TARGET_APPROACH_MARGIN_METRES = 2;
 type RabbitCombatTarget = RabbitActor | FamilyMember;
 type CombatTarget = Predator | ForestAnimal | FlyingRaptor | RabbitCombatTarget;
-
-export function rabbitCombatPower(generation: number): number {
-  // Рост ощутим, но не превращает позднее поколение в неограниченный источник урона.
-  return 1 + Math.min(2, Math.max(0, generation - 1) * 0.12);
-}
 
 interface Context {
   save: SaveData;
@@ -109,18 +105,6 @@ export class PlayerCombat {
     }
   }
 
-  private attackReach(kind: RabbitAttack): number {
-    const p = this.context.save.player;
-    const shape = RabbitConformation.shape(p.genes);
-    // Те же размеры капсулы, что у коллизий: широкий или длинный кролик не теряет досягаемость.
-    return (
-      (RABBIT_BODY.radius * shape.bodyWidth +
-        RABBIT_BODY.halfLength * shape.bodyLength +
-        RABBIT_ATTACKS[kind].reach) *
-      p.genes.size
-    );
-  }
-
   private targetRadius(animal: CombatTarget): number {
     if (animal instanceof RabbitActor || animal instanceof FamilyMember) {
       const bodyWidth = Number(animal.root.userData.bodyWidth ?? 1);
@@ -139,7 +123,7 @@ export class PlayerCombat {
 
   private nearbyTargets(kind: RabbitAttack): CombatTarget[] {
     const p = this.context.save.player;
-    const reach = this.attackReach(kind) + TARGET_APPROACH_MARGIN_METRES;
+    const reach = rabbitAttackReach(p.genes, kind) + TARGET_APPROACH_MARGIN_METRES;
     const candidates: CombatTarget[] = [];
     // Полный поиск только по нажатию; короткое окно удара проверяет уже отобранных соседей.
     for (const group of [
@@ -175,7 +159,7 @@ export class PlayerCombat {
       x: p.x,
       z: p.z,
       direction: heading,
-      reach: this.attackReach(kind),
+      reach: rabbitAttackReach(p.genes, kind),
       arcCosine: profile.arc,
     };
     for (const animal of candidates) {
@@ -203,8 +187,7 @@ export class PlayerCombat {
     }
     if (!nearest) return false;
 
-    const damage =
-      profile.damage * rabbitCombatPower(p.lineage?.generation ?? save.stats.generations);
+    const damage = rabbitAttackDamage(kind, p.lineage?.generation ?? save.stats.generations);
     if (nearest instanceof ForestAnimal) {
       nearest.receivePlayerAttack(damage, time, p);
       this.context.toast(

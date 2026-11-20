@@ -1,4 +1,5 @@
 import { PartnerCare } from './PartnerCare';
+import { ShelterVisits } from './shelters/ShelterVisits';
 import { ShelterController } from './session/ShelterController';
 import { FullscreenController } from './input/FullscreenController';
 import * as THREE from 'three';
@@ -63,6 +64,7 @@ import { GraphicsController } from './GraphicsController';
 
 /** Координатор сессии: создаёт системы, выполняет игровой цикл и связывает ввод с командами. */
 export class Game {
+  private visits?: ShelterVisits;
   private remains?: AnimalRemains;
   private attackSounds?: AttackSounds;
   private web!: SpiderEncounter;
@@ -268,6 +270,8 @@ export class Game {
   }
 
   private setupWorld(): void {
+    this.visits?.dispose();
+    this.visits = undefined;
     this.animalState.mating = undefined;
     this.ui.setEvents(this.save.messages);
     this.ui.store.setState({
@@ -731,6 +735,34 @@ export class Game {
       action: (command) => this.action(command),
       gameOver: () => this.gameOver(),
     });
+    this.visits = new ShelterVisits({
+      save: this.save,
+      scene: this.scene,
+      player: this.player,
+      view: this.view,
+      ui: this.ui,
+      keys: this.keys,
+      rabbits: this.rabbits,
+      predators: this.predators,
+      wildlife: this.wildlife,
+      safe: () =>
+        !this.web.trapped &&
+        !this.animals.hasCaptures &&
+        !this.animalState.mating &&
+        !AnimalRestraint.active(this.player.root) &&
+        this.player.root.userData.jumping !== true,
+      resetInput: () => {
+        this.input.clear();
+        this.movement.reset();
+        this.runtime.digHeld = false;
+      },
+      refreshHud: () => this.sessionUI.updateHud(),
+      tick: (dt, moving) => this.simulation.updateInterior(dt, moving),
+      prepareLighting: () =>
+        this.lighting.update(this.save, this.world, this.calendar.isNight(), true),
+      hurt: (damage) => this.consequences.meleeDamage(damage),
+      toast: (message) => this.toast(message),
+    });
     const sheltered = this.sheltered;
     this.lighting.update(this.save, this.world, this.calendar.isNight(), sheltered);
     this.view.snap(this.save.player.x, this.save.player.y, this.save.player.z, sheltered);
@@ -749,8 +781,13 @@ export class Game {
     const dt = Math.min(frameMs / 1000, 0.05);
     this.lastFrame = timestamp;
     const start = performance.now();
-    if (this.running && !this.ui.state.overlay && !this.ui.simulationPaused)
-      this.simulation.update(dt);
+    if (this.running && !this.ui.state.overlay && !this.ui.simulationPaused) {
+      if (this.visits?.active) this.visits.update(dt);
+      else {
+        this.simulation.update(dt);
+        this.visits?.update(dt);
+      }
+    }
 
     const afterUpdate = performance.now();
     if (this.running) this.render();
@@ -767,6 +804,11 @@ export class Game {
   };
 
   private render(): void {
+    if (this.visits?.scene) {
+      this.visits.render();
+      this.renderer.render(this.visits.scene, this.camera);
+      return;
+    }
     const p = this.save.player;
     this.view.setLookEnabled(!this.ui.state.overlay && !this.ui.panelsOpen);
     const digging =
@@ -895,7 +937,7 @@ export class Game {
       return;
     }
 
-    if (this.running) this.actions.execute(action);
+    if (this.running && !this.visits?.execute(action)) this.actions.execute(action);
   }
 
   private applyWorldGraphics(): void {
@@ -934,6 +976,7 @@ export class Game {
   }
 
   private gameOver(): void {
+    this.visits?.leave();
     this.remains?.record({ kind: 'rabbit', root: this.player.root, genes: this.save.player.genes });
     this.running = false;
     this.view.unlock();

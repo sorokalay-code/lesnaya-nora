@@ -82,6 +82,10 @@ export class Wolf extends Predator {
     return this.depth;
   }
 
+  get homeDen(): WolfDen | undefined {
+    return this.access?.den;
+  }
+
   restoreDen(depth: number): void {
     if (!this.access) return;
     this.depth = depth;
