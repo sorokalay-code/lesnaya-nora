@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import { Button, Dialog, ScrollContainer, Tabs } from '../../shared/ui';
 import type { UIStore } from '../../store';
@@ -39,6 +39,7 @@ export function GameMenu({ store }: { store: UIStore }) {
   const touch = useStore(store, (state) => state.touch);
   const burrow = useStore(store, (state) => state.burrow);
   const compact = useSyncExternalStore(subscribeLayout, isCompact, () => false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const open = !!page;
@@ -54,13 +55,29 @@ export function GameMenu({ store }: { store: UIStore }) {
   }, [open]);
 
   useLayoutEffect(() => {
+    if (!compact || !page || page === 'burrow') setNavigationOpen(false);
+  }, [compact, page]);
+
+  useLayoutEffect(() => {
+    if (!page) return;
+
+    if (compact && navigationOpen) {
+      panel.current?.querySelector<HTMLElement>('#pause-tabs [aria-selected="true"]')?.focus();
+      return;
+    }
+
     const active = document.activeElement;
     const inactiveTab = active?.matches('.pause-tabs [aria-selected="false"]');
-    if (page && (inactiveTab || !panel.current?.contains(active)))
-      panel.current
-        ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"], [data-burrow-back]')
-        ?.focus();
-  }, [page]);
+    const hiddenNavigationTab = compact && active?.closest('.pause-tabs');
+    if (inactiveTab || hiddenNavigationTab || !panel.current?.contains(active)) {
+      const target = compact
+        ? panel.current?.querySelector<HTMLElement>('.pause-panel:not([hidden])')
+        : panel.current?.querySelector<HTMLElement>(
+            '[role="tab"][aria-selected="true"], [data-burrow-back]',
+          );
+      target?.focus();
+    }
+  }, [compact, navigationOpen, page]);
 
   if (!page) return null;
   const inWorld = !overlay;
@@ -73,8 +90,17 @@ export function GameMenu({ store }: { store: UIStore }) {
         id="game-menu"
         ref={panel}
         aria-labelledby="game-menu-title"
-        className={`touch-menu game-menu pause-menu ${page === 'burrow' ? 'pause-menu-burrow' : ''}`}
+        className={`touch-menu game-menu pause-menu ${page === 'burrow' ? 'pause-menu-burrow' : ''}${
+          compact && navigationOpen ? ' pause-menu-navigation-open' : ''
+        }`}
         onKeyDown={(event) => {
+          if (event.key === 'Escape' && compact && navigationOpen) {
+            event.preventDefault();
+            setNavigationOpen(false);
+            panel.current?.querySelector<HTMLElement>('#pause-navigation-toggle')?.focus();
+            return;
+          }
+
           if (event.key === 'Escape' && overlay) {
             event.preventDefault();
             dispatch('menu-back');
@@ -84,6 +110,19 @@ export function GameMenu({ store }: { store: UIStore }) {
         <header className="pause-header">
           <h2 id="game-menu-title">{page === 'burrow' ? 'План норы' : 'Меню игры'}</h2>
           <div className="game-menu-header-actions">
+            {compact && chapter && (
+              <Button
+                id="pause-navigation-toggle"
+                aria-controls="pause-tabs"
+                aria-expanded={navigationOpen}
+                aria-label={
+                  navigationOpen ? 'Скрыть разделы меню' : `Разделы меню: ${chapter.label}`
+                }
+                onClick={() => setNavigationOpen((isOpen) => !isOpen)}
+              >
+                <span aria-hidden="true">{navigationOpen ? '✕' : '☰'}</span>
+              </Button>
+            )}
             <FullscreenButton store={store} compact />
             {inWorld && (
               <Button
@@ -106,9 +145,10 @@ export function GameMenu({ store }: { store: UIStore }) {
               orientation="vertical"
               options={tabs}
               value={chapter.value}
-              onChange={(value) => {
+              onChange={(value, reason) => {
                 const tab = tabs.find((item) => item.value === value);
                 if (tab && value !== page) dispatch(tab.action);
+                if (compact && reason === 'activation') setNavigationOpen(false);
               }}
             />
             {tabs.map(({ value }) => (
@@ -118,6 +158,7 @@ export function GameMenu({ store }: { store: UIStore }) {
                 role="tabpanel"
                 aria-labelledby={`pause-tab-${value}`}
                 className="pause-panel"
+                tabIndex={-1}
                 hidden={value !== page}
               >
                 {page === value &&

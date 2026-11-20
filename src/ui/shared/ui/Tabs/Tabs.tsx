@@ -21,12 +21,13 @@ export function Tabs<T extends string>({
   label: string;
   options: readonly TabOption<T>[];
   value: T;
-  onChange: (value: T) => void;
+  onChange: (value: T, reason: 'activation' | 'arrow-key') => void;
   className?: string;
   orientation?: 'horizontal' | 'vertical';
 }) {
   return (
     <div
+      id={`${id}-tabs`}
       className={clsx('ui-tabs', className)}
       role="tablist"
       aria-label={label}
@@ -40,7 +41,7 @@ export function Tabs<T extends string>({
           aria-selected={value === option.value}
           aria-controls={`${id}-panel-${option.value}`}
           tabIndex={value === option.value ? 0 : -1}
-          onClick={() => onChange(option.value)}
+          onClick={() => onChange(option.value, 'activation')}
           onKeyDown={(event) => {
             let next: number;
             if (event.key === (orientation === 'vertical' ? 'ArrowDown' : 'ArrowRight'))
@@ -51,7 +52,7 @@ export function Tabs<T extends string>({
             else if (event.key === 'End') next = options.length - 1;
             else return;
             event.preventDefault();
-            onChange(options[next].value);
+            onChange(options[next].value, 'arrow-key');
             const buttons =
               event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
                 '[role="tab"]',
