@@ -103,7 +103,7 @@ function fixture(save: SaveData = start()) {
           object instanceof InstancedMesh && object.name.startsWith('bird-clutch-'),
       )
       .reduce((sum, clutch) => sum + clutch.count, 0);
-  return { scene, population, save, tick, step, capture, sources, eggsInScene };
+  return { scene, world, hunting, population, save, tick, step, capture, sources, eggsInScene };
 }
 
 function reload(save: SaveData): SaveData {
@@ -300,6 +300,41 @@ test('clutches reload, hatch during sleep and pheasant chicks follow their hen o
   );
 });
 
+test('an owl kill starts a real delivery, reload finishes it and parentless chicks cannot use the cache', () => {
+  const f = fixture();
+  f.step(1320, 20);
+  const brood = f.save.birdBroods!.owl![0];
+  f.step(brood.laidAt + 2 * DAY, 30);
+  const owl = f.population.hawks.find((bird) => bird.kind === 'owl' && bird.huntingAllowed)!;
+  assert.ok(owl);
+  const mouse = f.population.wildlife.find((actor) => actor.kind === 'mouse')!;
+  mouse.moveTo(owl.x + 0.2, owl.z, 0);
+  mouse.health = 1;
+  owl.moveTo(owl.x, owl.z, 3);
+  for (let frame = 1; frame < 400 && !brood.food?.trip; frame++)
+    f.hunting.update(0.05, 100 + frame * 0.05, false, true, true);
+  assert.equal(mouse.alive, false);
+  assert.ok(brood.food?.trip);
+  assert.equal(brood.food.portions, 0);
+  assert.equal(f.save.player.health, 100, 'background hunts protect the player');
+  for (const bird of f.population.hawks)
+    if (bird.kind === 'owl' && !bird.juvenile && bird !== owl) bird.health = 0;
+  f.capture();
+  const restored = fixture(reload(f.save));
+  assert.equal(
+    restored.population.hawks.filter((bird) => bird.kind === 'owl' && !bird.juvenile).length,
+    1,
+  );
+  const saved = restored.save.birdBroods!.owl![0];
+  restored.step(restored.save.clock, 40);
+  assert.equal(saved.food?.trip, undefined);
+  assert.equal(saved.food?.portions, 8);
+  for (const bird of restored.population.hawks)
+    if (bird.kind === 'owl' && !bird.juvenile) bird.health = 0;
+  restored.step(brood.laidAt + 5 * DAY);
+  assert.equal(saved.young.length, 0);
+});
+
 test('nestlings remain at height then practice short flights and a vacant adult territory can be inherited', () => {
   const f = fixture();
   f.step(720);
@@ -315,6 +350,9 @@ test('nestlings remain at height then practice short flights and a vacant adult 
 
   const practiceDay = laid.laidAt + 5 * DAY;
   const activeFlight = practiceDay + ((17 - (practiceDay % 26) + 26) % 26);
+  // Пропускаем возраст обеспеченного кормом выводка; голод проверяется отдельно.
+  Object.assign(laid.food!, { portions: 8, checkedAt: activeFlight, lastFedAt: activeFlight });
+  laid.careCheckedAt = activeFlight;
   f.step(activeFlight, 5);
   assert.ok(
     nestlings.every(

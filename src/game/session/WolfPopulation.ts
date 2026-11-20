@@ -143,6 +143,12 @@ export class WolfPopulation {
     );
   }
 
+  provisionHome(actor: Predator): { key: string; point: HabitatPoint } | undefined {
+    const slot = this.slots.find((slot) => slot.actor === actor);
+    if (!slot) return;
+    return { key: slot.pack.nursery.key, point: slot.pack.shelter?.den.entrance ?? slot.pack.home };
+  }
+
   prepareDefense(time: number, player: HabitatPoint | undefined, combat: boolean): void {
     if (!combat) {
       if (this.watching)

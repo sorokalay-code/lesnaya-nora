@@ -1,4 +1,5 @@
 import type { Scene } from 'three';
+import { BroodProvisioning, beginProvision, newBroodFood } from '../BroodFood';
 import { AnimalFactory } from '../animals';
 import type { FlyingRaptor, RaptorKind } from '../animals/FlyingRaptor';
 import type { HabitatPoint } from '../AnimalHabitats';
@@ -31,6 +32,7 @@ interface Context {
 
 /** Ведёт территориальные пары хищных птиц, смену присады и охоты и первые вылеты птенцов. */
 export class RaptorPopulation {
+  private readonly provisions = new BroodProvisioning();
   readonly actors: FlyingRaptor[] = [];
   private readonly nests: RaptorNests;
   private readonly broods: Record<RaptorKind, BirdBroods<FlyingRaptor>>;
@@ -102,6 +104,13 @@ export class RaptorPopulation {
     if (time < this.nextUpdate) return;
     this.nextUpdate = time + 0.8;
     const { clock, player } = this.context.save;
+    this.provisions.prune(
+      KINDS.flatMap((kind) =>
+        (this.context.save.birdBroods?.[kind] ?? []).flatMap((brood) =>
+          brood.food ? [brood.food] : [],
+        ),
+      ),
+    );
     const spring = this.seasons.name(Math.floor(clock / 1440) + 1) === 'Весна';
     for (const kind of KINDS) {
       const slots = new Map<number, { actor: FlyingRaptor; id: number }>();
@@ -131,6 +140,16 @@ export class RaptorPopulation {
         const nest = this.nests.get(kind, pair);
         if (!nest) continue;
         const brood = families.get(pair);
+        if (brood?.food) {
+          const carrier = [...slots.values()].find(
+            ({ actor: bird }) =>
+              `${kind}:${this.adults.get(bird)?.id}` === brood.food?.trip?.carrier,
+          )?.actor;
+          if (this.provisions.update(brood.food, carrier, nest.bowl, clock) && carrier === actor) {
+            actor.followFlight({ mode: 'landing', target: nest.bowl, support: nest.support });
+            continue;
+          }
+        }
         const shift = (Math.floor(clock / 85) + pair) % 3;
         const raising = brood && this.hasParent(slots, brood) && (brood.eggs || brood.young.length);
         const tending = raising && (slot % 2 === 0 ? shift !== 1 : shift === 1);
@@ -175,13 +194,40 @@ export class RaptorPopulation {
   }
 
   dispose(): void {
+    this.provisions.dispose();
     for (const kind of KINDS) this.broods[kind].dispose();
     for (const actor of this.actors) actor.dispose();
     this.nests.dispose();
   }
 
+  successfulHunt(actor: FlyingRaptor): void {
+    const adult = this.adults.get(actor);
+    if (!adult) return;
+    const brood = this.context.save.birdBroods?.[actor.kind]?.find(
+      (brood) => brood.slot === Math.floor(adult.slot / 2) && brood.young.length,
+    );
+    if (!brood) return;
+    const clock = this.context.save.clock;
+    beginProvision((brood.food ??= newBroodFood(clock)), `${actor.kind}:${adult.id}`, clock);
+  }
+
   private makeBroods(kind: RaptorKind, records: BirdBroodState[]): BirdBroods<FlyingRaptor> {
     return new BirdBroods({
+      provisioned: true,
+      attended: (slot) => {
+        const nest = this.nests.get(kind, slot);
+        return (
+          !!nest &&
+          this.actors.some(
+            (actor) =>
+              actor.alive &&
+              actor.kind === kind &&
+              Math.floor((this.adults.get(actor)?.slot ?? -10) / 2) === slot &&
+              Math.hypot(actor.x - nest.bowl.x, actor.z - nest.bowl.z) < 2 &&
+              Math.abs(actor.root.position.y - nest.bowl.y) < 1.5,
+          )
+        );
+      },
       scene: this.context.scene,
       records,
       eggs: kind === 'owl' ? 3 : 2,

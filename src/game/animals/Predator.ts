@@ -13,6 +13,7 @@ import {
 } from '../AnimalAppearance';
 import type { Habitat, HabitatPoint, TerritoryIntent } from '../AnimalHabitats';
 import type { WildlifeRoutine } from '../WildlifeRoutine';
+import { SurfaceRoute } from '../SurfaceRoute';
 /** Шаблон поведения хищника: поиск цели, погоня, атака и отступление. Вид задаёт свои параметры. */
 export abstract class Predator extends Animal<PredatorKind> {
   get swimSpeed(): number {
@@ -23,6 +24,8 @@ export abstract class Predator extends Animal<PredatorKind> {
   private territory?: TerritoryIntent;
   private routine?: WildlifeRoutine;
   destination?: HabitatPoint;
+  provisionHome?: HabitatPoint;
+  private readonly provisionRoute = new SurfaceRoute();
   restAt?: HabitatPoint;
   foragingAllowed = true;
   readonly appearance: AppearanceTraits;
@@ -100,6 +103,7 @@ export abstract class Predator extends Animal<PredatorKind> {
   }
 
   get huntingOpen(): boolean {
+    if (this.provisionHome) return false;
     return (
       !this.juvenile && !this.restAt && this.foragingAllowed && (this.territory?.hunting ?? true)
     );
@@ -281,6 +285,7 @@ export abstract class Predator extends Animal<PredatorKind> {
     const player = { x: px, z: pz };
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting =
+      !this.provisionHome &&
       time >= this.retreatUntil &&
       !hidden &&
       (this.defendsPlayer(px, pz) ||
@@ -292,6 +297,15 @@ export abstract class Predator extends Animal<PredatorKind> {
     if (time < this.retreatUntil) {
       this.targetX = this.retreatX;
       this.targetZ = this.retreatZ;
+    } else if (this.provisionHome) {
+      const waypoint = this.provisionRoute.step(
+        this.root.position,
+        this.provisionHome,
+        time,
+        groundAt,
+      );
+      this.targetX = waypoint.x;
+      this.targetZ = waypoint.z;
     } else if (hunting) {
       const destination = this.pursuitDestination(player, time);
       this.targetX = destination.x;

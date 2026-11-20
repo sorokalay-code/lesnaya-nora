@@ -8,6 +8,7 @@ import { SaveRepository } from '../src/game/SaveRepository';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import { WildlifeForage } from '../src/game/WildlifeForage';
+import { WildlifeRoutine } from '../src/game/WildlifeRoutine';
 import type { Biome, DigNode, FoodKind, SaveData } from '../src/game/types';
 import type { Resource, World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
@@ -19,7 +20,7 @@ import { loadModels } from './model-fixture';
 import { AnimalRemains } from '../src/game/AnimalRemains';
 import { MAMMAL_NURSERY } from '../src/game/MammalNursery';
 
-await loadModels('wolf', 'deer', 'fox', 'marmot', 'beaver');
+await loadModels('wolf', 'deer', 'fox', 'marmot', 'beaver', 'mouse');
 
 const distance = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
@@ -184,7 +185,12 @@ function runEcology(
   );
 }
 
-function advanceInSleep(forest: WorldPopulation, save: SaveData, minutes: number): void {
+function advanceInSleep(
+  forest: WorldPopulation,
+  save: SaveData,
+  minutes: number,
+  supplied = false,
+): void {
   const asleep = new WorldRest({
     save,
     state: { elapsed: 0 },
@@ -198,6 +204,9 @@ function advanceInSleep(forest: WorldPopulation, save: SaveData, minutes: number
     family: { update() {}, advancePregnancy() {} },
     animals: {
       update(dt, time, night) {
+        if (supplied)
+          for (const nursery of Object.values(save.mammalNurseries ?? {}))
+            if (nursery.food) nursery.food.portions = 8;
         runEcology(forest, save, dt, time, night);
         return Infinity;
       },
@@ -244,6 +253,8 @@ test('a wolf litter survives a save, exits during sleep and keeps its identity w
   const other = next.predators.find((wolf) => identity(wolf) === identity(pups[1]))!;
   assert.ok(next.predators.includes(pup) && pup.inDen && pup.juvenile);
   const initialWeight = pup.health;
+  // Этот сценарий проверяет рост и расселение уже обеспеченного кормом выводка.
+  loaded.mammalNurseries!['wolf:0'].food!.portions = 8;
   advanceInSleep(next, loaded, MAMMAL_NURSERY.wolf.meeting + 180);
   assert.ok(!pup.inDen && distance(pup, den.entrance) > 6);
   assert.ok(pup.health > initialWeight && !pup.canPursue(pup.x, pup.z));
@@ -262,7 +273,7 @@ test('a wolf litter survives a save, exits during sleep and keeps its identity w
   const maturedSave = roundTrip(loaded);
   const matured = population(maturedSave);
   const samePup = matured.predators.find((wolf) => identity(wolf) === identity(pup))!;
-  advanceInSleep(matured, maturedSave, due + MAMMAL_NURSERY.wolf.mature - loaded.clock + 3);
+  advanceInSleep(matured, maturedSave, due + MAMMAL_NURSERY.wolf.mature - loaded.clock + 3, true);
   matured.ecology.capture();
   assert.equal(matured.predators.length, 3);
   assert.ok(matured.predators.includes(samePup) && !samePup.juvenile && samePup.canMelee);
@@ -278,6 +289,66 @@ test('a wolf litter survives a save, exits during sleep and keeps its identity w
     },
   );
 });
+
+for (const kind of ['wolf', 'fox'] as const)
+  test(`a real ${kind} kill sends a portion home, survives saving in transit and delivers only once`, () => {
+    const save = start();
+    save.worldConfig!.creatures.wolf = kind === 'wolf' ? 3 : 0;
+    save.worldConfig!.creatures.fox = kind === 'fox' ? 2 : 0;
+    save.worldConfig!.creatures.mouse = kind === 'fox' ? 1 : 0;
+    if (kind === 'fox') save.worldConfig!.size = 65;
+    const forest = population(save);
+    runEcology(forest, save, 0, 0);
+    save.clock += MAMMAL_NURSERY[kind].gestation;
+    runEcology(forest, save, 0, 2);
+    save.clock = Math.floor(save.clock / 1440) * 1440 + 1090;
+    forest.ecology.prepareHabitats(4, save.clock, forest.predators);
+    const hunter = forest.predators.find((actor) => actor.huntingOpen && !actor.inDen)!;
+    assert.ok(hunter);
+    for (const deer of forest.wildlife.filter(
+      (actor) => actor.kind === (kind === 'wolf' ? 'deer' : 'mouse'),
+    )) {
+      deer.useRoutine(new WildlifeRoutine(undefined, () => 0));
+      deer.moveTo(hunter.x + 0.2, hunter.z, 0);
+      deer.health = 1;
+    }
+    forest.ecology.prepareHabitats(6, save.clock, forest.predators);
+    assert.ok(forest.ecology.targetFor(hunter, forest.predators, 6));
+    forest.ecology.update(0, 6, save.clock, 100, 100, () => 0, forest.predators, true);
+    const key = Object.keys(save.mammalNurseries!).find(
+      (key) => key.startsWith(`${kind}:`) && save.mammalNurseries![key].young.length,
+    )!;
+    const food = save.mammalNurseries![key].food!;
+    assert.equal(food.trip?.carrier, hunter.root.userData.remainsIdentity);
+    assert.equal(food.portions, 0);
+    forest.ecology.capture();
+    const loaded = roundTrip(save);
+    const restored = population(loaded);
+    const carrier = restored.predators.find(
+      (actor) => actor.root.userData.remainsIdentity === food.trip?.carrier,
+    )!;
+    const stock = loaded.mammalNurseries![key].food!;
+    for (let frame = 1; frame < 500 && stock.trip; frame++) {
+      const time = frame * 0.1;
+      loaded.clock += 0.6;
+      restored.ecology.prepareHabitats(time, loaded.clock, restored.predators);
+      carrier.update(0.1, time, 100, 100, true, true, () => 0);
+    }
+    assert.equal(stock.trip, undefined);
+    assert.equal(stock.portions, 8);
+    assert.ok(restored.predators[0].root.parent?.getObjectByName('brood-prey-portion'));
+    if (kind === 'fox') {
+      const home = loaded.wildlifeShelters!.find(
+        (site) => site.kind === kind && site.slot === Number(key.split(':')[1]),
+      )!;
+      assert.ok(
+        distance(carrier, home) < 5,
+        'the father delivers to the brood home, not his own den',
+      );
+    }
+    restored.ecology.prepareHabitats(70, loaded.clock, restored.predators);
+    assert.equal(stock.portions, 8);
+  });
 
 test('an empty den stays vacant for three days and disabled species ignore saved families', () => {
   const save = start();

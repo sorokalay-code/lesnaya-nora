@@ -1,4 +1,5 @@
 import type { Animal } from './animals/Animal';
+import { feedBrood, newBroodFood, type BroodFoodState } from './BroodFood';
 import type { HabitatPoint } from './AnimalHabitats';
 import type { SaveData, WildlifeSocial } from './types';
 
@@ -184,6 +185,7 @@ export interface YoungMammal extends HabitatPoint {
 }
 
 export interface NurseryState {
+  food?: BroodFoodState;
   nextAt: number;
   parents?: [string, string];
   dueAt?: number;
@@ -206,7 +208,7 @@ export class MammalNursery {
   readonly state: NurseryState;
 
   constructor(
-    kind: NurseryKind,
+    private readonly kind: NurseryKind,
     private readonly save: SaveData,
     readonly key: string,
   ) {
@@ -235,6 +237,10 @@ export class MammalNursery {
   }
 
   grow(young: YoungMammal, actor: Animal, clock: number, attended: boolean): void {
+    if (this.kind === 'wolf' || PREDATOR_FAMILIES.some((kind) => kind === this.kind)) {
+      const food = (this.state.food ??= newBroodFood(young.bornAt));
+      attended = feedBrood(food, clock, this.state.young.length, attended);
+    }
     const growth = this.growth(young, clock);
     actor.updateGrowth(growth);
     if (!actor.alive || growth === 1 || clock - young.checkedAt < CARE_INTERVAL) return;
@@ -272,6 +278,10 @@ export class MammalNursery {
       if (clock < state.dueAt) return;
 
       const bornAt = state.dueAt;
+      if (state.food) {
+        Object.assign(state.food, newBroodFood(bornAt));
+        delete state.food.trip;
+      }
       delete state.dueAt;
       state.nextAt = bornAt + this.profile.interval;
       for (let index = 0; index < this.profile.litter; index++) {

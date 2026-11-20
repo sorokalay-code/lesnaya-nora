@@ -13,6 +13,7 @@ export interface AirliftView {
   height: number;
 }
 interface Context extends HawkPopulation {
+  raptors?: { successfulHunt: (actor: FlyingRaptor) => void };
   world: Pick<World, 'heightAt' | 'hasCover'> & Partial<Pick<World, 'scene'>>;
   earth: Pick<Excavation, 'isSheltered' | 'floorAt'>;
   resetInput?: () => void;
@@ -68,7 +69,13 @@ export class HawkHunting {
         };
   }
 
-  update(dt: number, time: number, combat: boolean, night = false): void {
+  update(
+    dt: number,
+    time: number,
+    combat: boolean,
+    night = false,
+    backgroundHunting = false,
+  ): void {
     for (const hawk of this.context.hawks) {
       hawk.updatePresence(night, this.context.world.scene, this.groundAt);
       let hunt = this.hunts.get(hawk);
@@ -110,6 +117,7 @@ export class HawkHunting {
         animateHawk(hawk.root, true, dt, step.phase === 'carry');
         if (step.landed) {
           hunt.victim.hurt(Math.min(65, Math.max(0, step.fallHeight - 1.2) * 5.5) * 0.8);
+          if (!hunt.victim.alive()) this.context.raptors?.successfulHunt(hawk);
           if (hunt.victim.player) this.context.impactSound?.();
           if (hunt.victim.related)
             this.context.toast(
@@ -130,7 +138,7 @@ export class HawkHunting {
         hawk.update(dt, time, 0, 0, false, this.groundAt);
         continue;
       }
-      if (!combat) {
+      if (!combat && !backgroundHunting) {
         hawk.update(dt, time, 0, 0, false, this.groundAt);
         continue;
       }
@@ -139,7 +147,7 @@ export class HawkHunting {
         (Math.hypot(hunt.victim.root.position.x - hawk.x, hunt.victim.root.position.z - hawk.z) >
           HAWK_HUNT.disengageRadius ||
           (!hawk.isDiving(time) && time > hunt.until));
-      if (hunt && (!this.available(hunt.victim) || abandoned)) {
+      if (hunt && (!this.available(hunt.victim) || abandoned || (!combat && !hunt.victim.prey))) {
         const pausePursuit = abandoned && hunt.victim.player;
         hawk.cancelDive();
         this.hunts.delete(hawk);
@@ -151,7 +159,7 @@ export class HawkHunting {
         const victim = this.targeting.choose(
           hawk.diet === 'rodents' ? this.sources.rodents() : this.sources.all(),
           hawk,
-          (v) => this.available(v),
+          (v) => this.available(v) && (combat || (backgroundHunting && !!v.prey)),
         );
         if (
           victim &&
@@ -182,6 +190,7 @@ export class HawkHunting {
         }
         if (hawk.strikeDamage !== undefined) {
           hunt.victim.hurt(hawk.strikeDamage);
+          if (!hunt.victim.alive()) this.context.raptors?.successfulHunt(hawk);
           if (hunt.victim.player) this.context.impactSound?.();
           if (hunt.victim.related)
             this.context.toast(

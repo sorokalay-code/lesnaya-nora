@@ -241,7 +241,7 @@ export class AnimalSimulation {
     this.water?.update(dt, time, canAttackFamily);
     this.grazeRabbits(dt, time);
     this.context.raptors?.update(time);
-    this.hawkHunting.update(dt, time, canAttackFamily, night);
+    this.hawkHunting.update(dt, time, canAttackFamily, night, resting && combat);
     this.hunters?.update(dt, time, canAttackFamily);
     this.context.animalWaste?.update(dt, time);
     this.context.family?.collectDead?.();

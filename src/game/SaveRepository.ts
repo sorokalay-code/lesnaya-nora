@@ -1,5 +1,6 @@
 import { ADDED_ANIMALS, defaultWorldConfig, validWorldConfig } from './WorldConfig';
 import type { SaveData } from './types';
+import { validBroodFood } from './BroodFood';
 import { GenomeValidation } from './genetics/GenomeValidation';
 import { validRemains } from './RemainsData';
 import { playerSex } from './RabbitSex';
@@ -586,7 +587,8 @@ function validMammalPopulation(data: SaveData): boolean {
       !Number.isSafeInteger(Number(slot)) ||
       (kind !== 'wolf' && !isPredatorFamilyKind(kind) && !isWildlifeFamilyKind(kind)) ||
       !isRecord(state) ||
-      !validMinute(state.nextAt)
+      !validMinute(state.nextAt) ||
+      !validBroodFood(state.food)
     )
       return false;
     if (!Array.isArray(state.young) || state.young.length > MAMMAL_NURSERY[kind].litter)
@@ -911,6 +913,8 @@ function validBirdPopulation(data: SaveData): boolean {
         seen.has(brood.slot) ||
         !positiveId(brood.parent) ||
         !validMinute(brood.laidAt) ||
+        !validBroodFood(brood.food) ||
+        (brood.careCheckedAt !== undefined && !validMinute(brood.careCheckedAt)) ||
         !Number.isInteger(brood.eggs) ||
         brood.eggs < 0 ||
         brood.eggs > limits[kind] ||

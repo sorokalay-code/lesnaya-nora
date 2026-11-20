@@ -1,5 +1,6 @@
 import { InstancedMesh, MeshStandardMaterial, Object3D, SphereGeometry, type Scene } from 'three';
 import type { Animal } from './animals/Animal';
+import { feedBrood, newBroodFood, FOOD_GRACE, type BroodFoodState } from './BroodFood';
 import type { HabitatPoint } from './AnimalHabitats';
 import type { DigNode } from './types';
 import type { RaptorKind } from './animals/FlyingRaptor';
@@ -12,6 +13,8 @@ export interface BirdChick extends DigNode {
 }
 
 export interface BirdBroodState {
+  careCheckedAt?: number;
+  food?: BroodFoodState;
   slot: number;
   parent: number;
   laidAt: number;
@@ -20,6 +23,8 @@ export interface BirdBroodState {
 }
 
 interface Context<A extends Animal> {
+  provisioned?: boolean;
+  attended?: (slot: number) => boolean;
   scene: Scene;
   records: BirdBroodState[];
   eggs: number;
@@ -99,6 +104,29 @@ export class BirdBroods<A extends Animal> {
       if (!brood.eggs) this.hideEggs(brood);
 
       const age = this.age(brood, clock);
+      if (this.context.provisioned && brood.young.length) {
+        const food = (brood.food ??= newBroodFood(hatchAt));
+        const before = brood.careCheckedAt ?? hatchAt;
+        const fed = feedBrood(
+          food,
+          clock,
+          brood.young.length,
+          this.context.attended?.(brood.slot) ?? false,
+        );
+        const missing = Math.max(0, clock - Math.max(before, food.lastFedAt + FOOD_GRACE));
+        brood.careCheckedAt = clock;
+        for (const chick of brood.young) {
+          const actor = this.live.get(chick);
+          if (!actor?.alive) continue;
+          actor.health = Math.max(0, actor.health - (missing / DAY) * actor.maxHealth * 0.65);
+          const healthy = actor.maxHealth * (0.5 + age * 0.5);
+          if (fed && actor.alive && actor.health < healthy)
+            actor.health = Math.min(
+              healthy,
+              actor.health + (Math.max(0, clock - before) / DAY) * actor.maxHealth * 0.4,
+            );
+        }
+      }
       for (let index = brood.young.length - 1; index >= 0; index--) {
         const data = brood.young[index];
         const actor = this.live.get(data);

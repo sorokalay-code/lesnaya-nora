@@ -31,6 +31,7 @@ import {
 import { SeasonSystem } from './systems/SeasonSystem';
 import type { LandPredators } from './session/LandPredators';
 import { HuntingGrounds, preyRank } from './HuntingGrounds';
+import { BroodProvisioning, beginProvision, newBroodFood } from './BroodFood';
 import { WildRabbitTerritories } from './session/WildRabbitTerritories';
 import type { Excavation } from './Excavation';
 import { AnimalAppearance } from './AnimalAppearance';
@@ -68,6 +69,7 @@ const WILDLIFE_KINDS = [
 /** Моделирует питание, охоту, конфликты, защиту и восстановление популяции животных. */
 
 export class WildlifeEcology {
+  private readonly provisions = new BroodProvisioning();
   readonly animals: ForestAnimal[] = [];
   private readonly water: WaterNavigation;
   private readonly newWildlifeRng: Random;
@@ -227,6 +229,7 @@ export class WildlifeEcology {
   }
 
   dispose(): void {
+    this.provisions.dispose();
     this.shore?.dispose();
     this.pheasants?.dispose();
     this.territories?.smallFauna?.()?.dispose();
@@ -466,6 +469,52 @@ export class WildlifeEcology {
     }
   }
 
+  private provisionKill(actor: Predator, clock: number): void {
+    if (!this.save || actor.juvenile) return;
+    const home = actor.kind === 'wolf' ? this.territories?.wolves.provisionHome(actor) : undefined;
+    const identity: unknown = actor.root.userData.remainsIdentity;
+    if (typeof identity !== 'string') return;
+    const entry = Object.entries(this.save.mammalNurseries ?? {}).find(
+      ([key, nursery]) =>
+        nursery.young.length &&
+        (home
+          ? key === home.key
+          : key.startsWith(`${actor.kind}:`) && nursery.parents?.includes(identity)),
+    );
+    if (!entry) return;
+    beginProvision((entry[1].food ??= newBroodFood(clock)), identity, clock);
+  }
+
+  private updateProvisions(predators: readonly Predator[], clock: number): void {
+    this.provisions.prune(
+      Object.values(this.save?.mammalNurseries ?? {}).flatMap((state) =>
+        state.food ? [state.food] : [],
+      ),
+    );
+    for (const actor of predators) actor.provisionHome = undefined;
+    for (const [key, nursery] of Object.entries(this.save?.mammalNurseries ?? {})) {
+      const food = nursery.food;
+      if (!food) continue;
+      if (!nursery.young.length) delete food.trip;
+      const actor = food.trip
+        ? predators.find((actor) => actor.root.userData.remainsIdentity === food.trip?.carrier)
+        : undefined;
+      const [kind, slot] = key.split(':');
+      const home =
+        actor?.kind === 'wolf'
+          ? this.territories?.wolves.provisionHome(actor)?.point
+          : isShelteredWildlife(kind)
+            ? this.territories?.shelters.get(kind, Number(slot))?.approach
+            : undefined;
+      const point = home ?? nursery.young[0] ?? { x: 0, z: 0 };
+      if (this.provisions.update(food, actor, point, clock) && actor) {
+        actor.provisionHome = point;
+        actor.restAt = undefined;
+        actor.foragingAllowed = true;
+      }
+    }
+  }
+
   prepareHabitats(
     time: number,
     clock: number,
@@ -481,6 +530,7 @@ export class WildlifeEcology {
     this.huntingGrounds.refresh(this.animals, rabbits ?? [], (actor) => this.canHunt(actor));
     wolves.updateIntents(clock, (point) => this.huntingGrounds.score('wolf', point));
     if (land) land.prepare(clock, winter, player, this.preyScore, this.animals);
+    this.updateProvisions(predators, clock);
     const trails = new Map<Predator, HuntingTrail>();
     for (const actor of predators) {
       if (
@@ -771,6 +821,7 @@ export class WildlifeEcology {
           });
       }
 
+      if (!victim.alive && !(victim instanceof Predator)) this.provisionKill(predator, clock);
       this.preyTargets.delete(predator);
     }
 
