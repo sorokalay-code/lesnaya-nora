@@ -65,6 +65,66 @@ export function surfacePixel(kind: SurfaceTexture, x: number, y: number): [numbe
     const rings = Math.sin(Math.hypot(x - 64, y - 64) * 0.8 + soft);
     return [182 + rings * 12, 151 + rings * 12, 108 + rings * 9];
   }
+  if (kind === 'earth') {
+    const px = (x / SIZE) * Math.PI * 2;
+    const py = (y / SIZE) * Math.PI * 2;
+    const mottling =
+      Math.sin(px * 3 + Math.sin(py * 2) * 1.4) + Math.cos(py * 4 + Math.sin(px * 5) * 0.8);
+    const grit = Math.sin(px * 24 + Math.sin(py * 8) * 1.6) * Math.sin(py * 16);
+    const value = 137 + mottling * 6 + grit * 4;
+    return [value * 1.05, value * 0.84, value * 0.64];
+  }
+  if (kind === 'leaf-litter') {
+    const cellSize = 32;
+    const px = (x / SIZE) * Math.PI * 2;
+    const py = (y / SIZE) * Math.PI * 2;
+    const ground = 106 + Math.sin(px * 4 + Math.cos(py * 3)) * 8;
+    const color: [number, number, number] = [ground, ground * 0.81, ground * 0.58];
+    const leaves = [
+      [147, 119, 67],
+      [121, 113, 61],
+      [164, 132, 78],
+      [110, 95, 54],
+    ] as const;
+    for (let cellY = Math.floor(y / cellSize) - 1; cellY <= Math.floor(y / cellSize) + 1; cellY++) {
+      for (
+        let cellX = Math.floor(x / cellSize) - 1;
+        cellX <= Math.floor(x / cellSize) + 1;
+        cellX++
+      ) {
+        const tileX = ((cellX % 4) + 4) % 4;
+        const tileY = ((cellY % 4) + 4) % 4;
+        const seed = tileY * 4 + tileX;
+        const centerX = cellX * cellSize + hash2(seed, 1, 8723) * cellSize;
+        const centerY = cellY * cellSize + hash2(seed, 2, 8723) * cellSize;
+        const angle = hash2(seed, 3, 8723) * Math.PI;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const along = dx * Math.cos(angle) + dy * Math.sin(angle);
+        const across = -dx * Math.sin(angle) + dy * Math.cos(angle);
+        const length = 9 + hash2(seed, 4, 8723) * 7;
+        const width = 2.5 + hash2(seed, 5, 8723) * 2.5;
+        const distance = (along / length) ** 2 + (across / width) ** 2;
+        if (distance >= 1) continue;
+
+        const source = leaves[Math.floor(hash2(seed, 6, 8723) * leaves.length)];
+        const blend = Math.min(0.94, (1 - distance) * 2.4);
+        const vein = Math.abs(across) < 0.8 && Math.abs(along) < length * 0.75;
+        for (let channel = 0; channel < 3; channel++) {
+          const target = source[channel] + (vein ? 16 : 0);
+          color[channel] += (target - color[channel]) * blend;
+        }
+      }
+    }
+    return color;
+  }
+  if (kind === 'straw') {
+    const px = (x / SIZE) * Math.PI * 2;
+    const py = (y / SIZE) * Math.PI * 2;
+    const fibers = Math.sin(px * 32 + Math.sin(py * 6) * 1.1);
+    const value = 210 + fibers * 13 + Math.cos(py * 3) * 4;
+    return [value, value * 0.87, value * 0.62];
+  }
   const value = 156 + soft * 27 + grain * 13 + wave * 5;
   if (kind === 'rock_moss' && soft > 0) return [value * 0.64, value * 0.77, value * 0.47];
   if (kind === 'rock_slate') return [value * 0.8, value * 0.86, value * 0.91];

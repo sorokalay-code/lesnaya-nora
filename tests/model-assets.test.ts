@@ -41,6 +41,23 @@ test('every creature and family prop loads from a GLB with mesh geometry', () =>
   }
 });
 
+test('rabbit nests combine straw, wood and leaf litter materials', () => {
+  const nest = ModelAssets.shared.create('nest').root;
+  const materials = new Set<string>();
+  const details = new Set<string>();
+  nest.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    const source = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of source) materials.add(material.name);
+    if (object.name.startsWith('Leaf')) details.add(object.name);
+  });
+
+  assert.ok(materials.has('surface_straw'));
+  assert.ok(materials.has('surface_wood'));
+  assert.ok(materials.has('surface_leaf-litter'));
+  assert.ok(details.size > 0);
+});
+
 test('roe deer uses its dedicated fur surface while antlers retain their material', () => {
   assert.equal(animalSurface('roe-deer', 'fur_base'), 'roe-deer');
   assert.equal(animalSurface('roe-deer', 'antler'), undefined);

@@ -14,12 +14,24 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
     const geometry = source.index ? source.toNonIndexed() : source;
     if (geometry !== source) source.dispose();
     const colors = [];
-    for (let i = 0; i < geometry.getAttribute('position').count; i += 3) {
+    const uvs = [];
+    const position = geometry.getAttribute('position');
+    const normal = geometry.getAttribute('normal');
+    for (let i = 0; i < position.count; i += 3) {
       const light = rng.range(0.8, 1.15);
-      for (let vertex = 0; vertex < 3; vertex++)
+      for (let vertex = 0; vertex < 3; vertex++) {
+        const index = i + vertex;
         colors.push(color.r * light, color.g * light, color.b * light);
+        const nx = Math.abs(normal.getX(index));
+        const ny = Math.abs(normal.getY(index));
+        const nz = Math.abs(normal.getZ(index));
+        if (ny >= nx && ny >= nz) uvs.push(position.getX(index) * 2, position.getZ(index) * 2);
+        else if (nx >= nz) uvs.push(position.getZ(index) * 2, position.getY(index) * 2);
+        else uvs.push(position.getX(index) * 2, position.getY(index) * 2);
+      }
     }
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     parts.push(geometry);
   };
   const clod = (
@@ -42,6 +54,23 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
     clod(r * 0.23, 0, -r * 0.45, r * 0.35, h * 0.43, r * 0.34);
   } else if (shape !== 'cave' && shape !== 'crevice') {
     clod(0, 0, 0, r, h, r * 0.88);
+  }
+
+  if (shape === 'burrow' || shape === 'cave' || shape === 'roots') {
+    const stones = new THREE.Color(0x756b5a);
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2 + 0.3;
+      const distance = r * (0.62 + (i % 2) * 0.1);
+      clod(
+        Math.sin(angle) * distance,
+        h * 0.035,
+        Math.cos(angle) * distance,
+        r * 0.11,
+        h * 0.12,
+        r * 0.09,
+        stones,
+      );
+    }
   }
 
   if (shape === 'beaver-lodge' || shape === 'duck-nest') {
@@ -110,6 +139,14 @@ export function wildlifeShelterGeometry(profile: WildlifeShelterProfile): THREE.
         );
       bake(fragment, edge.clone().lerp(dirt, rng.range(0, 0.75)));
     }
+  }
+
+  if (shape === 'duck-nest') {
+    const bowl = new THREE.CircleGeometry(1, 16)
+      .rotateX(-Math.PI / 2)
+      .scale(r * 0.34, r * 0.34, 1)
+      .translate(0, h * 0.46, 0);
+    bake(bowl, new THREE.Color(0x443428));
   }
 
   const geometry = mergeGeometries(parts)!;

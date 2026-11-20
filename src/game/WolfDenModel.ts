@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { denFloor, DEN_DEPTH, DEN_HALF_WIDTH, DEN_HEIGHT } from './WolfDen';
+import { ModelAssets } from './ModelAssets';
 
 const ARCH_STEPS = 16;
 const earth = new THREE.Color('#66513b');
@@ -11,11 +12,25 @@ const shadow = new THREE.Color('#251c16');
 export function wolfDenModel(): THREE.Mesh {
   const positions: number[] = [];
   const colors: number[] = [];
+  const uvs: number[] = [];
   type Vertex = { x: number; y: number; z: number; color: THREE.Color };
   const triangle = (a: Vertex, b: Vertex, c: Vertex) => {
-    for (const { x, y, z, color } of [a, b, c]) {
+    const vertices = [a, b, c];
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const abz = b.z - a.z;
+    const acx = c.x - a.x;
+    const acy = c.y - a.y;
+    const acz = c.z - a.z;
+    const nx = Math.abs(aby * acz - abz * acy);
+    const ny = Math.abs(abz * acx - abx * acz);
+    const nz = Math.abs(abx * acy - aby * acx);
+    for (const { x, y, z, color } of vertices) {
       positions.push(x, y, z);
       colors.push(color.r, color.g, color.b);
+      if (ny >= nx && ny >= nz) uvs.push(x * 1.5, z * 1.5);
+      else if (nx >= nz) uvs.push(z * 1.5, y * 1.5);
+      else uvs.push(x * 1.5, y * 1.5);
     }
   };
   const join = (a: Vertex[], b: Vertex[]) => {
@@ -88,9 +103,11 @@ export function wolfDenModel(): THREE.Mesh {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   const material = new THREE.MeshStandardMaterial({
     side: THREE.DoubleSide,
+    map: ModelAssets.shared.surfaceTexture('earth') ?? null,
     vertexColors: true,
     roughness: 1,
   });

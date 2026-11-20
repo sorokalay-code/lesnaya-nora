@@ -12,6 +12,9 @@ export const SURFACE_TEXTURES = [
   'rock_slate',
   'bark',
   'wood',
+  'earth',
+  'leaf-litter',
+  'straw',
 ] as const;
 export type SurfaceTexture = (typeof SURFACE_TEXTURES)[number];
 

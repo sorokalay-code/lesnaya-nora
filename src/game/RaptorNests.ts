@@ -13,6 +13,7 @@ import type { DigNode } from './types';
 import type { World } from './World';
 import { playableWorldLimit } from './WorldConfig';
 import { wildlifeShelterGeometry } from './WildlifeShelterModel';
+import { ModelAssets } from './ModelAssets';
 
 export interface RaptorNest {
   bowl: DigNode;
@@ -32,9 +33,21 @@ export class RaptorNests {
   private readonly occupied: HabitatPoint[] = [];
   private readonly stone = new DodecahedronGeometry(1, 0);
   private readonly branch = new CylinderGeometry(0.065, 0.115, 1, 6);
-  private readonly rockMaterial = new MeshStandardMaterial({ color: 0x7d827c, roughness: 0.98 });
-  private readonly woodMaterial = new MeshStandardMaterial({ color: 0x695039, roughness: 1 });
-  private readonly nestMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 1 });
+  private readonly rockMaterial = new MeshStandardMaterial({
+    color: 0x7d827c,
+    map: ModelAssets.shared.surfaceTexture('rock_granite') ?? null,
+    roughness: 0.98,
+  });
+  private readonly woodMaterial = new MeshStandardMaterial({
+    color: 0x695039,
+    map: ModelAssets.shared.surfaceTexture('wood') ?? null,
+    roughness: 1,
+  });
+  private readonly nestMaterial = new MeshStandardMaterial({
+    map: ModelAssets.shared.surfaceTexture('straw') ?? null,
+    vertexColors: true,
+    roughness: 1,
+  });
   private readonly twigs = wildlifeShelterGeometry({
     shape: 'duck-nest',
     radius: 0.85,

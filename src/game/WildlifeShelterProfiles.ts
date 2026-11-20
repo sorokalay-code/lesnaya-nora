@@ -1,5 +1,6 @@
 import type { WildlifeKind } from './animals/types';
 import type { PredatorKind } from './types';
+import type { SurfaceTexture } from './SurfaceMaterials';
 
 type GroundShelterShape =
   | 'burrow'
@@ -10,6 +11,8 @@ type GroundShelterShape =
   | 'crevice'
   | 'beaver-lodge'
   | 'duck-nest';
+
+export type ShelterSurface = Extract<SurfaceTexture, 'earth' | 'leaf-litter' | 'straw' | 'wood'>;
 
 export interface WildlifeShelterProfile {
   shape: GroundShelterShape | 'tree-nest';
@@ -56,4 +59,12 @@ export function isShelteredWildlife(value: unknown): value is ShelteredWildlife 
 
 export function wildlifeShelterProfile(kind: ShelteredWildlife): WildlifeShelterProfile {
   return profiles[kind];
+}
+
+export function wildlifeShelterSurface(kind: ShelteredWildlife): ShelterSurface {
+  const { shape } = wildlifeShelterProfile(kind);
+  if (shape === 'leaf-nest') return 'leaf-litter';
+  if (shape === 'beaver-lodge' || shape === 'tree-nest') return 'wood';
+  if (shape === 'duck-nest') return 'straw';
+  return 'earth';
 }

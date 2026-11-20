@@ -8,8 +8,13 @@ import { SaveRepository } from '../src/game/SaveRepository';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import type { Biome, SaveData } from '../src/game/types';
-import { wildlifeShelterProfile } from '../src/game/WildlifeShelterProfiles';
+import {
+  wildlifeShelterProfile,
+  wildlifeShelterSurface,
+} from '../src/game/WildlifeShelterProfiles';
+import { wildlifeShelterGeometry } from '../src/game/WildlifeShelterModel';
 import { WildlifeShelters } from '../src/game/WildlifeShelters';
+import { wolfDenModel } from '../src/game/WolfDenModel';
 import type { World } from '../src/game/World';
 import { CREATURE_OPTIONS, defaultWorldConfig } from '../src/game/WorldConfig';
 import { loadModels } from './model-fixture';
@@ -115,6 +120,27 @@ test('visible shelters match every resident and opposing schedules continue afte
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+});
+
+test('shelter models expose UVs for their material textures', () => {
+  for (const [kind, surface] of [
+    ['rabbit', 'earth'],
+    ['hedgehog', 'leaf-litter'],
+    ['beaver', 'wood'],
+    ['duck', 'straw'],
+  ] as const) {
+    assert.equal(wildlifeShelterSurface(kind), surface);
+    const geometry = wildlifeShelterGeometry(wildlifeShelterProfile(kind));
+    assert.equal(geometry.getAttribute('uv').count, geometry.getAttribute('position').count);
+    assert.equal(geometry.getAttribute('color').count, geometry.getAttribute('position').count);
+    geometry.dispose();
+  }
+
+  const den = wolfDenModel();
+  assert.equal(den.geometry.getAttribute('uv').count, den.geometry.getAttribute('position').count);
+  den.geometry.dispose();
+  for (const material of Array.isArray(den.material) ? den.material : [den.material])
+    material.dispose();
 });
 
 test('a threatened marmot uses a nearby entrance and remains hidden until it is safe', () => {

@@ -2,7 +2,7 @@ import { SHRUB_SPECIES } from './ShrubSpecies';
 import { isTreeSpecies, TREE_SPECIES } from './TreeSpecies';
 import type { Season } from './types';
 import { assetUrl } from './AssetPaths';
-import { animalSurface, SURFACE_TEXTURES } from './SurfaceMaterials';
+import { animalSurface, SURFACE_TEXTURES, type SurfaceTexture } from './SurfaceMaterials';
 import { GroundPose } from './GroundPose';
 import type { AttackTimeline } from './combat/AttackPresentation';
 import * as THREE from 'three';
@@ -189,6 +189,10 @@ export class ModelAssets {
 
   soilTexture(season: Season): THREE.Texture | undefined {
     return this.textures.get(`soil-${SEASON_TEXTURE_SUFFIX[season]}`);
+  }
+
+  surfaceTexture(surface: SurfaceTexture): THREE.Texture | undefined {
+    return this.textures.get(`surface-${surface}`);
   }
 
   coverTexture(season: Season): THREE.Texture | undefined {

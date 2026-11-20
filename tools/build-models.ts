@@ -728,8 +728,9 @@ function peaceful(kind) {
 }
 function nest() {
   const root = group(new THREE.Group(), 'nest'),
-    straw = mat('straw', 0xc1a174),
-    twigs = mat('twig', 0x74553b),
+    straw = mat('surface_straw', 0xc1a174),
+    twigs = mat('surface_wood', 0x74553b),
+    leaf = mat('surface_leaf-litter', 0x777346),
     fluff = pale(0xe6dcc7);
   ell(root, straw, 'Bowl', [0, 0.08, 0], [0.85, 0.16, 0.72]);
   ell(root, fluff, 'Lining', [0, 0.16, 0], [0.56, 0.09, 0.48]);
@@ -745,6 +746,17 @@ function nest() {
       0.023,
     );
   }
+  for (let i = 0; i < 10; i++) {
+    const a = i * 2.4;
+    mini(
+      root,
+      leaf,
+      `Leaf${i}`,
+      [Math.sin(a) * 0.72, 0.12 + (i % 2) * 0.025, Math.cos(a) * 0.58],
+      [0.14, 0.025, 0.055],
+      [0, a, ((i % 3) - 1) * 0.12],
+    );
+  }
   for (let i = 0; i < 9; i++)
     mini(
       root,
@@ -757,8 +769,8 @@ function nest() {
 }
 function stash() {
   const root = group(new THREE.Group(), 'stash'),
-    twigs = mat('twig', 0x75553b),
-    straw = mat('straw', 0xba955f),
+    twigs = mat('surface_wood', 0x75553b),
+    straw = mat('surface_straw', 0xba955f),
     food = mat('carrot', 0xd28e4c);
   ell(root, straw, 'Pile', [0, 0.11, 0], [0.55, 0.15, 0.45]);
   for (let i = 0; i < 11; i++) {

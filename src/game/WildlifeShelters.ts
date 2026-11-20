@@ -8,10 +8,13 @@ import type { WolfDens } from './WolfDens';
 import type { World } from './World';
 import { playableWorldLimit } from './WorldConfig';
 import { wildlifeShelterGeometry } from './WildlifeShelterModel';
+import { ModelAssets } from './ModelAssets';
 import {
   isShelteredWildlife,
   wildlifeShelterProfile,
+  wildlifeShelterSurface,
   type ShelteredWildlife,
+  type ShelterSurface,
 } from './WildlifeShelterProfiles';
 
 export interface WildlifeShelterSite extends HabitatPoint {
@@ -50,12 +53,8 @@ export class WildlifeShelters {
   private readonly obstacles = new Map<string, (HabitatPoint & { radius: number })[]>();
   private readonly trees = new Map<string, NonNullable<World['treeLocations']>[number][]>();
   private readonly geometry = new Map<ShelteredWildlife, BufferGeometry>();
+  private readonly materials = new Map<ShelterSurface, MeshStandardMaterial>();
   private readonly occupiedTrees = new Set<string>();
-  private readonly material = new MeshStandardMaterial({
-    vertexColors: true,
-    side: DoubleSide,
-    roughness: 1,
-  });
   private readonly limit: number;
 
   constructor(
@@ -291,7 +290,7 @@ export class WildlifeShelters {
   private mount(site: WildlifeShelterSite): WildlifeShelter {
     const { x, z, kind, slot, treeHeight } = site;
     const profile = wildlifeShelterProfile(kind);
-    const model = new Mesh(this.geometryFor(kind), this.material);
+    const model = new Mesh(this.geometryFor(kind), this.materialFor(kind));
     model.name = `wildlife-shelter-${kind}-${slot}`;
     model.position.set(x, this.world.heightAt(x, z) + (treeHeight ?? 0), z);
     if (treeHeight) {
@@ -326,6 +325,21 @@ export class WildlifeShelters {
     const geometry = wildlifeShelterGeometry(wildlifeShelterProfile(kind));
     this.geometry.set(kind, geometry);
     return geometry;
+  }
+
+  private materialFor(kind: ShelteredWildlife): MeshStandardMaterial {
+    const surface = wildlifeShelterSurface(kind);
+    const existing = this.materials.get(surface);
+    if (existing) return existing;
+
+    const material = new MeshStandardMaterial({
+      map: ModelAssets.shared.surfaceTexture(surface) ?? null,
+      vertexColors: true,
+      side: DoubleSide,
+      roughness: 1,
+    });
+    this.materials.set(surface, material);
+    return material;
   }
 
   private add<T extends HabitatPoint>(grid: Map<string, T[]>, point: T): void {
