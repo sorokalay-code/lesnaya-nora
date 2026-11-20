@@ -603,6 +603,16 @@ export class WildlifeEcology {
     this.territories?.wolves.prepareDefense(time, player, combat);
   }
 
+  bearBroodGuards(player: HabitatPoint) {
+    if (this.save && this.seasons.name(Math.floor(this.save.clock / 1440) + 1) === 'Зима')
+      return [];
+    return this.families?.broodGuards('bear', player) ?? [];
+  }
+
+  foxBroodGuards(player: HabitatPoint) {
+    return this.territories?.land?.broodGuards(player) ?? [];
+  }
+
   private place(animal: ForestAnimal, x: number, z: number): void {
     if (typeof this.world.waterAt === 'function') animal.useWater(this.water);
     const water = this.world.waterAt?.(x, z);

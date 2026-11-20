@@ -18,6 +18,7 @@ import type { AnimalWasteSystem } from './AnimalWasteSystem';
 import type { AttackListener } from '../audio/AttackCue';
 import { RabbitPredation } from './RabbitPredation';
 import { HawkHunting } from './HawkHunting';
+import { BroodProtection } from './BroodProtection';
 import { AnimalRestraint } from '../animals/AnimalRestraint';
 import { ModelAssets } from '../ModelAssets';
 import { AnimalAmbience } from '../audio/AnimalAmbience';
@@ -52,6 +53,7 @@ interface Context {
   ambientSound?: AnimalVoiceListener;
   facing?: () => { x: number; z: number };
   attackSound?: AttackListener;
+  clearBroodStrike?: (actor: ForestAnimal | Predator) => boolean;
   family?: FamilyLifecycle;
   animalWaste?: AnimalWasteSystem;
   combatAllowed?: () => boolean;
@@ -80,6 +82,7 @@ interface Context {
 /** Обновляет поведение животных, семейную поддержку, охоту и видимость существ. */
 export class AnimalSimulation {
   private readonly hawkHunting: HawkHunting;
+  private readonly broodProtection: BroodProtection;
   private readonly friends = new FriendSignals();
   private readonly friendDefense: FriendDefense;
   private readonly friendMarks?: FriendMarks;
@@ -91,6 +94,7 @@ export class AnimalSimulation {
   private readonly hunters?: GardenHunters;
 
   constructor(private readonly context: Context) {
+    this.broodProtection = new BroodProtection(context);
     if (context.world.gardens?.length && typeof context.world.observeHarvest === 'function')
       this.hunters = new GardenHunters({ ...context, shotSound: context.hunterShot });
     this.wildBreeding = new WildRabbitBreeding(context);
@@ -103,6 +107,7 @@ export class AnimalSimulation {
     });
     this.hawkHunting = new HawkHunting({
       ...context,
+      broodStrike: (damage) => context.consequences.meleeDamage(damage),
       protectPlayer: (time) => this.friendDefense.interruptStrike(context.save.player, time, false),
     });
     this.rabbitPredation = new RabbitPredation(context);
@@ -229,6 +234,8 @@ export class AnimalSimulation {
       !this.sheltered &&
       !AnimalRestraint.active(this.context.player.root);
     this.context.ecology.prepareDenDefense?.(time, exposed ? player : undefined, combat);
+    this.context.raptors?.update(time);
+    this.broodProtection.update(player, exposed, time);
     const closestThreat = this.updatePredators(dt, time, night, combat, canAttackFamily);
     this.updateUndergroundTraffic(dt, time, night, canAttackFamily, resting);
     this.friendDefense.updateEscorts(
@@ -237,10 +244,17 @@ export class AnimalSimulation {
       this.sheltered,
     );
     this.updateEcology(dt, time, combat);
+    if (exposed) {
+      for (const actor of this.context.wildlife) {
+        if (!actor.alive || actor.broodDefense?.phase !== 'pursuit') continue;
+        if (!(this.context.clearBroodStrike?.(actor) ?? true)) continue;
+        const damage = actor.defendBrood(player, time);
+        if (damage > 0) this.context.consequences.meleeDamage(damage);
+      }
+    }
     if (!resting) this.context.collisions.resolve(this.context.state.mating?.mateId);
     this.water?.update(dt, time, canAttackFamily);
     this.grazeRabbits(dt, time);
-    this.context.raptors?.update(time);
     this.hawkHunting.update(dt, time, canAttackFamily, night, resting && combat);
     this.hunters?.update(dt, time, canAttackFamily);
     this.context.animalWaste?.update(dt, time);
@@ -380,7 +394,11 @@ export class AnimalSimulation {
 
       const repelled = canDefend && this.friendDefense.repel(predator, p, time);
       if (!repelled) {
-        if (strike) this.context.consequences.predatorAttack(predator.kind);
+        if (
+          strike &&
+          (!predator.broodDefense || (this.context.clearBroodStrike?.(predator) ?? true))
+        )
+          this.context.consequences.predatorAttack(predator.kind);
         if (canAttackFamily && predator.huntingOpen)
           this.context.consequences.threatenKits(predator, time);
       }

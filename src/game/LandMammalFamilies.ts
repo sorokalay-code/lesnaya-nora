@@ -1,3 +1,4 @@
+import type { BroodGuard } from './BroodDefense';
 import type { Habitat, HabitatPoint } from './AnimalHabitats';
 import type { ForestAnimal, Predator } from './animals';
 import { MammalNursery, MAMMAL_NURSERY, type NurseryKind, type YoungMammal } from './MammalNursery';
@@ -71,6 +72,30 @@ export class LandMammalFamilies<A extends Resident, K extends LandFamilyKind> {
 
   careAt(actor: A): HabitatPoint | undefined {
     return this.caregivers.get(actor);
+  }
+
+  *broodGuards(kind: K, player: HabitatPoint): Iterable<BroodGuard<A>> {
+    const closest = new Map<Family<K>, A>();
+    for (const [young, { family }] of this.dependents) {
+      if (family.kind !== kind || !young.alive || !young.juvenile) continue;
+      const other = closest.get(family);
+      if (!other || distance(young, player) < distance(other, player)) closest.set(family, young);
+    }
+    if (!closest.size) return;
+    const adults = this.context.animals.filter(
+      (actor) => actor.alive && actor.kind === kind && !actor.juvenile,
+    );
+    for (const [family, young] of closest) {
+      const mother = this.findParent(family, adults);
+      const father = family.nursery.state.parents?.[1];
+      const actor =
+        mother ??
+        (kind === 'fox' ? adults.find((adult) => this.identity(adult) === father) : undefined);
+      if (!actor) continue;
+      const home = family.shelter?.approach ?? family.nest;
+      if (kind === 'bear' && !young.inShelter) yield { actor, home: young, center: young };
+      else yield { actor, home, center: family.nest };
+    }
   }
 
   onDeath(actor: A, clock: number): void {

@@ -9,6 +9,8 @@ import { PREDATOR_FAMILIES, WILDLIFE_FAMILIES } from '../src/game/MammalNursery'
 import { Random } from '../src/game/Random';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
+import { BroodProtection } from '../src/game/session/BroodProtection';
+import { FRIENDSHIP_TRUST } from '../src/game/Friendship';
 import { WildRabbitBreeding } from '../src/game/session/WildRabbitBreeding';
 import { WorldPopulation } from '../src/game/session/WorldPopulation';
 import type { Biome, SaveData } from '../src/game/types';
@@ -210,10 +212,79 @@ test('bears rest in rock dens over winter and leave with cubs in spring', () => 
   assert.ok(nursery?.dueAt);
   f.step(nursery.dueAt, 5);
   assert.ok(f.wildlife.some((animal) => animal.juvenile && animal.inShelter));
+  assert.deepEqual([...f.ecology.bearBroodGuards(f.save.player)], []);
   f.ecology.capture();
   const loaded = fixture(roundTrip(save));
   loaded.step(120 * 1440 + 600, 12);
   assert.ok(loaded.wildlife.some((animal) => animal.juvenile && !animal.inShelter));
+
+  const cub = loaded.wildlife.find((animal) => animal.kind === 'bear' && animal.juvenile)!;
+  const guard = [...loaded.ecology.bearBroodGuards(cub)][0];
+  assert.ok(guard && !guard.actor.inShelter);
+  const { actor: mother } = guard;
+  const at = { x: cub.x + 1, y: 0, z: cub.z };
+  mother.moveTo(cub.x, cub.z, 0);
+  const warnings: string[] = [];
+  const protection = new BroodProtection({
+    ecology: loaded.ecology,
+    toast: (message) => warnings.push(message),
+  });
+  protection.update({ ...at, x: cub.x + 22 }, true, 0);
+  assert.equal(warnings.length, 0);
+  protection.update(at, true, 1);
+  assert.ok(warnings.length > 0);
+  assert.equal(mother.defendBrood(at, 1), 0);
+  protection.update(at, true, 3);
+  assert.ok(mother.defendBrood(at, 3) > 0);
+  cub.moveTo(at.x + 25, at.z, 0);
+  protection.update({ ...at, x: cub.x }, true, 3.05);
+  assert.equal(mother.broodDefense?.phase, 'return');
+  protection.update(at, false, 3.1);
+  assert.equal(mother.defendBrood(at, 5), 0);
+  cub.moveTo(at.x - 1, at.z, 0);
+  mother.befriend(FRIENDSHIP_TRUST);
+  protection.update(at, true, 6);
+  protection.update(at, true, 9);
+  assert.equal(mother.broodDefense, undefined);
+  assert.equal(mother.defendBrood(at, 9), 0);
+});
+
+test('a fox guards its loaded litter, bites after warning and abandons pursuit outside the den area', () => {
+  const f = fixture(
+    start((counts) => {
+      counts.fox = 3;
+    }),
+  );
+  f.step(420);
+  f.step(2100);
+  f.ecology.capture();
+  const loaded = fixture(roundTrip(f.save));
+  const guard = [...loaded.ecology.foxBroodGuards(loaded.save.player)][0];
+  assert.ok(guard);
+  const fox = guard.actor;
+  fox.moveTo(guard.home.x, guard.home.z, 0);
+  const point = { x: guard.center.x, y: 0, z: guard.center.z };
+  const warnings: string[] = [];
+  const protection = new BroodProtection({
+    ecology: loaded.ecology,
+    toast: (message) => warnings.push(message),
+  });
+  let hits = 0;
+  for (let frame = 0; frame < 100; frame++) {
+    const time = frame * 0.06;
+    protection.update(point, true, time);
+    if (fox.update(0.06, time, point.x, point.z, false, true, ground)) {
+      assert.ok(time >= 1.2);
+      hits++;
+    }
+  }
+  assert.ok(hits > 0);
+  assert.equal(warnings.length, 1);
+  protection.update({ ...point, x: point.x + 14 }, true, 6);
+  assert.equal(fox.broodDefense?.phase, 'return');
+  assert.ok(!fox.update(0.1, 6, point.x, point.z, false, true, ground));
+  protection.update(point, false, 7);
+  assert.ok(!fox.update(0.1, 7, point.x, point.z, true, true, ground));
 });
 
 test('a weasel borrows a vacant mouse burrow and restores that entrance on load', () => {

@@ -103,7 +103,7 @@ export abstract class Predator extends Animal<PredatorKind> {
   }
 
   get huntingOpen(): boolean {
-    if (this.provisionHome) return false;
+    if (this.provisionHome || this.broodDefense) return false;
     return (
       !this.juvenile && !this.restAt && this.foragingAllowed && (this.territory?.hunting ?? true)
     );
@@ -280,24 +280,33 @@ export abstract class Predator extends Animal<PredatorKind> {
       animatePredator(this.root, time, false, dt, false);
       return false;
     }
-    if (this.moveInDen(dt, time, time >= this.retreatUntil, groundAt)) return false;
+    const defense = this.broodDefense;
+    if (
+      this.moveInDen(dt, time, time >= this.retreatUntil && defense?.phase !== 'pursuit', groundAt)
+    )
+      return false;
 
     const player = { x: px, z: pz };
     const dist = Math.hypot(px - this.x, pz - this.z);
     const hunting =
-      !this.provisionHome &&
       time >= this.retreatUntil &&
       !hidden &&
-      (this.defendsPlayer(px, pz) ||
-        (dist < this.range * activity * (1 + scent * 0.4) &&
-          this.canPursue(px, pz) &&
-          this.canHuntPlayer(dist, day)));
+      (defense
+        ? defense.phase === 'pursuit'
+        : !this.provisionHome &&
+          (this.defendsPlayer(px, pz) ||
+            (dist < this.range * activity * (1 + scent * 0.4) &&
+              this.canPursue(px, pz) &&
+              this.canHuntPlayer(dist, day))));
     this.huntingPlayer = hunting;
     const chasingPrey = !hunting && time >= this.retreatUntil && prey && this.canEngagePrey(prey);
     if (time < this.retreatUntil) {
       this.targetX = this.retreatX;
       this.targetZ = this.retreatZ;
-    } else if (this.provisionHome) {
+    } else if (defense && !hunting) {
+      this.targetX = defense.phase === 'return' ? defense.home.x : this.x;
+      this.targetZ = defense.phase === 'return' ? defense.home.z : this.z;
+    } else if (this.provisionHome && !defense) {
       const waypoint = this.provisionRoute.step(
         this.root.position,
         this.provisionHome,
@@ -307,7 +316,7 @@ export abstract class Predator extends Animal<PredatorKind> {
       this.targetX = waypoint.x;
       this.targetZ = waypoint.z;
     } else if (hunting) {
-      const destination = this.pursuitDestination(player, time);
+      const destination = defense ? player : this.pursuitDestination(player, time);
       this.targetX = destination.x;
       this.targetZ = destination.z;
     } else if (chasingPrey) {
@@ -372,7 +381,9 @@ export abstract class Predator extends Animal<PredatorKind> {
       dt,
       groundAt,
     );
-    this.root.rotation.y = angle + Math.PI;
+    if (defense?.phase === 'warning')
+      this.root.rotation.y = Math.atan2(px - this.x, pz - this.z) + Math.PI;
+    else this.root.rotation.y = angle + Math.PI;
     // Дальность укуса согласована с капсулой крольчихи: коллизия не делает её неуязвимой спереди.
     const biteReach = Math.max(
       this.profile.playerReach,

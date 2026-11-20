@@ -2,7 +2,7 @@ import type { Random } from '../Random';
 import type { AppearanceOptions } from '../AnimalAppearance';
 import { ForestAnimal } from './ForestAnimal';
 
-/** Мирный медведь кормится и защищается только в ответ на нападение. */
+/** Медведь кормится, защищает потомство и отвечает на нападение. */
 export class Bear extends ForestAnimal {
   constructor(x: number, z: number, rng: Random, appearance?: AppearanceOptions) {
     super(

@@ -12,6 +12,7 @@ import type { World } from '../World';
 import { defaultWorldConfig } from '../WorldConfig';
 import { isNightAt } from './WorldCalendar';
 import { afterImmigration, awayFromPlayer, immigrationReady } from '../TerritoryImmigration';
+import type { BroodGuard } from '../BroodDefense';
 
 export interface RaptorState extends DigNode {
   kind: RaptorKind;
@@ -187,6 +188,34 @@ export class RaptorPopulation {
           ]
         : [];
     });
+  }
+
+  *broodGuards(): Iterable<BroodGuard<FlyingRaptor>> {
+    const selected = new Map<string, BroodGuard<FlyingRaptor>>();
+    for (const actor of this.actors) {
+      const adult = this.adults.get(actor);
+      if (!adult || !actor.alive) continue;
+      const pair = Math.floor(adult.slot / 2);
+      const nest = this.nests.get(actor.kind, pair);
+      const brood = this.context.save.birdBroods?.[actor.kind]?.find(
+        (entry) => entry.slot === pair,
+      );
+      if (!nest || !brood || !(brood.eggs || brood.young.length)) continue;
+      const key = `${actor.kind}:${pair}`;
+      const other = selected.get(key)?.actor;
+      const distance = (bird: FlyingRaptor) =>
+        Math.hypot(bird.x - nest.bowl.x, bird.z - nest.bowl.z);
+      if (
+        !other ||
+        (!other.broodDefense && (actor.broodDefense || distance(actor) < distance(other)))
+      )
+        selected.set(key, {
+          actor,
+          center: nest.bowl,
+          home: { ...nest.care, support: nest.support },
+        });
+    }
+    yield* selected.values();
   }
 
   removeDead(hasCarry: (actor: FlyingRaptor) => boolean): void {

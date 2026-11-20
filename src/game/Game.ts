@@ -664,6 +664,7 @@ export class Game {
       ambientSound: (cue) => this.sound.animal(cue),
       facing: () => this.view.forwardAt(),
       attackSound: (cue) => this.attackSounds?.emit(cue),
+      clearBroodStrike: (actor) => combatReach.clear(this.save.player, actor),
       family: this.family,
       animalWaste: new AnimalWasteSystem({
         scene: this.scene,

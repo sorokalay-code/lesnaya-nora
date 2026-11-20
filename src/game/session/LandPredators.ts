@@ -159,6 +159,10 @@ export class LandPredators {
     this.families.onDeath(actor, clock);
   }
 
+  broodGuards(player: HabitatPoint) {
+    return this.families.broodGuards('fox', player);
+  }
+
   update(clock: number, player: HabitatPoint): void {
     if (clock < this.nextImmigration) return;
     this.nextImmigration = clock + 30;

@@ -3,6 +3,7 @@ import type { WaterNavigation } from '../WaterNavigation';
 import { traceGround } from '../GroundContact';
 import { GroundPose } from '../GroundPose';
 import type { MammalOrigin } from '../MammalNursery';
+import type { BroodDefenseOrder } from '../BroodDefense';
 
 export interface AnimalPosition {
   x: number;
@@ -20,6 +21,7 @@ export abstract class Animal<K extends string = string> {
   mammalOrigin?: MammalOrigin;
   mammalId?: number;
   habitatSlot?: number;
+  broodDefense?: BroodDefenseOrder;
 
   get juvenile(): boolean {
     return this.growthScale < 1;

@@ -113,12 +113,19 @@ export abstract class FlyingRaptor extends Animal<RaptorKind> {
   }
 
   get perched(): boolean {
-    return this.schedule?.mode === 'landing' && this.arrived;
+    return (
+      this.arrived &&
+      (this.broodDefense
+        ? this.broodDefense.phase !== 'pursuit'
+        : this.schedule?.mode === 'landing')
+    );
   }
 
   get supportVisible(): boolean {
-    if (this.schedule?.mode !== 'landing') return true;
-    for (let object = this.schedule.support; object; object = object.parent ?? undefined)
+    const support =
+      this.broodDefense?.home.support ??
+      (this.schedule?.mode === 'landing' ? this.schedule.support : undefined);
+    for (let object = support; object; object = object.parent ?? undefined)
       if (!object.visible) return false;
     return true;
   }
@@ -176,16 +183,24 @@ export abstract class FlyingRaptor extends Animal<RaptorKind> {
     pz: number,
     exposed: boolean,
     groundAt: GroundHeight,
+    defending = false,
   ): boolean {
     this.cooldown = Math.max(0, this.cooldown - dt);
-    if (this.schedule && this.schedule.mode !== 'hunting') {
+    const defense = this.broodDefense;
+    if (defense && !defending) {
+      const home = defense.home;
+      const y = home.y ?? groundAt(home.x, home.z) + 2;
+      this.approachPerch(dt, { mode: 'landing', target: { x: home.x, y, z: home.z } }, groundAt);
+      return false;
+    }
+    if (!defending && this.schedule && this.schedule.mode !== 'hunting') {
       this.approachPerch(dt, this.schedule, groundAt);
       return false;
     }
     if (this.schedule?.mode === 'hunting')
       this.arrived =
         Math.hypot(this.x - this.schedule.grounds.x, this.z - this.schedule.grounds.z) < 25;
-    exposed &&= this.huntingAllowed;
+    exposed &&= defending || this.huntingAllowed;
     const distance = Math.hypot(px - this.x, pz - this.z);
     if (
       exposed &&
@@ -241,6 +256,9 @@ export abstract class FlyingRaptor extends Animal<RaptorKind> {
       if (exposed && distance < HAWK_HUNT.disengageRadius && this.readyToHunt) {
         this.targetX = px;
         this.targetZ = pz;
+      } else if (defending && defense) {
+        this.targetX = defense.home.x + Math.cos(time) * 3;
+        this.targetZ = defense.home.z + Math.sin(time) * 3;
       } else if (this.schedule?.mode === 'hunting') {
         const { grounds, angle } = this.schedule;
         const radius = this.arrived ? 5 : 0;

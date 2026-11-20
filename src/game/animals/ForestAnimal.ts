@@ -210,6 +210,21 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
     if (distance > 9) return 0;
 
     this.guardAgainst(player, time);
+    return this.strikeNearbyPlayer(distance, time);
+  }
+
+  defendBrood(player: { x: number; y: number; z: number }, time: number): number {
+    if (
+      this.broodDefense?.phase !== 'pursuit' ||
+      this.inShelter ||
+      Math.abs(player.y - this.root.position.y) > 1.2
+    )
+      return 0;
+
+    return this.strikeNearbyPlayer(Math.hypot(player.x - this.x, player.z - this.z), time);
+  }
+
+  private strikeNearbyPlayer(distance: number, time: number): number {
     if (distance > this.profile.radius + 0.9 || time < this.nextPlayerStrikeAt) return 0;
 
     this.nextPlayerStrikeAt = time + 1.8;
@@ -231,7 +246,15 @@ export abstract class ForestAnimal extends Animal<WildlifeKind> {
       ModelAssets.shared.play(this.model, 'idle', dt);
       return false;
     }
-    const guard = this.guard && time < this.guard.until ? this.guard.target : undefined;
+    const defense = this.broodDefense;
+    const guard =
+      this.guard && time < this.guard.until
+        ? this.guard.target
+        : defense?.phase === 'pursuit'
+          ? defense.target
+          : defense?.phase === 'return'
+            ? defense.home
+            : undefined;
     if (
       !guard &&
       this.greeting &&

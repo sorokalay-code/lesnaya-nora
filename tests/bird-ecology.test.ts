@@ -5,6 +5,7 @@ import { PlayerRabbit, RabbitFactory } from '../src/game/animals';
 import { Random } from '../src/game/Random';
 import { SaveRepository } from '../src/game/SaveRepository';
 import { HawkHunting } from '../src/game/session/HawkHunting';
+import { BroodProtection } from '../src/game/session/BroodProtection';
 import { HawkTargeting } from '../src/game/session/HawkTargeting';
 import { HawkVictims } from '../src/game/session/HawkVictims';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
@@ -124,6 +125,54 @@ function reload(save: SaveData): SaveData {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+}
+
+for (const kind of ['hawk', 'owl'] as const) {
+  test(`a ${kind} warns at a loaded nest and strikes without capturing the player`, () => {
+    const f = fixture();
+    f.step(kind === 'hawk' ? 720 : 1320, 20);
+    f.capture();
+    const loaded = fixture(reload(f.save));
+    const guard = [...loaded.population.raptors.broodGuards()].find(
+      ({ actor }) => actor.kind === kind,
+    )!;
+    assert.ok(guard);
+    const warnings: string[] = [];
+    const protection = new BroodProtection({
+      ...loaded.population,
+      toast: (message) => warnings.push(message),
+    });
+    let hits = 0;
+    const hunting = new HawkHunting({
+      ...loaded.sources,
+      hawks: [guard.actor],
+      world: loaded.world,
+      earth: { isSheltered: () => false, floorAt: () => 0 },
+      toast() {},
+      broodStrike: () => {
+        hits++;
+      },
+    });
+    const at = { x: guard.center.x + 2, y: 0, z: guard.center.z };
+    Object.assign(loaded.save.player, at);
+    guard.actor.moveTo(guard.home.x, guard.home.z, guard.home.y ?? 3);
+    for (let frame = 0; frame < 95; frame++) {
+      const time = frame * 0.05;
+      protection.update(at, true, time);
+      hunting.update(0.05, time, true);
+      if (time <= 1.4) assert.equal(hits, 0);
+    }
+    assert.ok(hits > 0);
+    assert.equal(warnings.length, 1);
+    assert.equal(hunting.busy, false);
+    const before = hits;
+    const away = { ...at, x: at.x + 18 };
+    protection.update(away, true, 5);
+    assert.equal(guard.actor.broodDefense?.phase, 'return');
+    hunting.update(0.05, 5, false);
+    assert.equal(hits, before);
+    assert.ok(!guard.actor.isDiving(5));
+  });
 }
 
 for (const kind of ['hawk', 'owl', 'pheasant'] as const) {

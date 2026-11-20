@@ -21,6 +21,7 @@ interface Context extends HawkPopulation {
   protectPlayer?: (time: number) => boolean;
   toast: (text: string) => void;
   impactSound?: () => void;
+  broodStrike?: (damage: number) => void;
 }
 interface Hunt {
   until: number;
@@ -35,6 +36,7 @@ export class HawkHunting {
   private readonly targeting = new HawkTargeting();
   private readonly hunts = new Map<FlyingRaptor, Hunt>();
   private readonly searches = new WeakMap<FlyingRaptor, number>();
+  private readonly defending = new WeakSet<FlyingRaptor>();
   private readonly groundAt = (x: number, z: number) => this.context.world.heightAt(x, z);
 
   constructor(private readonly context: Context) {
@@ -132,6 +134,12 @@ export class HawkHunting {
         continue;
       }
       if (!hawk.alive) continue;
+      if (hawk.broodDefense) {
+        this.hunts.delete(hawk);
+        this.updateBroodDefense(hawk, dt, time, combat);
+        continue;
+      }
+      if (this.defending.delete(hawk)) hawk.cancelDive();
       if (!hawk.huntingAllowed) {
         this.hunts.delete(hawk);
         this.searches.delete(hawk);
@@ -232,6 +240,28 @@ export class HawkHunting {
       !this.context.world.hasCover(p.x, p.z) &&
       Math.abs(p.y - this.context.world.heightAt(p.x, p.z)) < 1.2
     );
+  }
+
+  private updateBroodDefense(bird: FlyingRaptor, dt: number, time: number, combat: boolean): void {
+    const p = this.context.save.player;
+    const exposed =
+      combat &&
+      !p.hidden &&
+      !AnimalRestraint.active(this.context.player.root) &&
+      (this.context.canGrabPlayer?.() ?? true) &&
+      !this.context.earth.isSheltered(p.x, p.y, p.z) &&
+      !this.context.world.hasCover(p.x, p.z) &&
+      Math.abs(p.y - this.groundAt(p.x, p.z)) < 1.2;
+    const pursuing = exposed && bird.broodDefense?.phase === 'pursuit';
+    if (pursuing !== this.defending.has(bird)) {
+      bird.cancelDive();
+      if (pursuing) this.defending.add(bird);
+      else this.defending.delete(bird);
+    }
+    if (!pursuing) bird.cancelDive();
+    const hit = bird.update(dt, time, p.x, p.z, pursuing, this.groundAt, pursuing);
+    if (hit && !this.context.protectPlayer?.(time))
+      this.context.broodStrike?.(bird.strikeDamage ?? 18);
   }
 
   private release(hawk: FlyingRaptor, hunt: Hunt): void {
