@@ -9,16 +9,16 @@ import { SWIM_DEPTH } from '../WaterNavigation';
 import { adultRabbit, playerSex, rabbitSex } from '../RabbitSex';
 
 const CHASE = {
-  checkSeconds: 4,
-  warningSeconds: 0.8,
+  checkSeconds: 2,
+  warningSeconds: 0.5,
   durationSeconds: 8,
-  recoverySeconds: 18,
+  recoverySeconds: 10,
   detectionRange: 8,
   escapeRange: 13,
   contactRange: 1.25,
-  ordinaryChance: 0.08,
-  mutantChance: 0.24,
-  fangedChance: 0.45,
+  ordinaryChance: 0.2,
+  mutantChance: 0.45,
+  fangedChance: 0.7,
 } as const;
 
 interface ChaseTerrain {

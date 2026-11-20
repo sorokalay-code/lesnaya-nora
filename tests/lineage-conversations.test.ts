@@ -400,6 +400,60 @@ test('крол без анатомических мутаций может на�
   assert.equal(save.pregnancy, null);
 });
 
+test('обычные взрослые кролы регулярно возобновляют попытки после прерванной погони', () => {
+  let attempts = 0;
+  for (let seed = 1; seed <= 24; seed++) {
+    const { save, scene } = fixture();
+    save.seed = seed;
+    const data = save.partners[0];
+    data.genes = gene();
+    const actor = AnimalFactory.rabbit(data, new Random(12));
+    actor.moveTo(save.player.x + 4, save.player.z, save.player.y);
+    const threat = new RabbitReproductiveThreat(save, {
+      sheltered: () => false,
+      floorAt: (_x, _z, y) => y,
+      waterDepthAt: () => 0,
+    });
+
+    // Прерываем каждую начатую погоню: измеряем новые попытки, а не длительность движения.
+    for (let frame = 0; frame < 600; frame++) {
+      const time = frame / 10;
+      threat.update(0.1, time, [actor], true);
+      if (!threat.view) continue;
+
+      attempts++;
+      threat.update(0, time, [actor], false);
+    }
+    ModelAssets.shared.release(actor.root);
+    ModelAssets.shared.release(scene);
+  }
+  assert.ok(attempts >= 60, `За 24 минуты наблюдения началось только ${attempts} попыток`);
+});
+
+test('при близком контакте короткое предупреждение предшествует началу спаривания', () => {
+  const { save } = fixture();
+  const data = save.partners[0];
+  data.genes = gene();
+  data.genes.anatomy.fangs = true;
+  const actor = AnimalFactory.rabbit(data, new Random(12));
+  actor.moveTo(save.player.x + 1, save.player.z, save.player.y);
+  const threat = new RabbitReproductiveThreat(save, {
+    sheltered: () => false,
+    floorAt: (_x, _z, y) => y,
+    waterDepthAt: () => 0,
+  });
+  let startedAt = 0;
+  for (; startedAt < 20; startedAt += 0.1) {
+    threat.update(0.1, startedAt, [actor], true);
+    if (threat.view) break;
+  }
+  assert.ok(threat.view);
+  assert.equal(threat.update(0.01, startedAt + 0.49, [actor], true), undefined);
+  assert.equal(threat.view?.phase, 'warning');
+  assert.equal(threat.update(0.02, startedAt + 0.51, [actor], true), actor);
+  assert.equal(threat.view, undefined);
+});
+
 test('обычный крол и крол без лап запускают парный клип при контакте', () => {
   for (const legs of [4, 0] as const) {
     const f = fixture();
