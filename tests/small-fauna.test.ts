@@ -143,6 +143,12 @@ test('spider cocoons reload, hatch during sleep and disperse as bounded instance
       })),
     original,
   );
+  const mother = restored.population.predators.find(
+    (actor) => actor.root.userData.remainsIdentity === cohort.parent,
+  )!;
+  mother.health = 0;
+  restored.step(cohort.dueAt - 12);
+  assert.ok(restored.scene.getObjectByName('small-fauna-cocoon-spider-0')?.visible);
   restored.save.clock = cohort.dueAt - 6;
   const rest = new WorldRest({
     save: restored.save,
@@ -166,13 +172,48 @@ test('spider cocoons reload, hatch during sleep and disperse as bounded instance
   const young = restored.scene.getObjectByName('small-fauna-young-spider-0');
   assert.ok(young instanceof InstancedMesh && young.count > 0 && young.count <= 8);
   assert.equal(restored.scene.getObjectByName('small-fauna-cocoon-spider-0'), undefined);
-  assert.equal(restored.population.predators.filter((actor) => actor instanceof Spider).length, 2);
+  assert.equal(restored.population.predators.filter((actor) => actor instanceof Spider).length, 1);
   restored.population.ecology.capture();
   assert.equal(
     roundTrip(restored.save).smallFaunaCohorts!.find((record) => record.kind === 'spider')!
       .remaining,
     12,
   );
+});
+
+test('a snake that dies before birth loses its litter even after reloading past the due time', () => {
+  const f = fixture();
+  f.step(f.setSeason(1));
+  const brood = f.save.smallFaunaCohorts!.find((record) => record.kind === 'snake')!;
+  const mother = f.population.predators.find(
+    (actor) => actor.root.userData.remainsIdentity === brood.parent,
+  )!;
+  mother.health = 0;
+  f.step(brood.dueAt - 1);
+  f.population.ecology.capture();
+  const save = roundTrip(f.save);
+  save.clock = brood.dueAt + 1;
+  const restored = fixture(save);
+  restored.step(save.clock);
+  assert.equal(save.smallFaunaCohorts!.find((record) => record.kind === 'snake')!.remaining, 0);
+  assert.equal(restored.scene.getObjectByName('small-fauna-young-snake-0'), undefined);
+});
+
+test('a jumping spider cocoon outlives its mother and hatches after reload', () => {
+  const f = fixture();
+  f.step(720);
+  const brood = f.save.smallFaunaCohorts!.find((record) => record.kind === 'jumping-spider')!;
+  const mother = f.population.predators.find(
+    (actor) => actor.root.userData.remainsIdentity === brood.parent,
+  )!;
+  mother.health = 0;
+  f.step(brood.dueAt - 6);
+  f.population.ecology.capture();
+  const loaded = fixture(roundTrip(f.save));
+  Object.assign(loaded.save.player, brood.home);
+  loaded.step(brood.dueAt + 6);
+  const young = loaded.scene.getObjectByName('small-fauna-young-jumping-spider-0');
+  assert.ok(young instanceof InstancedMesh && young.count > 0);
 });
 
 test('snakes produce independent live young that later fill a vacancy while immigration waits', () => {

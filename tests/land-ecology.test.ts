@@ -35,13 +35,18 @@ function start(configure: (counts: WorldConfig['creatures']) => void): SaveData 
 
 function fixture(save: SaveData) {
   const scene = new Scene();
+  const scale = save.worldConfig!.size / 110;
   const world = {
     scene,
     seed: save.seed,
     size: save.worldConfig!.size,
     resources: [],
     waterSources: [],
-    layout: { gardens: [garden] },
+    layout: {
+      gardens: [
+        { ...garden, x: garden.x / scale, z: garden.z / scale, radius: garden.radius / scale },
+      ],
+    },
     heightAt: ground,
     biomeAt: (x: number, z: number): Biome =>
       distance(garden, { x, z }) < garden.radius ? 'garden' : x < 0 ? 'forest' : 'meadow',
@@ -122,6 +127,44 @@ test('new shelters stand at suitable sites, dogs walk the edge, and separate her
   assert.equal(new Set(homes('moose')).size, 3);
   const boars = homes('boar');
   assert.ok(boars[0] === boars[2] && boars[0] !== boars[1]);
+});
+
+test('a dog vacancy survives reload and a new patrol arrives only after the player leaves the garden', () => {
+  const save = start((counts) => {
+    counts.dog = 1;
+  });
+  const f = fixture(save);
+  const original = f.predators.find((actor) => actor.kind === 'dog')!;
+  original.health = 0;
+  f.step(720);
+  const due = save.territoryImmigration?.dog;
+  assert.equal(due, 720 + 2 * 1440);
+  f.ecology.capture();
+  const restored = fixture(roundTrip(save));
+  assert.equal(restored.predators.filter((actor) => actor.kind === 'dog').length, 0);
+  Object.assign(restored.save.player, { x: garden.x, z: garden.z });
+  restored.step(due! + 1);
+  assert.equal(restored.predators.filter((actor) => actor.kind === 'dog').length, 0);
+  Object.assign(restored.save.player, { x: -50, z: 50 });
+  restored.step(due! + 31);
+  const replacement = restored.predators.find((actor) => actor.kind === 'dog')!;
+  assert.ok(replacement && replacement.mammalId);
+  assert.notEqual(
+    replacement.root.userData.remainsIdentity,
+    original.root.userData.remainsIdentity,
+  );
+  assert.ok(
+    distance(replacement, garden) >= garden.radius &&
+      distance(replacement, garden) < garden.radius + 5,
+  );
+  restored.ecology.capture();
+  const replay = fixture(roundTrip(restored.save));
+  assert.deepEqual(
+    replay.predators
+      .filter((actor) => actor.kind === 'dog')
+      .map((actor) => actor.root.userData.remainsIdentity),
+    [replacement.root.userData.remainsIdentity],
+  );
 });
 
 test('both predator and non-predator families have visible age variants and round-trip their nests', () => {

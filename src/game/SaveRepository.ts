@@ -686,13 +686,16 @@ function validLandPredators(
 
     if (actor.mammalId !== undefined) {
       if (
-        !isPredatorFamilyKind(actor.kind) ||
+        (actor.kind !== 'dog' && !isPredatorFamilyKind(actor.kind)) ||
         !addId(actor.mammalId) ||
         actor.id !== `mammal:${actor.mammalId}`
       )
         return false;
     } else if (!actor.id.startsWith('predator:')) return false;
-    if (actor.origin !== undefined && (!actor.mammalId || !validMammalOrigin(actor.origin)))
+    if (
+      actor.origin !== undefined &&
+      (actor.kind === 'dog' || !actor.mammalId || !validMammalOrigin(actor.origin))
+    )
       return false;
 
     const slot = `${actor.kind}:${actor.slot}`;
@@ -848,6 +851,16 @@ function validSmallFauna(data: SaveData): boolean {
 }
 
 function validBirdPopulation(data: SaveData): boolean {
+  const immigration = data.territoryImmigration;
+  if (
+    immigration !== undefined &&
+    (!isRecord(immigration) ||
+      Object.entries(immigration).some(
+        ([kind, due]) => !['hawk', 'owl', 'dog', 'pheasant'].includes(kind) || !validMinute(due),
+      ))
+  )
+    return false;
+
   const bound = data.worldConfig?.size ?? 110;
   const flying = (value: unknown): boolean =>
     isRecord(value) &&

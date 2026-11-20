@@ -31,6 +31,7 @@ import {
 import { SeasonSystem } from './systems/SeasonSystem';
 import type { LandPredators } from './session/LandPredators';
 import { HuntingGrounds, preyRank } from './HuntingGrounds';
+import { awayFromPlayer } from './TerritoryImmigration';
 import { BroodProvisioning, beginProvision, newBroodFood } from './BroodFood';
 import { WildRabbitTerritories } from './session/WildRabbitTerritories';
 import type { Excavation } from './Excavation';
@@ -129,6 +130,7 @@ export class WildlifeEcology {
           ),
         settle: (animal, slot) =>
           this.assignHabitat(animal, slot, territories.habitats.wildlife('pheasant', slot)),
+        immigrate: (slot, player) => !!this.spawn('pheasant', player.x, player.z, false, slot),
         depart: (animal) => this.depart(animal),
       });
     if (save && territories && world.terrain?.water && typeof world.waterAt === 'function')
@@ -248,6 +250,7 @@ export class WildlifeEcology {
         const animal = createForestAnimal(data.kind, data.x, data.z, this.rng, data.appearance);
         animal.socialId = data.id;
         if (isWildlifeFamilyKind(data.kind)) this.identifyMammal(animal, data.mammalId);
+        if (data.kind === 'pheasant') this.identifyMammal(animal);
         animal.mammalOrigin = data.mammalOrigin;
         animal.useWorldBounds(this.save.worldConfig?.size ?? 110);
         animal.social = { ...data.social };
@@ -307,7 +310,13 @@ export class WildlifeEcology {
           ? this.territories.shelters.place(kind, slot, home)
           : undefined;
       const point = shelter?.approach ?? this.territories.habitats.nearHome(home, slot);
-      if (!initial && Math.hypot(point.x - px, point.z - pz) < 22) return;
+      if (
+        !initial &&
+        (kind === 'pheasant'
+          ? !awayFromPlayer(point, { x: px, z: pz })
+          : Math.hypot(point.x - px, point.z - pz) < 22)
+      )
+        return;
       return this.addAnimal(kind, point.x, point.z, size, this.newWildlifeRng, slot, home);
     }
     const scale = size / 110;
@@ -411,7 +420,7 @@ export class WildlifeEcology {
     const animal = createForestAnimal(kind, x, z, rng);
     animal.useWorldBounds(size);
     animal.socialId = socialId ?? this.allocateSocialId();
-    if (isWildlifeFamilyKind(kind)) this.identifyMammal(animal);
+    if (isWildlifeFamilyKind(kind) || kind === 'pheasant') this.identifyMammal(animal);
     this.place(animal, x, z);
     this.assignHabitat(animal, slot, home);
     this.animals.push(animal);
@@ -854,7 +863,7 @@ export class WildlifeEcology {
       const candidates = (['deer', 'squirrel', ...WILDLIFE_KINDS] as const).filter(
         (kind) =>
           (!this.shore || (kind !== 'fish' && kind !== 'frog' && kind !== 'duck')) &&
-          (kind !== 'pheasant' || (this.pheasants?.canImmigrate() ?? true)) &&
+          (kind !== 'pheasant' || !this.pheasants) &&
           (this.world.waterSources.length > 0 ||
             (kind !== 'duck' && kind !== 'fish' && kind !== 'frog')) &&
           (this.families?.canImmigrate(kind, clock) ?? true) &&

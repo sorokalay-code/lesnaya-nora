@@ -72,7 +72,8 @@ export class SmallFaunaCohorts {
   ): void {
     const { clock } = this.save;
     for (const cohort of this.records) {
-      if (clock < cohort.dueAt && !parentAlive(cohort.parent)) cohort.remaining = 0;
+      if (cohort.kind === 'snake' && clock < cohort.dueAt && !parentAlive(cohort.parent))
+        cohort.remaining = 0;
       if (!cohort.remaining || clock < cohort.matureAt || season === 'Зима') continue;
       if (clock >= cohort.nextRecruitAt && recruit(cohort)) {
         cohort.remaining--;
@@ -85,5 +86,11 @@ export class SmallFaunaCohorts {
 
   reserves(kind: SmallFaunaKind): boolean {
     return this.records.some((cohort) => cohort.kind === kind && cohort.remaining > 0);
+  }
+
+  motherDied(parent: string): void {
+    for (const cohort of this.records)
+      if (cohort.kind === 'snake' && cohort.parent === parent && this.save.clock < cohort.dueAt)
+        cohort.remaining = 0;
   }
 }

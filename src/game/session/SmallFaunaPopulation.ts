@@ -214,6 +214,8 @@ export class SmallFaunaPopulation {
   onDeath(actor: Predator): void {
     if (!isSmallFaunaKind(actor.kind)) return;
     const save = this.context.save;
+    if (actor.kind === 'snake')
+      this.cohorts.motherDied(String(actor.root.userData.remainsIdentity));
     (save.smallFaunaImmigration ??= {})[actor.kind] = save.clock + IMMIGRATION_DELAY;
   }
 

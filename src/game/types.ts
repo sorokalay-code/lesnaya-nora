@@ -165,6 +165,7 @@ export interface SaveData {
     Record<import('./BirdBroods').BirdKind, import('./BirdBroods').BirdBroodState[]>
   >;
   raptors?: import('./session/RaptorPopulation').RaptorState[];
+  territoryImmigration?: Partial<Record<import('./TerritoryImmigration').ImmigrationKind, number>>;
   nextRaptorId?: number;
   waterCohorts?: import('./AquaticCohorts').WaterCohort[];
   pikePopulation?: import('./session/WaterSimulation').PikeState[];

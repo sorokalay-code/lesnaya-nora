@@ -13,6 +13,7 @@ import {
   type YoungMammal,
 } from '../MammalNursery';
 import { ModelAssets } from '../ModelAssets';
+import { afterImmigration, awayFromPlayer, immigrationReady } from '../TerritoryImmigration';
 import { Random } from '../Random';
 import type { PredatorKind, SaveData } from '../types';
 import type { World } from '../World';
@@ -35,7 +36,7 @@ interface Context {
   save: SaveData;
   predators: Predator[];
   scene: Scene;
-  world: Pick<World, 'heightAt'>;
+  world: Pick<World, 'heightAt'> & Partial<Pick<World, 'waterAt'>>;
   habitats: AnimalHabitats;
   shelters: WildlifeShelters;
   onArrival?: (predator: Predator) => void;
@@ -84,6 +85,7 @@ export class LandPredators {
   ): boolean {
     if (!isLandPredator(kind)) return false;
     const state = this.savedSlots.get(this.slotKey(kind, slot));
+    if (kind === 'dog' && this.context.save.landPredators && !state) return true;
     if (!state && this.context.save.deadPopulation?.includes(id)) return true;
 
     const home = this.context.habitats.predator(kind, slot);
@@ -160,6 +162,7 @@ export class LandPredators {
   update(clock: number, player: HabitatPoint): void {
     if (clock < this.nextImmigration) return;
     this.nextImmigration = clock + 30;
+    this.immigrateDog(player);
     for (const kind of PREDATOR_FAMILIES) {
       if (!this.families.canImmigrate(kind, clock)) continue;
 
@@ -213,6 +216,40 @@ export class LandPredators {
     }
     this.context.save.landPredators = states;
     this.families.capture();
+  }
+
+  private immigrateDog(player: HabitatPoint): void {
+    const { save, predators, habitats, world } = this.context;
+    const capacity = this.config.creatures.dog;
+    const occupied = new Set<number>();
+    for (const actor of predators)
+      if (actor.kind === 'dog' && actor.alive && actor.habitatSlot !== undefined)
+        occupied.add(actor.habitatSlot);
+    if (!immigrationReady(save, 'dog', occupied.size < capacity)) return;
+
+    for (let slot = 0; slot < capacity; slot++) {
+      if (occupied.has(slot)) continue;
+      const home = habitats.predator('dog', slot);
+      if (!home || !awayFromPlayer(home, player)) continue;
+      const point = habitats.dogPatrol(home, slot, save.clock).destination;
+      if (!awayFromPlayer(point, player) || (world.waterAt?.(point.x, point.z)?.depth ?? 0) > 0.05)
+        continue;
+
+      const id = allocateMammal(save);
+      const actor = this.create(
+        'dog',
+        point,
+        new Random(home.key ^ id),
+        mammalIdentity(id),
+        id,
+        home,
+      );
+      this.settle(actor, 'dog', slot);
+      actor.followTerritory(habitats.dogPatrol(home, slot, save.clock));
+      this.context.onArrival?.(actor);
+      afterImmigration(save, 'dog');
+      return;
+    }
   }
 
   private borrowMouseBurrows(wildlife: readonly ForestAnimal[]): void {

@@ -126,6 +126,58 @@ function reload(save: SaveData): SaveData {
   }
 }
 
+for (const kind of ['hawk', 'owl', 'pheasant'] as const) {
+  test(`vacant ${kind} territories refill slowly away from the player and retain new identities`, () => {
+    const save = start();
+    save.worldConfig!.creatures.hawk = 0;
+    save.worldConfig!.creatures.owl = 0;
+    save.worldConfig!.creatures.pheasant = 0;
+    save.worldConfig!.creatures[kind] = kind === 'pheasant' ? 1 : 2;
+    const f = fixture(save);
+    const birds = kind === 'pheasant' ? f.population.wildlife : f.population.hawks;
+    const originals = birds.filter((actor) => actor.kind === kind);
+    const dead = originals.map((actor) => String(actor.root.userData.remainsIdentity));
+    for (const actor of originals) actor.health = 0;
+    f.population.raptors.removeDead(() => false);
+    f.step(save.clock);
+    const due = save.territoryImmigration?.[kind];
+    assert.ok(due && due - save.clock === (kind === 'pheasant' ? 3 : 4) * DAY);
+    f.capture();
+    const loaded = reload(save);
+    assert.equal(loaded.territoryImmigration?.[kind], due);
+    const restored = fixture(loaded);
+    const actors = () =>
+      (kind === 'pheasant' ? restored.population.wildlife : restored.population.hawks).filter(
+        (actor) => actor.kind === kind && actor.alive,
+      );
+    assert.equal(actors().length, 0);
+    Object.assign(loaded.player, { x: originals[0].x, z: originals[0].z });
+    // Используем исходную точку обитания, чтобы перекрыть оба места одного гнезда.
+    if (kind !== 'pheasant') {
+      const nest = restored.scene.getObjectByName(`bird-nest-${kind}-0`)!;
+      Object.assign(loaded.player, { x: nest.position.x, z: nest.position.z });
+    }
+    restored.step(due + 1);
+    assert.equal(actors().length, 0);
+    Object.assign(loaded.player, { x: -90, z: -90 });
+    restored.step(due + 1);
+    assert.equal(actors().length, 1);
+    const identity = String(actors()[0].root.userData.remainsIdentity);
+    assert.ok(!dead.includes(identity));
+    restored.step(due + DAY);
+    assert.equal(actors().length, 1);
+    restored.capture();
+    const replay = fixture(reload(loaded));
+    const newBirds = kind === 'pheasant' ? replay.population.wildlife : replay.population.hawks;
+    assert.deepEqual(
+      newBirds
+        .filter((actor) => actor.kind === kind)
+        .map((actor) => String(actor.root.userData.remainsIdentity)),
+      [identity],
+    );
+  });
+}
+
 test('continuous days and real WorldRest preserve broods and winter homes across daily reloads on two seeds', () => {
   for (const seed of [31415, 813])
     for (const mode of ['ordinary', 'rest'] as const) {
@@ -372,9 +424,14 @@ test('nestlings remain at height then practice short flights and a vacant adult 
   const adult = restored.population.hawks.find((bird) => bird.kind === 'hawk' && !bird.juvenile)!;
   adult.health = 0;
   restored.population.raptors.removeDead(() => false);
+  const descendants = new Set(restored.save.birdBroods?.hawk?.[0]?.young.map((chick) => chick.id));
+  restored.save.territoryImmigration = { hawk: laid.laidAt + 6 * DAY };
+  Object.assign(restored.save.player, { x: -90, z: -90 });
   restored.step(laid.laidAt + 6 * DAY + 1);
   restored.capture();
-  assert.ok(restored.save.raptors?.some((actor) => actor.kind === 'hawk' && actor.id >= 1000));
+  assert.ok(
+    restored.save.raptors?.some((actor) => actor.kind === 'hawk' && descendants.has(actor.id)),
+  );
   assert.equal(
     fixture(reload(restored.save)).population.hawks.filter(
       (bird) => bird.kind === 'hawk' && !bird.juvenile,

@@ -6,6 +6,7 @@ import { isNightAt } from './session/WorldCalendar';
 import type { DigNode, SaveData } from './types';
 import type { WildlifeShelters } from './WildlifeShelters';
 import { defaultWorldConfig } from './WorldConfig';
+import { afterImmigration, awayFromPlayer, immigrationReady } from './TerritoryImmigration';
 
 interface Context {
   save: SaveData;
@@ -16,6 +17,7 @@ interface Context {
   create: (at: DigNode, id?: number) => ForestAnimal;
   settle: (animal: ForestAnimal, slot: number) => void;
   depart: (animal: ForestAnimal) => void;
+  immigrate: (slot: number, player: HabitatPoint) => boolean;
 }
 
 /** Размещает наземные гнёзда фазанов и ведёт выводок за матерью между кормёжкой и ночёвкой. */
@@ -101,6 +103,8 @@ export class PheasantFlocks {
       },
     );
 
+    this.immigrate(player);
+
     for (const brood of save.birdBroods?.pheasant ?? []) {
       const hen = this.adults.get(brood.parent);
       if (!hen || !brood.eggs) continue;
@@ -112,10 +116,22 @@ export class PheasantFlocks {
     }
   }
 
-  canImmigrate(): boolean {
-    return !(this.context.save.birdBroods?.pheasant ?? []).some(
-      (brood) => brood.eggs || brood.young.length,
-    );
+  private immigrate(player: HabitatPoint): void {
+    const { save, animals, habitats } = this.context;
+    const occupied = new Set<number>();
+    for (const animal of animals)
+      if (animal.kind === 'pheasant' && animal.alive && animal.habitatSlot !== undefined)
+        occupied.add(animal.habitatSlot);
+    if (!immigrationReady(save, 'pheasant', occupied.size < this.capacity)) return;
+    if (save.birdBroods?.pheasant?.some((brood) => brood.eggs || brood.young.length)) return;
+
+    for (let slot = 0; slot < this.capacity; slot++) {
+      if (occupied.has(slot)) continue;
+      const home = habitats.wildlife('pheasant', slot);
+      if (!home || !awayFromPlayer(home, player) || !this.context.immigrate(slot, player)) continue;
+      afterImmigration(save, 'pheasant');
+      return;
+    }
   }
 
   capture(): void {

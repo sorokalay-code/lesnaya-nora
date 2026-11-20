@@ -69,10 +69,9 @@ export class AnimalHabitats {
   predator(kind: PredatorKind, slot: number): Habitat | undefined {
     const profile = PREDATOR_HABITATS[kind];
     if (!profile) return;
-    const gardens = this.world.layout?.gardens;
-    if (kind === 'dog' && gardens?.length) {
-      const { x, z, radius } = gardens[slot % gardens.length];
-      return { x, z, key: this.seed ^ slot, profile, radius: radius + 8 };
+    if (kind === 'dog') {
+      const garden = this.gardenForDog(slot);
+      if (garden) return { ...garden, key: this.seed ^ slot, profile, radius: garden.radius + 8 };
     }
     if (kind === 'wolf') {
       for (let i = this.dens.length; i <= slot; i++) {
@@ -119,9 +118,8 @@ export class AnimalHabitats {
   }
 
   private gardenEdge(slot: number, step: number): HabitatPoint | undefined {
-    const gardens = this.world.layout?.gardens;
-    if (!gardens?.length) return;
-    const garden = gardens[slot % gardens.length];
+    const garden = this.gardenForDog(slot);
+    if (!garden) return;
 
     for (let offset = 0; offset < 8; offset++) {
       const angle = ((step + offset) * Math.PI) / 4 + slot * 1.4;
@@ -129,6 +127,13 @@ export class AnimalHabitats {
       const z = garden.z + Math.cos(angle) * (garden.radius + 2.8);
       if (this.dry(x, z) && this.slopeAt(x, z) < 0.65) return { x, z };
     }
+  }
+
+  private gardenForDog(slot: number): (HabitatPoint & { radius: number }) | undefined {
+    const gardens = this.world.layout?.gardens;
+    if (!gardens?.length) return;
+    const { x, z, radius } = gardens[slot % gardens.length];
+    return { x: x * this.scale, z: z * this.scale, radius: radius * this.scale };
   }
 
   setWolfRoutes(routes: readonly TerritoryIntent[]): void {

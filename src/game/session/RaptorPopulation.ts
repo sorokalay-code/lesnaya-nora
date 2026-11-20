@@ -11,6 +11,7 @@ import type { DigNode, SaveData } from '../types';
 import type { World } from '../World';
 import { defaultWorldConfig } from '../WorldConfig';
 import { isNightAt } from './WorldCalendar';
+import { afterImmigration, awayFromPlayer, immigrationReady } from '../TerritoryImmigration';
 
 export interface RaptorState extends DigNode {
   kind: RaptorKind;
@@ -135,6 +136,8 @@ export class RaptorPopulation {
       const families = new Map(
         (this.context.save.birdBroods?.[kind] ?? []).map((record) => [record.slot, record]),
       );
+      const newcomer = this.immigrate(kind, families);
+      if (newcomer) slots.set(newcomer.slot, newcomer);
       for (const [slot, { actor }] of slots) {
         const pair = Math.floor(slot / 2);
         const nest = this.nests.get(kind, pair);
@@ -236,9 +239,7 @@ export class RaptorPopulation {
       shellColor: kind === 'owl' ? 0xe4ddc8 : 0xc79d80,
       nest: (pair) => this.nests.get(kind, pair)?.bowl,
       create: (_pair, point, saved) => {
-        const save = this.context.save;
-        const id = saved?.id ?? save.nextRaptorId ?? FIRST_BRED_ID;
-        if (!saved) save.nextRaptorId = id + 1;
+        const id = saved?.id ?? this.allocateId();
         const actor = this.create(kind, point, id);
         this.born.set(actor, id);
         actor.root.userData.remainsIdentity = `${kind}:${id}`;
@@ -249,7 +250,52 @@ export class RaptorPopulation {
     });
   }
 
-  private restoreAdult(state: RaptorState): void {
+  private allocateId(): number {
+    const { save } = this.context;
+    const id = save.nextRaptorId ?? FIRST_BRED_ID;
+    save.nextRaptorId = id + 1;
+    return id;
+  }
+
+  private immigrate(kind: RaptorKind, families: ReadonlyMap<number, BirdBroodState>) {
+    const { save, world } = this.context;
+    const capacity = this.capacity[kind];
+    // После обновления выводков выросший птенец уже мог занять свободное место.
+    const occupied = new Set<number>();
+    for (const actor of this.actors) {
+      const adult = this.adults.get(actor);
+      if (actor.alive && actor.kind === kind && adult) occupied.add(adult.slot);
+    }
+    if (!immigrationReady(save, kind, occupied.size < capacity)) return;
+    if ([...families.values()].some((brood) => brood.eggs || brood.young.length)) return;
+
+    for (let slot = 0; slot < capacity; slot++) {
+      if (occupied.has(slot)) continue;
+      const nest = this.nests.get(kind, Math.floor(slot / 2));
+      if (
+        !nest ||
+        !awayFromPlayer(nest.bowl, save.player) ||
+        !awayFromPlayer(nest.grounds, save.player)
+      )
+        continue;
+      const point = nest.grounds;
+      const id = this.allocateId();
+      const actor = this.restoreAdult({
+        kind,
+        slot,
+        id,
+        ...point,
+        y: world.heightAt(point.x, point.z) + 11,
+        health: 60,
+      });
+      if (actor) {
+        afterImmigration(save, kind);
+        return { slot, id, actor };
+      }
+    }
+  }
+
+  private restoreAdult(state: RaptorState): FlyingRaptor | undefined {
     const { kind, id, slot } = state;
     const identity = `${kind}:${id < FIRST_BRED_ID ? slot : id}`;
     if (this.context.save.deadPopulation?.includes(identity)) return;
@@ -257,6 +303,7 @@ export class RaptorPopulation {
     this.adults.set(actor, { slot, id });
     actor.health = Math.min(actor.maxHealth, state.health);
     actor.root.userData.remainsIdentity = identity;
+    return actor;
   }
 
   private create(kind: RaptorKind, at: DigNode, id: number): FlyingRaptor {
