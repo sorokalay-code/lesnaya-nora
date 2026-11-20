@@ -13,6 +13,8 @@ import { PlayerRabbit, RabbitActor, RabbitFactory } from '../src/game/animals';
 import { Random } from '../src/game/Random';
 import { NewGameFactory } from '../src/game/session/NewGameFactory';
 import { FRIENDSHIP_TRUST } from '../src/game/Friendship';
+import type { HudView } from '../src/ui/types';
+import type { ShelteredWildlife } from '../src/game/WildlifeShelterProfiles';
 import { loadModels } from './model-fixture';
 
 await loadModels('rabbit');
@@ -27,6 +29,24 @@ test('Друзья допускаются в убежище, обида и хи�
   assert.equal(interiorProfile('beaver').decor, 'branches');
   assert.equal(canVisitShelter('squirrel'), false);
   assert.equal(canVisitShelter('mouse'), false);
+});
+
+test('Посещаемые норы сохраняют общую спальню, но различаются видовым декором', () => {
+  const rabbit = new ShelterInteriorScene(interiorProfile('rabbit'));
+  const badger = new ShelterInteriorScene(interiorProfile('badger'));
+  const marmot = new ShelterInteriorScene(interiorProfile('marmot'));
+
+  const meshCount = (scene: ShelterInteriorScene) =>
+    scene.scene.children.filter((child) => child instanceof THREE.Mesh).length;
+  assert.ok(meshCount(badger) > meshCount(rabbit));
+  assert.ok(meshCount(marmot) > meshCount(rabbit));
+  assert.equal(interiorProfile('rabbit').title, 'Нора кроличьей семьи');
+  assert.equal(interiorProfile('badger').title, 'Барсучья нора');
+  assert.equal(interiorProfile('fox').title, 'Лисья нора');
+
+  rabbit.dispose();
+  badger.dispose();
+  marmot.dispose();
 });
 
 test('Зал соединён с тамбуром, кладовой и спальней, стены закрыты', () => {
@@ -58,14 +78,14 @@ test('Освобождение интерьера не уничтожает об
   model.geometry.dispose();
 });
 
-async function visitFixture(trust: number, occupied = true) {
+async function visitFixture(trust: number, occupied = true, kind: ShelteredWildlife = 'rabbit') {
   const rng = new Random(94);
   const save = NewGameFactory.create(41, 0, new RabbitFactory(rng));
   const data = new RabbitFactory(rng).partners(1)[0];
   data.trust = trust;
   const rabbit = new RabbitActor(data, rng);
   rabbit.wildShelter = {
-    site: { kind: 'rabbit', slot: 1, x: 0, z: 0, angle: 0 },
+    site: { kind, slot: 1, x: 0, z: 0, angle: 0 },
     entrance: { x: save.player.x, y: save.player.y, z: save.player.z },
     approach: { x: 0, y: 0, z: 1 },
   };
@@ -77,6 +97,25 @@ async function visitFixture(trust: number, occupied = true) {
   const surface = structuredClone(save.player);
   const position = rabbit.root.position.clone();
   const keys = new Set<string>();
+  const uiState: { hud?: HudView } = {
+    hud: {
+      status: '',
+      bars: [],
+      temperature: 0,
+      inventory: [],
+      carried: 0,
+      capacity: 0,
+      milk: 0,
+      materials: save.materials,
+      young: [],
+      familyText: '',
+      grown: 0,
+      nests: 0,
+      birthWarning: false,
+      worldInfo: [],
+      prompt: [],
+    },
+  };
   let hurt = 0;
   let entered: () => void = () => {};
   const ready = new Promise<void>((resolve) => {
@@ -106,7 +145,13 @@ async function visitFixture(trust: number, occupied = true) {
       },
       snap() {},
     },
-    ui: { panelsOpen: false, state: {}, setHud() {} },
+    ui: {
+      panelsOpen: false,
+      state: uiState,
+      setHud: (hud) => {
+        uiState.hud = hud;
+      },
+    },
     rabbits: [rabbit],
     predators: [],
     wildlife: [],
@@ -134,8 +179,22 @@ async function visitFixture(trust: number, occupied = true) {
     camera,
     keys,
     damage: () => hurt,
+    prompt: () => uiState.hud?.prompt.map(({ key, text }) => `${key ?? ''}${text}`),
   };
 }
+
+test('Подсказка E у входа называет конкретную нору', async () => {
+  for (const [kind, expected] of [
+    ['rabbit', 'EВойти: Нора кроличьей семьи'],
+    ['badger', 'EВойти: Барсучья нора'],
+  ] as const) {
+    const f = await visitFixture(FRIENDSHIP_TRUST, false, kind);
+    f.visits.leave();
+    f.visits.refreshHud();
+    assert.ok(f.prompt()?.includes(expected), `${kind}: ${JSON.stringify(f.prompt())}`);
+    f.visits.dispose();
+  }
+});
 
 test('Посещение и выход сохраняют координаты леса, родителей моделей и видимость хозяина', async () => {
   const f = await visitFixture(FRIENDSHIP_TRUST);

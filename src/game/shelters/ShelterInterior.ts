@@ -5,6 +5,7 @@ export type InteriorKind = ShelteredWildlife | 'wolf';
 export type Welcome = 'friendly' | 'warning' | 'hostile';
 
 export interface InteriorProfile {
+  kind: InteriorKind;
   title: string;
   scale: number;
   decor: 'pantry' | 'bones' | 'branches' | 'leaves';
@@ -31,23 +32,48 @@ const inaccessible = new Set<InteriorKind>([
   'jumping-spider',
 ]);
 
+const titles: Record<InteriorKind, string> = {
+  badger: 'Барсучья нора',
+  marmot: 'Нора сурка',
+  mouse: 'Мышиная норка',
+  chipmunk: 'Норка бурундука',
+  mole: 'Кротовина',
+  hedgehog: 'Убежище ежа',
+  squirrel: 'Гнездо белки',
+  fox: 'Лисья нора',
+  lynx: 'Логово рыси',
+  bear: 'Медвежья берлога',
+  weasel: 'Нора ласки',
+  snake: 'Убежище змеи',
+  rabbit: 'Нора кроличьей семьи',
+  beaver: 'Бобровая хатка',
+  duck: 'Гнездо утки',
+  pheasant: 'Гнездо фазана',
+  spider: 'Убежище паука',
+  'jumping-spider': 'Убежище паука-скакунчика',
+  wolf: 'Волчье логово',
+};
+
 export function canVisitShelter(kind: InteriorKind): boolean {
   // Дупла, открытые гнёзда и ходы меньше тела взрослого кролика не являются локациями.
   return !inaccessible.has(kind);
 }
 
 export function interiorProfile(kind: InteriorKind): InteriorProfile {
+  const title = titles[kind];
   if (hunters.has(kind))
     return {
-      title: 'Логово хищника',
+      kind,
+      title,
       scale: kind === 'wolf' || kind === 'lynx' ? 1.25 : 1,
       decor: 'bones',
     };
-  if (kind === 'bear') return { title: 'Медвежья берлога', scale: 1.5, decor: 'leaves' };
-  if (kind === 'beaver') return { title: 'Бобровая хатка', scale: 1.1, decor: 'branches' };
-  if (kind === 'hedgehog') return { title: 'Убежище ежа', scale: 0.85, decor: 'leaves' };
+  if (kind === 'bear') return { kind, title, scale: 1.5, decor: 'leaves' };
+  if (kind === 'beaver') return { kind, title, scale: 1.1, decor: 'branches' };
+  if (kind === 'hedgehog') return { kind, title, scale: 0.85, decor: 'leaves' };
   return {
-    title: kind === 'rabbit' ? 'Нора соседей' : 'Лесная нора',
+    kind,
+    title,
     scale: kind === 'badger' ? 1.1 : 0.9,
     decor: 'pantry',
   };
