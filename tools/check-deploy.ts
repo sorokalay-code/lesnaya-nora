@@ -23,6 +23,24 @@ for (const match of html.matchAll(/(?:src|href)="([^"?#]+)"/g)) {
   assert.ok(existsSync(join('dist', url.slice(base.length))), `Не найден файл: ${url}`);
 }
 assert.ok(!html.includes('/src/'), 'В сборке осталась ссылка на исходники');
+const pwa = JSON.parse(readFileSync('dist/manifest.webmanifest', 'utf8'));
+assert.equal(pwa.start_url, base);
+assert.equal(pwa.scope, base);
+assert.equal(pwa.id, base);
+assert.equal(pwa.display, 'standalone');
+assert.ok(html.includes(`${base}manifest.webmanifest`), 'HTML не подключает PWA-манифест');
+assert.ok(html.includes(`${base}registerSW.js`), 'HTML не регистрирует service worker');
+const worker = readFileSync('dist/sw.js', 'utf8');
+// Проверяем итоговый precache, чтобы лимит размера или новая маска не потеряли ресурсы.
+for (const file of manifest.files) {
+  assert.ok(worker.includes(JSON.stringify(file.path)), `Нет офлайн-ресурса: ${file.path}`);
+}
+assert.ok(worker.includes('index.html'), 'Нет офлайн-страницы запуска');
+for (const size of [192, 512]) {
+  const icon = readFileSync(`dist/icons/icon-${size}.png`);
+  assert.equal(icon.readUInt32BE(16), size);
+  assert.equal(icon.readUInt32BE(20), size);
+}
 console.log(
   `Деплой проверен: ${manifest.files.length} ресурсов, версия ${manifest.version}, base ${base}`,
 );
